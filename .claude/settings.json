@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/Users/jiang/claude/workbuddian/**)",
+      "Edit(/Users/jiang/claude/workbuddian/**)",
+      "Write(/Users/jiang/claude/workbuddian/**)"
+    ]
+  }
+}

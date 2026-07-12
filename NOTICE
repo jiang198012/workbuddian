@@ -1,0 +1,17 @@
+# NOTICE
+
+## Third-Party Trademarks
+
+This project, BuddyBridge, is an independent open-source project and is not
+affiliated with, endorsed by, or sponsored by the owners of the following
+trademarks:
+
+- "Obsidian" is a trademark of Dynalist Inc.
+- "WorkBuddy" and "CodeBuddy" are trademarks of their respective owners.
+
+All trademarks referenced in this project are the property of their respective
+owners.
+
+This project communicates with local Gateway services solely through publicly
+documented local APIs, and does not distribute or modify any third-party
+software.
