@@ -1,0 +1,12 @@
+node_modules/
+*.js
+!main.js
+!jest.config.js
+*.js.map
+.DS_Store
+.obsidian/
+.hotreload
+coverage/
+*.zip
+.codegraph/daemon.pid
+fix.mjs
