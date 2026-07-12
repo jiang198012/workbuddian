@@ -13,6 +13,3 @@ fix.mjs
 
 # Local Claude Code config
 .claude/
-
-# Internal design/plan docs (contain local paths)
-docs/superpowers/
