@@ -1,11 +1,12 @@
 import { Notice, setIcon } from 'obsidian';
 import { getErrorMessage } from '../../types';
-import { extractAtQuery, parseAtReferences } from '../../shared/atReferences';
+import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shared/atReferences';
 import { assembleContextText } from '../../core/context/assembleContext';
 import type { WorkbuddianChatView } from './view';
 import { renderMessages, renderMarkdownContent } from './render';
 import { renderTabs, createNewChat } from './tabs';
-import { parseSlashCommand, extractSlashQuery, filterSlashCommands } from '../../shared/slashCommand';
+import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
+import { t } from '../../i18n';
 
 export function adjustTextareaHeight(view: WorkbuddianChatView) {
     view.inputEl.style.setProperty('--workbuddian-input-height', `${view.inputEl.scrollHeight}px`);
@@ -58,7 +59,34 @@ export function insertAtReference(view: WorkbuddianChatView, noteName: string) {
 
     view.atSuggestEl.addClass('workbuddian-hidden');
     view.atSuggestEl.empty();
+    renderReferenceChips(view);
     adjustTextareaHeight(view);
+}
+
+/** 渲染输入框上方的引用 chips（textarea 里 @[[...]] 的可视镜像 + 删除入口） */
+export function renderReferenceChips(view: WorkbuddianChatView) {
+    const names = parseAtReferences(view.inputEl.value);
+    view.chipsEl.empty();
+    if (names.length === 0) {
+        view.chipsEl.addClass('workbuddian-hidden');
+        return;
+    }
+    view.chipsEl.removeClass('workbuddian-hidden');
+    for (const name of names) {
+        const chip = view.chipsEl.createDiv({ cls: 'workbuddian-ref-chip' });
+        chip.createSpan({ cls: 'workbuddian-ref-chip-name', text: name });
+        const close = chip.createSpan({ cls: 'workbuddian-ref-chip-close', attr: { 'aria-label': t('input.removeReference'), role: 'button', tabindex: '0' } });
+        setIcon(close, 'x');
+        close.onclick = () => removeReference(view, name);
+    }
+}
+
+/** 从 textarea 删除某条引用（点 chip 的 ✕）并刷新 chips */
+export function removeReference(view: WorkbuddianChatView, name: string) {
+    view.inputEl.value = removeAtReference(view.inputEl.value, name);
+    renderReferenceChips(view);
+    adjustTextareaHeight(view);
+    view.inputEl.focus();
 }
 
 /** 输入 / 命令补全：命中返回 true（渲染命令候选，@ 补全不接管），否则 false */
@@ -67,7 +95,13 @@ export function updateSlashSuggest(view: WorkbuddianChatView): boolean {
     const query = extractSlashQuery(view.inputEl.value, cursorPos);
     if (query === null) return false;
 
-    const matches = filterSlashCommands(query);
+    void loadCustomCommands(view); // 后台刷新自定义命令缓存，供下次补全使用
+
+    const q = query.toLowerCase();
+    const matches = [
+        ...filterSlashCommands(query),
+        ...view.customCommands.filter(c => c.name.toLowerCase().startsWith(q)),
+    ];
     view.atSuggestEl.empty();
     if (matches.length === 0) {
         view.atSuggestEl.addClass('workbuddian-hidden');
@@ -81,6 +115,20 @@ export function updateSlashSuggest(view: WorkbuddianChatView): boolean {
         item.onclick = () => insertSlashCommand(view, cmd.name);
     }
     return true;
+}
+
+/** 扫描 vault 下 .codebuddy/commands 内的命令 md，读 frontmatter，刷新自定义命令缓存 */
+export async function loadCustomCommands(view: WorkbuddianChatView): Promise<void> {
+    const prefix = '.codebuddy/commands/';
+    const files = view.app.vault.getFiles().filter(f => f.path.startsWith(prefix) && f.extension === 'md');
+    const cmds: SlashCommandInfo[] = [];
+    for (const f of files) {
+        const rel = f.path.slice(prefix.length);
+        const content = await view.app.vault.read(f);
+        const fm = parseCommandFrontmatter(content);
+        cmds.push({ name: commandNameFromPath(rel), desc: fm.description || t('input.customCommand') });
+    }
+    view.customCommands = cmds;
 }
 
 export function insertSlashCommand(view: WorkbuddianChatView, name: string) {
@@ -142,6 +190,7 @@ export async function sendMessage(view: WorkbuddianChatView) {
 
     view.inputEl.value = '';
     adjustTextareaHeight(view);
+    renderReferenceChips(view);
     await sendText(view, text);
 }
 
@@ -170,7 +219,7 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
 
     view.streamingMsgId = aiMsg.id;
     view.isStreaming = true;
-    view.sendBtn.setText('停止');
+    view.sendBtn.setText(t('input.stop'));
     await renderMessages(view);
 
     // 流式发送
@@ -195,7 +244,7 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
             `.workbuddian-message-assistant:last-child .workbuddian-bubble`
         );
         if (!(streamingBubble instanceof HTMLElement)) {
-            throw new Error('找不到 Assistant 消息气泡');
+            throw new Error(t('input.bubbleNotFound'));
         }
 
         for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath)) {
@@ -220,7 +269,7 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                     const header = block.createDiv({ cls: 'workbuddian-thinking-header' });
                     const icon = header.createSpan({ cls: 'workbuddian-thinking-header-icon' });
                     setIcon(icon, 'sparkles');
-                    header.createSpan({ cls: 'workbuddian-thinking-header-text', text: '思考中...' });
+                    header.createSpan({ cls: 'workbuddian-thinking-header-text', text: t('input.thinking') });
                     const chevron = header.createSpan({ cls: 'workbuddian-thinking-header-chevron', text: '▾' });
 
                     const bodyDiv = block.createDiv({ cls: 'workbuddian-thinking-body workbuddian-hidden' });
@@ -241,7 +290,7 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                     const hdr = toolsBlock.createDiv({ cls: 'workbuddian-tools-header' });
                     const icon = hdr.createSpan({ cls: 'workbuddian-tools-header-icon' });
                     setIcon(icon, 'wrench');
-                    hdr.createSpan({ cls: 'workbuddian-tools-header-text', text: '工具调用' });
+                    hdr.createSpan({ cls: 'workbuddian-tools-header-text', text: t('input.toolCall') });
                     const chevron = hdr.createSpan({ cls: 'workbuddian-tools-header-chevron', text: '▾' });
 
                     hdr.addEventListener('click', () => {
@@ -281,7 +330,7 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                 await renderMarkdownContent(view, bubble, textContent);
             } else if (chunk.type === 'error') {
                 view.manager.setError(convId, aiMsg.id, chunk.content);
-                new Notice(`请求失败: ${chunk.content}`);
+                new Notice(`${t('input.requestFailed')}: ${chunk.content}`);
             }
         }
 
@@ -289,25 +338,25 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
         view.manager.updateMessage(convId, aiMsg.id, finalContent);
 
         if (!finalContent) {
-            view.manager.updateMessage(convId, aiMsg.id, '（无响应，请重试）');
+            view.manager.updateMessage(convId, aiMsg.id, t('input.noResponse'));
         }
 
         // 流式结束后再渲染一次，确保思考指示器等占位元素被清除
         const thinkingLabel = streamingBubble.querySelector('.workbuddian-thinking-header-text');
         if (thinkingLabel instanceof HTMLElement) {
-            thinkingLabel.setText('已思考');
+            thinkingLabel.setText(t('input.thought'));
         }
         await renderMessages(view);
         await view.manager.flush();
     } catch (error: unknown) {
         const message = getErrorMessage(error);
         view.manager.setError(convId, aiMsg.id, message);
-        new Notice(`请求失败: ${message}`);
+        new Notice(`${t('input.requestFailed')}: ${message}`);
         await renderMessages(view);
     } finally {
         view.isStreaming = false;
         view.streamingMsgId = null;
-        view.sendBtn.setText('发送');
+        view.sendBtn.setText(t('input.send'));
     }
 }
 

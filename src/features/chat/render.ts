@@ -2,6 +2,7 @@ import { MarkdownRenderer, setIcon } from 'obsidian';
 import type { ChatMessage } from '../../types';
 import type { WorkbuddianChatView } from './view';
 import { retryLastMessage, openWorkbuddianSettings } from './input';
+import { t } from '../../i18n';
 
 export async function renderMessages(view: WorkbuddianChatView) {
     view.messageContainer.empty();
@@ -10,8 +11,8 @@ export async function renderMessages(view: WorkbuddianChatView) {
         const empty = view.messageContainer.createDiv({ cls: 'workbuddian-empty-chat' });
         const icon = empty.createDiv({ cls: 'workbuddian-empty-chat-icon' });
         setIcon(icon, 'message-square');
-        empty.createDiv({ cls: 'workbuddian-empty-chat-title', text: '开始新对话' });
-        empty.createDiv({ cls: 'workbuddian-empty-chat-subtitle', text: '点击上方 + 按钮或输入消息开始聊天' });
+        empty.createDiv({ cls: 'workbuddian-empty-chat-title', text: t('render.emptyTitle') });
+        empty.createDiv({ cls: 'workbuddian-empty-chat-subtitle', text: t('render.emptySubtitle') });
         return;
     }
 
@@ -44,7 +45,7 @@ export async function renderMessage(view: WorkbuddianChatView, msg: ChatMessage)
 
 export function renderThinkingIndicator(bubble: HTMLElement) {
     const thinking = bubble.createDiv({ cls: 'workbuddian-thinking' });
-    thinking.createSpan({ cls: 'workbuddian-thinking-text', text: '思考中' });
+    thinking.createSpan({ cls: 'workbuddian-thinking-text', text: t('render.thinking') });
     const dots = thinking.createDiv({ cls: 'workbuddian-thinking-dots' });
     for (let i = 0; i < 3; i++) {
         dots.createSpan({ cls: 'workbuddian-dot' });
@@ -56,12 +57,12 @@ export function renderErrorCard(view: WorkbuddianChatView, bubble: HTMLElement, 
     const header = card.createDiv({ cls: 'workbuddian-error-header' });
     const icon = header.createSpan({ cls: 'workbuddian-error-icon' });
     setIcon(icon, 'alert-triangle');
-    header.createSpan({ cls: 'workbuddian-error-title', text: '出错了' });
+    header.createSpan({ cls: 'workbuddian-error-title', text: t('render.errorTitle') });
     card.createDiv({ cls: 'workbuddian-error-body', text: msg.content });
     const actions = card.createDiv({ cls: 'workbuddian-error-actions' });
-    const retryBtn = actions.createEl('button', { cls: 'workbuddian-error-btn', text: '重试' });
+    const retryBtn = actions.createEl('button', { cls: 'workbuddian-error-btn', text: t('render.retry') });
     retryBtn.onclick = () => retryLastMessage(view);
-    const settingsBtn = actions.createEl('button', { cls: 'workbuddian-error-btn', text: '打开设置' });
+    const settingsBtn = actions.createEl('button', { cls: 'workbuddian-error-btn', text: t('render.openSettings') });
     settingsBtn.onclick = () => openWorkbuddianSettings(view);
 }
 

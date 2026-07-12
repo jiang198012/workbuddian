@@ -37,7 +37,7 @@ __export(main_exports, {
   default: () => WorkbuddianPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // src/providers/codebuddy/index.ts
 var import_child_process = require("child_process");
@@ -117,6 +117,9 @@ function normalizePersistedData(raw) {
     result.settings = migrateSettings(raw.settings);
   }
   return result;
+}
+function exportSettings(settings) {
+  return JSON.stringify(settings, null, 2);
 }
 
 // src/utils/cliPath.ts
@@ -556,6 +559,129 @@ function formatConversationAsMarkdown(conv) {
   return lines.join("\n").trimEnd();
 }
 
+// src/i18n/index.ts
+var currentLang = "zh";
+function setLang(lang) {
+  currentLang = lang;
+}
+function detectLang() {
+  try {
+    const l = typeof window !== "undefined" && window.localStorage.getItem("language") || "";
+    if (l.startsWith("zh"))
+      return "zh";
+    return l ? "en" : "zh";
+  } catch (e) {
+    return "zh";
+  }
+}
+function initLang() {
+  setLang(detectLang());
+}
+var STRINGS = {
+  "chat.send": { zh: "\u53D1\u9001", en: "Send" },
+  "chat.stop": { zh: "\u505C\u6B62", en: "Stop" },
+  "settings.conn": { zh: "CodeBuddy \u8FDE\u63A5", en: "CodeBuddy Connection" },
+  "settings.path": { zh: "CodeBuddy \u8DEF\u5F84", en: "CodeBuddy path" },
+  "settings.pathDesc": { zh: "codebuddy \u53EF\u6267\u884C\u6587\u4EF6\u8DEF\u5F84\u3002\u5982 WorkBuddy \u81EA\u5B9A\u4E49\u5B89\u88C5\uFF0C\u8DEF\u5F84\u901A\u5E38\u4E3A\uFF1A\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy\uFF08\u53F3\u952E WorkBuddy \u5FEB\u6377\u65B9\u5F0F \u2192 \u6253\u5F00\u6587\u4EF6\u4F4D\u7F6E \u53EF\u627E\u5230\u5B89\u88C5\u76EE\u5F55\uFF09", en: "Path to the codebuddy executable. For a custom WorkBuddy install it is usually: <InstallDir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy (right-click the WorkBuddy shortcut \u2192 Open file location)." },
+  "settings.pathPlaceholder": { zh: "WorkBuddy\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy", en: "<WorkBuddy install dir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy" },
+  "settings.node": { zh: "\u624B\u52A8\u6307\u5B9A Node.js \u8DEF\u5F84", en: "Node.js path (manual)" },
+  "settings.nodeDesc": { zh: "\u7559\u7A7A\u5219\u81EA\u52A8\u63A2\u6D4B\u3002\u5982\u679C\u81EA\u52A8\u63A2\u6D4B\u5931\u8D25\uFF08\u4F8B\u5982\u975E\u6807\u51C6\u5B89\u88C5\u8DEF\u5F84\uFF09\uFF0C\u53EF\u4EE5\u5728\u8FD9\u91CC\u624B\u52A8\u6307\u5B9A node \u53EF\u6267\u884C\u6587\u4EF6\u7684\u5B8C\u6574\u8DEF\u5F84", en: "Leave empty to auto-detect. If detection fails (e.g. non-standard install), set the full path to the node executable here." },
+  "settings.nodePlaceholder": { zh: "\u7559\u7A7A = \u81EA\u52A8\u63A2\u6D4B", en: "Empty = auto-detect" },
+  "settings.timeout": { zh: "CLI \u8D85\u65F6\u65F6\u957F\uFF08\u5206\u949F\uFF09", en: "CLI timeout (minutes)" },
+  "settings.timeoutDesc": { zh: "CodeBuddy CLI \u5355\u6B21\u54CD\u5E94\u6700\u957F\u7B49\u5F85\u65F6\u95F4\uFF0C\u8D85\u8FC7\u4F1A\u5F3A\u5236\u4E2D\u65AD", en: "Max wait per CodeBuddy CLI response; exceeding it aborts the call." },
+  "settings.model": { zh: "\u6A21\u578B", en: "Model" },
+  "settings.modelDesc": { zh: "CodeBuddy CLI \u4F7F\u7528\u7684\u6A21\u578B", en: "Model used by the CodeBuddy CLI" },
+  "settings.modelAuto": { zh: "Auto\uFF08\u9ED8\u8BA4\uFF0C\u7531 CodeBuddy \u81EA\u52A8\u9009\u62E9\uFF09", en: "Auto (default, chosen by CodeBuddy)" },
+  "settings.inject": { zh: "\u4E0A\u4E0B\u6587\u6CE8\u5165", en: "Context injection" },
+  "settings.injectVault": { zh: "\u6CE8\u5165 Vault \u4E0A\u4E0B\u6587", en: "Inject vault context" },
+  "settings.injectVaultDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u81EA\u52A8\u9644\u4E0A\u5F53\u524D Vault \u8DEF\u5F84\uFF0C\u8BA9 AI \u57FA\u4E8E Vault \u4E2D\u7684\u6587\u4EF6\u56DE\u7B54\u95EE\u9898", en: "When on, every message includes the current vault path so the AI can answer based on vault files." },
+  "settings.injectNote": { zh: "\u6CE8\u5165\u5F53\u524D\u7B14\u8BB0\u94FE\u63A5", en: "Inject current note link" },
+  "settings.injectNoteDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u9644\u4E0A\u5F53\u524D\u6B63\u5728\u67E5\u770B\u7684\u7B14\u8BB0\u6807\u9898\u548C\u8DEF\u5F84\uFF08\u4E0D\u5305\u542B\u6B63\u6587\u5185\u5BB9\uFF09", en: "When on, every message includes the current note title and path (not its content)." },
+  "settings.appearance": { zh: "\u5916\u89C2", en: "Appearance" },
+  "settings.primary": { zh: "\u804A\u5929\u4E3B\u8272\u8C03", en: "Chat accent color" },
+  "settings.primaryDesc": { zh: "\u81EA\u5B9A\u4E49\u804A\u5929\u9762\u677F\u7684\u5F3A\u8C03\u8272\uFF08\u7528\u6237\u6C14\u6CE1\u3001\u53D1\u9001\u6309\u94AE\u3001\u8FB9\u6846\u3001focus \u9AD8\u4EAE\u7B49\uFF09\u3002\u70B9\u300C\u6062\u590D\u9ED8\u8BA4\u300D\u8DDF\u968F Obsidian \u4E3B\u9898\u8272\u3002", en: 'Customize the chat accent color (user bubble, send button, borders, focus ring). Click "Reset" to follow the Obsidian theme.' },
+  "settings.resetTooltip": { zh: "\u6062\u590D\u9ED8\u8BA4\uFF08\u8DDF\u968F\u4E3B\u9898\u8272\uFF09", en: "Reset (follow theme color)" },
+  "settings.reset": { zh: "\u91CD\u7F6E", en: "Reset" },
+  "settings.resetDefault": { zh: "\u91CD\u7F6E\u4E3A\u9ED8\u8BA4", en: "Reset to defaults" },
+  "settings.resetDesc": { zh: "\u6E05\u7A7A\u6240\u6709\u81EA\u5B9A\u4E49\u8BBE\u7F6E\uFF0C\u6062\u590D\u5230\u63D2\u4EF6\u9ED8\u8BA4\u503C\uFF08\u5305\u62EC\u8DEF\u5F84\u3001\u6A21\u578B\u3001\u6CE8\u5165\u5F00\u5173\u3001\u4E3B\u8272\u8C03\uFF09\u3002", en: "Clear all custom settings and restore plugin defaults (paths, model, injection toggles, accent color)." },
+  "settings.resetConfirm": { zh: "\u786E\u8BA4\u91CD\u7F6E\uFF1F", en: "Confirm reset?" },
+  "settings.resetDone": { zh: "\u5DF2\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u8BBE\u7F6E", en: "Settings reset to defaults" },
+  "settings.backup": { zh: "\u5907\u4EFD", en: "Backup" },
+  "settings.export": { zh: "\u5BFC\u51FA\u8BBE\u7F6E", en: "Export settings" },
+  "settings.exportDesc": { zh: "\u628A\u5F53\u524D\u8BBE\u7F6E\u590D\u5236\u4E3A JSON \u5230\u526A\u8D34\u677F\uFF0C\u4FBF\u4E8E\u5907\u4EFD\u6216\u8FC1\u79FB\uFF08\u542B\u672C\u673A\u8DEF\u5F84\uFF0C\u8DE8\u673A\u5668\u9700\u81EA\u884C\u8C03\u6574\uFF09\u3002", en: "Copy current settings as JSON to the clipboard for backup/migration (includes local paths; adjust when moving machines)." },
+  "settings.exportBtn": { zh: "\u590D\u5236\u4E3A JSON", en: "Copy as JSON" },
+  "settings.exportDone": { zh: "\u8BBE\u7F6E\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Settings copied to clipboard" },
+  "settings.import": { zh: "\u5BFC\u5165\u8BBE\u7F6E", en: "Import settings" },
+  "settings.importDesc": { zh: "\u7C98\u8D34\u4E4B\u524D\u5BFC\u51FA\u7684 JSON\uFF0C\u70B9\u786E\u8BA4\u8986\u76D6\u5F53\u524D\u8BBE\u7F6E\u3002", en: "Paste previously exported JSON, then confirm to overwrite current settings." },
+  "settings.importPlaceholder": { zh: "\u5728\u6B64\u7C98\u8D34\u8BBE\u7F6E JSON...", en: "Paste settings JSON here..." },
+  "settings.importBtn": { zh: "\u786E\u8BA4\u5BFC\u5165", en: "Confirm import" },
+  "settings.importDone": { zh: "\u8BBE\u7F6E\u5DF2\u5BFC\u5165", en: "Settings imported" },
+  "settings.importErr": { zh: "\u5BFC\u5165\u5931\u8D25\uFF1AJSON \u89E3\u6790\u9519\u8BEF", en: "Import failed: invalid JSON" },
+  "input.removeReference": { zh: "\u79FB\u9664\u5F15\u7528", en: "Remove reference" },
+  "input.customCommand": { zh: "\uFF08\u81EA\u5B9A\u4E49\u547D\u4EE4\uFF09", en: "(Custom command)" },
+  "input.stop": { zh: "\u505C\u6B62", en: "Stop" },
+  "input.bubbleNotFound": { zh: "\u627E\u4E0D\u5230 Assistant \u6D88\u606F\u6C14\u6CE1", en: "Assistant message bubble not found" },
+  "input.thinking": { zh: "\u601D\u8003\u4E2D...", en: "Thinking..." },
+  "input.toolCall": { zh: "\u5DE5\u5177\u8C03\u7528", en: "Tool call" },
+  "input.requestFailed": { zh: "\u8BF7\u6C42\u5931\u8D25", en: "Request failed" },
+  "input.noResponse": { zh: "\uFF08\u65E0\u54CD\u5E94\uFF0C\u8BF7\u91CD\u8BD5\uFF09", en: "(No response, please retry)" },
+  "input.thought": { zh: "\u5DF2\u601D\u8003", en: "Thought" },
+  "input.send": { zh: "\u53D1\u9001", en: "Send" },
+  "view.displayText": { zh: "Workbuddian \u804A\u5929", en: "Workbuddian Chat" },
+  "view.newChat": { zh: "\u65B0\u5EFA\u5BF9\u8BDD", en: "New chat" },
+  "view.searchChat": { zh: "\u641C\u7D22\u5BF9\u8BDD", en: "Search chats" },
+  "view.searchPlaceholder": { zh: "\u641C\u7D22\u5BF9\u8BDD...", en: "Search chats..." },
+  "view.inputPlaceholder": { zh: "\u8F93\u5165\u6D88\u606F... (Shift+Enter \u6362\u884C\uFF0CEnter \u53D1\u9001)", en: "Type a message... (Shift+Enter for newline, Enter to send)" },
+  "view.send": { zh: "\u53D1\u9001", en: "Send" },
+  "render.emptyTitle": { zh: "\u5F00\u59CB\u65B0\u5BF9\u8BDD", en: "Start a new conversation" },
+  "render.emptySubtitle": { zh: "\u70B9\u51FB\u4E0A\u65B9 + \u6309\u94AE\u6216\u8F93\u5165\u6D88\u606F\u5F00\u59CB\u804A\u5929", en: "Click the + button above or type a message to start chatting" },
+  "render.thinking": { zh: "\u601D\u8003\u4E2D", en: "Thinking" },
+  "render.errorTitle": { zh: "\u51FA\u9519\u4E86", en: "Something went wrong" },
+  "render.retry": { zh: "\u91CD\u8BD5", en: "Retry" },
+  "render.openSettings": { zh: "\u6253\u5F00\u8BBE\u7F6E", en: "Open settings" },
+  "tabs.close": { zh: "\u5173\u95ED\u5BF9\u8BDD", en: "Close chat" },
+  "tabs.exportAsNote": { zh: "\u5BFC\u51FA\u4E3A\u7B14\u8BB0", en: "Export as note" },
+  "tabs.nothingToExport": { zh: "\u6CA1\u6709\u53EF\u5BFC\u51FA\u7684\u5185\u5BB9", en: "Nothing to export" },
+  "tabs.exportedAs": { zh: "\u5DF2\u5BFC\u51FA\u4E3A\u300C{name}\u300D", en: 'Exported as "{name}"' },
+  "tabs.exportFailed": { zh: "\u5BFC\u51FA\u5931\u8D25\uFF1A{err}", en: "Export failed: {err}" },
+  "tabs.copyToClipboard": { zh: "\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Copy to clipboard" },
+  "tabs.copiedToClipboard": { zh: "\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Copied to clipboard" },
+  "tabs.copyFailed": { zh: "\u590D\u5236\u5931\u8D25\uFF1A{err}", en: "Copy failed: {err}" },
+  "cmd.ribbonTooltip": { zh: "Workbuddian \u804A\u5929", en: "Workbuddian Chat" },
+  "cmd.openChat": { zh: "\u6253\u5F00\u804A\u5929\u9762\u677F", en: "Open chat panel" },
+  "cmd.openChatMainPane": { zh: "\u5728\u4E3B\u7F16\u8F91\u533A\u6253\u5F00\u5927\u9762\u677F", en: "Open large panel in main area" },
+  "cmd.inlineEdit": { zh: "\u7528 CodeBuddy \u7F16\u8F91\u9009\u533A", en: "Edit selection with CodeBuddy" },
+  "cmd.loadFailed": { zh: "Workbuddian \u52A0\u8F7D\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian failed to load, check the Console" },
+  "cmd.cannotCreatePanel": { zh: "Workbuddian\uFF1A\u65E0\u6CD5\u521B\u5EFA\u804A\u5929\u9762\u677F", en: "Workbuddian: could not create chat panel" },
+  "cmd.openPanelFailed": { zh: "Workbuddian\uFF1A\u6253\u5F00\u9762\u677F\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian: failed to open panel, check the Console" },
+  "cmd.openMainPaneFailed": { zh: "Workbuddian\uFF1A\u6253\u5F00\u4E3B\u7F16\u8F91\u533A\u9762\u677F\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian: failed to open main-area panel, check the Console" },
+  "inline.editTitle": { zh: "\u7528 CodeBuddy \u7F16\u8F91\u9009\u533A", en: "Edit selection with CodeBuddy" },
+  "inline.instructionLabel": { zh: "\u7F16\u8F91\u8981\u6C42", en: "Edit instruction" },
+  "inline.instructionPlaceholder": { zh: "\u5982\uFF1A\u6539\u7B80\u6D01 / \u7FFB\u8BD1\u6210\u82F1\u6587", en: "e.g. make concise / translate to English" },
+  "inline.editBtn": { zh: "\u7F16\u8F91", en: "Edit" },
+  "inline.instructionRequired": { zh: "\u8BF7\u8F93\u5165\u7F16\u8F91\u8981\u6C42", en: "Please enter an edit instruction" },
+  "inline.previewTitle": { zh: "\u9884\u89C8\u6539\u52A8", en: "Preview changes" },
+  "inline.accept": { zh: "\u63A5\u53D7", en: "Accept" },
+  "inline.reject": { zh: "\u62D2\u7EDD", en: "Reject" },
+  "inline.selectFirst": { zh: "\u8BF7\u5148\u9009\u4E2D\u4E00\u6BB5\u6587\u672C", en: "Please select some text first" },
+  "inline.editing": { zh: "CodeBuddy \u7F16\u8F91\u4E2D\u2026", en: "CodeBuddy is editing\u2026" },
+  "inline.noResult": { zh: "\u672A\u83B7\u5F97\u7F16\u8F91\u7ED3\u679C", en: "No edit result returned" },
+  "inline.editFailed": { zh: "\u7F16\u8F91\u5931\u8D25\uFF1A", en: "Edit failed: " },
+  "slash.clear": { zh: "\u6E05\u7A7A\u5E76\u65B0\u5EFA\u5BF9\u8BDD\uFF08\u672C\u5730\uFF09", en: "Clear and start a new chat (local)" },
+  "slash.compact": { zh: "\u538B\u7F29\u4E0A\u4E0B\u6587", en: "Compact context" },
+  "slash.context": { zh: "\u67E5\u770B\u4E0A\u4E0B\u6587\u7528\u91CF", en: "Show context usage" },
+  "slash.cost": { zh: "\u67E5\u770B\u672C\u6B21\u82B1\u8D39", en: "Show session cost" },
+  "slash.model": { zh: "\u5207\u6362\u6A21\u578B", en: "Switch model" },
+  "slash.permissions": { zh: "\u67E5\u770B/\u7BA1\u7406\u6743\u9650", en: "View/manage permissions" },
+  "slash.resume": { zh: "\u6062\u590D\u5386\u53F2\u4F1A\u8BDD", en: "Resume a past session" },
+  "slash.export": { zh: "\u5BFC\u51FA\u5BF9\u8BDD", en: "Export conversation" },
+  "slash.status": { zh: "\u67E5\u770B\u72B6\u6001", en: "Show status" }
+};
+function t(key) {
+  const entry = STRINGS[key];
+  return entry ? entry[currentLang] : key;
+}
+
 // src/features/chat/render.ts
 var import_obsidian3 = require("obsidian");
 
@@ -581,6 +707,10 @@ function parseAtReferences(text) {
     }
   }
   return names;
+}
+function removeAtReference(text, name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(new RegExp(`@\\[\\[${escaped}\\]\\]\\s?`, "g"), "");
 }
 
 // src/core/context/assembleContext.ts
@@ -617,15 +747,15 @@ function parseSlashCommand(text) {
   return { name: m[1], rest: m[2].trim() };
 }
 var BUILTIN_SLASH_COMMANDS = [
-  { name: "clear", desc: "\u6E05\u7A7A\u5E76\u65B0\u5EFA\u5BF9\u8BDD\uFF08\u672C\u5730\uFF09" },
-  { name: "compact", desc: "\u538B\u7F29\u4E0A\u4E0B\u6587" },
-  { name: "context", desc: "\u67E5\u770B\u4E0A\u4E0B\u6587\u7528\u91CF" },
-  { name: "cost", desc: "\u67E5\u770B\u672C\u6B21\u82B1\u8D39" },
-  { name: "model", desc: "\u5207\u6362\u6A21\u578B" },
-  { name: "permissions", desc: "\u67E5\u770B/\u7BA1\u7406\u6743\u9650" },
-  { name: "resume", desc: "\u6062\u590D\u5386\u53F2\u4F1A\u8BDD" },
-  { name: "export", desc: "\u5BFC\u51FA\u5BF9\u8BDD" },
-  { name: "status", desc: "\u67E5\u770B\u72B6\u6001" }
+  { name: "clear", descKey: "slash.clear" },
+  { name: "compact", descKey: "slash.compact" },
+  { name: "context", descKey: "slash.context" },
+  { name: "cost", descKey: "slash.cost" },
+  { name: "model", descKey: "slash.model" },
+  { name: "permissions", descKey: "slash.permissions" },
+  { name: "resume", descKey: "slash.resume" },
+  { name: "export", descKey: "slash.export" },
+  { name: "status", descKey: "slash.status" }
 ];
 function extractSlashQuery(value, cursor) {
   const upto = value.slice(0, cursor);
@@ -640,7 +770,20 @@ function extractSlashQuery(value, cursor) {
 }
 function filterSlashCommands(query) {
   const q = query.toLowerCase();
-  return BUILTIN_SLASH_COMMANDS.filter((c) => c.name.toLowerCase().startsWith(q));
+  return BUILTIN_SLASH_COMMANDS.filter((c) => c.name.toLowerCase().startsWith(q)).map((c) => ({ name: c.name, desc: t(c.descKey) }));
+}
+function commandNameFromPath(relPath) {
+  return relPath.replace(/\.md$/, "").split("/").join(":");
+}
+function parseCommandFrontmatter(content) {
+  const m = content.match(/^---\n([\s\S]*?)\n---/);
+  const fm = m ? m[1] : "";
+  const desc = fm.match(/^description:\s*(.*)$/m);
+  const hint = fm.match(/^argument-hint:\s*(.*)$/m);
+  return {
+    description: desc ? desc[1].trim() : "",
+    argumentHint: hint ? hint[1].trim() : ""
+  };
 }
 
 // src/features/chat/input.ts
@@ -690,7 +833,30 @@ function insertAtReference(view, noteName) {
   }
   view.atSuggestEl.addClass("workbuddian-hidden");
   view.atSuggestEl.empty();
+  renderReferenceChips(view);
   adjustTextareaHeight(view);
+}
+function renderReferenceChips(view) {
+  const names = parseAtReferences(view.inputEl.value);
+  view.chipsEl.empty();
+  if (names.length === 0) {
+    view.chipsEl.addClass("workbuddian-hidden");
+    return;
+  }
+  view.chipsEl.removeClass("workbuddian-hidden");
+  for (const name of names) {
+    const chip = view.chipsEl.createDiv({ cls: "workbuddian-ref-chip" });
+    chip.createSpan({ cls: "workbuddian-ref-chip-name", text: name });
+    const close = chip.createSpan({ cls: "workbuddian-ref-chip-close", attr: { "aria-label": t("input.removeReference"), role: "button", tabindex: "0" } });
+    (0, import_obsidian2.setIcon)(close, "x");
+    close.onclick = () => removeReference(view, name);
+  }
+}
+function removeReference(view, name) {
+  view.inputEl.value = removeAtReference(view.inputEl.value, name);
+  renderReferenceChips(view);
+  adjustTextareaHeight(view);
+  view.inputEl.focus();
 }
 function updateSlashSuggest(view) {
   var _a;
@@ -698,7 +864,12 @@ function updateSlashSuggest(view) {
   const query = extractSlashQuery(view.inputEl.value, cursorPos);
   if (query === null)
     return false;
-  const matches = filterSlashCommands(query);
+  void loadCustomCommands(view);
+  const q = query.toLowerCase();
+  const matches = [
+    ...filterSlashCommands(query),
+    ...view.customCommands.filter((c) => c.name.toLowerCase().startsWith(q))
+  ];
   view.atSuggestEl.empty();
   if (matches.length === 0) {
     view.atSuggestEl.addClass("workbuddian-hidden");
@@ -712,6 +883,18 @@ function updateSlashSuggest(view) {
     item.onclick = () => insertSlashCommand(view, cmd.name);
   }
   return true;
+}
+async function loadCustomCommands(view) {
+  const prefix = ".codebuddy/commands/";
+  const files = view.app.vault.getFiles().filter((f) => f.path.startsWith(prefix) && f.extension === "md");
+  const cmds = [];
+  for (const f of files) {
+    const rel = f.path.slice(prefix.length);
+    const content = await view.app.vault.read(f);
+    const fm = parseCommandFrontmatter(content);
+    cmds.push({ name: commandNameFromPath(rel), desc: fm.description || t("input.customCommand") });
+  }
+  view.customCommands = cmds;
 }
 function insertSlashCommand(view, name) {
   view.inputEl.value = `/${name} `;
@@ -765,6 +948,7 @@ async function sendMessage(view) {
   }
   view.inputEl.value = "";
   adjustTextareaHeight(view);
+  renderReferenceChips(view);
   await sendText(view, text);
 }
 async function sendText(view, text) {
@@ -785,7 +969,7 @@ async function sendText(view, text) {
     return;
   view.streamingMsgId = aiMsg.id;
   view.isStreaming = true;
-  view.sendBtn.setText("\u505C\u6B62");
+  view.sendBtn.setText(t("input.stop"));
   await renderMessages(view);
   const slash = parseSlashCommand(text);
   let firstChunk = true;
@@ -810,7 +994,7 @@ async function sendText(view, text) {
       `.workbuddian-message-assistant:last-child .workbuddian-bubble`
     );
     if (!(streamingBubble instanceof HTMLElement)) {
-      throw new Error("\u627E\u4E0D\u5230 Assistant \u6D88\u606F\u6C14\u6CE1");
+      throw new Error(t("input.bubbleNotFound"));
     }
     for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath)) {
       const bubble = streamingBubble;
@@ -831,7 +1015,7 @@ async function sendText(view, text) {
           const header = block.createDiv({ cls: "workbuddian-thinking-header" });
           const icon = header.createSpan({ cls: "workbuddian-thinking-header-icon" });
           (0, import_obsidian2.setIcon)(icon, "sparkles");
-          header.createSpan({ cls: "workbuddian-thinking-header-text", text: "\u601D\u8003\u4E2D..." });
+          header.createSpan({ cls: "workbuddian-thinking-header-text", text: t("input.thinking") });
           const chevron = header.createSpan({ cls: "workbuddian-thinking-header-chevron", text: "\u25BE" });
           const bodyDiv = block.createDiv({ cls: "workbuddian-thinking-body workbuddian-hidden" });
           header.addEventListener("click", () => {
@@ -851,7 +1035,7 @@ async function sendText(view, text) {
           const hdr = toolsBlock.createDiv({ cls: "workbuddian-tools-header" });
           const icon = hdr.createSpan({ cls: "workbuddian-tools-header-icon" });
           (0, import_obsidian2.setIcon)(icon, "wrench");
-          hdr.createSpan({ cls: "workbuddian-tools-header-text", text: "\u5DE5\u5177\u8C03\u7528" });
+          hdr.createSpan({ cls: "workbuddian-tools-header-text", text: t("input.toolCall") });
           const chevron = hdr.createSpan({ cls: "workbuddian-tools-header-chevron", text: "\u25BE" });
           hdr.addEventListener("click", () => {
             const list2 = toolsBlock.querySelector(".workbuddian-tools-list");
@@ -889,29 +1073,29 @@ async function sendText(view, text) {
         await renderMarkdownContent(view, bubble, textContent);
       } else if (chunk.type === "error") {
         view.manager.setError(convId, aiMsg.id, chunk.content);
-        new import_obsidian2.Notice(`\u8BF7\u6C42\u5931\u8D25: ${chunk.content}`);
+        new import_obsidian2.Notice(`${t("input.requestFailed")}: ${chunk.content}`);
       }
     }
     const finalContent = textContent || thinkingContent;
     view.manager.updateMessage(convId, aiMsg.id, finalContent);
     if (!finalContent) {
-      view.manager.updateMessage(convId, aiMsg.id, "\uFF08\u65E0\u54CD\u5E94\uFF0C\u8BF7\u91CD\u8BD5\uFF09");
+      view.manager.updateMessage(convId, aiMsg.id, t("input.noResponse"));
     }
     const thinkingLabel = streamingBubble.querySelector(".workbuddian-thinking-header-text");
     if (thinkingLabel instanceof HTMLElement) {
-      thinkingLabel.setText("\u5DF2\u601D\u8003");
+      thinkingLabel.setText(t("input.thought"));
     }
     await renderMessages(view);
     await view.manager.flush();
   } catch (error) {
     const message = getErrorMessage(error);
     view.manager.setError(convId, aiMsg.id, message);
-    new import_obsidian2.Notice(`\u8BF7\u6C42\u5931\u8D25: ${message}`);
+    new import_obsidian2.Notice(`${t("input.requestFailed")}: ${message}`);
     await renderMessages(view);
   } finally {
     view.isStreaming = false;
     view.streamingMsgId = null;
-    view.sendBtn.setText("\u53D1\u9001");
+    view.sendBtn.setText(t("input.send"));
   }
 }
 async function retryLastMessage(view) {
@@ -941,8 +1125,8 @@ async function renderMessages(view) {
     const empty = view.messageContainer.createDiv({ cls: "workbuddian-empty-chat" });
     const icon = empty.createDiv({ cls: "workbuddian-empty-chat-icon" });
     (0, import_obsidian3.setIcon)(icon, "message-square");
-    empty.createDiv({ cls: "workbuddian-empty-chat-title", text: "\u5F00\u59CB\u65B0\u5BF9\u8BDD" });
-    empty.createDiv({ cls: "workbuddian-empty-chat-subtitle", text: "\u70B9\u51FB\u4E0A\u65B9 + \u6309\u94AE\u6216\u8F93\u5165\u6D88\u606F\u5F00\u59CB\u804A\u5929" });
+    empty.createDiv({ cls: "workbuddian-empty-chat-title", text: t("render.emptyTitle") });
+    empty.createDiv({ cls: "workbuddian-empty-chat-subtitle", text: t("render.emptySubtitle") });
     return;
   }
   for (const msg of conv.messages) {
@@ -969,7 +1153,7 @@ async function renderMessage(view, msg) {
 }
 function renderThinkingIndicator(bubble) {
   const thinking = bubble.createDiv({ cls: "workbuddian-thinking" });
-  thinking.createSpan({ cls: "workbuddian-thinking-text", text: "\u601D\u8003\u4E2D" });
+  thinking.createSpan({ cls: "workbuddian-thinking-text", text: t("render.thinking") });
   const dots = thinking.createDiv({ cls: "workbuddian-thinking-dots" });
   for (let i = 0; i < 3; i++) {
     dots.createSpan({ cls: "workbuddian-dot" });
@@ -980,12 +1164,12 @@ function renderErrorCard(view, bubble, msg) {
   const header = card.createDiv({ cls: "workbuddian-error-header" });
   const icon = header.createSpan({ cls: "workbuddian-error-icon" });
   (0, import_obsidian3.setIcon)(icon, "alert-triangle");
-  header.createSpan({ cls: "workbuddian-error-title", text: "\u51FA\u9519\u4E86" });
+  header.createSpan({ cls: "workbuddian-error-title", text: t("render.errorTitle") });
   card.createDiv({ cls: "workbuddian-error-body", text: msg.content });
   const actions = card.createDiv({ cls: "workbuddian-error-actions" });
-  const retryBtn = actions.createEl("button", { cls: "workbuddian-error-btn", text: "\u91CD\u8BD5" });
+  const retryBtn = actions.createEl("button", { cls: "workbuddian-error-btn", text: t("render.retry") });
   retryBtn.onclick = () => retryLastMessage(view);
-  const settingsBtn = actions.createEl("button", { cls: "workbuddian-error-btn", text: "\u6253\u5F00\u8BBE\u7F6E" });
+  const settingsBtn = actions.createEl("button", { cls: "workbuddian-error-btn", text: t("render.openSettings") });
   settingsBtn.onclick = () => openWorkbuddianSettings(view);
 }
 async function renderMarkdownContent(view, bubble, content) {
@@ -1053,7 +1237,7 @@ function renderTabs(view) {
   }
   const newBtn = view.tabBar.querySelector(".workbuddian-new-chat-btn");
   const oldTabs = view.tabBar.querySelectorAll(".workbuddian-tab");
-  oldTabs.forEach((t) => t.remove());
+  oldTabs.forEach((t2) => t2.remove());
   const query = (_b = (_a = view.searchInput) == null ? void 0 : _a.value) != null ? _b : "";
   const conversations = view.manager.search(query);
   const activeId = view.activeConvId;
@@ -1074,7 +1258,7 @@ function renderTabs(view) {
     };
     const closeBtn = tab.createSpan({
       cls: "workbuddian-tab-close",
-      attr: { title: "\u5173\u95ED\u5BF9\u8BDD", "aria-label": "\u5173\u95ED\u5BF9\u8BDD", role: "button", tabindex: "0" }
+      attr: { title: t("tabs.close"), "aria-label": t("tabs.close"), role: "button", tabindex: "0" }
     });
     (0, import_obsidian4.setIcon)(closeBtn, "x");
     closeBtn.onclick = (e) => deleteChat(view, conv.id, e);
@@ -1150,33 +1334,33 @@ function showTabContextMenu(view, e, convId) {
     return;
   const menu = new import_obsidian4.Menu();
   menu.addItem(
-    (item) => item.setTitle("\u5BFC\u51FA\u4E3A\u7B14\u8BB0").setIcon("file-down").onClick(async () => {
+    (item) => item.setTitle(t("tabs.exportAsNote")).setIcon("file-down").onClick(async () => {
       const markdown = formatConversationAsMarkdown(conv);
       if (!markdown) {
-        new import_obsidian4.Notice("\u6CA1\u6709\u53EF\u5BFC\u51FA\u7684\u5185\u5BB9");
+        new import_obsidian4.Notice(t("tabs.nothingToExport"));
         return;
       }
       const fileName = `${conv.title.replace(/[\\/:*?"<>|]/g, " ")}.md`;
       try {
         await view.app.vault.create(fileName, markdown);
-        new import_obsidian4.Notice(`\u5DF2\u5BFC\u51FA\u4E3A\u300C${fileName}\u300D`);
+        new import_obsidian4.Notice(t("tabs.exportedAs").replace("{name}", fileName));
       } catch (err) {
-        new import_obsidian4.Notice(`\u5BFC\u51FA\u5931\u8D25\uFF1A${getErrorMessage(err)}`);
+        new import_obsidian4.Notice(t("tabs.exportFailed").replace("{err}", getErrorMessage(err)));
       }
     })
   );
   menu.addItem(
-    (item) => item.setTitle("\u590D\u5236\u5230\u526A\u8D34\u677F").setIcon("copy").onClick(async () => {
+    (item) => item.setTitle(t("tabs.copyToClipboard")).setIcon("copy").onClick(async () => {
       const markdown = formatConversationAsMarkdown(conv);
       if (!markdown) {
-        new import_obsidian4.Notice("\u6CA1\u6709\u53EF\u5BFC\u51FA\u7684\u5185\u5BB9");
+        new import_obsidian4.Notice(t("tabs.nothingToExport"));
         return;
       }
       try {
         await navigator.clipboard.writeText(markdown);
-        new import_obsidian4.Notice("\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F");
+        new import_obsidian4.Notice(t("tabs.copiedToClipboard"));
       } catch (err) {
-        new import_obsidian4.Notice(`\u590D\u5236\u5931\u8D25\uFF1A${getErrorMessage(err)}`);
+        new import_obsidian4.Notice(t("tabs.copyFailed").replace("{err}", getErrorMessage(err)));
       }
     })
   );
@@ -1192,6 +1376,7 @@ var WorkbuddianChatView = class extends import_obsidian5.ItemView {
     this.streamingMsgId = null;
     this.activeRename = null;
     this.activeConvId = null;
+    this.customCommands = [];
     this.api = api;
     this.loadDataCallback = loadDataCallback;
     this.manager = manager;
@@ -1207,7 +1392,7 @@ var WorkbuddianChatView = class extends import_obsidian5.ItemView {
     return VIEW_TYPE_CHAT;
   }
   getDisplayText() {
-    return "Workbuddian \u804A\u5929";
+    return t("view.displayText");
   }
   getIcon() {
     return WORKBUDDIAN_ICON_ID;
@@ -1227,19 +1412,19 @@ var WorkbuddianChatView = class extends import_obsidian5.ItemView {
     const newBtn = this.tabBar.createEl("button", {
       text: "",
       cls: "workbuddian-new-chat-btn",
-      attr: { title: "\u65B0\u5EFA\u5BF9\u8BDD", "aria-label": "\u65B0\u5EFA\u5BF9\u8BDD" }
+      attr: { title: t("view.newChat"), "aria-label": t("view.newChat") }
     });
     (0, import_obsidian5.setIcon)(newBtn, "plus");
     newBtn.onclick = () => createNewChat(this);
     const searchBtn = this.tabBar.createEl("button", {
       text: "",
       cls: "workbuddian-search-btn",
-      attr: { title: "\u641C\u7D22\u5BF9\u8BDD", "aria-label": "\u641C\u7D22\u5BF9\u8BDD" }
+      attr: { title: t("view.searchChat"), "aria-label": t("view.searchChat") }
     });
     (0, import_obsidian5.setIcon)(searchBtn, "search");
     this.searchInput = this.tabBar.createEl("input", {
       cls: "workbuddian-search-input workbuddian-hidden",
-      attr: { type: "text", placeholder: "\u641C\u7D22\u5BF9\u8BDD..." }
+      attr: { type: "text", placeholder: t("view.searchPlaceholder") }
     });
     searchBtn.onclick = () => {
       const isHidden = this.searchInput.hasClass("workbuddian-hidden");
@@ -1253,22 +1438,24 @@ var WorkbuddianChatView = class extends import_obsidian5.ItemView {
     };
     this.searchInput.oninput = () => renderTabs(this);
     this.messageContainer = container.createDiv({ cls: "workbuddian-messages" });
+    this.chipsEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
     const inputArea = container.createDiv({ cls: "workbuddian-input-area" });
     this.inputEl = inputArea.createEl("textarea", {
       cls: "workbuddian-input",
-      attr: { placeholder: "\u8F93\u5165\u6D88\u606F... (Shift+Enter \u6362\u884C\uFF0CEnter \u53D1\u9001)", rows: "2" }
+      attr: { placeholder: t("view.inputPlaceholder"), rows: "2" }
     });
     this.inputEl.onkeydown = (e) => handleKeydown(this, e);
     this.inputEl.oninput = () => {
       adjustTextareaHeight(this);
+      renderReferenceChips(this);
       if (!updateSlashSuggest(this))
         updateAtSuggest(this);
     };
     this.atSuggestEl = inputArea.createDiv({ cls: "workbuddian-at-suggest workbuddian-hidden" });
     this.sendBtn = inputArea.createEl("button", {
-      text: "\u53D1\u9001",
+      text: t("view.send"),
       cls: "workbuddian-send-btn",
-      attr: { "aria-label": "\u53D1\u9001" }
+      attr: { "aria-label": t("view.send") }
     });
     this.sendBtn.onclick = () => {
       if (this.isStreaming) {
@@ -1277,6 +1464,7 @@ var WorkbuddianChatView = class extends import_obsidian5.ItemView {
         void sendMessage(this);
       }
     };
+    void loadCustomCommands(this);
     try {
       if (this.manager.hasConversations()) {
         this.activeConvId = (_b = (_a = this.manager.getActive()) == null ? void 0 : _a.id) != null ? _b : null;
@@ -1490,7 +1678,6 @@ var ConversationManager = class {
 // src/features/settings/tab.ts
 var import_obsidian6 = require("obsidian");
 var MODEL_OPTIONS = {
-  auto: "Auto\uFF08\u9ED8\u8BA4\uFF0C\u7531 CodeBuddy \u81EA\u52A8\u9009\u62E9\uFF09",
   hy3: "hy3",
   "glm-5.2": "glm-5.2",
   "glm-5.1": "glm-5.1",
@@ -1509,18 +1696,18 @@ var WorkbuddianSettingTab = class extends import_obsidian6.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian6.Setting(containerEl).setName("CodeBuddy \u8FDE\u63A5").setHeading();
-    new import_obsidian6.Setting(containerEl).setName("CodeBuddy \u8DEF\u5F84").setDesc("codebuddy \u53EF\u6267\u884C\u6587\u4EF6\u8DEF\u5F84\u3002\u5982 WorkBuddy \u81EA\u5B9A\u4E49\u5B89\u88C5\uFF0C\u8DEF\u5F84\u901A\u5E38\u4E3A\uFF1A\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy\uFF08\u53F3\u952E WorkBuddy \u5FEB\u6377\u65B9\u5F0F \u2192 \u6253\u5F00\u6587\u4EF6\u4F4D\u7F6E \u53EF\u627E\u5230\u5B89\u88C5\u76EE\u5F55\uFF09").addText((text) => text.setPlaceholder("WorkBuddy\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy").setValue(this.plugin.settings.codebuddyPath).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName(t("settings.conn")).setHeading();
+    new import_obsidian6.Setting(containerEl).setName(t("settings.path")).setDesc(t("settings.pathDesc")).addText((text) => text.setPlaceholder(t("settings.pathPlaceholder")).setValue(this.plugin.settings.codebuddyPath).onChange(async (value) => {
       this.plugin.settings.codebuddyPath = value;
       this.plugin.api.setCodebuddyPath(value);
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName("\u624B\u52A8\u6307\u5B9A Node.js \u8DEF\u5F84").setDesc("\u7559\u7A7A\u5219\u81EA\u52A8\u63A2\u6D4B\u3002\u5982\u679C\u81EA\u52A8\u63A2\u6D4B\u5931\u8D25\uFF08\u4F8B\u5982\u975E\u6807\u51C6\u5B89\u88C5\u8DEF\u5F84\uFF09\uFF0C\u53EF\u4EE5\u5728\u8FD9\u91CC\u624B\u52A8\u6307\u5B9A node \u53EF\u6267\u884C\u6587\u4EF6\u7684\u5B8C\u6574\u8DEF\u5F84").addText((text) => text.setPlaceholder("\u7559\u7A7A = \u81EA\u52A8\u63A2\u6D4B").setValue(this.plugin.settings.nodePath).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName(t("settings.node")).setDesc(t("settings.nodeDesc")).addText((text) => text.setPlaceholder(t("settings.nodePlaceholder")).setValue(this.plugin.settings.nodePath).onChange(async (value) => {
       this.plugin.settings.nodePath = value;
       this.plugin.api.setNodePath(value);
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName("CLI \u8D85\u65F6\u65F6\u957F\uFF08\u5206\u949F\uFF09").setDesc("CodeBuddy CLI \u5355\u6B21\u54CD\u5E94\u6700\u957F\u7B49\u5F85\u65F6\u95F4\uFF0C\u8D85\u8FC7\u4F1A\u5F3A\u5236\u4E2D\u65AD").addText((text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.cliTimeoutMinutes)).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName(t("settings.timeout")).setDesc(t("settings.timeoutDesc")).addText((text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.cliTimeoutMinutes)).onChange(async (value) => {
       const num = parseInt(value);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.cliTimeoutMinutes = num;
@@ -1528,44 +1715,44 @@ var WorkbuddianSettingTab = class extends import_obsidian6.PluginSettingTab {
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian6.Setting(containerEl).setName("\u6A21\u578B").setDesc("CodeBuddy CLI \u4F7F\u7528\u7684\u6A21\u578B").addDropdown((dropdown) => dropdown.addOptions(MODEL_OPTIONS).setValue(this.plugin.settings.model).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName(t("settings.model")).setDesc(t("settings.modelDesc")).addDropdown((dropdown) => dropdown.addOptions({ auto: t("settings.modelAuto"), ...MODEL_OPTIONS }).setValue(this.plugin.settings.model).onChange(async (value) => {
       this.plugin.settings.model = value;
       this.plugin.api.setModel(value);
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName("\u4E0A\u4E0B\u6587\u6CE8\u5165").setHeading();
-    new import_obsidian6.Setting(containerEl).setName("\u6CE8\u5165 Vault \u4E0A\u4E0B\u6587").setDesc("\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u81EA\u52A8\u9644\u4E0A\u5F53\u524D Vault \u8DEF\u5F84\uFF0C\u8BA9 AI \u57FA\u4E8E Vault \u4E2D\u7684\u6587\u4EF6\u56DE\u7B54\u95EE\u9898").addToggle((toggle) => toggle.setValue(this.plugin.settings.injectVaultContext).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName(t("settings.inject")).setHeading();
+    new import_obsidian6.Setting(containerEl).setName(t("settings.injectVault")).setDesc(t("settings.injectVaultDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectVaultContext).onChange(async (value) => {
       this.plugin.settings.injectVaultContext = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName("\u6CE8\u5165\u5F53\u524D\u7B14\u8BB0\u94FE\u63A5").setDesc("\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u9644\u4E0A\u5F53\u524D\u6B63\u5728\u67E5\u770B\u7684\u7B14\u8BB0\u6807\u9898\u548C\u8DEF\u5F84\uFF08\u4E0D\u5305\u542B\u6B63\u6587\u5185\u5BB9\uFF09").addToggle((toggle) => toggle.setValue(this.plugin.settings.injectCurrentNoteLink).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName(t("settings.injectNote")).setDesc(t("settings.injectNoteDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectCurrentNoteLink).onChange(async (value) => {
       this.plugin.settings.injectCurrentNoteLink = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName("\u5916\u89C2").setHeading();
-    new import_obsidian6.Setting(containerEl).setName("\u804A\u5929\u4E3B\u8272\u8C03").setDesc("\u81EA\u5B9A\u4E49\u804A\u5929\u9762\u677F\u7684\u5F3A\u8C03\u8272\uFF08\u7528\u6237\u6C14\u6CE1\u3001\u53D1\u9001\u6309\u94AE\u3001\u8FB9\u6846\u3001focus \u9AD8\u4EAE\u7B49\uFF09\u3002\u70B9\u300C\u6062\u590D\u9ED8\u8BA4\u300D\u8DDF\u968F Obsidian \u4E3B\u9898\u8272\u3002").addColorPicker((picker) => {
+    new import_obsidian6.Setting(containerEl).setName(t("settings.appearance")).setHeading();
+    new import_obsidian6.Setting(containerEl).setName(t("settings.primary")).setDesc(t("settings.primaryDesc")).addColorPicker((picker) => {
       const current = this.plugin.settings.primaryColor || getComputedStyle(document.body).getPropertyValue("--interactive-accent").trim() || "#7c3aed";
       picker.setValue(current).onChange(async (value) => {
         this.plugin.settings.primaryColor = value;
         await this.plugin.saveSettings();
       });
-    }).addExtraButton((btn) => btn.setIcon("rotate-ccw").setTooltip("\u6062\u590D\u9ED8\u8BA4\uFF08\u8DDF\u968F\u4E3B\u9898\u8272\uFF09").onClick(async () => {
+    }).addExtraButton((btn) => btn.setIcon("rotate-ccw").setTooltip(t("settings.resetTooltip")).onClick(async () => {
       this.plugin.settings.primaryColor = "";
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian6.Setting(containerEl).setName("\u91CD\u7F6E").setHeading();
-    new import_obsidian6.Setting(containerEl).setName("\u91CD\u7F6E\u4E3A\u9ED8\u8BA4").setDesc("\u6E05\u7A7A\u6240\u6709\u81EA\u5B9A\u4E49\u8BBE\u7F6E\uFF0C\u6062\u590D\u5230\u63D2\u4EF6\u9ED8\u8BA4\u503C\uFF08\u5305\u62EC\u8DEF\u5F84\u3001\u6A21\u578B\u3001\u6CE8\u5165\u5F00\u5173\u3001\u4E3B\u8272\u8C03\uFF09\u3002").addButton((btn) => {
-      btn.setButtonText("\u91CD\u7F6E\u4E3A\u9ED8\u8BA4").setWarning();
+    new import_obsidian6.Setting(containerEl).setName(t("settings.reset")).setHeading();
+    new import_obsidian6.Setting(containerEl).setName(t("settings.resetDefault")).setDesc(t("settings.resetDesc")).addButton((btn) => {
+      btn.setButtonText(t("settings.resetDefault")).setWarning();
       let armed = false;
       let timer = null;
       btn.onClick(async () => {
         if (!armed) {
           armed = true;
-          btn.setButtonText("\u786E\u8BA4\u91CD\u7F6E\uFF1F");
+          btn.setButtonText(t("settings.resetConfirm"));
           timer = window.setTimeout(() => {
             armed = false;
-            btn.setButtonText("\u91CD\u7F6E\u4E3A\u9ED8\u8BA4");
+            btn.setButtonText(t("settings.resetDefault"));
           }, 3e3);
           return;
         }
@@ -1575,9 +1762,31 @@ var WorkbuddianSettingTab = class extends import_obsidian6.PluginSettingTab {
         this.plugin.applySettingsToApi();
         await this.plugin.saveSettings();
         this.display();
-        new import_obsidian6.Notice("\u5DF2\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u8BBE\u7F6E");
+        new import_obsidian6.Notice(t("settings.resetDone"));
       });
     });
+    new import_obsidian6.Setting(containerEl).setName(t("settings.backup")).setHeading();
+    new import_obsidian6.Setting(containerEl).setName(t("settings.export")).setDesc(t("settings.exportDesc")).addButton((btn) => btn.setButtonText(t("settings.exportBtn")).onClick(async () => {
+      await navigator.clipboard.writeText(exportSettings(this.plugin.settings));
+      new import_obsidian6.Notice(t("settings.exportDone"));
+    }));
+    let importValue = "";
+    new import_obsidian6.Setting(containerEl).setName(t("settings.import")).setDesc(t("settings.importDesc")).addTextArea((ta) => {
+      ta.setPlaceholder(t("settings.importPlaceholder"));
+      ta.onChange((v) => {
+        importValue = v;
+      });
+    }).addButton((btn) => btn.setButtonText(t("settings.importBtn")).setWarning().onClick(async () => {
+      try {
+        this.plugin.settings = migrateSettings(JSON.parse(importValue));
+        this.plugin.applySettingsToApi();
+        await this.plugin.saveSettings();
+        new import_obsidian6.Notice(t("settings.importDone"));
+        this.display();
+      } catch (e) {
+        new import_obsidian6.Notice(t("settings.importErr"));
+      }
+    }));
   }
 };
 
@@ -1591,8 +1800,144 @@ function applyPrimaryColor(color) {
   }
 }
 
+// src/features/inline-edit/index.ts
+var import_obsidian7 = require("obsidian");
+
+// src/shared/lineDiff.ts
+function lineDiff(oldText, newText) {
+  const a = oldText.split("\n");
+  const b = newText.split("\n");
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i2 = m - 1; i2 >= 0; i2--) {
+    for (let j2 = n - 1; j2 >= 0; j2--) {
+      dp[i2][j2] = a[i2] === b[j2] ? dp[i2 + 1][j2 + 1] + 1 : Math.max(dp[i2 + 1][j2], dp[i2][j2 + 1]);
+    }
+  }
+  const out = [];
+  let i = 0, j = 0;
+  while (i < m && j < n) {
+    if (a[i] === b[j]) {
+      out.push({ type: "equal", text: a[i] });
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      out.push({ type: "remove", text: a[i] });
+      i++;
+    } else {
+      out.push({ type: "add", text: b[j] });
+      j++;
+    }
+  }
+  while (i < m) {
+    out.push({ type: "remove", text: a[i] });
+    i++;
+  }
+  while (j < n) {
+    out.push({ type: "add", text: b[j] });
+    j++;
+  }
+  return out;
+}
+
+// src/shared/editPrompt.ts
+function buildEditPrompt(selection, instruction) {
+  return [
+    "\u8BF7\u6309\u4E0B\u9762\u7684\u8981\u6C42\u6539\u5199\u300C\u539F\u6587\u300D\u3002",
+    "\u53EA\u8F93\u51FA\u6539\u5199\u540E\u7684\u6B63\u6587\uFF0C\u4E0D\u8981\u4EFB\u4F55\u89E3\u91CA\u3001\u5F00\u573A\u767D\u3001\u7ED3\u675F\u8BED\u6216\u4EE3\u7801\u5757\u6807\u8BB0\u3002",
+    "",
+    `\u8981\u6C42\uFF1A${instruction}`,
+    "",
+    "\u539F\u6587\uFF1A",
+    selection
+  ].join("\n");
+}
+
+// src/features/inline-edit/index.ts
+async function collectEditResult(api, sessionId, prompt, vaultPath) {
+  let text = "";
+  for await (const chunk of api.sendMessage(sessionId, prompt, vaultPath)) {
+    if (chunk.type === "text")
+      text += chunk.content;
+    if (chunk.type === "error")
+      throw new Error(chunk.content);
+  }
+  return text.trim();
+}
+var InstructionModal = class extends import_obsidian7.Modal {
+  constructor(app, onSubmit) {
+    super(app);
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    this.titleEl.setText(t("inline.editTitle"));
+    let value = "";
+    new import_obsidian7.Setting(this.contentEl).setName(t("inline.instructionLabel")).addText((txt) => {
+      txt.setPlaceholder(t("inline.instructionPlaceholder"));
+      txt.onChange((v) => {
+        value = v;
+      });
+    });
+    new import_obsidian7.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.editBtn")).setCta().onClick(() => {
+      if (!value.trim()) {
+        new import_obsidian7.Notice(t("inline.instructionRequired"));
+        return;
+      }
+      this.close();
+      this.onSubmit(value.trim());
+    }));
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var DiffModal = class extends import_obsidian7.Modal {
+  constructor(app, diff, onAccept) {
+    super(app);
+    this.diff = diff;
+    this.onAccept = onAccept;
+  }
+  onOpen() {
+    this.titleEl.setText(t("inline.previewTitle"));
+    const box = this.contentEl.createDiv({ cls: "workbuddian-diff-box" });
+    for (const line of this.diff) {
+      const prefix = line.type === "add" ? "+ " : line.type === "remove" ? "- " : "  ";
+      box.createDiv({ cls: `workbuddian-diff-line workbuddian-diff-${line.type}`, text: prefix + line.text });
+    }
+    new import_obsidian7.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.accept")).setCta().onClick(() => {
+      this.close();
+      this.onAccept();
+    })).addButton((b) => b.setButtonText(t("inline.reject")).onClick(() => this.close()));
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+function runInlineEdit(app, api, editor, vaultPath) {
+  const selection = editor.getSelection();
+  if (!selection.trim()) {
+    new import_obsidian7.Notice(t("inline.selectFirst"));
+    return;
+  }
+  new InstructionModal(app, async (instruction) => {
+    const notice = new import_obsidian7.Notice(t("inline.editing"), 0);
+    try {
+      const edited = await collectEditResult(api, api.generateId(), buildEditPrompt(selection, instruction), vaultPath);
+      notice.hide();
+      if (!edited) {
+        new import_obsidian7.Notice(t("inline.noResult"));
+        return;
+      }
+      new DiffModal(app, lineDiff(selection, edited), () => editor.replaceSelection(edited)).open();
+    } catch (e) {
+      notice.hide();
+      new import_obsidian7.Notice(t("inline.editFailed") + (e instanceof Error ? e.message : String(e)));
+    }
+  }).open();
+}
+
 // src/main.ts
-var WorkbuddianPlugin = class extends import_obsidian7.Plugin {
+var WorkbuddianPlugin = class extends import_obsidian8.Plugin {
   constructor() {
     super(...arguments);
     this.chatView = null;
@@ -1600,6 +1945,7 @@ var WorkbuddianPlugin = class extends import_obsidian7.Plugin {
   async onload() {
     try {
       await this.loadSettings();
+      initLang();
       registerWorkbuddianIcon();
       applyPrimaryColor(this.settings.primaryColor);
       this.api = new CodebuddyProvider();
@@ -1621,27 +1967,35 @@ var WorkbuddianPlugin = class extends import_obsidian7.Plugin {
           return view;
         }
       );
-      this.addRibbonIcon(WORKBUDDIAN_ICON_ID, "Workbuddian \u804A\u5929", async () => {
+      this.addRibbonIcon(WORKBUDDIAN_ICON_ID, t("cmd.ribbonTooltip"), async () => {
         await this.activateView();
       });
       this.addCommand({
         id: "open-chat",
-        name: "\u6253\u5F00\u804A\u5929\u9762\u677F",
+        name: t("cmd.openChat"),
         callback: async () => {
           await this.activateView();
         }
       });
       this.addCommand({
         id: "open-chat-main-pane",
-        name: "\u5728\u4E3B\u7F16\u8F91\u533A\u6253\u5F00\u5927\u9762\u677F",
+        name: t("cmd.openChatMainPane"),
         callback: async () => {
           await this.activateMainPaneView();
+        }
+      });
+      this.addCommand({
+        id: "inline-edit",
+        name: t("cmd.inlineEdit"),
+        editorCallback: (editor) => {
+          const basePath = this.app.vault.adapter.basePath;
+          runInlineEdit(this.app, this.api, editor, basePath);
         }
       });
       this.addSettingTab(new WorkbuddianSettingTab(this.app, this));
     } catch (e) {
       console.error("[BB] \u63D2\u4EF6\u52A0\u8F7D\u5931\u8D25:", e);
-      new import_obsidian7.Notice("Workbuddian \u52A0\u8F7D\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console");
+      new import_obsidian8.Notice(t("cmd.loadFailed"));
     }
   }
   onunload() {
@@ -1672,11 +2026,11 @@ var WorkbuddianPlugin = class extends import_obsidian7.Plugin {
         await workspace.revealLeaf(leaf);
         workspace.setActiveLeaf(leaf, { focus: true });
       } else {
-        new import_obsidian7.Notice("Workbuddian\uFF1A\u65E0\u6CD5\u521B\u5EFA\u804A\u5929\u9762\u677F");
+        new import_obsidian8.Notice(t("cmd.cannotCreatePanel"));
       }
     } catch (e) {
       console.error("[BB] \u6253\u5F00\u804A\u5929\u9762\u677F\u5931\u8D25:", e);
-      new import_obsidian7.Notice("Workbuddian\uFF1A\u6253\u5F00\u9762\u677F\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console");
+      new import_obsidian8.Notice(t("cmd.openPanelFailed"));
     }
   }
   async activateMainPaneView() {
@@ -1688,7 +2042,7 @@ var WorkbuddianPlugin = class extends import_obsidian7.Plugin {
       workspace.setActiveLeaf(leaf, { focus: true });
     } catch (e) {
       console.error("[BB] \u6253\u5F00\u4E3B\u7F16\u8F91\u533A\u9762\u677F\u5931\u8D25:", e);
-      new import_obsidian7.Notice("Workbuddian\uFF1A\u6253\u5F00\u4E3B\u7F16\u8F91\u533A\u9762\u677F\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console");
+      new import_obsidian8.Notice(t("cmd.openMainPaneFailed"));
     }
   }
   async loadPersistedConversations() {

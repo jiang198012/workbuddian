@@ -1,6 +1,7 @@
 import { Notice, setIcon, Menu } from 'obsidian';
 import { getErrorMessage } from '../../types';
 import { formatConversationAsMarkdown } from '../../shared/export';
+import { t } from '../../i18n';
 import type { WorkbuddianChatView } from './view';
 import { renderMessages } from './render';
 
@@ -66,7 +67,7 @@ export function renderTabs(view: WorkbuddianChatView) {
         };
         const closeBtn = tab.createSpan({
             cls: 'workbuddian-tab-close',
-            attr: { title: '关闭对话', 'aria-label': '关闭对话', role: 'button', tabindex: '0' }
+            attr: { title: t('tabs.close'), 'aria-label': t('tabs.close'), role: 'button', tabindex: '0' }
         });
         setIcon(closeBtn, 'x');
         closeBtn.onclick = (e: MouseEvent) => deleteChat(view, conv.id, e);
@@ -147,34 +148,34 @@ export function showTabContextMenu(view: WorkbuddianChatView, e: MouseEvent, con
     const menu = new Menu();
 
     menu.addItem((item) =>
-        item.setTitle('导出为笔记').setIcon('file-down').onClick(async () => {
+        item.setTitle(t('tabs.exportAsNote')).setIcon('file-down').onClick(async () => {
             const markdown = formatConversationAsMarkdown(conv);
             if (!markdown) {
-                new Notice('没有可导出的内容');
+                new Notice(t('tabs.nothingToExport'));
                 return;
             }
             const fileName = `${conv.title.replace(/[\\/:*?"<>|]/g, ' ')}.md`;
             try {
                 await view.app.vault.create(fileName, markdown);
-                new Notice(`已导出为「${fileName}」`);
+                new Notice(t('tabs.exportedAs').replace('{name}', fileName));
             } catch (err) {
-                new Notice(`导出失败：${getErrorMessage(err)}`);
+                new Notice(t('tabs.exportFailed').replace('{err}', getErrorMessage(err)));
             }
         })
     );
 
     menu.addItem((item) =>
-        item.setTitle('复制到剪贴板').setIcon('copy').onClick(async () => {
+        item.setTitle(t('tabs.copyToClipboard')).setIcon('copy').onClick(async () => {
             const markdown = formatConversationAsMarkdown(conv);
             if (!markdown) {
-                new Notice('没有可导出的内容');
+                new Notice(t('tabs.nothingToExport'));
                 return;
             }
             try {
                 await navigator.clipboard.writeText(markdown);
-                new Notice('已复制到剪贴板');
+                new Notice(t('tabs.copiedToClipboard'));
             } catch (err) {
-                new Notice(`复制失败：${getErrorMessage(err)}`);
+                new Notice(t('tabs.copyFailed').replace('{err}', getErrorMessage(err)));
             }
         })
     );

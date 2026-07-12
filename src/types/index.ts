@@ -134,3 +134,8 @@ export function normalizePersistedData(raw: unknown): PersistedData {
 
     return result;
 }
+
+/** 把设置序列化为可导出的 JSON 字符串 */
+export function exportSettings(settings: WorkbuddianSettings): string {
+    return JSON.stringify(settings, null, 2);
+}

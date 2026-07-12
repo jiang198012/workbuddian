@@ -1,4 +1,4 @@
-import { parseSlashCommand, extractSlashQuery, filterSlashCommands, BUILTIN_SLASH_COMMANDS } from '../src/shared/slashCommand';
+import { parseSlashCommand, extractSlashQuery, filterSlashCommands, BUILTIN_SLASH_COMMANDS, commandNameFromPath, parseCommandFrontmatter } from '../src/shared/slashCommand';
 
 describe('parseSlashCommand', () => {
     it('parses /clear', () => {
@@ -57,5 +57,31 @@ describe('filterSlashCommands', () => {
     });
     it('returns empty array for no match', () => {
         expect(filterSlashCommands('zzz')).toEqual([]);
+    });
+});
+
+describe('commandNameFromPath', () => {
+    it('maps a top-level file to its name', () => {
+        expect(commandNameFromPath('test.md')).toBe('test');
+    });
+    it('joins subdirs with colon', () => {
+        expect(commandNameFromPath('backend/deploy.md')).toBe('backend:deploy');
+    });
+    it('handles deeper nesting', () => {
+        expect(commandNameFromPath('a/b/c.md')).toBe('a:b:c');
+    });
+});
+
+describe('parseCommandFrontmatter', () => {
+    it('extracts description and argument-hint', () => {
+        const md = '---\ndescription: Run tests\nargument-hint: <path>\n---\nbody';
+        expect(parseCommandFrontmatter(md)).toEqual({ description: 'Run tests', argumentHint: '<path>' });
+    });
+    it('returns empty strings when no frontmatter', () => {
+        expect(parseCommandFrontmatter('just body')).toEqual({ description: '', argumentHint: '' });
+    });
+    it('handles partial frontmatter', () => {
+        const md = '---\ndescription: Only desc\n---\n';
+        expect(parseCommandFrontmatter(md)).toEqual({ description: 'Only desc', argumentHint: '' });
     });
 });

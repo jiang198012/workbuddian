@@ -1,4 +1,4 @@
-import { extractAtQuery, parseAtReferences } from '../src/shared/atReferences';
+import { extractAtQuery, parseAtReferences, removeAtReference } from '../src/shared/atReferences';
 
 describe('extractAtQuery', () => {
     it('returns the partial query right after an @', () => {
@@ -33,5 +33,23 @@ describe('parseAtReferences', () => {
 
     it('returns an empty array when there are no references', () => {
         expect(parseAtReferences('no references here')).toEqual([]);
+    });
+});
+
+describe('removeAtReference', () => {
+    it('removes a reference and its trailing space', () => {
+        expect(removeAtReference('a @[[note]] b', 'note')).toBe('a b');
+    });
+    it('removes all occurrences of the same reference', () => {
+        expect(removeAtReference('@[[foo]] x @[[foo]] y', 'foo')).toBe('x y');
+    });
+    it('leaves other references intact', () => {
+        expect(removeAtReference('@[[foo]] @[[bar]]', 'foo')).toBe('@[[bar]]');
+    });
+    it('escapes regex-special characters in the name', () => {
+        expect(removeAtReference('x @[[a.b(c)]] y', 'a.b(c)')).toBe('x y');
+    });
+    it('returns text unchanged when the name is absent', () => {
+        expect(removeAtReference('no refs', 'foo')).toBe('no refs');
     });
 });

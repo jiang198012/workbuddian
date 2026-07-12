@@ -6,6 +6,8 @@ import { migrateSettings, normalizePersistedData, type WorkbuddianSettings, type
 import { WorkbuddianSettingTab } from './features/settings/tab';
 import { registerWorkbuddianIcon, WORKBUDDIAN_ICON_ID } from './shared/icon';
 import { applyPrimaryColor } from './shared/primaryColor';
+import { runInlineEdit } from './features/inline-edit';
+import { initLang, t } from './i18n';
 
 export default class WorkbuddianPlugin extends Plugin {
     settings: WorkbuddianSettings;
@@ -16,6 +18,8 @@ export default class WorkbuddianPlugin extends Plugin {
     async onload() {
         try {
             await this.loadSettings();
+
+            initLang();
 
             // 注册品牌图标，供 ribbon 按钮与视图 tab 使用（须在使用该 id 之前）
             registerWorkbuddianIcon();
@@ -49,14 +53,14 @@ export default class WorkbuddianPlugin extends Plugin {
             );
 
             // Ribbon 按钮
-            this.addRibbonIcon(WORKBUDDIAN_ICON_ID, 'Workbuddian 聊天', async () => {
+            this.addRibbonIcon(WORKBUDDIAN_ICON_ID, t('cmd.ribbonTooltip'), async () => {
                 await this.activateView();
             });
 
             // 命令面板
             this.addCommand({
                 id: 'open-chat',
-                name: '打开聊天面板',
+                name: t('cmd.openChat'),
                 callback: async () => {
                     await this.activateView();
                 }
@@ -64,16 +68,25 @@ export default class WorkbuddianPlugin extends Plugin {
 
             this.addCommand({
                 id: 'open-chat-main-pane',
-                name: '在主编辑区打开大面板',
+                name: t('cmd.openChatMainPane'),
                 callback: async () => {
                     await this.activateMainPaneView();
+                }
+            });
+
+            this.addCommand({
+                id: 'inline-edit',
+                name: t('cmd.inlineEdit'),
+                editorCallback: (editor) => {
+                    const basePath = (this.app.vault.adapter as { basePath?: string }).basePath;
+                    runInlineEdit(this.app, this.api, editor, basePath);
                 }
             });
 
             this.addSettingTab(new WorkbuddianSettingTab(this.app, this));
         } catch (e) {
             console.error('[BB] 插件加载失败:', e);
-            new Notice('Workbuddian 加载失败，请查看 Console');
+            new Notice(t('cmd.loadFailed'));
         }
     }
 
@@ -113,11 +126,11 @@ export default class WorkbuddianPlugin extends Plugin {
                 await workspace.revealLeaf(leaf);
                 workspace.setActiveLeaf(leaf, { focus: true });
             } else {
-                new Notice('Workbuddian：无法创建聊天面板');
+                new Notice(t('cmd.cannotCreatePanel'));
             }
         } catch (e) {
             console.error('[BB] 打开聊天面板失败:', e);
-            new Notice('Workbuddian：打开面板失败，请查看 Console');
+            new Notice(t('cmd.openPanelFailed'));
         }
     }
 
@@ -130,7 +143,7 @@ export default class WorkbuddianPlugin extends Plugin {
             workspace.setActiveLeaf(leaf, { focus: true });
         } catch (e) {
             console.error('[BB] 打开主编辑区面板失败:', e);
-            new Notice('Workbuddian：打开主编辑区面板失败，请查看 Console');
+            new Notice(t('cmd.openMainPaneFailed'));
         }
     }
 

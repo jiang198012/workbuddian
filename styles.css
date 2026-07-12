@@ -692,3 +692,48 @@
 .workbuddian-error-btn {
     cursor: pointer;
 }
+
+.workbuddian-ref-chips {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: var(--workbuddian-gap-xs);
+    margin-bottom: var(--workbuddian-gap-xs);
+}
+.workbuddian-ref-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    max-width: 80px;
+    flex-shrink: 0;
+    padding: 1px 6px;
+    border-radius: var(--workbuddian-radius-sm);
+    border: 1px solid var(--background-modifier-border);
+    color: var(--text-muted);
+    font-size: 0.8em;
+}
+.workbuddian-ref-chip-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+.workbuddian-ref-chip-close {
+    display: inline-flex;
+    flex-shrink: 0;
+    cursor: pointer;
+    opacity: 0.8;
+}
+.workbuddian-ref-chip-close:hover { opacity: 1; }
+
+.workbuddian-diff-box {
+    font-family: var(--font-monospace);
+    font-size: var(--font-ui-small);
+    max-height: 50vh;
+    overflow: auto;
+    white-space: pre-wrap;
+    margin-bottom: var(--workbuddian-gap-md);
+}
+.workbuddian-diff-line { padding: 1px 6px; border-radius: 2px; }
+.workbuddian-diff-add { background: var(--background-modifier-success); }
+.workbuddian-diff-remove { background: var(--background-modifier-error); }

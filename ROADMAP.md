@@ -47,7 +47,7 @@
 
 ### 2.2 设置页重构
 
-**状态**：已完成（2026-07-11）。设置项按「CodeBuddy 连接 / 上下文注入 / 外观」三组重排（`setHeading`）+ 底部「重置为默认」按钮（二次点击确认）+ onload 与重置复用 `applySettingsToApi()`。导入/导出经评估为 YAGNI（本机路径不可迁移），暂缓。
+**状态**：已完成（2026-07-11）。设置项按「CodeBuddy 连接 / 上下文注入 / 外观」三组重排（`setHeading`）+ 底部「重置为默认」按钮（二次点击确认）+ onload 与重置复用 `applySettingsToApi()`。并含导入/导出：`exportSettings` 复制为 JSON、粘贴导入走 `migrateSettings` 容错（2026-07-11 补做）。
 
 - 将设置项分组：通用、CodeBuddy 路径、外观、快捷键。
 - 添加「重置为默认」按钮。
@@ -81,7 +81,7 @@
 
 ### 3.3 第二阶段：输入框自动补全
 
-**状态**：已完成（2026-07-11，内置命令表部分）。`BUILTIN_SLASH_COMMANDS` + `extractSlashQuery`/`filterSlashCommands`（`src/shared/slashCommand.ts`）+ `updateSlashSuggest`（复用 @ 补全的 `atSuggestEl` 下拉，`oninput` 先 slash 后 @ 分派）。扫描 `.codebuddy/commands/**/*.md` 自定义命令部分 YAGNI 暂缓。
+**状态**：已完成（2026-07-11，内置命令表部分）。`BUILTIN_SLASH_COMMANDS` + `extractSlashQuery`/`filterSlashCommands`（`src/shared/slashCommand.ts`）+ `updateSlashSuggest`（复用 @ 补全的 `atSuggestEl` 下拉，`oninput` 先 slash 后 @ 分派）。并含自定义命令：扫描 `.codebuddy/commands` 的 md（`commandNameFromPath` + `parseCommandFrontmatter`）实时合并进补全（2026-07-11 补做）。
 
 - 用户输入 `/` 时弹出命令列表。
 - 内置命令表硬编码在插件中。
@@ -113,17 +113,23 @@
 
 ### 4.2 文件引用（@mention / file chips）
 
+**状态**：已完成（2026-07-11）。`@[[note]]` 补全已有；新增输入框上方引用 chips（`renderReferenceChips` 实时镜像 textarea 里的 `@[[...]]`，点 ✕ 经 `removeAtReference` 删除）。发送注入（`buildReferenceBlock`）未变。
+
 - 输入 `@` 弹出文件选择器。
 - 选中文件后显示为可删除 chip。
 - 发送时把文件路径注入 prompt。
 
 ### 4.3 Plan Mode / Inline Edit / Diff 视图
 
+**状态**：Inline Edit + Diff 已完成（2026-07-11，第四阶段长任务阶段 1）。命令「用 CodeBuddy 编辑选区」→ 指令 Modal → `buildEditPrompt` 强约束 → 调 CLI → `lineDiff`(LCS) 行级 diff Modal → 接受写回 `replaceSelection`。Plan Mode 暂缓（依赖 CLI 计划事件未知）。
+
 - **Plan Mode**：当模型返回计划时，以卡片形式展示，用户可批准或拒绝。
 - **Inline Edit**：在笔记中高亮选区，调用 CodeBuddy 编辑并展示 diff。
 - **Diff 视图**：对 Write/Edit 工具结果展示行级 diff，支持接受/拒绝。
 
 ### 4.4 多语言与无障碍
+
+**状态**：i18n 中/英已完成（2026-07-11，第四阶段长任务阶段 2）。`src/i18n/index.ts` 98 个中英字典 key + `t()`（`initLang` 跟随 Obsidian 界面语言）；用 workflow 6 agents 并行抽 6 文件 UI 串 + 主汇总 settings/slashCommand + 全量 build/test/key 校验。发给 CLI 的 prompt 与 `[BB]` 日志保持中文。ARIA 已有基础，未专项加强。
 
 - 提取所有用户可见字符串到 i18n 文件。
 - 支持中文 / English。
@@ -152,9 +158,12 @@
 1. 收集 v1.0.9/v1.0.10 的实际使用反馈。
 2. 根据反馈调整第一阶段优先级。
 3. ✅ 已完成 2.1 自定义主色调（2026-07-11）。
-4. ✅ 已完成 2.2 设置页重构（分组 + 重置默认；导入导出 YAGNI 暂缓）（2026-07-11）。
+4. ✅ 已完成 2.2 设置页重构（分组 + 重置默认 + 导入导出）（2026-07-11）。
 5. 第二阶段收官，进入第三阶段斜杠命令。
 6. ✅ 已完成 3.2 安全透传（/clear 本地 + 斜杠命令跳过 context 透传；通用判定）（2026-07-11）。
-7. ✅ 已完成 3.3 输入 `/` 自动补全（内置命令表；自定义命令扫描 YAGNI 暂缓）（2026-07-11）。
+7. ✅ 已完成 3.3 输入 `/` 自动补全（内置命令表 + 自定义命令扫描）（2026-07-11）。
 8. ✅ 已完成 1.3 友好错误卡片 + 重试（2026-07-11）。第一阶段全部收官。
 9. 3.4 交互式命令：暂缓（2026-07-11 评估过于复杂、暂无必要，需要时再启动）。
+10. ✅ 补做 3.3 自定义命令扫描 + 2.2 导入导出（2026-07-11）。前三阶段（除跳过的 3.4）全部完成，仅剩第四阶段长期项。
+11. ✅ 已完成 4.2 文件引用 chips（2026-07-11）。第四阶段剩：4.1 上下文用量（依赖 CLI）/ 4.3 Inline Edit / 4.4 i18n / 4.5 移动端评估。
+12. ✅ 第四阶段长任务完成（2026-07-11）：4.5 砍（移动端不可行）、阶段 1 = 4.3 Inline Edit+Diff、阶段 2 = 4.4 i18n（workflow 6 agents 并行抽取 + 主汇总校验）。仅剩 4.1 上下文用量待 CLI 数据。

@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, migrateSettings, isObject, getString, getNumber, getBoolean, getErrorMessage, normalizePersistedData, type Conversation } from '../src/types';
+import { DEFAULT_SETTINGS, migrateSettings, isObject, getString, getNumber, getBoolean, getErrorMessage, normalizePersistedData, exportSettings, type Conversation } from '../src/types';
 
 describe('DEFAULT_SETTINGS', () => {
     it('should accept empty codebuddyPath', () => {
@@ -177,6 +177,14 @@ describe('type helpers', () => {
             const result = normalizePersistedData({ settings: { codebuddyPath: '/path' } });
             expect(result.settings?.codebuddyPath).toBe('/path');
             expect(result.settings?.version).toBe(DEFAULT_SETTINGS.version);
+        });
+    });
+
+    describe('exportSettings', () => {
+        it('serializes settings to JSON that round-trips through migrateSettings', () => {
+            const json = exportSettings(DEFAULT_SETTINGS);
+            expect(JSON.parse(json)).toEqual(DEFAULT_SETTINGS);
+            expect(migrateSettings(JSON.parse(json))).toEqual(DEFAULT_SETTINGS);
         });
     });
 });
