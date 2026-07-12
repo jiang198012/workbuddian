@@ -1,8 +1,18 @@
 # NOTICE
 
+## Acknowledgements
+
+Workbuddian is an independently built Obsidian plugin. Its design references two
+MIT-licensed open-source projects — with thanks to both:
+
+- BuddyBridge (MIT) — https://github.com/ben4202121/buddybridge
+- Claudian (MIT)
+
+Workbuddian is not a fork of, affiliated with, or endorsed by either project.
+
 ## Third-Party Trademarks
 
-This project, BuddyBridge, is an independent open-source project and is not
+This project, Workbuddian, is an independent open-source project and is not
 affiliated with, endorsed by, or sponsored by the owners of the following
 trademarks:
 
