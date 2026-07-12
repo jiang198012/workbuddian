@@ -8,6 +8,7 @@ import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
 import { fileBasename, buildAttachmentBlock } from '../../shared/attachments';
 import { buildSelectionBlock } from '../../shared/selection';
+import { pickFinalContent } from '../../shared/responseFinalize';
 import { MODEL_OPTIONS, PERMISSION_MODE_CHOICES, type PermissionMode } from '../../shared/cliOptions';
 import { t } from '../../i18n';
 
@@ -347,6 +348,8 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
     let firstChunk = true;
     let thinkingContent = '';
     let textContent = '';
+    let resultText = '';
+    const chunkStats: Record<string, number> = {};
     try {
         let contextText: string;
         if (slash) {
@@ -388,6 +391,8 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                     thinking.remove();
                 }
             }
+
+            chunkStats[chunk.type] = (chunkStats[chunk.type] || 0) + 1;
 
             if (chunk.type === 'thinking') {
                 thinkingContent += chunk.content;
@@ -462,13 +467,17 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
             } else if (chunk.type === 'done') {
                 // result 事件带的 token 用量 → 存入会话，供上下文指示器渲染（末尾 flush 持久化）
                 if (chunk.usage) view.manager.setUsage(convId, chunk.usage);
+                // result 事件里的最终文本作兜底：有些回复只在这里给正文，不走流式 text chunk
+                resultText = chunk.content || resultText;
             }
         }
 
-        const finalContent = textContent || thinkingContent;
+        const finalContent = pickFinalContent(textContent, thinkingContent, resultText);
         view.manager.updateMessage(convId, aiMsg.id, finalContent);
 
         if (!finalContent) {
+            // 诊断：本轮各类 chunk 计数 + result 文本长度，便于判断是纯工具轮/超时/真空回复
+            console.log('[BB] empty response — chunks:', JSON.stringify(chunkStats), '| resultLen:', resultText.length);
             view.manager.updateMessage(convId, aiMsg.id, t('input.noResponse'));
         }
 

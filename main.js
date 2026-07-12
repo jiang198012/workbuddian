@@ -873,6 +873,11 @@ function buildSelectionBlock(selectedText, noteName) {
   ].join("\n");
 }
 
+// src/shared/responseFinalize.ts
+function pickFinalContent(text, thinking, result) {
+  return text || thinking || result;
+}
+
 // src/features/chat/input.ts
 function adjustTextareaHeight(view) {
   view.inputEl.style.setProperty("--workbuddian-input-height", `${view.inputEl.scrollHeight}px`);
@@ -1158,6 +1163,8 @@ async function sendText(view, text) {
   let firstChunk = true;
   let thinkingContent = "";
   let textContent = "";
+  let resultText = "";
+  const chunkStats = {};
   try {
     let contextText;
     if (slash) {
@@ -1197,6 +1204,7 @@ async function sendText(view, text) {
           thinking.remove();
         }
       }
+      chunkStats[chunk.type] = (chunkStats[chunk.type] || 0) + 1;
       if (chunk.type === "thinking") {
         thinkingContent += chunk.content;
         let block = bubble.querySelector(".workbuddian-thinking-block");
@@ -1267,11 +1275,13 @@ async function sendText(view, text) {
       } else if (chunk.type === "done") {
         if (chunk.usage)
           view.manager.setUsage(convId, chunk.usage);
+        resultText = chunk.content || resultText;
       }
     }
-    const finalContent = textContent || thinkingContent;
+    const finalContent = pickFinalContent(textContent, thinkingContent, resultText);
     view.manager.updateMessage(convId, aiMsg.id, finalContent);
     if (!finalContent) {
+      console.log("[BB] empty response \u2014 chunks:", JSON.stringify(chunkStats), "| resultLen:", resultText.length);
       view.manager.updateMessage(convId, aiMsg.id, t("input.noResponse"));
     }
     const thinkingLabel = streamingBubble.querySelector(".workbuddian-thinking-header-text");
