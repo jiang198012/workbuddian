@@ -1,10 +1,12 @@
 # Workbuddian
 
-> **Workbuddian** — an independent rework based on BuddyBridge v1.0.13 (MIT). Adds: a
-> main-pane large panel command, real stop-generation, conversation rename/export/
-> search, an `@`-note reference picker, and full macOS support (auto-detection of
-> `WorkBuddy.app` and Homebrew-installed Node.js). Not affiliated with the upstream
-> author; see https://github.com/ben4202121/buddybridge for the original.
+> **Workbuddian** — an independently built Obsidian plugin whose design references the
+> MIT-licensed projects [BuddyBridge](https://github.com/ben4202121/buddybridge) and
+> Claudian. **Thanks to both projects!** Workbuddian is not a fork of, or affiliated
+> with, either. Features: a main-pane large panel command, real stop-generation,
+> conversation rename/export/search, an `@`-note reference picker, file attachments,
+> a model/permission toolbar, selection-to-chat, and full macOS support (auto-detection
+> of `WorkBuddy.app` and Homebrew-installed Node.js).
 
 > Connect Obsidian to WorkBuddy/CodeBuddy CLI for AI chat.
 
@@ -88,6 +90,8 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 # 中文说明
 
 > 将 Obsidian 连接到 WorkBuddy/CodeBuddy CLI，实现侧边栏 AI 聊天。
+
+> **致谢**：Workbuddian 是独立构建的 Obsidian 插件，设计上参考了 MIT 协议的 [BuddyBridge](https://github.com/ben4202121/buddybridge) 与 Claudian——感谢两个项目！本插件不是它们的 fork，也不隶属于它们。
 
 ## 安装
 
