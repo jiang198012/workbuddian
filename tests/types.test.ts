@@ -22,8 +22,17 @@ describe('DEFAULT_SETTINGS', () => {
     it('should default primaryColor to empty string', () => {
         expect(DEFAULT_SETTINGS.primaryColor).toBe('');
     });
-    it('should have settings version 5', () => {
-        expect(DEFAULT_SETTINGS.version).toBe(5);
+    it('should default contextWindowSize to 200000', () => {
+        expect(DEFAULT_SETTINGS.contextWindowSize).toBe(200000);
+    });
+    it('should default permissionMode to default', () => {
+        expect(DEFAULT_SETTINGS.permissionMode).toBe('default');
+    });
+    it('should default language to auto', () => {
+        expect(DEFAULT_SETTINGS.language).toBe('auto');
+    });
+    it('should have settings version 8', () => {
+        expect(DEFAULT_SETTINGS.version).toBe(8);
     });
 });
 
@@ -92,8 +101,41 @@ describe('migrateSettings', () => {
         expect(migrateSettings({ primaryColor: 123 }).primaryColor).toBe('');
         expect(migrateSettings({ primaryColor: { r: 1 } }).primaryColor).toBe('');
     });
-    it('should migrate stored version 4 up to 5', () => {
-        expect(migrateSettings({ version: 4 }).version).toBe(5);
+    it('should default contextWindowSize to 200000 when missing', () => {
+        expect(migrateSettings({}).contextWindowSize).toBe(200000);
+    });
+    it('should preserve a valid contextWindowSize', () => {
+        expect(migrateSettings({ contextWindowSize: 500000 }).contextWindowSize).toBe(500000);
+    });
+    it('should reset an invalid contextWindowSize to the default', () => {
+        expect(migrateSettings({ contextWindowSize: 0 }).contextWindowSize).toBe(200000);
+        expect(migrateSettings({ contextWindowSize: -1 }).contextWindowSize).toBe(200000);
+        expect(migrateSettings({ contextWindowSize: '200000' }).contextWindowSize).toBe(200000);
+    });
+    it('should default permissionMode to default when missing', () => {
+        expect(migrateSettings({}).permissionMode).toBe('default');
+    });
+    it('should preserve a valid permissionMode', () => {
+        expect(migrateSettings({ permissionMode: 'plan' }).permissionMode).toBe('plan');
+        expect(migrateSettings({ permissionMode: 'bypassPermissions' }).permissionMode).toBe('bypassPermissions');
+    });
+    it('should reset an invalid permissionMode to default', () => {
+        expect(migrateSettings({ permissionMode: 'nonsense' }).permissionMode).toBe('default');
+        expect(migrateSettings({ permissionMode: 123 }).permissionMode).toBe('default');
+    });
+    it('should default language to auto when missing', () => {
+        expect(migrateSettings({}).language).toBe('auto');
+    });
+    it('should preserve a valid language', () => {
+        expect(migrateSettings({ language: 'zh' }).language).toBe('zh');
+        expect(migrateSettings({ language: 'en' }).language).toBe('en');
+    });
+    it('should reset an invalid language to auto', () => {
+        expect(migrateSettings({ language: 'fr' }).language).toBe('auto');
+        expect(migrateSettings({ language: 5 }).language).toBe('auto');
+    });
+    it('should migrate an older stored version up to 8', () => {
+        expect(migrateSettings({ version: 4 }).version).toBe(8);
     });
 });
 

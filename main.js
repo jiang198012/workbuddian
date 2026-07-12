@@ -43,8 +43,27 @@ var import_obsidian8 = require("obsidian");
 var import_child_process = require("child_process");
 var path2 = __toESM(require("path"));
 
+// src/shared/cliOptions.ts
+var MODEL_OPTIONS = {
+  hy3: "hy3",
+  "glm-5.2": "glm-5.2",
+  "glm-5.1": "glm-5.1",
+  "glm-5v-turbo": "glm-5v-turbo",
+  "minimax-m3": "minimax-m3",
+  "kimi-k2.7": "kimi-k2.7",
+  "kimi-k2.6": "kimi-k2.6",
+  "deepseek-v4-flash": "deepseek-v4-flash",
+  "deepseek-v4-pro": "deepseek-v4-pro"
+};
+var PERMISSION_MODES = ["default", "plan", "acceptEdits", "bypassPermissions"];
+var PERMISSION_MODE_CHOICES = ["default", "bypassPermissions"];
+function isPermissionMode(value) {
+  return typeof value === "string" && PERMISSION_MODES.includes(value);
+}
+
 // src/types/index.ts
-var CURRENT_SETTINGS_VERSION = 5;
+var CURRENT_SETTINGS_VERSION = 8;
+var DEFAULT_CONTEXT_WINDOW_SIZE = 2e5;
 var DEFAULT_SETTINGS = {
   codebuddyPath: "",
   cliTimeoutMinutes: 5,
@@ -53,6 +72,9 @@ var DEFAULT_SETTINGS = {
   injectCurrentNoteLink: false,
   model: "auto",
   primaryColor: "",
+  contextWindowSize: DEFAULT_CONTEXT_WINDOW_SIZE,
+  permissionMode: "default",
+  language: "auto",
   version: CURRENT_SETTINGS_VERSION
 };
 function isObject(value) {
@@ -87,6 +109,8 @@ function migrateSettings(stored) {
   const cliTimeoutMinutes = getNumber(stored, "cliTimeoutMinutes");
   const injectVaultContext = getBoolean(stored, "injectVaultContext");
   const injectCurrentNoteLink = getBoolean(stored, "injectCurrentNoteLink");
+  const contextWindowSize = getNumber(stored, "contextWindowSize");
+  const language = getString(stored, "language");
   return {
     codebuddyPath: (_a = getString(stored, "codebuddyPath")) != null ? _a : DEFAULT_SETTINGS.codebuddyPath,
     cliTimeoutMinutes: typeof cliTimeoutMinutes === "number" && cliTimeoutMinutes > 0 ? cliTimeoutMinutes : DEFAULT_SETTINGS.cliTimeoutMinutes,
@@ -95,6 +119,9 @@ function migrateSettings(stored) {
     injectCurrentNoteLink: typeof injectCurrentNoteLink === "boolean" ? injectCurrentNoteLink : DEFAULT_SETTINGS.injectCurrentNoteLink,
     model: (_c = getString(stored, "model")) != null ? _c : DEFAULT_SETTINGS.model,
     primaryColor: (_d = getString(stored, "primaryColor")) != null ? _d : DEFAULT_SETTINGS.primaryColor,
+    contextWindowSize: typeof contextWindowSize === "number" && contextWindowSize > 0 ? contextWindowSize : DEFAULT_SETTINGS.contextWindowSize,
+    permissionMode: isPermissionMode(stored.permissionMode) ? stored.permissionMode : DEFAULT_SETTINGS.permissionMode,
+    language: language === "zh" || language === "en" || language === "auto" ? language : DEFAULT_SETTINGS.language,
     version: CURRENT_SETTINGS_VERSION
   };
 }
@@ -279,6 +306,17 @@ function resolveCodebuddyPath(customPath) {
 
 // src/providers/codebuddy/index.ts
 var TIMEOUT = 3e5;
+function parseUsage(raw) {
+  if (!isObject(raw))
+    return void 0;
+  const usage = raw.usage;
+  if (!isObject(usage))
+    return void 0;
+  const inputTokens = getNumber(usage, "input_tokens");
+  if (typeof inputTokens !== "number")
+    return void 0;
+  return { inputTokens };
+}
 function parseMessageBlock(block) {
   if (!isObject(block))
     return null;
@@ -323,7 +361,8 @@ function parseStreamEvent(raw) {
     result: getString(event, "result"),
     error: getString(event, "error"),
     message: getString(event, "message"),
-    content: getString(event, "content")
+    content: getString(event, "content"),
+    usage: parseUsage(event)
   };
 }
 function parseStreamLine(line) {
@@ -363,7 +402,7 @@ function parseStreamLine(line) {
       };
     }
     if (event.type === "result") {
-      return { type: "done", content: event.result || "" };
+      return { type: "done", content: event.result || "", usage: event.usage };
     }
     if (event.type === "error") {
       return { type: "error", content: event.error || event.message || "\u672A\u77E5\u9519\u8BEF" };
@@ -392,6 +431,7 @@ var CodebuddyProvider = class {
     this.activeProc = null;
     this.nodePathOverride = "";
     this.model = "auto";
+    this.permissionMode = "default";
     this.timeout = timeout;
     this.scriptPath = resolveCodebuddyPath("");
   }
@@ -406,6 +446,9 @@ var CodebuddyProvider = class {
   }
   setModel(model) {
     this.model = model;
+  }
+  setPermissionMode(mode) {
+    this.permissionMode = mode;
   }
   generateId() {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -424,7 +467,7 @@ var CodebuddyProvider = class {
     if (vaultPath) {
       procOptions.cwd = vaultPath;
     }
-    const cliArgs = ["--print", "--output-format", "stream-json", "--session-id", sessionId, "--model", this.model, text];
+    const cliArgs = ["--print", "--output-format", "stream-json", "--session-id", sessionId, "--model", this.model, "--permission-mode", this.permissionMode, text];
     if (needsWindowsShell(scriptPath)) {
       procOptions.shell = true;
     }
@@ -574,8 +617,8 @@ function detectLang() {
     return "zh";
   }
 }
-function initLang() {
-  setLang(detectLang());
+function applyLang(setting) {
+  setLang(setting === "auto" ? detectLang() : setting);
 }
 var STRINGS = {
   "chat.send": { zh: "\u53D1\u9001", en: "Send" },
@@ -598,6 +641,16 @@ var STRINGS = {
   "settings.injectNote": { zh: "\u6CE8\u5165\u5F53\u524D\u7B14\u8BB0\u94FE\u63A5", en: "Inject current note link" },
   "settings.injectNoteDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u9644\u4E0A\u5F53\u524D\u6B63\u5728\u67E5\u770B\u7684\u7B14\u8BB0\u6807\u9898\u548C\u8DEF\u5F84\uFF08\u4E0D\u5305\u542B\u6B63\u6587\u5185\u5BB9\uFF09", en: "When on, every message includes the current note title and path (not its content)." },
   "settings.appearance": { zh: "\u5916\u89C2", en: "Appearance" },
+  "settings.language": { zh: "\u754C\u9762\u8BED\u8A00", en: "Interface language" },
+  "settings.languageDesc": { zh: "\u63D2\u4EF6\u754C\u9762\u663E\u793A\u8BED\u8A00\u3002Auto \u8DDF\u968F Obsidian\u3002\u5207\u6362\u540E\u91CD\u65B0\u6253\u5F00\u804A\u5929\u9762\u677F\u6216 Cmd+R \u5B8C\u5168\u751F\u6548\u3002", en: "Plugin UI language. Auto follows Obsidian. Reopen the chat panel or reload to fully apply." },
+  "settings.langAuto": { zh: "Auto\uFF08\u8DDF\u968F Obsidian\uFF09", en: "Auto (follow Obsidian)" },
+  "settings.langZh": { zh: "\u4E2D\u6587", en: "\u4E2D\u6587" },
+  "settings.langEn": { zh: "English", en: "English" },
+  "settings.langReload": { zh: "\u8BED\u8A00\u5DF2\u5207\u6362\uFF0C\u91CD\u65B0\u6253\u5F00\u804A\u5929\u9762\u677F\u6216 Cmd+R \u5B8C\u5168\u751F\u6548", en: "Language changed \u2014 reopen the chat panel or reload to fully apply" },
+  "settings.contextWindow": { zh: "\u4E0A\u4E0B\u6587\u7A97\u53E3\u4E0A\u9650\uFF08token\uFF09", en: "Context window size (tokens)" },
+  "settings.contextWindowDesc": { zh: "\u8BA1\u7B97\u4E0A\u4E0B\u6587\u7528\u91CF\u767E\u5206\u6BD4\u7684\u5206\u6BCD\u3002\u4E0D\u540C\u6A21\u578B\u7A97\u53E3\u4E0D\u540C\uFF0C\u53EF\u6309\u5B9E\u9645\u8C03\u6574\uFF08\u9ED8\u8BA4 200000\uFF09\u3002", en: "Denominator for the context-usage percentage. Adjust to your model\u2019s window (default 200000)." },
+  "settings.permissionMode": { zh: "\u6388\u6743\u6A21\u5F0F", en: "Permission mode" },
+  "settings.permissionModeDesc": { zh: "\u63A7\u5236 CodeBuddy \u6267\u884C\u64CD\u4F5C\u524D\u7684\u6388\u6743\u7EA7\u522B\uFF0C\u7B49\u540C\u5DE5\u5177\u680F\u76FE\u724C\u56FE\u6807\uFF1A\u9ED8\u8BA4\uFF08\u6BCF\u6B65\u8BE2\u95EE\uFF09/ \u5B8C\u5168\u8BBF\u95EE\uFF08\u8DF3\u8FC7\u6240\u6709\u6388\u6743\uFF09\u3002", en: "Authorization level before CodeBuddy acts; same as the toolbar shield: Default (asks each step) / Full access (skips all)." },
   "settings.primary": { zh: "\u804A\u5929\u4E3B\u8272\u8C03", en: "Chat accent color" },
   "settings.primaryDesc": { zh: "\u81EA\u5B9A\u4E49\u804A\u5929\u9762\u677F\u7684\u5F3A\u8C03\u8272\uFF08\u7528\u6237\u6C14\u6CE1\u3001\u53D1\u9001\u6309\u94AE\u3001\u8FB9\u6846\u3001focus \u9AD8\u4EAE\u7B49\uFF09\u3002\u70B9\u300C\u6062\u590D\u9ED8\u8BA4\u300D\u8DDF\u968F Obsidian \u4E3B\u9898\u8272\u3002", en: 'Customize the chat accent color (user bubble, send button, borders, focus ring). Click "Reset" to follow the Obsidian theme.' },
   "settings.resetTooltip": { zh: "\u6062\u590D\u9ED8\u8BA4\uFF08\u8DDF\u968F\u4E3B\u9898\u8272\uFF09", en: "Reset (follow theme color)" },
@@ -619,6 +672,12 @@ var STRINGS = {
   "settings.importErr": { zh: "\u5BFC\u5165\u5931\u8D25\uFF1AJSON \u89E3\u6790\u9519\u8BEF", en: "Import failed: invalid JSON" },
   "input.removeReference": { zh: "\u79FB\u9664\u5F15\u7528", en: "Remove reference" },
   "input.customCommand": { zh: "\uFF08\u81EA\u5B9A\u4E49\u547D\u4EE4\uFF09", en: "(Custom command)" },
+  "input.attach": { zh: "\u9644\u52A0\u6587\u4EF6", en: "Attach files" },
+  "input.permission": { zh: "\u6388\u6743\u6A21\u5F0F", en: "Permission mode" },
+  "perm.default": { zh: "\u9ED8\u8BA4\uFF08\u6BCF\u6B65\u8BE2\u95EE\uFF09", en: "Default (ask each step)" },
+  "perm.plan": { zh: "\u8BA1\u5212\u6A21\u5F0F\uFF08\u53EA\u8BFB\u4E0D\u6539\uFF09", en: "Plan (read-only)" },
+  "perm.acceptEdits": { zh: "\u81EA\u52A8\u63A5\u53D7\u7F16\u8F91", en: "Accept edits" },
+  "perm.bypassPermissions": { zh: "\u5B8C\u5168\u8BBF\u95EE", en: "Full access" },
   "input.stop": { zh: "\u505C\u6B62", en: "Stop" },
   "input.bubbleNotFound": { zh: "\u627E\u4E0D\u5230 Assistant \u6D88\u606F\u6C14\u6CE1", en: "Assistant message bubble not found" },
   "input.thinking": { zh: "\u601D\u8003\u4E2D...", en: "Thinking..." },
@@ -633,6 +692,7 @@ var STRINGS = {
   "view.searchPlaceholder": { zh: "\u641C\u7D22\u5BF9\u8BDD...", en: "Search chats..." },
   "view.inputPlaceholder": { zh: "\u8F93\u5165\u6D88\u606F... (Shift+Enter \u6362\u884C\uFF0CEnter \u53D1\u9001)", en: "Type a message... (Shift+Enter for newline, Enter to send)" },
   "view.send": { zh: "\u53D1\u9001", en: "Send" },
+  "usage.tooltip": { zh: "\u4E0A\u4E0B\u6587 {used} / {total} tokens", en: "Context {used} / {total} tokens" },
   "render.emptyTitle": { zh: "\u5F00\u59CB\u65B0\u5BF9\u8BDD", en: "Start a new conversation" },
   "render.emptySubtitle": { zh: "\u70B9\u51FB\u4E0A\u65B9 + \u6309\u94AE\u6216\u8F93\u5165\u6D88\u606F\u5F00\u59CB\u804A\u5929", en: "Click the + button above or type a message to start chatting" },
   "render.thinking": { zh: "\u601D\u8003\u4E2D", en: "Thinking" },
@@ -786,6 +846,33 @@ function parseCommandFrontmatter(content) {
   };
 }
 
+// src/shared/attachments.ts
+function fileBasename(p) {
+  const parts = p.split(/[\\/]/);
+  return parts[parts.length - 1] || p;
+}
+function buildAttachmentBlock(paths) {
+  if (paths.length === 0)
+    return "";
+  const lines = ["\u7528\u6237\u9644\u52A0\u4E86\u4EE5\u4E0B\u6587\u4EF6\uFF08\u8BF7\u7528\u4F60\u7684\u6587\u4EF6\u8BFB\u53D6\u5DE5\u5177\u67E5\u770B\u5176\u5185\u5BB9\uFF09\uFF1A", ""];
+  for (const p of paths)
+    lines.push(`- ${p}`);
+  return lines.join("\n");
+}
+
+// src/shared/selection.ts
+function buildSelectionBlock(selectedText, noteName) {
+  if (!selectedText.trim())
+    return "";
+  const from = noteName ? `\uFF08\u6765\u81EA\u7B14\u8BB0\u300A${noteName}\u300B\uFF09` : "";
+  return [
+    `\u7528\u6237\u5728\u5F53\u524D\u7B14\u8BB0\u4E2D\u9009\u4E2D\u4E86\u4EE5\u4E0B\u6587\u5B57${from}\uFF0C\u4EC5\u4F5C\u4E3A\u804A\u5929\u53C2\u8003\uFF0C\u8BF7\u52FF\u4FEE\u6539\u7B14\u8BB0\uFF1A`,
+    '"""',
+    selectedText,
+    '"""'
+  ].join("\n");
+}
+
 // src/features/chat/input.ts
 function adjustTextareaHeight(view) {
   view.inputEl.style.setProperty("--workbuddian-input-height", `${view.inputEl.scrollHeight}px`);
@@ -851,6 +938,100 @@ function renderReferenceChips(view) {
     (0, import_obsidian2.setIcon)(close, "x");
     close.onclick = () => removeReference(view, name);
   }
+}
+function renderAttachmentChips(view) {
+  view.attachChipsEl.empty();
+  if (view.attachments.length === 0) {
+    view.attachChipsEl.addClass("workbuddian-hidden");
+    return;
+  }
+  view.attachChipsEl.removeClass("workbuddian-hidden");
+  view.attachments.forEach((path3, idx) => {
+    const chip = view.attachChipsEl.createDiv({ cls: "workbuddian-ref-chip" });
+    chip.createSpan({ cls: "workbuddian-ref-chip-name", text: fileBasename(path3), attr: { title: path3 } });
+    const close = chip.createSpan({ cls: "workbuddian-ref-chip-close", attr: { "aria-label": t("input.removeReference"), role: "button", tabindex: "0" } });
+    (0, import_obsidian2.setIcon)(close, "x");
+    close.onclick = () => {
+      view.attachments.splice(idx, 1);
+      renderAttachmentChips(view);
+    };
+  });
+}
+function captureNoteSelection(view) {
+  var _a, _b, _c, _d;
+  const mv = view.lastMarkdownView;
+  let text = "";
+  try {
+    text = (_b = (_a = mv == null ? void 0 : mv.editor) == null ? void 0 : _a.getSelection()) != null ? _b : "";
+  } catch (e) {
+    text = "";
+  }
+  view.selection = text.trim() ? { text, note: (_d = (_c = mv == null ? void 0 : mv.file) == null ? void 0 : _c.basename) != null ? _d : "" } : null;
+  renderSelectionChip(view);
+}
+function renderSelectionChip(view) {
+  view.selectionEl.empty();
+  if (!view.selection) {
+    view.selectionEl.addClass("workbuddian-hidden");
+    return;
+  }
+  view.selectionEl.removeClass("workbuddian-hidden");
+  const chip = view.selectionEl.createDiv({ cls: "workbuddian-ref-chip workbuddian-selection-chip" });
+  const icon = chip.createSpan({ cls: "workbuddian-ref-chip-icon" });
+  (0, import_obsidian2.setIcon)(icon, "text-select");
+  const preview = view.selection.text.replace(/\s+/g, " ").trim().slice(0, 40);
+  const label = view.selection.note ? `${view.selection.note}: ${preview}` : preview;
+  chip.createSpan({ cls: "workbuddian-ref-chip-name", text: label, attr: { title: view.selection.text } });
+}
+function openAttachmentPicker(view) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.multiple = true;
+  input.onchange = () => {
+    for (const f of Array.from(input.files || [])) {
+      const p = f.path;
+      if (p && !view.attachments.includes(p))
+        view.attachments.push(p);
+    }
+    renderAttachmentChips(view);
+  };
+  input.click();
+}
+var PERMISSION_MODE_ICONS = {
+  default: "shield",
+  plan: "eye",
+  acceptEdits: "check",
+  bypassPermissions: "shield-alert"
+};
+function permissionIcon(mode) {
+  var _a;
+  return (_a = PERMISSION_MODE_ICONS[mode]) != null ? _a : "shield";
+}
+function openPermissionMenu(view, btn, evt) {
+  const menu = new import_obsidian2.Menu();
+  for (const mode of PERMISSION_MODE_CHOICES) {
+    menu.addItem((item) => item.setTitle(t("perm." + mode)).setIcon(permissionIcon(mode)).setChecked(view.settings.permissionMode === mode).onClick(async () => {
+      view.settings.permissionMode = mode;
+      view.api.setPermissionMode(mode);
+      (0, import_obsidian2.setIcon)(btn, permissionIcon(mode));
+      btn.setAttribute("title", `${t("input.permission")}: ${t("perm." + mode)}`);
+      await view.saveSettingsCallback();
+    }));
+  }
+  menu.showAtMouseEvent(evt);
+}
+function openModelMenu(view, btn) {
+  const menu = new import_obsidian2.Menu();
+  for (const id of ["auto", ...Object.keys(MODEL_OPTIONS)]) {
+    menu.addItem((item) => item.setTitle(id).setChecked(view.settings.model === id).onClick(async () => {
+      view.settings.model = id;
+      view.api.setModel(id);
+      btn.setText(id);
+      await view.saveSettingsCallback();
+    }));
+  }
+  const rect = btn.getBoundingClientRect();
+  menu.showAtPosition({ x: rect.left, y: rect.bottom });
 }
 function removeReference(view, name) {
   view.inputEl.value = removeAtReference(view.inputEl.value, name);
@@ -969,7 +1150,9 @@ async function sendText(view, text) {
     return;
   view.streamingMsgId = aiMsg.id;
   view.isStreaming = true;
-  view.sendBtn.setText(t("input.stop"));
+  (0, import_obsidian2.setIcon)(view.sendBtn, "square");
+  view.sendBtn.setAttribute("aria-label", t("input.stop"));
+  view.sendBtn.setAttribute("title", t("input.stop"));
   await renderMessages(view);
   const slash = parseSlashCommand(text);
   let firstChunk = true;
@@ -981,14 +1164,21 @@ async function sendText(view, text) {
       contextText = text;
     } else {
       const referenceBlock = await buildReferenceBlock(view, text);
+      const attachmentBlock = buildAttachmentBlock(view.attachments);
+      const selectionBlock = view.selection ? buildSelectionBlock(view.selection.text, view.selection.note) : "";
+      const extraBlock = [referenceBlock, attachmentBlock, selectionBlock].filter(Boolean).join("\n\n---\n\n");
       const currentNoteLink = view.settings.injectCurrentNoteLink ? buildCurrentNoteLink(view) : "";
       contextText = assembleContextText(
         text,
         view.vaultPath,
         view.settings.injectVaultContext,
         currentNoteLink,
-        referenceBlock
+        extraBlock
       );
+      if (view.attachments.length) {
+        view.attachments = [];
+        renderAttachmentChips(view);
+      }
     }
     const streamingBubble = view.messageContainer.querySelector(
       `.workbuddian-message-assistant:last-child .workbuddian-bubble`
@@ -1074,6 +1264,9 @@ async function sendText(view, text) {
       } else if (chunk.type === "error") {
         view.manager.setError(convId, aiMsg.id, chunk.content);
         new import_obsidian2.Notice(`${t("input.requestFailed")}: ${chunk.content}`);
+      } else if (chunk.type === "done") {
+        if (chunk.usage)
+          view.manager.setUsage(convId, chunk.usage);
       }
     }
     const finalContent = textContent || thinkingContent;
@@ -1095,7 +1288,9 @@ async function sendText(view, text) {
   } finally {
     view.isStreaming = false;
     view.streamingMsgId = null;
-    view.sendBtn.setText(t("input.send"));
+    (0, import_obsidian2.setIcon)(view.sendBtn, "send");
+    view.sendBtn.setAttribute("aria-label", t("input.send"));
+    view.sendBtn.setAttribute("title", t("input.send"));
   }
 }
 async function retryLastMessage(view) {
@@ -1370,15 +1565,19 @@ function showTabContextMenu(view, e, convId) {
 // src/features/chat/view.ts
 var VIEW_TYPE_CHAT = "workbuddian-panel";
 var WorkbuddianChatView = class extends import_obsidian5.ItemView {
-  constructor(leaf, api, manager, settings, loadDataCallback) {
+  constructor(leaf, api, manager, settings, loadDataCallback, saveSettingsCallback) {
     super(leaf);
     this.isStreaming = false;
     this.streamingMsgId = null;
     this.activeRename = null;
     this.activeConvId = null;
     this.customCommands = [];
+    this.attachments = [];
+    this.selection = null;
+    this.lastMarkdownView = null;
     this.api = api;
     this.loadDataCallback = loadDataCallback;
+    this.saveSettingsCallback = saveSettingsCallback;
     this.manager = manager;
     this.settings = settings;
     this.markdownComponent = new import_obsidian5.Component();
@@ -1408,6 +1607,11 @@ var WorkbuddianChatView = class extends import_obsidian5.ItemView {
     const container = this.contentEl;
     container.empty();
     container.addClass("workbuddian-chat-container");
+    this.lastMarkdownView = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
+    this.registerEvent(this.app.workspace.on("active-leaf-change", (leaf) => {
+      if ((leaf == null ? void 0 : leaf.view) instanceof import_obsidian5.MarkdownView)
+        this.lastMarkdownView = leaf.view;
+    }));
     this.tabBar = container.createDiv({ cls: "workbuddian-tab-bar" });
     const newBtn = this.tabBar.createEl("button", {
       text: "",
@@ -1439,8 +1643,11 @@ var WorkbuddianChatView = class extends import_obsidian5.ItemView {
     this.searchInput.oninput = () => renderTabs(this);
     this.messageContainer = container.createDiv({ cls: "workbuddian-messages" });
     this.chipsEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
+    this.attachChipsEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
+    this.selectionEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
     const inputArea = container.createDiv({ cls: "workbuddian-input-area" });
-    this.inputEl = inputArea.createEl("textarea", {
+    const inputBox = inputArea.createDiv({ cls: "workbuddian-input-box" });
+    this.inputEl = inputBox.createEl("textarea", {
       cls: "workbuddian-input",
       attr: { placeholder: t("view.inputPlaceholder"), rows: "2" }
     });
@@ -1451,12 +1658,40 @@ var WorkbuddianChatView = class extends import_obsidian5.ItemView {
       if (!updateSlashSuggest(this))
         updateAtSuggest(this);
     };
-    this.atSuggestEl = inputArea.createDiv({ cls: "workbuddian-at-suggest workbuddian-hidden" });
-    this.sendBtn = inputArea.createEl("button", {
-      text: t("view.send"),
-      cls: "workbuddian-send-btn",
-      attr: { "aria-label": t("view.send") }
+    this.inputEl.addEventListener("focus", () => captureNoteSelection(this));
+    let selChangeTimer = null;
+    this.registerDomEvent(document, "selectionchange", () => {
+      if (selChangeTimer !== null)
+        window.clearTimeout(selChangeTimer);
+      selChangeTimer = window.setTimeout(() => captureNoteSelection(this), 120);
     });
+    this.atSuggestEl = inputArea.createDiv({ cls: "workbuddian-at-suggest workbuddian-hidden" });
+    const toolbar = inputBox.createDiv({ cls: "workbuddian-input-toolbar" });
+    const modelBtn = toolbar.createDiv({
+      cls: "workbuddian-model-btn",
+      attr: { "aria-label": t("settings.model"), title: t("settings.model"), role: "button", tabindex: "0" }
+    });
+    modelBtn.setText(this.settings.model);
+    modelBtn.addEventListener("click", () => openModelMenu(this, modelBtn));
+    const attachBtn = toolbar.createEl("button", {
+      cls: "workbuddian-toolbar-btn",
+      attr: { "aria-label": t("input.attach"), title: t("input.attach") }
+    });
+    (0, import_obsidian5.setIcon)(attachBtn, "paperclip");
+    attachBtn.onclick = () => openAttachmentPicker(this);
+    const permBtn = toolbar.createEl("button", {
+      cls: "workbuddian-toolbar-btn",
+      attr: { "aria-label": t("input.permission") }
+    });
+    (0, import_obsidian5.setIcon)(permBtn, permissionIcon(this.settings.permissionMode));
+    permBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + this.settings.permissionMode)}`);
+    permBtn.onclick = (e) => openPermissionMenu(this, permBtn, e);
+    const rightGroup = toolbar.createDiv({ cls: "workbuddian-toolbar-right" });
+    this.sendBtn = rightGroup.createEl("button", {
+      cls: "workbuddian-send-btn",
+      attr: { "aria-label": t("view.send"), title: t("view.send") }
+    });
+    (0, import_obsidian5.setIcon)(this.sendBtn, "send");
     this.sendBtn.onclick = () => {
       if (this.isStreaming) {
         this.api.cancel();
@@ -1644,6 +1879,14 @@ var ConversationManager = class {
     conv.sessionId = sessionId;
     return true;
   }
+  /** 记录对话最近一轮的 token 用量（流式内更新，随后 flush 持久化） */
+  setUsage(convId, usage) {
+    const conv = this.conversations.get(convId);
+    if (!conv)
+      return false;
+    conv.lastUsage = usage;
+    return true;
+  }
   /** 把某条消息标记为错误并设置文案 */
   setError(convId, msgId, content) {
     const conv = this.conversations.get(convId);
@@ -1677,17 +1920,6 @@ var ConversationManager = class {
 
 // src/features/settings/tab.ts
 var import_obsidian6 = require("obsidian");
-var MODEL_OPTIONS = {
-  hy3: "hy3",
-  "glm-5.2": "glm-5.2",
-  "glm-5.1": "glm-5.1",
-  "glm-5v-turbo": "glm-5v-turbo",
-  "minimax-m3": "minimax-m3",
-  "kimi-k2.7": "kimi-k2.7",
-  "kimi-k2.6": "kimi-k2.6",
-  "deepseek-v4-flash": "deepseek-v4-flash",
-  "deepseek-v4-pro": "deepseek-v4-pro"
-};
 var WorkbuddianSettingTab = class extends import_obsidian6.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
@@ -1715,11 +1947,6 @@ var WorkbuddianSettingTab = class extends import_obsidian6.PluginSettingTab {
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("settings.model")).setDesc(t("settings.modelDesc")).addDropdown((dropdown) => dropdown.addOptions({ auto: t("settings.modelAuto"), ...MODEL_OPTIONS }).setValue(this.plugin.settings.model).onChange(async (value) => {
-      this.plugin.settings.model = value;
-      this.plugin.api.setModel(value);
-      await this.plugin.saveSettings();
-    }));
     new import_obsidian6.Setting(containerEl).setName(t("settings.inject")).setHeading();
     new import_obsidian6.Setting(containerEl).setName(t("settings.injectVault")).setDesc(t("settings.injectVaultDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectVaultContext).onChange(async (value) => {
       this.plugin.settings.injectVaultContext = value;
@@ -1730,8 +1957,15 @@ var WorkbuddianSettingTab = class extends import_obsidian6.PluginSettingTab {
       await this.plugin.saveSettings();
     }));
     new import_obsidian6.Setting(containerEl).setName(t("settings.appearance")).setHeading();
+    new import_obsidian6.Setting(containerEl).setName(t("settings.language")).setDesc(t("settings.languageDesc")).addDropdown((dropdown) => dropdown.addOptions({ auto: t("settings.langAuto"), zh: t("settings.langZh"), en: t("settings.langEn") }).setValue(this.plugin.settings.language).onChange(async (value) => {
+      this.plugin.settings.language = value;
+      applyLang(this.plugin.settings.language);
+      await this.plugin.saveSettings();
+      this.display();
+      new import_obsidian6.Notice(t("settings.langReload"));
+    }));
     new import_obsidian6.Setting(containerEl).setName(t("settings.primary")).setDesc(t("settings.primaryDesc")).addColorPicker((picker) => {
-      const current = this.plugin.settings.primaryColor || getComputedStyle(document.body).getPropertyValue("--interactive-accent").trim() || "#7c3aed";
+      const current = this.plugin.settings.primaryColor || "#C8B487";
       picker.setValue(current).onChange(async (value) => {
         this.plugin.settings.primaryColor = value;
         await this.plugin.saveSettings();
@@ -1740,6 +1974,13 @@ var WorkbuddianSettingTab = class extends import_obsidian6.PluginSettingTab {
       this.plugin.settings.primaryColor = "";
       await this.plugin.saveSettings();
       this.display();
+    }));
+    new import_obsidian6.Setting(containerEl).setName(t("settings.contextWindow")).setDesc(t("settings.contextWindowDesc")).addText((text) => text.setPlaceholder("200000").setValue(String(this.plugin.settings.contextWindowSize)).onChange(async (value) => {
+      const num = parseInt(value, 10);
+      if (!isNaN(num) && num > 0) {
+        this.plugin.settings.contextWindowSize = num;
+        await this.plugin.saveSettings();
+      }
     }));
     new import_obsidian6.Setting(containerEl).setName(t("settings.reset")).setHeading();
     new import_obsidian6.Setting(containerEl).setName(t("settings.resetDefault")).setDesc(t("settings.resetDesc")).addButton((btn) => {
@@ -1945,7 +2186,7 @@ var WorkbuddianPlugin = class extends import_obsidian8.Plugin {
   async onload() {
     try {
       await this.loadSettings();
-      initLang();
+      applyLang(this.settings.language);
       registerWorkbuddianIcon();
       applyPrimaryColor(this.settings.primaryColor);
       this.api = new CodebuddyProvider();
@@ -1962,6 +2203,8 @@ var WorkbuddianPlugin = class extends import_obsidian8.Plugin {
           const view = new WorkbuddianChatView(leaf, this.api, this.manager, this.settings, async () => {
             const data = normalizePersistedData(await this.loadData());
             return data.conversations || [];
+          }, async () => {
+            await this.saveSettings();
           });
           this.chatView = view;
           return view;
@@ -2008,6 +2251,7 @@ var WorkbuddianPlugin = class extends import_obsidian8.Plugin {
     this.api.setTimeout(this.settings.cliTimeoutMinutes * 6e4);
     this.api.setNodePath(this.settings.nodePath);
     this.api.setModel(this.settings.model);
+    this.api.setPermissionMode(this.settings.permissionMode);
   }
   async activateView() {
     try {

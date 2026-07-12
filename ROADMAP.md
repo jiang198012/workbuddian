@@ -107,9 +107,11 @@
 
 ### 4.1 上下文用量指示器
 
+**状态**：已完成（2026-07-12）。实测 CLI 的 `result` 事件带 `usage`，`input_tokens` 即整轮 prompt 总量（= cache_read + cache_creation，实测精确相等），取它作「已用上下文」。数据流：`parseUsage`（`providers/codebuddy`）把 usage 带到 `done` chunk → `input.ts` 流式 `done` 分支 `manager.setUsage` 写入 `Conversation.lastUsage`（随 flush 持久化）→ `renderContextUsage`（`input.ts`）在输入区新增的 `workbuddian-input-toolbar` 左侧渲染环形仪表盘（`conic-gradient` 跟随主色）+ `22.6k · 11%`，`renderMessages` 统一触发刷新。百分比分母 = 新设置项 `contextWindowSize`（默认 200000，可在「外观」组改），封顶 100%。纯函数 `formatTokenCount`/`contextPercent`（`shared/contextUsage`）+ `parseUsage`/`setUsage`/迁移 均有 jest 覆盖；设置版本 5→6。
+
 参考 Claudian 的圆形仪表盘，在输入区工具栏显示当前会话的 token 使用百分比。
 
-**依赖**：需要 CLI 提供 context 用量事件或接口。
+**依赖**：~~需要 CLI 提供 context 用量事件或接口~~ → 已确认 `result.usage.input_tokens` 提供。
 
 ### 4.2 文件引用（@mention / file chips）
 
@@ -167,3 +169,9 @@
 10. ✅ 补做 3.3 自定义命令扫描 + 2.2 导入导出（2026-07-11）。前三阶段（除跳过的 3.4）全部完成，仅剩第四阶段长期项。
 11. ✅ 已完成 4.2 文件引用 chips（2026-07-11）。第四阶段剩：4.1 上下文用量（依赖 CLI）/ 4.3 Inline Edit / 4.4 i18n / 4.5 移动端评估。
 12. ✅ 第四阶段长任务完成（2026-07-11）：4.5 砍（移动端不可行）、阶段 1 = 4.3 Inline Edit+Diff、阶段 2 = 4.4 i18n（workflow 6 agents 并行抽取 + 主汇总校验）。仅剩 4.1 上下文用量待 CLI 数据。
+13. ✅ 已完成 4.1 上下文用量指示器（2026-07-12）：实测 `result.usage.input_tokens` 提供数据，输入区工具栏环形仪表盘 + 可配置窗口上限。第四阶段实质收官（3.4 交互式命令、4.5 移动端为主动搁置项）。
+14. ✅ 输入区工具栏重排（2026-07-12）：输入框改为带边框容器 + 框内底部工具栏，发送改小图标；行内 `[模型下拉][附件][授权][圆环][发送]`。新增：**模型下拉**（复用 `MODEL_OPTIONS`，切换即持久化）、**附件**（系统文件选择器挑任意文件 → chips → 发送时注入绝对路径块交 CLI 读取，`shared/attachments`）、**授权**（permission 模式菜单 → `--permission-mode` 透传，实测 CLI 支持 `default/plan/acceptEdits/bypassPermissions`，设置版本 6→7）。模型/授权同步进设置页。
+15. ✅ 工具栏微调 + 选区注入（2026-07-12）：删掉圆环用量展示（太占地方，数据层休眠保留）；发送键 `flex-shrink:0` 永不被挤出、模型下拉可收缩；图标全去框；模型框宽 70%；授权精简为「默认/完全访问」，完全访问用 `shield-alert`（盾内感叹号）。新增**选区注入**：抓当前笔记选区 → 选区 chip → 发送时作只读上下文注入（`buildSelectionBlock`，`shared/selection`）；仅聊天路径，不碰 inline-edit。
+16. ✅ 选区实时 chip（2026-07-12）：选区来源改为追踪 `lastMarkdownView`（聚焦聊天后 `workspace.activeEditor` 会变空）；模型改回点击弹出（悬停易误触）；`document` 去抖监听 `selectionchange`，选区一变 chip 即出现/更新/消失（实时镜像，无 ✕，取消选择即消失，选中期间每次发送都带上）。曾同时做过编辑区「加入聊天」浮层（B），因干扰太大**已撤除**（连 `selectionWidgetPosition`/module/CSS/i18n 一并清干净）。
+17. ✅ 默认色改土黄 + 设置精简（2026-07-12）：CSS 默认 fallback 从 `--interactive-accent` 改为土黄 `#C8B487`（`primaryColor` 为空时生效，仍可自定义覆盖）；强调底文字（用户气泡/激活标签）改黑。设置页删掉模型/授权两项（已在工具栏前台）。
+18. ✅ 界面语言设置（2026-07-12）：设置「外观」组加语言下拉 Auto（跟随 Obsidian）/ 中文 / English；`language` 设置项（默认 auto，版本 7→8）+ `applyLang`（auto 走 `detectLang`）；onload 按设置应用；切换即时刷新设置页并提示重开聊天面板生效。补齐 4.4 缺的「用户可手选语言」。

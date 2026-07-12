@@ -1,4 +1,4 @@
-import { ItemView, Component, setIcon } from 'obsidian';
+import { ItemView, Component, MarkdownView, setIcon } from 'obsidian';
 import type { WorkspaceLeaf } from 'obsidian';
 import { ConversationManager } from '../../core/session/manager';
 import { CodebuddyProvider } from '../../providers/codebuddy';
@@ -6,7 +6,7 @@ import { type Conversation, type WorkbuddianSettings } from '../../types';
 import { WORKBUDDIAN_ICON_ID } from '../../shared/icon';
 import { renderTabs, createNewChat } from './tabs';
 import { renderMessages } from './render';
-import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips } from './input';
+import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, openAttachmentPicker, openPermissionMenu, openModelMenu, permissionIcon, captureNoteSelection } from './input';
 import type { SlashCommandInfo } from '../../shared/slashCommand';
 import { t } from '../../i18n';
 
@@ -29,17 +29,24 @@ export class WorkbuddianChatView extends ItemView {
     activeConvId: string | null = null;
     markdownComponent: Component;
     loadDataCallback: () => Promise<Conversation[]>;
+    saveSettingsCallback: () => Promise<void>;
     customCommands: SlashCommandInfo[] = [];
+    attachChipsEl!: HTMLElement;
+    attachments: string[] = [];
+    selectionEl!: HTMLElement;
+    selection: { text: string; note: string } | null = null;
+    lastMarkdownView: MarkdownView | null = null;
 
     get vaultPath(): string | undefined {
         const adapter = this.app.vault.adapter as { basePath?: string };
         return adapter.basePath;
     }
 
-    constructor(leaf: WorkspaceLeaf, api: CodebuddyProvider, manager: ConversationManager, settings: WorkbuddianSettings, loadDataCallback: () => Promise<Conversation[]>) {
+    constructor(leaf: WorkspaceLeaf, api: CodebuddyProvider, manager: ConversationManager, settings: WorkbuddianSettings, loadDataCallback: () => Promise<Conversation[]>, saveSettingsCallback: () => Promise<void>) {
         super(leaf);
         this.api = api;
         this.loadDataCallback = loadDataCallback;
+        this.saveSettingsCallback = saveSettingsCallback;
         this.manager = manager;
         this.settings = settings;
         this.markdownComponent = new Component();
@@ -60,6 +67,13 @@ export class WorkbuddianChatView extends ItemView {
         const container = this.contentEl;
         container.empty();
         container.addClass('workbuddian-chat-container');
+
+        // 追踪最后一个 Markdown 视图：聚焦聊天面板后 workspace.activeEditor 会变空，
+        // 需靠它在发送时读回笔记选区（CM 选区在失焦后仍保留）
+        this.lastMarkdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => {
+            if (leaf?.view instanceof MarkdownView) this.lastMarkdownView = leaf.view;
+        }));
 
         // 顶部标签栏
         this.tabBar = container.createDiv({ cls: 'workbuddian-tab-bar' });
@@ -98,8 +112,11 @@ export class WorkbuddianChatView extends ItemView {
 
         // 底部输入区
         this.chipsEl = container.createDiv({ cls: 'workbuddian-ref-chips workbuddian-hidden' });
+        this.attachChipsEl = container.createDiv({ cls: 'workbuddian-ref-chips workbuddian-hidden' });
+        this.selectionEl = container.createDiv({ cls: 'workbuddian-ref-chips workbuddian-hidden' });
         const inputArea = container.createDiv({ cls: 'workbuddian-input-area' });
-        this.inputEl = inputArea.createEl('textarea', {
+        const inputBox = inputArea.createDiv({ cls: 'workbuddian-input-box' });
+        this.inputEl = inputBox.createEl('textarea', {
             cls: 'workbuddian-input',
             attr: { placeholder: t('view.inputPlaceholder'), rows: '2' }
         });
@@ -109,13 +126,50 @@ export class WorkbuddianChatView extends ItemView {
             renderReferenceChips(this);
             if (!updateSlashSuggest(this)) updateAtSuggest(this);
         };
+        // 聚焦输入框时抓取当前笔记的选区，作为聊天上下文 chip
+        this.inputEl.addEventListener('focus', () => captureNoteSelection(this));
+        // 选区实时同步：笔记里选区一变，chip 就跟着出现/更新/消失（去抖）
+        let selChangeTimer: number | null = null;
+        this.registerDomEvent(document, 'selectionchange', () => {
+            if (selChangeTimer !== null) window.clearTimeout(selChangeTimer);
+            selChangeTimer = window.setTimeout(() => captureNoteSelection(this), 120);
+        });
         this.atSuggestEl = inputArea.createDiv({ cls: 'workbuddian-at-suggest workbuddian-hidden' });
 
-        this.sendBtn = inputArea.createEl('button', {
-            text: t('view.send'),
-            cls: 'workbuddian-send-btn',
-            attr: { 'aria-label': t('view.send') }
+        // 输入框内底部工具栏：左侧 模型/附件/授权，右侧 圆环 + 发送图标
+        const toolbar = inputBox.createDiv({ cls: 'workbuddian-input-toolbar' });
+
+        // 模型选择（点击弹出菜单）
+        const modelBtn = toolbar.createDiv({
+            cls: 'workbuddian-model-btn',
+            attr: { 'aria-label': t('settings.model'), title: t('settings.model'), role: 'button', tabindex: '0' }
         });
+        modelBtn.setText(this.settings.model);
+        modelBtn.addEventListener('click', () => openModelMenu(this, modelBtn));
+
+        // 附件（系统文件选择器挑任意文件）
+        const attachBtn = toolbar.createEl('button', {
+            cls: 'workbuddian-toolbar-btn',
+            attr: { 'aria-label': t('input.attach'), title: t('input.attach') }
+        });
+        setIcon(attachBtn, 'paperclip');
+        attachBtn.onclick = () => openAttachmentPicker(this);
+
+        // 授权（permission 模式）
+        const permBtn = toolbar.createEl('button', {
+            cls: 'workbuddian-toolbar-btn',
+            attr: { 'aria-label': t('input.permission') }
+        });
+        setIcon(permBtn, permissionIcon(this.settings.permissionMode));
+        permBtn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + this.settings.permissionMode)}`);
+        permBtn.onclick = (e) => openPermissionMenu(this, permBtn, e);
+
+        const rightGroup = toolbar.createDiv({ cls: 'workbuddian-toolbar-right' });
+        this.sendBtn = rightGroup.createEl('button', {
+            cls: 'workbuddian-send-btn',
+            attr: { 'aria-label': t('view.send'), title: t('view.send') }
+        });
+        setIcon(this.sendBtn, 'send');
         this.sendBtn.onclick = () => {
             if (this.isStreaming) {
                 this.api.cancel();

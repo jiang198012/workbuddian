@@ -1,7 +1,8 @@
 import { spawn, type SpawnOptions } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
-import { getErrorMessage, getString, isObject } from '../../types';
+import { getErrorMessage, getNumber, getString, isObject, type UsageInfo } from '../../types';
+import { type PermissionMode } from '../../shared/cliOptions';
 import { findNodeExecutable, resolveCodebuddyPath } from '../../utils/cliPath';
 
 const TIMEOUT = 300_000; // 5 分钟
@@ -13,6 +14,7 @@ export interface StreamChunk {
     content: string;
     toolName?: string;
     toolDetail?: string;
+    usage?: UsageInfo;
 }
 
 interface MessageBlock {
@@ -33,6 +35,17 @@ interface StreamEvent {
     error?: string;
     message?: string;
     content?: string;
+    usage?: UsageInfo;
+}
+
+/** 从事件对象里抽取 token 用量：读 usage.input_tokens，缺失或非数字返回 undefined */
+export function parseUsage(raw: unknown): UsageInfo | undefined {
+    if (!isObject(raw)) return undefined;
+    const usage = raw.usage;
+    if (!isObject(usage)) return undefined;
+    const inputTokens = getNumber(usage, 'input_tokens');
+    if (typeof inputTokens !== 'number') return undefined;
+    return { inputTokens };
 }
 
 
@@ -83,6 +96,7 @@ export function parseStreamEvent(raw: unknown): StreamEvent | null {
         error: getString(event, 'error'),
         message: getString(event, 'message'),
         content: getString(event, 'content'),
+        usage: parseUsage(event),
     };
 }
 
@@ -125,7 +139,7 @@ export function parseStreamLine(line: string): StreamChunk | null {
             };
         }
         if (event.type === 'result') {
-            return { type: 'done', content: event.result || '' };
+            return { type: 'done', content: event.result || '', usage: event.usage };
         }
         if (event.type === 'error') {
             return { type: 'error', content: event.error || event.message || '未知错误' };
@@ -164,6 +178,7 @@ export class CodebuddyProvider {
     private activeProc: ReturnType<typeof spawn> | null = null;
     private nodePathOverride: string = '';
     private model: string = 'auto';
+    private permissionMode: PermissionMode = 'default';
 
     constructor(timeout: number = TIMEOUT) {
         this.timeout = timeout;
@@ -186,6 +201,10 @@ export class CodebuddyProvider {
         this.model = model;
     }
 
+    setPermissionMode(mode: PermissionMode): void {
+        this.permissionMode = mode;
+    }
+
     generateId(): string {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
             const r: number = (Math.random() * 16) | 0;
@@ -205,7 +224,7 @@ export class CodebuddyProvider {
         }
 
         // --print --output-format stream-json: 结构化流式输出
-        const cliArgs = ['--print', '--output-format', 'stream-json', '--session-id', sessionId, '--model', this.model, text];
+        const cliArgs = ['--print', '--output-format', 'stream-json', '--session-id', sessionId, '--model', this.model, '--permission-mode', this.permissionMode, text];
 
         // Node 18+ Windows 下 spawn .cmd/.bat 需要 shell: true
         if (needsWindowsShell(scriptPath)) {

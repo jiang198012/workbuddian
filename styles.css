@@ -54,8 +54,8 @@
 }
 
 .workbuddian-tab-active {
-    background: var(--workbuddian-primary, var(--interactive-accent));
-    color: var(--text-on-accent);
+    background: var(--workbuddian-primary, #C8B487);
+    color: #000;
 }
 
 .workbuddian-tab-title {
@@ -67,7 +67,7 @@
     font-size: var(--font-ui-smaller);
     background: var(--background-primary);
     color: var(--text-normal);
-    border: 1px solid var(--workbuddian-primary, var(--interactive-accent));
+    border: 1px solid var(--workbuddian-primary, #C8B487);
     border-radius: var(--workbuddian-radius-sm);
     padding: 1px 4px;
     max-width: 120px;
@@ -233,13 +233,13 @@
 }
 
 .workbuddian-message-user .workbuddian-bubble ::selection {
-    background: rgba(255, 255, 255, 0.4);
-    color: var(--text-on-accent);
+    background: rgba(0, 0, 0, 0.18);
+    color: #000;
 }
 
 .workbuddian-message-user .workbuddian-bubble {
-    background: var(--workbuddian-primary, var(--interactive-accent));
-    color: var(--text-on-accent);
+    background: var(--workbuddian-primary, #C8B487);
+    color: #000;
     border-bottom-right-radius: var(--workbuddian-radius-sm);
 }
 
@@ -247,7 +247,7 @@
     background: var(--background-secondary);
     color: var(--text-normal);
     border-bottom-left-radius: var(--workbuddian-radius-sm);
-    border-left: 3px solid var(--workbuddian-primary, var(--interactive-accent));
+    border-left: 3px solid var(--workbuddian-primary, #C8B487);
 }
 
 /* ==================== 思考中指示器 ==================== */
@@ -330,7 +330,7 @@
 .workbuddian-thinking-header-icon {
     display: flex;
     align-items: center;
-    color: var(--workbuddian-primary, var(--interactive-accent));
+    color: var(--workbuddian-primary, #C8B487);
 }
 
 .workbuddian-thinking-header-icon svg {
@@ -418,7 +418,7 @@
     font-size: 11px;
     font-family: var(--font-monospace);
     color: var(--text-muted);
-    border-left: 3px solid var(--workbuddian-primary, var(--interactive-accent));
+    border-left: 3px solid var(--workbuddian-primary, #C8B487);
     background: transparent;
     white-space: nowrap;
     overflow: hidden;
@@ -530,7 +530,7 @@
 .workbuddian-bubble blockquote {
     margin: 6px 0;
     padding: var(--workbuddian-gap-xs) var(--workbuddian-gap-lg);
-    border-left: 3px solid var(--workbuddian-primary, var(--interactive-accent));
+    border-left: 3px solid var(--workbuddian-primary, #C8B487);
     background: var(--background-primary-alt);
     border-radius: 0 var(--workbuddian-radius-sm) var(--workbuddian-radius-sm) 0;
 }
@@ -545,35 +545,47 @@
 /* ==================== 输入区 ==================== */
 .workbuddian-input-area {
     position: relative;
-    display: flex;
-    gap: var(--workbuddian-gap-md);
-    padding: 10px var(--workbuddian-gap-lg);
+    padding: 7px var(--workbuddian-gap-lg);
     border-top: 1px solid var(--background-modifier-border);
     flex-shrink: 0;
 }
 
-.workbuddian-input {
-    flex: 1;
-    resize: none;
-    padding: var(--workbuddian-gap-sm) 10px;
+.workbuddian-input-box {
+    display: flex;
+    flex-direction: column;
+    gap: var(--workbuddian-gap-xs);
+    padding: var(--workbuddian-gap-xs) var(--workbuddian-gap-md);
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--workbuddian-radius-lg);
+    background: var(--background-primary);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.workbuddian-input-box:focus-within {
+    border-color: var(--workbuddian-primary, #C8B487);
+    box-shadow: 0 0 0 1px var(--workbuddian-primary, #C8B487);
+}
+
+.workbuddian-input {
+    flex: none;
+    width: 100%;
+    resize: none;
+    padding: 2px;
+    border: none;
     font-size: var(--font-ui-small);
     line-height: 1.5;
-    background: var(--background-primary);
+    background: transparent;
     color: var(--text-normal);
     font-family: inherit;
-    min-height: 40px;
+    min-height: 28px;
     max-height: 200px;
     height: var(--workbuddian-input-height, auto);
     overflow-y: hidden;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .workbuddian-input:focus {
     outline: none;
-    border-color: var(--workbuddian-primary, var(--interactive-accent));
-    box-shadow: 0 0 0 1px var(--workbuddian-primary, var(--interactive-accent));
+    box-shadow: none;
 }
 
 .workbuddian-at-suggest {
@@ -601,25 +613,96 @@
     background: var(--background-modifier-hover);
 }
 
-.workbuddian-send-btn {
-    padding: var(--workbuddian-gap-sm) 16px;
-    border: none;
-    border-radius: var(--workbuddian-radius-lg);
-    background: var(--workbuddian-primary, var(--interactive-accent));
-    color: var(--text-on-accent);
-    font-size: var(--font-ui-small);
-    font-weight: 500;
+/* ==================== 输入框内工具栏 + 上下文用量指示器 ==================== */
+.workbuddian-input-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--workbuddian-gap-sm);
+    min-width: 0;
+}
+
+/* 发送等右侧控件永不被压缩、永远留在框内 */
+.workbuddian-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--workbuddian-gap-sm);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* 空间不足时优先收缩模型按钮，保证右侧发送不被挤出 */
+.workbuddian-model-btn {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 77px;
+    padding: 1px 4px;
+    border-radius: var(--workbuddian-radius-sm);
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
     cursor: pointer;
-    align-self: flex-end;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.workbuddian-model-btn:hover {
+    color: var(--text-normal);
+    background: var(--background-modifier-hover);
+}
+
+.workbuddian-toolbar-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: var(--workbuddian-radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s ease;
+}
+
+.workbuddian-toolbar-btn:hover {
+    color: var(--text-normal);
+}
+
+.workbuddian-toolbar-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.workbuddian-send-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: var(--workbuddian-radius-sm);
+    background: transparent;
+    color: var(--workbuddian-primary, #C8B487);
+    cursor: pointer;
+    flex-shrink: 0;
     transition: opacity 0.15s ease, transform 0.1s ease;
 }
 
+.workbuddian-send-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
 .workbuddian-send-btn:hover {
-    opacity: 0.9;
+    opacity: 0.75;
 }
 
 .workbuddian-send-btn:active {
-    transform: scale(0.98);
+    transform: scale(0.9);
 }
 
 /* ==================== 滚动条 ==================== */
@@ -711,6 +794,18 @@
     border: 1px solid var(--background-modifier-border);
     color: var(--text-muted);
     font-size: 0.8em;
+}
+.workbuddian-ref-chip-icon {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+.workbuddian-ref-chip-icon svg {
+    width: 12px;
+    height: 12px;
+}
+.workbuddian-selection-chip {
+    max-width: 240px;
 }
 .workbuddian-ref-chip-name {
     overflow: hidden;

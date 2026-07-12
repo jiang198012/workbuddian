@@ -1,19 +1,7 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import type WorkbuddianPlugin from '../../main';
 import { DEFAULT_SETTINGS, migrateSettings, exportSettings } from '../../types';
-import { t } from '../../i18n';
-
-const MODEL_OPTIONS: Record<string, string> = {
-    hy3: 'hy3',
-    'glm-5.2': 'glm-5.2',
-    'glm-5.1': 'glm-5.1',
-    'glm-5v-turbo': 'glm-5v-turbo',
-    'minimax-m3': 'minimax-m3',
-    'kimi-k2.7': 'kimi-k2.7',
-    'kimi-k2.6': 'kimi-k2.6',
-    'deepseek-v4-flash': 'deepseek-v4-flash',
-    'deepseek-v4-pro': 'deepseek-v4-pro'
-};
+import { applyLang, t } from '../../i18n';
 
 export class WorkbuddianSettingTab extends PluginSettingTab {
     plugin: WorkbuddianPlugin;
@@ -69,17 +57,7 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                     }
                 }));
 
-        new Setting(containerEl)
-            .setName(t('settings.model'))
-            .setDesc(t('settings.modelDesc'))
-            .addDropdown(dropdown => dropdown
-                .addOptions({ auto: t('settings.modelAuto'), ...MODEL_OPTIONS })
-                .setValue(this.plugin.settings.model)
-                .onChange(async (value) => {
-                    this.plugin.settings.model = value;
-                    this.plugin.api.setModel(value);
-                    await this.plugin.saveSettings();
-                }));
+        // 模型 / 授权已移到聊天工具栏前台，设置页不再重复
 
         // ===== 上下文注入 =====
         new Setting(containerEl).setName(t('settings.inject')).setHeading();
@@ -108,12 +86,24 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
         new Setting(containerEl).setName(t('settings.appearance')).setHeading();
 
         new Setting(containerEl)
+            .setName(t('settings.language'))
+            .setDesc(t('settings.languageDesc'))
+            .addDropdown(dropdown => dropdown
+                .addOptions({ auto: t('settings.langAuto'), zh: t('settings.langZh'), en: t('settings.langEn') })
+                .setValue(this.plugin.settings.language)
+                .onChange(async (value) => {
+                    this.plugin.settings.language = value as 'auto' | 'zh' | 'en';
+                    applyLang(this.plugin.settings.language);
+                    await this.plugin.saveSettings();
+                    this.display();
+                    new Notice(t('settings.langReload'));
+                }));
+
+        new Setting(containerEl)
             .setName(t('settings.primary'))
             .setDesc(t('settings.primaryDesc'))
             .addColorPicker(picker => {
-                const current = this.plugin.settings.primaryColor
-                    || getComputedStyle(document.body).getPropertyValue('--interactive-accent').trim()
-                    || '#7c3aed';
+                const current = this.plugin.settings.primaryColor || '#C8B487';
                 picker
                     .setValue(current)
                     .onChange(async (value) => {
@@ -128,6 +118,20 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                     this.plugin.settings.primaryColor = '';
                     await this.plugin.saveSettings();
                     this.display();
+                }));
+
+        new Setting(containerEl)
+            .setName(t('settings.contextWindow'))
+            .setDesc(t('settings.contextWindowDesc'))
+            .addText(text => text
+                .setPlaceholder('200000')
+                .setValue(String(this.plugin.settings.contextWindowSize))
+                .onChange(async (value) => {
+                    const num = parseInt(value, 10);
+                    if (!isNaN(num) && num > 0) {
+                        this.plugin.settings.contextWindowSize = num;
+                        await this.plugin.saveSettings();
+                    }
                 }));
 
         // ===== 重置 =====

@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { CodebuddyProvider, parseStreamLine, parseMessageBlock, blockToChunk, parseStreamEvent, isWindowsWrapper, isBareFallback, needsWindowsShell, type StreamChunk } from '../src/providers/codebuddy';
+import { CodebuddyProvider, parseStreamLine, parseMessageBlock, blockToChunk, parseStreamEvent, parseUsage, isWindowsWrapper, isBareFallback, needsWindowsShell, type StreamChunk } from '../src/providers/codebuddy';
 import { resolveCodebuddyPath, findNodeExecutable } from '../src/utils/cliPath';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -152,6 +152,41 @@ describe('CodebuddyProvider', () => {
             expect(cliArgs).toContain('glm-5.2');
         });
 
+        it('passes the default permission mode to the CLI as --permission-mode', async () => {
+            const { proc, emit } = createFakeProc();
+            mockedSpawn.mockReturnValue(proc as any);
+
+            const api = new CodebuddyProvider();
+            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
+            const gen = api.sendMessage('session-perm', 'hello');
+
+            const firstPromise = gen.next();
+            emit('', 'close', 0, null);
+            await firstPromise;
+
+            const [, cliArgs] = mockedSpawn.mock.calls[0];
+            expect(cliArgs).toContain('--permission-mode');
+            expect(cliArgs).toContain('default');
+        });
+
+        it('uses setPermissionMode() to override the permission mode passed to the CLI', async () => {
+            const { proc, emit } = createFakeProc();
+            mockedSpawn.mockReturnValue(proc as any);
+
+            const api = new CodebuddyProvider();
+            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
+            api.setPermissionMode('plan');
+            const gen = api.sendMessage('session-perm-2', 'hello');
+
+            const firstPromise = gen.next();
+            emit('', 'close', 0, null);
+            await firstPromise;
+
+            const [, cliArgs] = mockedSpawn.mock.calls[0];
+            expect(cliArgs).toContain('--permission-mode');
+            expect(cliArgs).toContain('plan');
+        });
+
         it('uses setNodePath() to override automatic Node.js discovery', async () => {
             const { proc, emit } = createFakeProc();
             mockedSpawn.mockReturnValue(proc as any);
@@ -256,6 +291,18 @@ describe('parseStreamEvent', () => {
         expect(parseStreamEvent({ type: 'direct', text: 'value' })).toMatchObject({
             type: 'direct', text: 'value'
         });
+    });
+});
+
+describe('parseUsage', () => {
+    it('extracts inputTokens from a usage object', () => {
+        expect(parseUsage({ usage: { input_tokens: 22594 } })).toEqual({ inputTokens: 22594 });
+    });
+
+    it('returns undefined when usage or input_tokens is missing or invalid', () => {
+        expect(parseUsage({})).toBeUndefined();
+        expect(parseUsage(null)).toBeUndefined();
+        expect(parseUsage({ usage: { input_tokens: 'x' } })).toBeUndefined();
     });
 });
 
@@ -495,6 +542,11 @@ describe('parseStreamLine', () => {
     it('parses result event', () => {
         const line = JSON.stringify({ type: 'result', result: 'done' });
         expect(parseStreamLine(line)).toEqual({ type: 'done', content: 'done' });
+    });
+
+    it('carries token usage from a result event', () => {
+        const line = JSON.stringify({ type: 'result', result: 'done', usage: { input_tokens: 22594, output_tokens: 3 } });
+        expect(parseStreamLine(line)).toEqual({ type: 'done', content: 'done', usage: { inputTokens: 22594 } });
     });
 
     it('parses error event', () => {
