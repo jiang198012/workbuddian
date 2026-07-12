@@ -21,6 +21,11 @@ export function initLang(): void {
     setLang(detectLang());
 }
 
+/** 按设置应用界面语言：'auto' 跟随 Obsidian，否则用指定语言 */
+export function applyLang(setting: 'auto' | Lang): void {
+    setLang(setting === 'auto' ? detectLang() : setting);
+}
+
 /**
  * 全部用户可见字符串的中英对照。key 用 kebab/dot 命名，逐文件补充。
  * 仅面向用户的 UI 文案进此表；[BB] 日志、发给 CLI 的 prompt、注释不进。
@@ -47,6 +52,16 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'settings.injectNote': { zh: '注入当前笔记链接', en: 'Inject current note link' },
     'settings.injectNoteDesc': { zh: '开启后，每次发送消息都会附上当前正在查看的笔记标题和路径（不包含正文内容）', en: 'When on, every message includes the current note title and path (not its content).' },
     'settings.appearance': { zh: '外观', en: 'Appearance' },
+    'settings.language': { zh: '界面语言', en: 'Interface language' },
+    'settings.languageDesc': { zh: '插件界面显示语言。Auto 跟随 Obsidian。切换后重新打开聊天面板或 Cmd+R 完全生效。', en: 'Plugin UI language. Auto follows Obsidian. Reopen the chat panel or reload to fully apply.' },
+    'settings.langAuto': { zh: 'Auto（跟随 Obsidian）', en: 'Auto (follow Obsidian)' },
+    'settings.langZh': { zh: '中文', en: '中文' },
+    'settings.langEn': { zh: 'English', en: 'English' },
+    'settings.langReload': { zh: '语言已切换，重新打开聊天面板或 Cmd+R 完全生效', en: 'Language changed — reopen the chat panel or reload to fully apply' },
+    'settings.contextWindow': { zh: '上下文窗口上限（token）', en: 'Context window size (tokens)' },
+    'settings.contextWindowDesc': { zh: '计算上下文用量百分比的分母。不同模型窗口不同，可按实际调整（默认 200000）。', en: 'Denominator for the context-usage percentage. Adjust to your model’s window (default 200000).' },
+    'settings.permissionMode': { zh: '授权模式', en: 'Permission mode' },
+    'settings.permissionModeDesc': { zh: '控制 CodeBuddy 执行操作前的授权级别，等同工具栏盾牌图标：默认（每步询问）/ 完全访问（跳过所有授权）。', en: 'Authorization level before CodeBuddy acts; same as the toolbar shield: Default (asks each step) / Full access (skips all).' },
     'settings.primary': { zh: '聊天主色调', en: 'Chat accent color' },
     'settings.primaryDesc': { zh: '自定义聊天面板的强调色（用户气泡、发送按钮、边框、focus 高亮等）。点「恢复默认」跟随 Obsidian 主题色。', en: 'Customize the chat accent color (user bubble, send button, borders, focus ring). Click "Reset" to follow the Obsidian theme.' },
     'settings.resetTooltip': { zh: '恢复默认（跟随主题色）', en: 'Reset (follow theme color)' },
@@ -69,6 +84,12 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
 
     'input.removeReference': { zh: '移除引用', en: 'Remove reference' },
     'input.customCommand': { zh: '（自定义命令）', en: '(Custom command)' },
+    'input.attach': { zh: '附加文件', en: 'Attach files' },
+    'input.permission': { zh: '授权模式', en: 'Permission mode' },
+    'perm.default': { zh: '默认（每步询问）', en: 'Default (ask each step)' },
+    'perm.plan': { zh: '计划模式（只读不改）', en: 'Plan (read-only)' },
+    'perm.acceptEdits': { zh: '自动接受编辑', en: 'Accept edits' },
+    'perm.bypassPermissions': { zh: '完全访问', en: 'Full access' },
     'input.stop': { zh: '停止', en: 'Stop' },
     'input.bubbleNotFound': { zh: '找不到 Assistant 消息气泡', en: 'Assistant message bubble not found' },
     'input.thinking': { zh: '思考中...', en: 'Thinking...' },
@@ -84,6 +105,8 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'view.searchPlaceholder': { zh: '搜索对话...', en: 'Search chats...' },
     'view.inputPlaceholder': { zh: '输入消息... (Shift+Enter 换行，Enter 发送)', en: 'Type a message... (Shift+Enter for newline, Enter to send)' },
     'view.send': { zh: '发送', en: 'Send' },
+
+    'usage.tooltip': { zh: '上下文 {used} / {total} tokens', en: 'Context {used} / {total} tokens' },
 
     'render.emptyTitle': { zh: '开始新对话', en: 'Start a new conversation' },
     'render.emptySubtitle': { zh: '点击上方 + 按钮或输入消息开始聊天', en: 'Click the + button above or type a message to start chatting' },

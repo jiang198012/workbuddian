@@ -7,7 +7,7 @@ import { WorkbuddianSettingTab } from './features/settings/tab';
 import { registerWorkbuddianIcon, WORKBUDDIAN_ICON_ID } from './shared/icon';
 import { applyPrimaryColor } from './shared/primaryColor';
 import { runInlineEdit } from './features/inline-edit';
-import { initLang, t } from './i18n';
+import { applyLang, t } from './i18n';
 
 export default class WorkbuddianPlugin extends Plugin {
     settings: WorkbuddianSettings;
@@ -19,7 +19,7 @@ export default class WorkbuddianPlugin extends Plugin {
         try {
             await this.loadSettings();
 
-            initLang();
+            applyLang(this.settings.language);
 
             // 注册品牌图标，供 ribbon 按钮与视图 tab 使用（须在使用该 id 之前）
             registerWorkbuddianIcon();
@@ -46,7 +46,7 @@ export default class WorkbuddianPlugin extends Plugin {
                     const view = new WorkbuddianChatView(leaf, this.api, this.manager, this.settings, async () => {
                         const data = normalizePersistedData(await this.loadData());
                         return data.conversations || [];
-                    });
+                    }, async () => { await this.saveSettings(); });
                     this.chatView = view;
                     return view;
                 }
@@ -101,6 +101,7 @@ export default class WorkbuddianPlugin extends Plugin {
         this.api.setTimeout(this.settings.cliTimeoutMinutes * 60_000);
         this.api.setNodePath(this.settings.nodePath);
         this.api.setModel(this.settings.model);
+        this.api.setPermissionMode(this.settings.permissionMode);
     }
 
     async activateView() {

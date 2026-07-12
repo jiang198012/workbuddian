@@ -1,8 +1,15 @@
-import { t, setLang, STRINGS } from '../src/i18n';
+import { t, setLang, applyLang, STRINGS } from '../src/i18n';
 
 describe('i18n', () => {
     it('returns zh text when lang is zh', () => {
         setLang('zh');
+        expect(t('chat.send')).toBe('发送');
+    });
+
+    it('applyLang switches to an explicit language', () => {
+        applyLang('en');
+        expect(t('chat.send')).toBe('Send');
+        applyLang('zh');
         expect(t('chat.send')).toBe('发送');
     });
     it('returns en text when lang is en', () => {

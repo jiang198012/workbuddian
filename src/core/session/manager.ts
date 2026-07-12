@@ -1,4 +1,4 @@
-import type { Conversation, ChatMessage } from '../../types';
+import type { Conversation, ChatMessage, UsageInfo } from '../../types';
 import { generateId, getErrorMessage } from '../../types';
 
 export class ConversationManager {
@@ -162,6 +162,14 @@ export class ConversationManager {
         const conv = this.conversations.get(convId);
         if (!conv) return false;
         conv.sessionId = sessionId;
+        return true;
+    }
+
+    /** 记录对话最近一轮的 token 用量（流式内更新，随后 flush 持久化） */
+    setUsage(convId: string, usage: UsageInfo): boolean {
+        const conv = this.conversations.get(convId);
+        if (!conv) return false;
+        conv.lastUsage = usage;
         return true;
     }
 

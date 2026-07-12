@@ -1,3 +1,5 @@
+import { type PermissionMode, isPermissionMode } from '../shared/cliOptions';
+
 // ==================== 聊天类型 ====================
 export interface ChatMessage {
     id: string;
@@ -7,6 +9,11 @@ export interface ChatMessage {
     isError?: boolean;
 }
 
+/** 单轮 CLI 上报的 token 用量（取整轮 prompt 总量的 input_tokens 作已用上下文） */
+export interface UsageInfo {
+    inputTokens: number;
+}
+
 export interface Conversation {
     id: string;
     title: string;
@@ -14,6 +21,7 @@ export interface Conversation {
     messages: ChatMessage[];
     createdAt: number;
     updatedAt: number;
+    lastUsage?: UsageInfo;
 }
 
 // ==================== 设置类型 ====================
@@ -25,10 +33,14 @@ export interface WorkbuddianSettings {
     injectCurrentNoteLink: boolean;
     model: string;
     primaryColor: string;
+    contextWindowSize: number;
+    permissionMode: PermissionMode;
+    language: 'auto' | 'zh' | 'en';
     version: number;
 }
 
-const CURRENT_SETTINGS_VERSION = 5;
+const CURRENT_SETTINGS_VERSION = 8;
+const DEFAULT_CONTEXT_WINDOW_SIZE = 200000;
 
 export const DEFAULT_SETTINGS: WorkbuddianSettings = {
     codebuddyPath: '',
@@ -38,6 +50,9 @@ export const DEFAULT_SETTINGS: WorkbuddianSettings = {
     injectCurrentNoteLink: false,
     model: 'auto',
     primaryColor: '',
+    contextWindowSize: DEFAULT_CONTEXT_WINDOW_SIZE,
+    permissionMode: 'default',
+    language: 'auto',
     version: CURRENT_SETTINGS_VERSION
 };
 
@@ -84,6 +99,8 @@ export function migrateSettings(stored: unknown): WorkbuddianSettings {
     const cliTimeoutMinutes = getNumber(stored, 'cliTimeoutMinutes');
     const injectVaultContext = getBoolean(stored, 'injectVaultContext');
     const injectCurrentNoteLink = getBoolean(stored, 'injectCurrentNoteLink');
+    const contextWindowSize = getNumber(stored, 'contextWindowSize');
+    const language = getString(stored, 'language');
 
     return {
         codebuddyPath: getString(stored, 'codebuddyPath') ?? DEFAULT_SETTINGS.codebuddyPath,
@@ -99,6 +116,15 @@ export function migrateSettings(stored: unknown): WorkbuddianSettings {
             : DEFAULT_SETTINGS.injectCurrentNoteLink,
         model: getString(stored, 'model') ?? DEFAULT_SETTINGS.model,
         primaryColor: getString(stored, 'primaryColor') ?? DEFAULT_SETTINGS.primaryColor,
+        contextWindowSize: typeof contextWindowSize === 'number' && contextWindowSize > 0
+            ? contextWindowSize
+            : DEFAULT_SETTINGS.contextWindowSize,
+        permissionMode: isPermissionMode(stored.permissionMode)
+            ? stored.permissionMode
+            : DEFAULT_SETTINGS.permissionMode,
+        language: language === 'zh' || language === 'en' || language === 'auto'
+            ? language
+            : DEFAULT_SETTINGS.language,
         version: CURRENT_SETTINGS_VERSION
     };
 }

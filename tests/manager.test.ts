@@ -101,6 +101,16 @@ describe('ConversationManager', () => {
         expect(manager.deleteConversation('missing')).toBe(false);
     });
 
+    it('stores last token usage on the conversation via setUsage', () => {
+        const conv = manager.createConversation();
+        expect(manager.setUsage(conv.id, { inputTokens: 22594 })).toBe(true);
+        expect(manager.getById(conv.id)?.lastUsage).toEqual({ inputTokens: 22594 });
+    });
+
+    it('setUsage returns false for a missing conversation', () => {
+        expect(manager.setUsage('missing', { inputTokens: 1 })).toBe(false);
+    });
+
     it('sets session id', () => {
         const conv = manager.createConversation();
         expect(manager.setSessionId(conv.id, 'session-1')).toBe(true);
