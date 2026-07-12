@@ -8,10 +8,16 @@
 
 > Connect Obsidian to WorkBuddy/CodeBuddy CLI for AI chat.
 
+[![CI](https://github.com/jiang198012/workbuddian/actions/workflows/ci.yml/badge.svg)](https://github.com/jiang198012/workbuddian/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/jiang198012/workbuddian?sort=semver)](https://github.com/jiang198012/workbuddian/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > **⚠️ Windows and macOS are supported.** Linux is not supported yet.
 > **Requires Obsidian 1.7.2+.**
+
+<!-- TODO(截图/GIF)：录一张聊天面板的截图或演示 GIF，放到 docs/images/，替换下面这行 -->
+<!-- ![Workbuddian chat panel](docs/images/screenshot.png) -->
+> 📸 _Screenshot/demo coming soon — see [docs/images/](docs/images/)._
 
 Workbuddian is an unofficial Obsidian plugin that bridges your vault with the local WorkBuddy / CodeBuddy CLI. It opens a chat panel inside Obsidian, streams AI responses, displays thinking steps and tool calls, and keeps your conversation history across sessions.
 
@@ -25,10 +31,20 @@ Workbuddian is an unofficial Obsidian plugin that bridges your vault with the lo
 
 ## Installation
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/ben4202121/buddybridge/releases/latest).
+### Via BRAT (recommended for now)
+
+1. Install the **BRAT** community plugin.
+2. BRAT → *Add Beta Plugin* → enter `jiang198012/workbuddian`.
+3. Enable **Workbuddian** in **Settings → Community plugins**.
+
+### Manual
+
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/jiang198012/workbuddian/releases/latest).
 2. Copy the three files into `.obsidian/plugins/workbuddian/` inside your vault.
 3. Restart Obsidian.
 4. Go to **Settings → Community plugins → Turn off Safe Mode → Enable Workbuddian**.
+
+> Not yet in the official Obsidian community plugins directory — submission is planned.
 
 ### First-time setup
 
@@ -75,10 +91,20 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 
 ## 安装
 
-1. 从 [latest release](https://github.com/ben4202121/buddybridge/releases/latest) 下载 `main.js`、`manifest.json`、`styles.css`。
+### 通过 BRAT（当前推荐）
+
+1. 安装社区插件 **BRAT**。
+2. BRAT → *Add Beta Plugin* → 填 `jiang198012/workbuddian`。
+3. 在 **设置 → 第三方插件** 里启用 **Workbuddian**。
+
+### 手动
+
+1. 从 [latest release](https://github.com/jiang198012/workbuddian/releases/latest) 下载 `main.js`、`manifest.json`、`styles.css`。
 2. 复制到 Vault 目录下的 `.obsidian/plugins/workbuddian/`。
 3. 重启 Obsidian。
 4. 进入 **设置 → 第三方插件 → 关闭安全模式 → 开启 Workbuddian**。
+
+> 尚未进入 Obsidian 官方社区插件目录，收录申请计划中。
 
 ## 使用方法
 
@@ -152,6 +178,7 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 | `找不到 Node.js 来运行 codebuddy` | Node.js 未正确配置            | 完成上方的「环境初始化」               |
 | 一直显示「思考中」              | 流式结束未清理占位元素           | 已在 v1.0.11 修复                |
 | 重启后对话丢失                 | chatView 未正确持有导致无法加载历史 | 已在 v1.0.11 修复                |
+| `（无响应，请重试）`           | 本轮流式结束但没收到任何正文（纯工具调用轮 / CLI 超时 / 模型空回复） | 直接重试；仍旧则打开开发者控制台看 `[BB]` 日志（chunk 类型、exit code、stderr）判断 |
 
 ## 权限授权
 
@@ -166,9 +193,12 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 | CodeBuddy 路径       | CLI 可执行文件路径（留空自动检测）        | 自动  |
 | CLI 超时时长（分钟）   | 单次响应最长等待时间，超时强制中断         | 5   |
 | 手动指定 Node.js 路径 | 留空自动探测；探测失败时手动指定 node 完整路径 | 自动  |
-| 模型                | CodeBuddy CLI 使用的模型            | auto |
 | 注入 Vault 上下文     | 每次消息附上当前 Vault 路径             | 开   |
 | 注入当前笔记链接        | 每次消息附上当前笔记标题+路径（不含正文）      | 关   |
+| 界面语言             | Auto（跟随 Obsidian）/ 中文 / English | Auto |
+| 聊天主色调           | 自定义强调色（留空＝默认土黄）             | 默认 |
+
+> **模型**与**授权模式**已移到聊天输入框底部工具栏：点当前模型名可切换模型，点盾牌图标切换权限（默认 / 完全访问）。工具栏还有 **📎 附件**（挑任意文件注入）。在笔记里选中文字会实时出现「选区」chip，随消息作只读上下文发送。
 
 ## 开发
 
