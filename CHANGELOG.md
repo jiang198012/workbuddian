@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.3.0 — 2026-07-12
+
+输入区工具栏重构 + 选区注入 + 默认配色 + 界面语言；首个对外开源版本。
+
+### 新增
+- **输入区重构**：输入框改为带边框容器 + 框内底部工具栏，发送键改小图标（流式时变停止图标）。
+- **模型下拉**：工具栏内点击弹出模型菜单，切换即持久化（复用 `MODEL_OPTIONS`）。
+- **附件**：系统文件选择器挑任意文件 → 可删 chips → 发送时注入绝对路径，交 CLI 用文件工具读取（`shared/attachments`）。
+- **授权模式**：工具栏盾牌菜单「默认 / 完全访问」，透传 `--permission-mode`；完全访问时盾牌带感叹号（`shield-alert`）。
+- **4.1 上下文用量**：实测 CLI `result.usage.input_tokens` 提供数据（后因占地移除展示，采集层保留）。
+- **选区注入**：追踪 `lastMarkdownView`，笔记选中即实时显示选区 chip，发送时作只读上下文注入（`shared/selection`）。
+- **界面语言设置**：外观组下拉 Auto（跟随 Obsidian）/ 中文 / English（`applyLang`）。
+
+### 改进
+- **默认配色**：默认强调色改土黄 `#C8B487`（`primaryColor` 为空时的 CSS fallback，仍可自定义覆盖）；强调底文字（用户气泡 / 激活标签）改黑。
+- **设置页精简**：模型 / 授权已在工具栏前台，设置页移除重复项。
+- 理顺版本：`versions.json` 清理为 0.x 映射，`manifest`/`package.json` 补作者与仓库地址。
+
+### 测试
+- 189 项测试全绿（v0.2.0 的 156 → 189），新增 `attachments`/`contextUsage`/`selection`/`cliOptions` 等纯逻辑单测；全程 TDD。
+
 ## v0.2.0 — 2026-07-11
 
 第四阶段长任务收官版本。
