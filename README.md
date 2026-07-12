@@ -1,9 +1,10 @@
 # Workbuddian
 
-> **Workbuddian** — an independently built Obsidian plugin whose design references the
-> MIT-licensed projects [BuddyBridge](https://github.com/ben4202121/buddybridge) and
-> Claudian. **Thanks to both projects!** Workbuddian is not a fork of, or affiliated
-> with, either. Features: a main-pane large panel command, real stop-generation,
+> **Workbuddian** — an independent rework of [BuddyBridge](https://github.com/ben4202121/buddybridge)
+> v1.0.13 (MIT). Portions of the code derive from BuddyBridge and remain MIT-licensed
+> (see `LICENSE` / `NOTICE`); the UI additionally references Claudian (MIT) for design
+> patterns only. **Thanks to both projects!** Maintained independently; not affiliated
+> with either. Features: a main-pane large panel command, real stop-generation,
 > conversation rename/export/search, an `@`-note reference picker, file attachments,
 > a model/permission toolbar, selection-to-chat, and full macOS support (auto-detection
 > of `WorkBuddy.app` and Homebrew-installed Node.js).
@@ -91,7 +92,7 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 
 > 将 Obsidian 连接到 WorkBuddy/CodeBuddy CLI，实现侧边栏 AI 聊天。
 
-> **致谢**：Workbuddian 是独立构建的 Obsidian 插件，设计上参考了 MIT 协议的 [BuddyBridge](https://github.com/ben4202121/buddybridge) 与 Claudian——感谢两个项目！本插件不是它们的 fork，也不隶属于它们。
+> **来源与致谢**：Workbuddian 是基于 [BuddyBridge](https://github.com/ben4202121/buddybridge) v1.0.13（MIT）的独立重构（衍生作品），部分代码源自 BuddyBridge 并保留其 MIT 许可（见 `LICENSE` / `NOTICE`）；UI 另参考了 Claudian（MIT，仅借鉴设计、未复制代码）。感谢两个项目！本插件独立维护，不隶属于它们。
 
 ## 安装
 
