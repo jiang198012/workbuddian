@@ -3,8 +3,8 @@
   "name": "Workbuddian",
   "minAppVersion": "1.7.2",
   "description": "Embed WorkBuddy/CodeBuddy CLI as an AI agent in your Obsidian vault: chat, streaming, conversation rename/export/search, @-note references. Independent rework based on BuddyBridge (MIT).",
-  "author": "jiang",
-  "authorUrl": "https://github.com/ben4202121/buddybridge",
+  "author": "jiang198012",
+  "authorUrl": "https://github.com/jiang198012/workbuddian",
   "isDesktopOnly": true,
-  "version": "0.1.0"
+  "version": "0.3.0"
 }

@@ -18,8 +18,16 @@
     "gateway",
     "knowledge-base"
   ],
-  "author": "",
+  "author": "jiang198012",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jiang198012/workbuddian.git"
+  },
+  "homepage": "https://github.com/jiang198012/workbuddian#readme",
+  "bugs": {
+    "url": "https://github.com/jiang198012/workbuddian/issues"
+  },
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/node": "^16.11.6",
