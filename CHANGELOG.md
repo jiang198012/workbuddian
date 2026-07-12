@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.2.0 — 2026-07-11
+
+第四阶段长任务收官版本。
+
+### 新增
+- **3.2 斜杠命令安全透传**：`/clear` 本地新建对话，其余 `/` 命令跳过 context 注入原样透传给 CLI。
+- **3.3 输入 `/` 自动补全**：内置命令表 + 扫描 vault `.codebuddy/commands/**/*.md` 自定义命令（`commandNameFromPath` + frontmatter）。
+- **1.3 友好错误卡片 + 重试**：错误以卡片呈现（⚠️ + [重试] [打开设置]）；`sendMessage` 解耦出 `sendText`，重试经 `deleteLastExchange` 重发。
+- **2.2 导入/导出设置**：`exportSettings` 复制 JSON / 粘贴导入走 `migrateSettings` 容错。
+- **4.2 文件引用 chips**：`@[[note]]` 在输入框上方可视化为可删除 chip（`renderReferenceChips` + `removeAtReference`）。
+- **4.3 Inline Edit + Diff**：命令「用 CodeBuddy 编辑选区」→ 指令 Modal → 调 CLI → `lineDiff`(LCS) 行级 diff Modal → 接受写回。
+- **4.4 i18n 中 / 英**：`src/i18n/index.ts` 98 个中英字典 key + `t()`，`initLang` 跟随 Obsidian 界面语言（发给 CLI 的 prompt 与 `[BB]` 日志保持中文）。
+
+### 决策
+- 3.4 交互式命令：暂缓（插件侧再造命令 UI 收益低）。
+- 4.5 移动端：砍（`child_process.spawn` 本地 CLI，移动端不可行）。
+- 4.1 上下文用量：待 CLI 提供 token 数据再做。
+
+### 测试
+- 156 项测试全绿（v0.1.0 的 107 → 156），含 `lineDiff`/`editPrompt`/`slashCommand`/i18n 等纯逻辑单测。
+
 ## v0.1.0 — 2026-07-11
 
 首个入库版本。

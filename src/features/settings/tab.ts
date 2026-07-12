@@ -1,9 +1,9 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import type WorkbuddianPlugin from '../../main';
-import { DEFAULT_SETTINGS } from '../../types';
+import { DEFAULT_SETTINGS, migrateSettings, exportSettings } from '../../types';
+import { t } from '../../i18n';
 
 const MODEL_OPTIONS: Record<string, string> = {
-    auto: 'Auto（默认，由 CodeBuddy 自动选择）',
     hy3: 'hy3',
     'glm-5.2': 'glm-5.2',
     'glm-5.1': 'glm-5.1',
@@ -28,13 +28,13 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
         containerEl.empty();
 
         // ===== CodeBuddy 连接 =====
-        new Setting(containerEl).setName('CodeBuddy 连接').setHeading();
+        new Setting(containerEl).setName(t('settings.conn')).setHeading();
 
         new Setting(containerEl)
-            .setName('CodeBuddy 路径')
-            .setDesc('codebuddy 可执行文件路径。如 WorkBuddy 自定义安装，路径通常为：安装目录\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy（右键 WorkBuddy 快捷方式 → 打开文件位置 可找到安装目录）')
+            .setName(t('settings.path'))
+            .setDesc(t('settings.pathDesc'))
             .addText(text => text
-                .setPlaceholder('WorkBuddy安装目录\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy')
+                .setPlaceholder(t('settings.pathPlaceholder'))
                 .setValue(this.plugin.settings.codebuddyPath)
                 .onChange(async (value) => {
                     this.plugin.settings.codebuddyPath = value;
@@ -43,10 +43,10 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('手动指定 Node.js 路径')
-            .setDesc('留空则自动探测。如果自动探测失败（例如非标准安装路径），可以在这里手动指定 node 可执行文件的完整路径')
+            .setName(t('settings.node'))
+            .setDesc(t('settings.nodeDesc'))
             .addText(text => text
-                .setPlaceholder('留空 = 自动探测')
+                .setPlaceholder(t('settings.nodePlaceholder'))
                 .setValue(this.plugin.settings.nodePath)
                 .onChange(async (value) => {
                     this.plugin.settings.nodePath = value;
@@ -55,8 +55,8 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('CLI 超时时长（分钟）')
-            .setDesc('CodeBuddy CLI 单次响应最长等待时间，超过会强制中断')
+            .setName(t('settings.timeout'))
+            .setDesc(t('settings.timeoutDesc'))
             .addText(text => text
                 .setPlaceholder('5')
                 .setValue(String(this.plugin.settings.cliTimeoutMinutes))
@@ -70,10 +70,10 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('模型')
-            .setDesc('CodeBuddy CLI 使用的模型')
+            .setName(t('settings.model'))
+            .setDesc(t('settings.modelDesc'))
             .addDropdown(dropdown => dropdown
-                .addOptions(MODEL_OPTIONS)
+                .addOptions({ auto: t('settings.modelAuto'), ...MODEL_OPTIONS })
                 .setValue(this.plugin.settings.model)
                 .onChange(async (value) => {
                     this.plugin.settings.model = value;
@@ -82,11 +82,11 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                 }));
 
         // ===== 上下文注入 =====
-        new Setting(containerEl).setName('上下文注入').setHeading();
+        new Setting(containerEl).setName(t('settings.inject')).setHeading();
 
         new Setting(containerEl)
-            .setName('注入 Vault 上下文')
-            .setDesc('开启后，每次发送消息都会自动附上当前 Vault 路径，让 AI 基于 Vault 中的文件回答问题')
+            .setName(t('settings.injectVault'))
+            .setDesc(t('settings.injectVaultDesc'))
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.injectVaultContext)
                 .onChange(async (value) => {
@@ -95,8 +95,8 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('注入当前笔记链接')
-            .setDesc('开启后，每次发送消息都会附上当前正在查看的笔记标题和路径（不包含正文内容）')
+            .setName(t('settings.injectNote'))
+            .setDesc(t('settings.injectNoteDesc'))
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.injectCurrentNoteLink)
                 .onChange(async (value) => {
@@ -105,11 +105,11 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                 }));
 
         // ===== 外观 =====
-        new Setting(containerEl).setName('外观').setHeading();
+        new Setting(containerEl).setName(t('settings.appearance')).setHeading();
 
         new Setting(containerEl)
-            .setName('聊天主色调')
-            .setDesc('自定义聊天面板的强调色（用户气泡、发送按钮、边框、focus 高亮等）。点「恢复默认」跟随 Obsidian 主题色。')
+            .setName(t('settings.primary'))
+            .setDesc(t('settings.primaryDesc'))
             .addColorPicker(picker => {
                 const current = this.plugin.settings.primaryColor
                     || getComputedStyle(document.body).getPropertyValue('--interactive-accent').trim()
@@ -123,7 +123,7 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
             })
             .addExtraButton(btn => btn
                 .setIcon('rotate-ccw')
-                .setTooltip('恢复默认（跟随主题色）')
+                .setTooltip(t('settings.resetTooltip'))
                 .onClick(async () => {
                     this.plugin.settings.primaryColor = '';
                     await this.plugin.saveSettings();
@@ -131,22 +131,22 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                 }));
 
         // ===== 重置 =====
-        new Setting(containerEl).setName('重置').setHeading();
+        new Setting(containerEl).setName(t('settings.reset')).setHeading();
 
         new Setting(containerEl)
-            .setName('重置为默认')
-            .setDesc('清空所有自定义设置，恢复到插件默认值（包括路径、模型、注入开关、主色调）。')
+            .setName(t('settings.resetDefault'))
+            .setDesc(t('settings.resetDesc'))
             .addButton(btn => {
-                btn.setButtonText('重置为默认').setWarning();
+                btn.setButtonText(t('settings.resetDefault')).setWarning();
                 let armed = false;
                 let timer: number | null = null;
                 btn.onClick(async () => {
                     if (!armed) {
                         armed = true;
-                        btn.setButtonText('确认重置？');
+                        btn.setButtonText(t('settings.resetConfirm'));
                         timer = window.setTimeout(() => {
                             armed = false;
-                            btn.setButtonText('重置为默认');
+                            btn.setButtonText(t('settings.resetDefault'));
                         }, 3000);
                         return;
                     }
@@ -155,8 +155,39 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                     this.plugin.applySettingsToApi();
                     await this.plugin.saveSettings();
                     this.display();
-                    new Notice('已重置为默认设置');
+                    new Notice(t('settings.resetDone'));
                 });
             });
+
+        // ===== 备份 =====
+        new Setting(containerEl).setName(t('settings.backup')).setHeading();
+
+        new Setting(containerEl)
+            .setName(t('settings.export'))
+            .setDesc(t('settings.exportDesc'))
+            .addButton(btn => btn.setButtonText(t('settings.exportBtn')).onClick(async () => {
+                await navigator.clipboard.writeText(exportSettings(this.plugin.settings));
+                new Notice(t('settings.exportDone'));
+            }));
+
+        let importValue = '';
+        new Setting(containerEl)
+            .setName(t('settings.import'))
+            .setDesc(t('settings.importDesc'))
+            .addTextArea(ta => {
+                ta.setPlaceholder(t('settings.importPlaceholder'));
+                ta.onChange(v => { importValue = v; });
+            })
+            .addButton(btn => btn.setButtonText(t('settings.importBtn')).setWarning().onClick(async () => {
+                try {
+                    this.plugin.settings = migrateSettings(JSON.parse(importValue));
+                    this.plugin.applySettingsToApi();
+                    await this.plugin.saveSettings();
+                    new Notice(t('settings.importDone'));
+                    this.display();
+                } catch (e) {
+                    new Notice(t('settings.importErr'));
+                }
+            }));
     }
 }

@@ -21,3 +21,9 @@ export function parseAtReferences(text: string): string[] {
     }
     return names;
 }
+
+/** 从文本中删除某个 @[[笔记名]] 引用的所有出现（含一个尾随空格）；name 做正则转义 */
+export function removeAtReference(text: string, name: string): string {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return text.replace(new RegExp(`@\\[\\[${escaped}\\]\\]\\s?`, 'g'), '');
+}

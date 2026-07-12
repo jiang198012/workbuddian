@@ -6,7 +6,9 @@ import { type Conversation, type WorkbuddianSettings } from '../../types';
 import { WORKBUDDIAN_ICON_ID } from '../../shared/icon';
 import { renderTabs, createNewChat } from './tabs';
 import { renderMessages } from './render';
-import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest } from './input';
+import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips } from './input';
+import type { SlashCommandInfo } from '../../shared/slashCommand';
+import { t } from '../../i18n';
 
 export const VIEW_TYPE_CHAT = "workbuddian-panel";
 
@@ -17,6 +19,7 @@ export class WorkbuddianChatView extends ItemView {
     messageContainer!: HTMLElement;
     inputEl!: HTMLTextAreaElement;
     atSuggestEl!: HTMLElement;
+    chipsEl!: HTMLElement;
     sendBtn!: HTMLButtonElement;
     tabBar!: HTMLElement;
     searchInput!: HTMLInputElement;
@@ -26,6 +29,7 @@ export class WorkbuddianChatView extends ItemView {
     activeConvId: string | null = null;
     markdownComponent: Component;
     loadDataCallback: () => Promise<Conversation[]>;
+    customCommands: SlashCommandInfo[] = [];
 
     get vaultPath(): string | undefined {
         const adapter = this.app.vault.adapter as { basePath?: string };
@@ -43,7 +47,7 @@ export class WorkbuddianChatView extends ItemView {
     }
 
     getViewType(): string { return VIEW_TYPE_CHAT; }
-    getDisplayText(): string { return "Workbuddian 聊天"; }
+    getDisplayText(): string { return t('view.displayText'); }
     getIcon(): string { return WORKBUDDIAN_ICON_ID; }
 
     getManager(): ConversationManager { return this.manager; }
@@ -62,7 +66,7 @@ export class WorkbuddianChatView extends ItemView {
         const newBtn = this.tabBar.createEl('button', {
             text: '',
             cls: 'workbuddian-new-chat-btn',
-            attr: { title: '新建对话', 'aria-label': '新建对话' }
+            attr: { title: t('view.newChat'), 'aria-label': t('view.newChat') }
         });
         setIcon(newBtn, 'plus');
         newBtn.onclick = () => createNewChat(this);
@@ -70,12 +74,12 @@ export class WorkbuddianChatView extends ItemView {
         const searchBtn = this.tabBar.createEl('button', {
             text: '',
             cls: 'workbuddian-search-btn',
-            attr: { title: '搜索对话', 'aria-label': '搜索对话' }
+            attr: { title: t('view.searchChat'), 'aria-label': t('view.searchChat') }
         });
         setIcon(searchBtn, 'search');
         this.searchInput = this.tabBar.createEl('input', {
             cls: 'workbuddian-search-input workbuddian-hidden',
-            attr: { type: 'text', placeholder: '搜索对话...' }
+            attr: { type: 'text', placeholder: t('view.searchPlaceholder') }
         });
         searchBtn.onclick = () => {
             const isHidden = this.searchInput.hasClass('workbuddian-hidden');
@@ -93,22 +97,24 @@ export class WorkbuddianChatView extends ItemView {
         this.messageContainer = container.createDiv({ cls: 'workbuddian-messages' });
 
         // 底部输入区
+        this.chipsEl = container.createDiv({ cls: 'workbuddian-ref-chips workbuddian-hidden' });
         const inputArea = container.createDiv({ cls: 'workbuddian-input-area' });
         this.inputEl = inputArea.createEl('textarea', {
             cls: 'workbuddian-input',
-            attr: { placeholder: '输入消息... (Shift+Enter 换行，Enter 发送)', rows: '2' }
+            attr: { placeholder: t('view.inputPlaceholder'), rows: '2' }
         });
         this.inputEl.onkeydown = (e) => handleKeydown(this, e);
         this.inputEl.oninput = () => {
             adjustTextareaHeight(this);
+            renderReferenceChips(this);
             if (!updateSlashSuggest(this)) updateAtSuggest(this);
         };
         this.atSuggestEl = inputArea.createDiv({ cls: 'workbuddian-at-suggest workbuddian-hidden' });
 
         this.sendBtn = inputArea.createEl('button', {
-            text: '发送',
+            text: t('view.send'),
             cls: 'workbuddian-send-btn',
-            attr: { 'aria-label': '发送' }
+            attr: { 'aria-label': t('view.send') }
         });
         this.sendBtn.onclick = () => {
             if (this.isStreaming) {
@@ -117,6 +123,8 @@ export class WorkbuddianChatView extends ItemView {
                 void sendMessage(this);
             }
         };
+
+        void loadCustomCommands(this); // 预加载 .codebuddy/commands 自定义命令
 
         // DOM 构建完成后加载历史对话
         // 若 manager 已经被另一个同时打开的面板加载过，直接复用其内存状态渲染，
