@@ -18,9 +18,9 @@
 > **⚠️ Windows and macOS are supported.** Linux is not supported yet.
 > **Requires Obsidian 1.7.2+.**
 
-<!-- TODO(截图/GIF)：录一张聊天面板的截图或演示 GIF，放到 docs/images/，替换下面这行 -->
-<!-- ![Workbuddian chat panel](docs/images/screenshot.png) -->
-> 📸 _Screenshot/demo coming soon — see [docs/images/](docs/images/)._
+![Workbuddian — settings & chat](docs/images/screenshot.png)
+
+![Workbuddian demo](docs/images/workbuddian-intro.gif)
 
 Workbuddian is an unofficial Obsidian plugin that bridges your vault with the local WorkBuddy / CodeBuddy CLI. It opens a chat panel inside Obsidian, streams AI responses, displays thinking steps and tool calls, and keeps your conversation history across sessions.
 
