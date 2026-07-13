@@ -147,6 +147,7 @@ var STRINGS = {
   "input.removeReference": { zh: "\u79FB\u9664\u5F15\u7528", en: "Remove reference" },
   "input.customCommand": { zh: "\uFF08\u81EA\u5B9A\u4E49\u547D\u4EE4\uFF09", en: "(Custom command)" },
   "input.attach": { zh: "\u9644\u52A0\u6587\u4EF6", en: "Attach files" },
+  "input.imageSaveFailed": { zh: "\u56FE\u7247\u4FDD\u5B58\u5931\u8D25", en: "Failed to save image" },
   "input.permission": { zh: "\u6388\u6743\u6A21\u5F0F", en: "Permission mode" },
   "perm.default": { zh: "\u9ED8\u8BA4\uFF08\u6BCF\u6B65\u8BE2\u95EE\uFF09", en: "Default (ask each step)" },
   "perm.plan": { zh: "\u8BA1\u5212\u6A21\u5F0F\uFF08\u53EA\u8BFB\u4E0D\u6539\uFF09", en: "Plan (read-only)" },
@@ -951,6 +952,56 @@ function buildAttachmentBlock(paths) {
   return lines.join("\n");
 }
 
+// src/shared/imageStore.ts
+var fs2 = __toESM(require("fs"));
+var path3 = __toESM(require("path"));
+var IMAGE_EXTS = /* @__PURE__ */ new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"]);
+var MIME_EXT = {
+  "image/png": ".png",
+  "image/jpeg": ".jpg",
+  "image/jpg": ".jpg",
+  "image/gif": ".gif",
+  "image/webp": ".webp",
+  "image/bmp": ".bmp",
+  "image/svg+xml": ".svg"
+};
+function extForMime(mime) {
+  return MIME_EXT[mime.toLowerCase()] || ".png";
+}
+function pastedImageName(seq, ext = ".png") {
+  return `paste-${seq}${ext}`;
+}
+function isImagePath(p) {
+  return IMAGE_EXTS.has(path3.extname(p).toLowerCase());
+}
+function writeImageFile(dir, bytes, name) {
+  fs2.mkdirSync(dir, { recursive: true });
+  const full = path3.join(dir, name);
+  fs2.writeFileSync(full, bytes);
+  return full;
+}
+function pruneImages(dir, keepN) {
+  let names;
+  try {
+    names = fs2.readdirSync(dir);
+  } catch (e) {
+    return;
+  }
+  const files = names.map((n) => path3.join(dir, n)).filter((p) => {
+    try {
+      return fs2.statSync(p).isFile();
+    } catch (e) {
+      return false;
+    }
+  }).map((p) => ({ p, mtime: fs2.statSync(p).mtimeMs })).sort((a, b) => b.mtime - a.mtime);
+  for (const { p } of files.slice(keepN)) {
+    try {
+      fs2.unlinkSync(p);
+    } catch (e) {
+    }
+  }
+}
+
 // src/shared/selection.ts
 function buildSelectionBlock(selectedText, noteName) {
   if (!selectedText.trim())
@@ -1042,9 +1093,18 @@ function renderAttachmentChips(view) {
     return;
   }
   view.attachChipsEl.removeClass("workbuddian-hidden");
-  view.attachments.forEach((path3, idx) => {
+  view.attachments.forEach((p, idx) => {
     const chip = view.attachChipsEl.createDiv({ cls: "workbuddian-ref-chip" });
-    chip.createSpan({ cls: "workbuddian-ref-chip-name", text: fileBasename(path3), attr: { title: path3 } });
+    if (isImagePath(p)) {
+      chip.addClass("workbuddian-image-chip");
+      const img = chip.createEl("img", {
+        cls: "workbuddian-image-thumb",
+        attr: { alt: fileBasename(p), title: p }
+      });
+      img.src = thumbSrc(view, p);
+    } else {
+      chip.createSpan({ cls: "workbuddian-ref-chip-name", text: fileBasename(p), attr: { title: p } });
+    }
     const close = chip.createSpan({ cls: "workbuddian-ref-chip-close", attr: { "aria-label": t("input.removeReference"), role: "button", tabindex: "0" } });
     (0, import_obsidian2.setIcon)(close, "x");
     close.onclick = () => {
@@ -1052,6 +1112,23 @@ function renderAttachmentChips(view) {
       renderAttachmentChips(view);
     };
   });
+}
+function thumbSrc(view, absPath) {
+  const base = view.vaultPath;
+  if (base && absPath.startsWith(base)) {
+    const rel = absPath.slice(base.length).replace(/^[\\/]/, "");
+    return view.app.vault.adapter.getResourcePath(rel);
+  }
+  try {
+    const buf = require("fs").readFileSync(absPath);
+    const ext = require("path").extname(absPath).slice(1) || "png";
+    return `data:image/${ext};base64,${buf.toString("base64")}`;
+  } catch (e) {
+    return "";
+  }
+}
+function pastedDir(view) {
+  return `${view.vaultPath}/${view.app.vault.configDir}/plugins/workbuddian/pasted`;
 }
 function captureNoteSelection(view) {
   var _a, _b, _c, _d;
@@ -1104,6 +1181,45 @@ function openAttachmentPicker(view) {
     renderAttachmentChips(view);
   };
   input.click();
+}
+async function handlePaste(view, e) {
+  var _a, _b;
+  const items = Array.from((_b = (_a = e.clipboardData) == null ? void 0 : _a.items) != null ? _b : []);
+  const images = items.filter((it) => it.kind === "file" && it.type.startsWith("image/"));
+  if (images.length === 0)
+    return;
+  e.preventDefault();
+  const dir = pastedDir(view);
+  for (const it of images) {
+    const file = it.getAsFile();
+    if (!file)
+      continue;
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const seq = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+      const name = pastedImageName(seq, extForMime(it.type));
+      const p = writeImageFile(dir, bytes, name);
+      if (!view.attachments.includes(p))
+        view.attachments.push(p);
+    } catch (e2) {
+      new import_obsidian2.Notice(t("input.imageSaveFailed"));
+    }
+  }
+  pruneImages(dir, 20);
+  renderAttachmentChips(view);
+}
+function handleDrop(view, e) {
+  var _a, _b;
+  const files = Array.from((_b = (_a = e.dataTransfer) == null ? void 0 : _a.files) != null ? _b : []);
+  if (files.length === 0)
+    return;
+  e.preventDefault();
+  for (const f of files) {
+    const p = attachmentPath(f);
+    if (p && !view.attachments.includes(p))
+      view.attachments.push(p);
+  }
+  renderAttachmentChips(view);
 }
 var PERMISSION_MODE_ICONS = {
   default: "shield",
@@ -1829,6 +1945,16 @@ var WorkbuddianChatView = class extends import_obsidian5.ItemView {
         updateAtSuggest(this);
     };
     this.inputEl.addEventListener("focus", () => captureNoteSelection(this));
+    this.inputEl.addEventListener("paste", (e) => void handlePaste(this, e));
+    inputBox.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      inputBox.addClass("workbuddian-drop-active");
+    });
+    inputBox.addEventListener("dragleave", () => inputBox.removeClass("workbuddian-drop-active"));
+    inputBox.addEventListener("drop", (e) => {
+      inputBox.removeClass("workbuddian-drop-active");
+      handleDrop(this, e);
+    });
     this.atSuggestEl = inputArea.createDiv({ cls: "workbuddian-at-suggest workbuddian-hidden" });
     const toolbar = inputBox.createDiv({ cls: "workbuddian-input-toolbar" });
     const modelBtn = toolbar.createDiv({

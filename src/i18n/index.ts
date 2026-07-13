@@ -106,6 +106,7 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'input.removeReference': { zh: '移除引用', en: 'Remove reference' },
     'input.customCommand': { zh: '（自定义命令）', en: '(Custom command)' },
     'input.attach': { zh: '附加文件', en: 'Attach files' },
+    'input.imageSaveFailed': { zh: '图片保存失败', en: 'Failed to save image' },
     'input.permission': { zh: '授权模式', en: 'Permission mode' },
     'perm.default': { zh: '默认（每步询问）', en: 'Default (ask each step)' },
     'perm.plan': { zh: '计划模式（只读不改）', en: 'Plan (read-only)' },

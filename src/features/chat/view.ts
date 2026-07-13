@@ -6,7 +6,7 @@ import { type Conversation, type WorkbuddianSettings } from '../../types';
 import { WORKBUDDIAN_ICON_ID } from '../../shared/icon';
 import { renderTabs, createNewChat } from './tabs';
 import { renderMessages } from './render';
-import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, openAttachmentPicker, openPermissionMenu, openModelMenu, permissionIcon, captureNoteSelection } from './input';
+import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, openAttachmentPicker, openPermissionMenu, openModelMenu, permissionIcon, captureNoteSelection, handlePaste, handleDrop } from './input';
 import type { SlashCommandInfo } from '../../shared/slashCommand';
 import { t } from '../../i18n';
 import { bbError } from '../../shared/logBuffer';
@@ -135,6 +135,12 @@ export class WorkbuddianChatView extends ItemView {
         };
         // 聚焦输入框时抓取当前笔记的选区，作为聊天上下文 chip（selectionchange 监听在 onOpen 一次性注册）
         this.inputEl.addEventListener('focus', () => captureNoteSelection(this));
+        // 粘贴图片 → 落盘加附件
+        this.inputEl.addEventListener('paste', (e) => void handlePaste(this, e));
+        // 拖拽文件 → 加附件（带 drop 高亮）
+        inputBox.addEventListener('dragover', (e) => { e.preventDefault(); inputBox.addClass('workbuddian-drop-active'); });
+        inputBox.addEventListener('dragleave', () => inputBox.removeClass('workbuddian-drop-active'));
+        inputBox.addEventListener('drop', (e) => { inputBox.removeClass('workbuddian-drop-active'); handleDrop(this, e); });
         this.atSuggestEl = inputArea.createDiv({ cls: 'workbuddian-at-suggest workbuddian-hidden' });
 
         // 输入框内底部工具栏：左侧 模型/附件/授权，右侧 圆环 + 发送图标

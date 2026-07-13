@@ -7,6 +7,7 @@ import { renderMessages, renderMarkdownContent } from './render';
 import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
 import { fileBasename, buildAttachmentBlock, attachmentDirs } from '../../shared/attachments';
+import { extForMime, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
 import { buildSelectionBlock } from '../../shared/selection';
 import { pickFinalContent } from '../../shared/responseFinalize';
 import { MODEL_OPTIONS, PERMISSION_MODE_CHOICES, type PermissionMode } from '../../shared/cliOptions';
@@ -86,7 +87,7 @@ export function renderReferenceChips(view: WorkbuddianChatView) {
     }
 }
 
-/** 渲染附件 chips（来自 view.attachments 的绝对路径，显示文件名 + ✕ 删除） */
+/** 渲染附件 chips：图片显示缩略图，其它显示文件名；均带 ✕ 删除 */
 export function renderAttachmentChips(view: WorkbuddianChatView) {
     view.attachChipsEl.empty();
     if (view.attachments.length === 0) {
@@ -94,9 +95,18 @@ export function renderAttachmentChips(view: WorkbuddianChatView) {
         return;
     }
     view.attachChipsEl.removeClass('workbuddian-hidden');
-    view.attachments.forEach((path, idx) => {
+    view.attachments.forEach((p, idx) => {
         const chip = view.attachChipsEl.createDiv({ cls: 'workbuddian-ref-chip' });
-        chip.createSpan({ cls: 'workbuddian-ref-chip-name', text: fileBasename(path), attr: { title: path } });
+        if (isImagePath(p)) {
+            chip.addClass('workbuddian-image-chip');
+            const img = chip.createEl('img', {
+                cls: 'workbuddian-image-thumb',
+                attr: { alt: fileBasename(p), title: p },
+            });
+            img.src = thumbSrc(view, p);
+        } else {
+            chip.createSpan({ cls: 'workbuddian-ref-chip-name', text: fileBasename(p), attr: { title: p } });
+        }
         const close = chip.createSpan({ cls: 'workbuddian-ref-chip-close', attr: { 'aria-label': t('input.removeReference'), role: 'button', tabindex: '0' } });
         setIcon(close, 'x');
         close.onclick = () => {
@@ -104,6 +114,27 @@ export function renderAttachmentChips(view: WorkbuddianChatView) {
             renderAttachmentChips(view);
         };
     });
+}
+
+/** 缩略图源：vault 内文件用 Obsidian 资源路径，vault 外文件读盘转 data URL */
+function thumbSrc(view: WorkbuddianChatView, absPath: string): string {
+    const base = view.vaultPath;
+    if (base && absPath.startsWith(base)) {
+        const rel = absPath.slice(base.length).replace(/^[\\/]/, '');
+        return view.app.vault.adapter.getResourcePath(rel);
+    }
+    try {
+        const buf = require('fs').readFileSync(absPath) as Buffer;
+        const ext = require('path').extname(absPath).slice(1) || 'png';
+        return `data:image/${ext};base64,${buf.toString('base64')}`;
+    } catch {
+        return '';
+    }
+}
+
+/** 粘贴图存储目录：<vault>/.obsidian/plugins/workbuddian/pasted */
+function pastedDir(view: WorkbuddianChatView): string {
+    return `${view.vaultPath}/${view.app.vault.configDir}/plugins/workbuddian/pasted`;
 }
 
 /** 读取当前笔记编辑器的选中文字，存入 view.selection 并刷新选区 chip（无选区则清空） */
@@ -165,6 +196,42 @@ export function openAttachmentPicker(view: WorkbuddianChatView) {
         renderAttachmentChips(view);
     };
     input.click();
+}
+
+/** 粘贴：剪贴板里的图片落盘成文件加入附件；纯文本粘贴不拦截 */
+export async function handlePaste(view: WorkbuddianChatView, e: ClipboardEvent) {
+    const items = Array.from(e.clipboardData?.items ?? []);
+    const images = items.filter(it => it.kind === 'file' && it.type.startsWith('image/'));
+    if (images.length === 0) return; // 让默认文本粘贴发生
+    e.preventDefault();
+    const dir = pastedDir(view);
+    for (const it of images) {
+        const file = it.getAsFile();
+        if (!file) continue;
+        try {
+            const bytes = new Uint8Array(await file.arrayBuffer());
+            const seq = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+            const name = pastedImageName(seq, extForMime(it.type));
+            const p = writeImageFile(dir, bytes, name);
+            if (!view.attachments.includes(p)) view.attachments.push(p);
+        } catch {
+            new Notice(t('input.imageSaveFailed'));
+        }
+    }
+    pruneImages(dir, 20);
+    renderAttachmentChips(view);
+}
+
+/** 拖拽放下：文件（图片或其它）用其绝对路径加入附件 */
+export function handleDrop(view: WorkbuddianChatView, e: DragEvent) {
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    if (files.length === 0) return;
+    e.preventDefault();
+    for (const f of files) {
+        const p = attachmentPath(f);
+        if (p && !view.attachments.includes(p)) view.attachments.push(p);
+    }
+    renderAttachmentChips(view);
 }
 
 /** 各 permission 模式的区分图标（完全访问＝盾牌内感叹号） */
