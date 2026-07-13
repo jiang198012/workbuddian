@@ -1,4 +1,5 @@
 import { type PermissionMode, isPermissionMode } from '../shared/cliOptions';
+import { t } from '../i18n';
 
 // ==================== 聊天类型 ====================
 export interface ChatMessage {
@@ -84,7 +85,7 @@ export function getErrorMessage(error: unknown): string {
     if (typeof error === 'string') {
         return error;
     }
-    return '未知错误';
+    return t('common.unknownError');
 }
 
 /**

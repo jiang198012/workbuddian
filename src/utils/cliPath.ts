@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { bbLog } from '../shared/logBuffer';
 
 // ===== Node.js 可执行文件查找 =====
 
@@ -68,13 +69,13 @@ export function findNodeExecutable(): string | null {
         try {
             const nodePath = path.join(dir, NODE_EXECUTABLE);
             if (fs.existsSync(nodePath) && fs.statSync(nodePath).isFile()) {
-                console.log('[BB] found node at:', nodePath);
+                bbLog('[BB] found node at:', nodePath);
                 return nodePath;
             }
         } catch { /* ignore inaccessible path */ }
     }
 
-    console.log("[BB] WARNING: node not found in any search path, falling back to 'node'");
+    bbLog("[BB] WARNING: node not found in any search path, falling back to 'node'");
     return 'node';
 }
 
@@ -146,7 +147,7 @@ export function resolveCodebuddyPath(customPath: string): string {
 
     for (const p of candidates) {
         if (fs.existsSync(p)) {
-            console.log('[BB] resolved codebuddy path:', p);
+            bbLog('[BB] resolved codebuddy path:', p);
             return p;
         }
     }

@@ -492,7 +492,17 @@
     margin: var(--workbuddian-gap-md) 0;
     max-width: 100%;
     overflow-x: auto;
+    padding: var(--workbuddian-gap-sm) var(--workbuddian-gap-md);
+    /* 气泡本身是 --background-secondary，代码块用 primary + 描边拉开对比，避免糊成一片 */
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
     border-radius: var(--workbuddian-radius-md);
+}
+
+/* 代码块内的 code 不再叠加底色/内边距，交给外层 pre */
+.workbuddian-bubble pre code {
+    background: transparent;
+    padding: 0;
 }
 
 .workbuddian-bubble code {
@@ -832,3 +842,24 @@
 .workbuddian-diff-line { padding: 1px 6px; border-radius: 2px; }
 .workbuddian-diff-add { background: var(--background-modifier-success); }
 .workbuddian-diff-remove { background: var(--background-modifier-error); }
+
+/* 日志查看 Modal */
+.workbuddian-log-body {
+    font-family: var(--font-monospace);
+    font-size: var(--font-ui-smaller);
+    max-height: 55vh;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--workbuddian-radius-md);
+    padding: var(--workbuddian-gap-sm) var(--workbuddian-gap-md);
+    margin: var(--workbuddian-gap-sm) 0;
+}
+.workbuddian-log-actions {
+    display: flex;
+    gap: var(--workbuddian-gap-sm);
+    justify-content: flex-end;
+    margin-top: var(--workbuddian-gap-sm);
+}

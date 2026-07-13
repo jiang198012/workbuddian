@@ -21,6 +21,11 @@ export async function switchToChat(view: WorkbuddianChatView, id: string) {
 
 export async function deleteChat(view: WorkbuddianChatView, id: string, e: UIEvent) {
     e.stopPropagation();
+    await removeChat(view, id);
+}
+
+/** 删除对话并刷新（不依赖事件，供 ✕ 按钮与右键菜单共用） */
+export async function removeChat(view: WorkbuddianChatView, id: string) {
     const wasActive = view.activeConvId === id;
     view.manager.deleteConversation(id);
     if (wasActive) {
@@ -46,8 +51,7 @@ export function renderTabs(view: WorkbuddianChatView) {
     const oldTabs = view.tabBar.querySelectorAll('.workbuddian-tab');
     oldTabs.forEach(t => t.remove());
 
-    const query = view.searchInput?.value ?? '';
-    const conversations = view.manager.search(query);
+    const conversations = view.manager.getAll();
     const activeId = view.activeConvId;
 
     for (const conv of conversations) {
@@ -85,7 +89,7 @@ export function renderTabs(view: WorkbuddianChatView) {
         };
         tab.oncontextmenu = (e: MouseEvent) => {
             e.preventDefault();
-            showTabContextMenu(view, e, conv.id);
+            showTabContextMenu(view, e, conv.id, tab, titleSpan);
         };
 
         // 把新建按钮放在最后
@@ -142,10 +146,24 @@ export function beginRenameTab(view: WorkbuddianChatView, tab: HTMLElement, titl
     });
 }
 
-export function showTabContextMenu(view: WorkbuddianChatView, e: MouseEvent, convId: string) {
+export function showTabContextMenu(view: WorkbuddianChatView, e: MouseEvent, convId: string, tab: HTMLElement, titleSpan: HTMLElement) {
     const conv = view.manager.getAll().find(c => c.id === convId);
     if (!conv) return;
     const menu = new Menu();
+
+    menu.addItem((item) =>
+        item.setTitle(t('tabs.rename')).setIcon('pencil').onClick(() => {
+            beginRenameTab(view, tab, titleSpan, convId);
+        })
+    );
+
+    menu.addItem((item) =>
+        item.setTitle(t('tabs.delete')).setIcon('trash-2').onClick(async () => {
+            await removeChat(view, convId);
+        })
+    );
+
+    menu.addSeparator();
 
     menu.addItem((item) =>
         item.setTitle(t('tabs.exportAsNote')).setIcon('file-down').onClick(async () => {

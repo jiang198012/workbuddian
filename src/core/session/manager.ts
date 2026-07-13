@@ -1,5 +1,7 @@
 import type { Conversation, ChatMessage, UsageInfo } from '../../types';
 import { generateId, getErrorMessage } from '../../types';
+import { t, matchesAnyLang } from '../../i18n';
+import { bbError } from '../../shared/logBuffer';
 
 export class ConversationManager {
     private conversations: Map<string, Conversation> = new Map();
@@ -22,7 +24,7 @@ export class ConversationManager {
     }
 
     private handlePersistError(error: unknown) {
-        console.error('[BB] persist failed:', getErrorMessage(error));
+        bbError('[BB] persist failed:', getErrorMessage(error));
     }
 
     /** 显式触发持久化（流式结束后调用） */
@@ -49,7 +51,7 @@ export class ConversationManager {
         const id = generateId();
         const conv: Conversation = {
             id,
-            title: title || '新对话',
+            title: title || t('chat.newConversation'),
             sessionId: '', // 首次发送消息时由 Gateway 分配
             messages: [],
             createdAt: Date.now(),
@@ -134,8 +136,8 @@ export class ConversationManager {
         conv.messages.push(msg);
         conv.updatedAt = Date.now();
 
-        // 首条用户消息自动生成标题
-        if (conv.title === '新对话' && role === 'user' && content.trim()) {
+        // 首条用户消息自动生成标题（跨语言识别默认标题，兼容切换语言前后的旧数据）
+        if (matchesAnyLang(conv.title, 'chat.newConversation') && role === 'user' && content.trim()) {
             conv.title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
         }
 

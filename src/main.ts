@@ -8,6 +8,7 @@ import { registerWorkbuddianIcon, WORKBUDDIAN_ICON_ID } from './shared/icon';
 import { applyPrimaryColor } from './shared/primaryColor';
 import { runInlineEdit } from './features/inline-edit';
 import { applyLang, t } from './i18n';
+import { bbError } from './shared/logBuffer';
 
 export default class WorkbuddianPlugin extends Plugin {
     settings: WorkbuddianSettings;
@@ -85,7 +86,7 @@ export default class WorkbuddianPlugin extends Plugin {
 
             this.addSettingTab(new WorkbuddianSettingTab(this.app, this));
         } catch (e) {
-            console.error('[BB] 插件加载失败:', e);
+            bbError('[BB] 插件加载失败:', e);
             new Notice(t('cmd.loadFailed'));
         }
     }
@@ -93,6 +94,14 @@ export default class WorkbuddianPlugin extends Plugin {
     onunload() {
         this.api.cancel();
         applyPrimaryColor('');
+    }
+
+    /** 语言切换后就地刷新所有已打开的聊天面板，无需重开面板或 Cmd+R */
+    refreshOpenViews() {
+        for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)) {
+            const view = leaf.view;
+            if (view instanceof WorkbuddianChatView) void view.refreshUI();
+        }
     }
 
     /** 把当前 settings 灌入 provider（onload 与「重置为默认」复用） */
@@ -130,7 +139,7 @@ export default class WorkbuddianPlugin extends Plugin {
                 new Notice(t('cmd.cannotCreatePanel'));
             }
         } catch (e) {
-            console.error('[BB] 打开聊天面板失败:', e);
+            bbError('[BB] 打开聊天面板失败:', e);
             new Notice(t('cmd.openPanelFailed'));
         }
     }
@@ -143,7 +152,7 @@ export default class WorkbuddianPlugin extends Plugin {
             await workspace.revealLeaf(leaf);
             workspace.setActiveLeaf(leaf, { focus: true });
         } catch (e) {
-            console.error('[BB] 打开主编辑区面板失败:', e);
+            bbError('[BB] 打开主编辑区面板失败:', e);
             new Notice(t('cmd.openMainPaneFailed'));
         }
     }

@@ -117,6 +117,68 @@ describe('CodebuddyProvider', () => {
             expect(result.done).toBe(true);
         });
 
+        it('passes --include-partial-messages so the CLI streams SSE deltas', async () => {
+            const { proc, emit } = createFakeProc();
+            mockedSpawn.mockReturnValue(proc as any);
+
+            const api = new CodebuddyProvider();
+            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
+            const gen = api.sendMessage('session-partial', 'hello');
+
+            const firstPromise = gen.next();
+            emit('', 'close', 0, null);
+            await firstPromise;
+
+            const [, cliArgs] = mockedSpawn.mock.calls[0];
+            expect(cliArgs).toContain('--include-partial-messages');
+        });
+
+        it('passes --add-dir before --session-id so the variadic does not swallow the message', async () => {
+            const { proc, emit } = createFakeProc();
+            mockedSpawn.mockReturnValue(proc as any);
+
+            const api = new CodebuddyProvider();
+            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
+            const gen = api.sendMessage('session-adddir', 'my message', undefined, ['/Users/x/Desktop', '/tmp']);
+
+            const firstPromise = gen.next();
+            emit('', 'close', 0, null);
+            await firstPromise;
+
+            const [, cliArgs] = mockedSpawn.mock.calls[0];
+            const addIdx = cliArgs.indexOf('--add-dir');
+            const allowIdx = cliArgs.indexOf('--allowedTools');
+            const sessIdx = cliArgs.indexOf('--session-id');
+            expect(addIdx).toBeGreaterThanOrEqual(0);
+            expect(cliArgs).toContain('/Users/x/Desktop');
+            expect(cliArgs).toContain('/tmp');
+            // 每个目录配一条限定的只读授权规则（不是全局 Read，避免越界读任意文件）
+            expect(cliArgs).toContain('Read(/Users/x/Desktop/**)');
+            expect(cliArgs).toContain('Read(/tmp/**)');
+            expect(cliArgs).not.toContain('Read'); // 不应出现裸的全局 Read
+            // 两个变长参数都必须在 --session-id 之前，且 message 仍是最后一个位置参数
+            expect(addIdx).toBeLessThan(sessIdx);
+            expect(allowIdx).toBeLessThan(sessIdx);
+            expect(cliArgs[cliArgs.length - 1]).toBe('my message');
+        });
+
+        it('omits --add-dir when no extra directories are given', async () => {
+            const { proc, emit } = createFakeProc();
+            mockedSpawn.mockReturnValue(proc as any);
+
+            const api = new CodebuddyProvider();
+            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
+            const gen = api.sendMessage('session-nodir', 'hello');
+
+            const firstPromise = gen.next();
+            emit('', 'close', 0, null);
+            await firstPromise;
+
+            const [, cliArgs] = mockedSpawn.mock.calls[0];
+            expect(cliArgs).not.toContain('--add-dir');
+            expect(cliArgs[cliArgs.length - 1]).toBe('hello');
+        });
+
         it('passes the configured model to the CLI as --model', async () => {
             const { proc, emit } = createFakeProc();
             mockedSpawn.mockReturnValue(proc as any);
@@ -567,5 +629,56 @@ describe('parseStreamLine', () => {
     it('returns null for unknown events without fallback text', () => {
         const line = JSON.stringify({ type: 'unknown', value: 123 });
         expect(parseStreamLine(line)).toBeNull();
+    });
+
+    // ---- 增量流式（--include-partial-messages）----
+
+    it('parses a content_block_delta text_delta stream_event as a text chunk', () => {
+        const line = JSON.stringify({
+            type: 'stream_event',
+            event: { type: 'content_block_delta', delta: { type: 'text_delta', text: '你好' } }
+        });
+        expect(parseStreamLine(line)).toEqual({ type: 'text', content: '你好' });
+    });
+
+    it('parses a content_block_delta thinking_delta stream_event as a thinking chunk', () => {
+        const line = JSON.stringify({
+            type: 'stream_event',
+            event: { type: 'content_block_delta', delta: { type: 'thinking_delta', thinking: 'hmm' } }
+        });
+        expect(parseStreamLine(line)).toEqual({ type: 'thinking', content: 'hmm' });
+    });
+
+    it('returns null for an empty text_delta', () => {
+        const line = JSON.stringify({
+            type: 'stream_event',
+            event: { type: 'content_block_delta', delta: { type: 'text_delta', text: '' } }
+        });
+        expect(parseStreamLine(line)).toBeNull();
+    });
+
+    it('returns null for non-delta stream_events (message_start / content_block_stop)', () => {
+        expect(parseStreamLine(JSON.stringify({ type: 'stream_event', event: { type: 'message_start' } }))).toBeNull();
+        expect(parseStreamLine(JSON.stringify({ type: 'stream_event', event: { type: 'content_block_stop' } }))).toBeNull();
+    });
+
+    it('in streaming mode, drops the duplicate text block from the trailing assistant envelope', () => {
+        const line = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: '你好呀' }] } });
+        // 默认（非 streaming）仍解析出 text，保持向后兼容
+        expect(parseStreamLine(line)).toEqual({ type: 'text', content: '你好呀' });
+        // streaming 模式下跳过，避免与增量 delta 的正文翻倍
+        expect(parseStreamLine(line, true)).toBeNull();
+    });
+
+    it('in streaming mode, drops the duplicate thinking block from the assistant envelope', () => {
+        const line = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: 'reason' }] } });
+        expect(parseStreamLine(line, true)).toBeNull();
+    });
+
+    it('in streaming mode, still keeps tool_call blocks from the assistant envelope', () => {
+        const line = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_call', name: 'read', input: { path: '/tmp' } }] } });
+        expect(parseStreamLine(line, true)).toEqual({
+            type: 'tool', content: '', toolName: 'read', toolDetail: JSON.stringify({ path: '/tmp' })
+        });
     });
 });

@@ -2,6 +2,7 @@ import { MarkdownRenderer, setIcon } from 'obsidian';
 import type { ChatMessage } from '../../types';
 import type { WorkbuddianChatView } from './view';
 import { retryLastMessage, openWorkbuddianSettings } from './input';
+import { ensureTableBlankLines } from '../../shared/tableNormalize';
 import { t } from '../../i18n';
 
 export async function renderMessages(view: WorkbuddianChatView) {
@@ -93,7 +94,7 @@ export async function renderMarkdownContent(view: WorkbuddianChatView, bubble: H
 
     await MarkdownRenderer.render(
         view.app,
-        content,
+        ensureTableBlankLines(content),
         markdownContainer,
         '',
         view.markdownComponent

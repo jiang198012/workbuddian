@@ -78,6 +78,20 @@ describe('ConversationManager', () => {
         await new Promise(r => setTimeout(r, 0));
     });
 
+    it('auto-titles even when the default title is the other language (New chat)', () => {
+        // 语言切换后旧数据里默认标题可能是另一种语言，仍应触发首条消息自动命名
+        const conv: Conversation = { id: 'x', title: 'New chat', sessionId: '', messages: [], createdAt: 1, updatedAt: 1 };
+        manager.load([conv]);
+        manager.addMessage('x', 'user', 'First message here');
+        expect(manager.getById('x')?.title).toBe('First message here');
+    });
+
+    it('does not auto-title a user-named conversation on the first message', () => {
+        const conv = manager.createConversation('My named chat');
+        manager.addMessage(conv.id, 'user', 'hello');
+        expect(manager.getById(conv.id)?.title).toBe('My named chat');
+    });
+
     it('updates an existing message', () => {
         const conv = manager.createConversation();
         const msg = manager.addMessage(conv.id, 'assistant', 'initial');

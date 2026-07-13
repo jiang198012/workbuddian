@@ -9,6 +9,7 @@ import { renderMessages } from './render';
 import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, openAttachmentPicker, openPermissionMenu, openModelMenu, permissionIcon, captureNoteSelection } from './input';
 import type { SlashCommandInfo } from '../../shared/slashCommand';
 import { t } from '../../i18n';
+import { bbError } from '../../shared/logBuffer';
 
 export const VIEW_TYPE_CHAT = "workbuddian-panel";
 
@@ -22,7 +23,6 @@ export class WorkbuddianChatView extends ItemView {
     chipsEl!: HTMLElement;
     sendBtn!: HTMLButtonElement;
     tabBar!: HTMLElement;
-    searchInput!: HTMLInputElement;
     isStreaming: boolean = false;
     streamingMsgId: string | null = null;
     activeRename: { input: HTMLInputElement; commit: () => void } | null = null;
@@ -64,16 +64,45 @@ export class WorkbuddianChatView extends ItemView {
     }
 
     async onOpen() {
-        const container = this.contentEl;
-        container.empty();
-        container.addClass('workbuddian-chat-container');
-
         // 追踪最后一个 Markdown 视图：聚焦聊天面板后 workspace.activeEditor 会变空，
         // 需靠它在发送时读回笔记选区（CM 选区在失焦后仍保留）
         this.lastMarkdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
         this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => {
             if (leaf?.view instanceof MarkdownView) this.lastMarkdownView = leaf.view;
         }));
+
+        // 选区实时同步：笔记里选区一变，chip 就跟着出现/更新/消失（去抖）。
+        // 注册在 onOpen（一次性），不随 buildUI 重建 —— 避免语言切换重建 DOM 时重复注册。
+        let selChangeTimer: number | null = null;
+        this.registerDomEvent(document, 'selectionchange', () => {
+            if (selChangeTimer !== null) window.clearTimeout(selChangeTimer);
+            selChangeTimer = window.setTimeout(() => captureNoteSelection(this), 120);
+        });
+
+        this.buildUI();
+
+        // DOM 构建完成后加载历史对话
+        // 若 manager 已经被另一个同时打开的面板加载过，直接复用其内存状态渲染，
+        // 不再重新读盘覆盖——避免用旧快照冲掉另一个面板已做的改动
+        try {
+            if (this.manager.hasConversations()) {
+                this.activeConvId = this.manager.getActive()?.id ?? null;
+                renderTabs(this);
+                await renderMessages(this);
+            } else {
+                const conversations = await this.loadDataCallback();
+                await this.loadConversations(conversations);
+            }
+        } catch (e) {
+            bbError('[BB] 加载历史对话失败:', e);
+        }
+    }
+
+    /** 构建/重建整个面板 DOM（用当前语言的 t() 文案）。语言切换时可重复调用刷新界面语言。 */
+    private buildUI() {
+        const container = this.contentEl;
+        container.empty();
+        container.addClass('workbuddian-chat-container');
 
         // 顶部标签栏
         this.tabBar = container.createDiv({ cls: 'workbuddian-tab-bar' });
@@ -84,28 +113,6 @@ export class WorkbuddianChatView extends ItemView {
         });
         setIcon(newBtn, 'plus');
         newBtn.onclick = () => createNewChat(this);
-
-        const searchBtn = this.tabBar.createEl('button', {
-            text: '',
-            cls: 'workbuddian-search-btn',
-            attr: { title: t('view.searchChat'), 'aria-label': t('view.searchChat') }
-        });
-        setIcon(searchBtn, 'search');
-        this.searchInput = this.tabBar.createEl('input', {
-            cls: 'workbuddian-search-input workbuddian-hidden',
-            attr: { type: 'text', placeholder: t('view.searchPlaceholder') }
-        });
-        searchBtn.onclick = () => {
-            const isHidden = this.searchInput.hasClass('workbuddian-hidden');
-            this.searchInput.toggleClass('workbuddian-hidden', !isHidden);
-            if (isHidden) {
-                this.searchInput.focus();
-            } else {
-                this.searchInput.value = '';
-                renderTabs(this);
-            }
-        };
-        this.searchInput.oninput = () => renderTabs(this);
 
         // 消息区域
         this.messageContainer = container.createDiv({ cls: 'workbuddian-messages' });
@@ -126,14 +133,8 @@ export class WorkbuddianChatView extends ItemView {
             renderReferenceChips(this);
             if (!updateSlashSuggest(this)) updateAtSuggest(this);
         };
-        // 聚焦输入框时抓取当前笔记的选区，作为聊天上下文 chip
+        // 聚焦输入框时抓取当前笔记的选区，作为聊天上下文 chip（selectionchange 监听在 onOpen 一次性注册）
         this.inputEl.addEventListener('focus', () => captureNoteSelection(this));
-        // 选区实时同步：笔记里选区一变，chip 就跟着出现/更新/消失（去抖）
-        let selChangeTimer: number | null = null;
-        this.registerDomEvent(document, 'selectionchange', () => {
-            if (selChangeTimer !== null) window.clearTimeout(selChangeTimer);
-            selChangeTimer = window.setTimeout(() => captureNoteSelection(this), 120);
-        });
         this.atSuggestEl = inputArea.createDiv({ cls: 'workbuddian-at-suggest workbuddian-hidden' });
 
         // 输入框内底部工具栏：左侧 模型/附件/授权，右侧 圆环 + 发送图标
@@ -179,22 +180,15 @@ export class WorkbuddianChatView extends ItemView {
         };
 
         void loadCustomCommands(this); // 预加载 .codebuddy/commands 自定义命令
+    }
 
-        // DOM 构建完成后加载历史对话
-        // 若 manager 已经被另一个同时打开的面板加载过，直接复用其内存状态渲染，
-        // 不再重新读盘覆盖——避免用旧快照冲掉另一个面板已做的改动
-        try {
-            if (this.manager.hasConversations()) {
-                this.activeConvId = this.manager.getActive()?.id ?? null;
-                renderTabs(this);
-                await renderMessages(this);
-            } else {
-                const conversations = await this.loadDataCallback();
-                await this.loadConversations(conversations);
-            }
-        } catch (e) {
-            console.error('[BB] 加载历史对话失败:', e);
-        }
+    /** 语言切换后重建面板 DOM 并保持当前活跃对话与已渲染内容 */
+    async refreshUI() {
+        const keepActive = this.activeConvId;
+        this.buildUI();
+        this.activeConvId = keepActive;
+        renderTabs(this);
+        await renderMessages(this);
     }
 
     async onClose() {

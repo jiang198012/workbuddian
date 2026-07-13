@@ -6,11 +6,12 @@ import type { WorkbuddianChatView } from './view';
 import { renderMessages, renderMarkdownContent } from './render';
 import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
-import { fileBasename, buildAttachmentBlock } from '../../shared/attachments';
+import { fileBasename, buildAttachmentBlock, attachmentDirs } from '../../shared/attachments';
 import { buildSelectionBlock } from '../../shared/selection';
 import { pickFinalContent } from '../../shared/responseFinalize';
 import { MODEL_OPTIONS, PERMISSION_MODE_CHOICES, type PermissionMode } from '../../shared/cliOptions';
 import { t } from '../../i18n';
+import { bbLog } from '../../shared/logBuffer';
 
 export function adjustTextareaHeight(view: WorkbuddianChatView) {
     view.inputEl.style.setProperty('--workbuddian-input-height', `${view.inputEl.scrollHeight}px`);
@@ -135,6 +136,22 @@ export function renderSelectionChip(view: WorkbuddianChatView) {
     // 实时镜像当前笔记选区，无手动 ✕：取消选择即消失
 }
 
+/**
+ * 取所选文件的绝对路径。Electron ≥32（Obsidian 1.8+，当前已到 39）移除了 `File.path`，
+ * 改用 `webUtils.getPathForFile`；老版本回退到 `File.path`。缺了这个兼容，`path` 恒为
+ * undefined → 附件永远进不了 view.attachments → chip 不显示。
+ */
+function attachmentPath(f: File): string {
+    const legacy = (f as File & { path?: string }).path;
+    if (legacy) return legacy;
+    try {
+        const electron = require('electron') as { webUtils?: { getPathForFile?: (file: File) => string } };
+        return electron.webUtils?.getPathForFile?.(f) ?? '';
+    } catch {
+        return '';
+    }
+}
+
 /** 打开系统文件选择器挑任意文件，把绝对路径加入待发送附件 */
 export function openAttachmentPicker(view: WorkbuddianChatView) {
     const input = document.createElement('input');
@@ -142,7 +159,7 @@ export function openAttachmentPicker(view: WorkbuddianChatView) {
     input.multiple = true;
     input.onchange = () => {
         for (const f of Array.from(input.files || [])) {
-            const p = (f as File & { path?: string }).path;
+            const p = attachmentPath(f);
             if (p && !view.attachments.includes(p)) view.attachments.push(p);
         }
         renderAttachmentChips(view);
@@ -352,12 +369,15 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
     const chunkStats: Record<string, number> = {};
     try {
         let contextText: string;
+        let addDirs: string[] = [];
         if (slash) {
             // 斜杠命令：原样透传，不注入 vault 前缀 / 笔记链接 / @引用
             contextText = text;
         } else {
             const referenceBlock = await buildReferenceBlock(view, text);
             const attachmentBlock = buildAttachmentBlock(view.attachments);
+            // 放开 vault 外附件所在目录的读取权限（清空 view.attachments 前先算好）
+            addDirs = attachmentDirs(view.attachments);
             const selectionBlock = view.selection ? buildSelectionBlock(view.selection.text, view.selection.note) : '';
             const extraBlock = [referenceBlock, attachmentBlock, selectionBlock].filter(Boolean).join('\n\n---\n\n');
             const currentNoteLink = view.settings.injectCurrentNoteLink ? buildCurrentNoteLink(view) : '';
@@ -378,7 +398,7 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
             throw new Error(t('input.bubbleNotFound'));
         }
 
-        for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath)) {
+        for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs)) {
             const bubble = streamingBubble;
 
             if (firstChunk) {
@@ -477,7 +497,7 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
 
         if (!finalContent) {
             // 诊断：本轮各类 chunk 计数 + result 文本长度，便于判断是纯工具轮/超时/真空回复
-            console.log('[BB] empty response — chunks:', JSON.stringify(chunkStats), '| resultLen:', resultText.length);
+            bbLog('[BB] empty response — chunks:', JSON.stringify(chunkStats), '| resultLen:', resultText.length);
             view.manager.updateMessage(convId, aiMsg.id, t('input.noResponse'));
         }
 

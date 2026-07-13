@@ -1,4 +1,5 @@
 import type { Conversation } from '../types';
+import { t } from '../i18n';
 
 /**
  * 把一段对话格式化成 Markdown 文本。
@@ -9,7 +10,7 @@ export function formatConversationAsMarkdown(conv: Conversation): string {
 
     const lines: string[] = [`# ${conv.title}`, ''];
     for (const msg of conv.messages) {
-        const label = msg.role === 'user' ? '**用户**' : '**AI**';
+        const label = msg.role === 'user' ? t('export.roleUser') : t('export.roleAssistant');
         lines.push(`${label}:`, msg.content, '');
     }
     return lines.join('\n').trimEnd();

@@ -2,8 +2,10 @@ import { spawn, type SpawnOptions } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import { getErrorMessage, getNumber, getString, isObject, type UsageInfo } from '../../types';
+import { t } from '../../i18n';
 import { type PermissionMode } from '../../shared/cliOptions';
 import { findNodeExecutable, resolveCodebuddyPath } from '../../utils/cliPath';
+import { bbLog } from '../../shared/logBuffer';
 
 const TIMEOUT = 300_000; // 5 分钟
 
@@ -100,7 +102,7 @@ export function parseStreamEvent(raw: unknown): StreamEvent | null {
     };
 }
 
-export function parseStreamLine(line: string): StreamChunk | null {
+export function parseStreamLine(line: string, streaming = false): StreamChunk | null {
     if (!line.trim()) return null;
     try {
         const raw = JSON.parse(line) as unknown;
@@ -111,11 +113,33 @@ export function parseStreamLine(line: string): StreamChunk | null {
             const content = Array.isArray(message?.content) ? message.content : [];
             for (const item of content) {
                 const block = parseMessageBlock(item);
-                if (block) {
-                    const chunk = blockToChunk(block);
-                    if (chunk) return chunk;
+                if (!block) continue;
+                // streaming 模式下 text/thinking 已由增量 delta 逐字吐过，envelope 末尾会
+                // 重复整段正文，跳过以免翻倍；工具块（tool_call）不走 delta，仍需保留
+                if (streaming && (block.type === 'text' || block.type === 'thinking')) continue;
+                const chunk = blockToChunk(block);
+                if (chunk) return chunk;
+            }
+            return null;
+        }
+
+        // Shape 3: --include-partial-messages 的 SSE 增量事件，逐字流式的来源
+        // { type:'stream_event', event:{ type:'content_block_delta', delta:{ type:'text_delta'|'thinking_delta', ... } } }
+        if (isObject(raw) && raw.type === 'stream_event' && isObject(raw.event)) {
+            const ev = raw.event;
+            if (getString(ev, 'type') === 'content_block_delta' && isObject(ev.delta)) {
+                const delta = ev.delta;
+                const dtype = getString(delta, 'type');
+                if (dtype === 'text_delta') {
+                    const text = getString(delta, 'text');
+                    return text ? { type: 'text', content: text } : null;
+                }
+                if (dtype === 'thinking_delta') {
+                    const thinking = getString(delta, 'thinking');
+                    return thinking ? { type: 'thinking', content: thinking } : null;
                 }
             }
+            // 其它 stream_event（message_start/stop、content_block_start/stop、input_json_delta）无需展示
             return null;
         }
 
@@ -142,11 +166,11 @@ export function parseStreamLine(line: string): StreamChunk | null {
             return { type: 'done', content: event.result || '', usage: event.usage };
         }
         if (event.type === 'error') {
-            return { type: 'error', content: event.error || event.message || '未知错误' };
+            return { type: 'error', content: event.error || event.message || t('common.unknownError') };
         }
 
         // 未知事件类型, 输出原始 JSON 便于调试
-        console.log('[BB] unknown event:', line.substring(0, 200));
+        bbLog('[BB] unknown event:', line.substring(0, 200));
         const fallbackText = event.text || event.content || event.message || '';
         if (fallbackText) {
             return { type: 'text', content: fallbackText };
@@ -213,7 +237,7 @@ export class CodebuddyProvider {
         });
     }
 
-    async *sendMessage(sessionId: string, text: string, vaultPath?: string): AsyncGenerator<StreamChunk> {
+    async *sendMessage(sessionId: string, text: string, vaultPath?: string, addDirs: string[] = []): AsyncGenerator<StreamChunk> {
         const scriptPath = this.scriptPath;
         const procOptions: SpawnOptions = {
             timeout: this.timeout,
@@ -224,7 +248,20 @@ export class CodebuddyProvider {
         }
 
         // --print --output-format stream-json: 结构化流式输出
-        const cliArgs = ['--print', '--output-format', 'stream-json', '--session-id', sessionId, '--model', this.model, '--permission-mode', this.permissionMode, text];
+        // --include-partial-messages: 吐 SSE 增量事件（content_block_delta），实现逐字流式；
+        //   否则 CLI 只在末尾整段给完整 assistant 消息，界面会一次性冒出全文而非逐字
+        const cliArgs = ['--print', '--output-format', 'stream-json', '--include-partial-messages'];
+        // 附件在 vault 外时：--add-dir 放开这些目录的访问边界；--allowedTools 再用「限定到该
+        //   目录」的只读规则 Read(dir/**) 免掉非交互(--print)模式下弹不出来的审批——否则外部
+        //   文件既进不了边界、Read 又会因无法审批而失败。
+        //   安全：只授权到附件所在目录的只读。实测「全局 Read」会突破 --add-dir 边界读任意文件，
+        //   故必须限定目录；也不用 -y / bypassPermissions，避免放开写和执行。
+        //   两者都是变长参数，必须放在 --session-id 之前，让后续 flag 终结它们，避免吞掉末尾 message。
+        if (addDirs.length) {
+            cliArgs.push('--add-dir', ...addDirs);
+            cliArgs.push('--allowedTools', ...addDirs.map(d => `Read(${d.replace(/\\/g, '/')}/**)`));
+        }
+        cliArgs.push('--session-id', sessionId, '--model', this.model, '--permission-mode', this.permissionMode, text);
 
         // Node 18+ Windows 下 spawn .cmd/.bat 需要 shell: true
         if (needsWindowsShell(scriptPath)) {
@@ -256,11 +293,11 @@ export class CodebuddyProvider {
             const lines = buffer.split('\n');
             buffer = lines.pop() || '';
             for (const line of lines) {
-                const chunk = parseStreamLine(line);
+                const chunk = parseStreamLine(line, true);
                 if (chunk) {
                     hasOutput = true;
                     const preview = typeof chunk.content === 'string' ? chunk.content.substring(0, 80) : JSON.stringify(chunk.content).substring(0, 80);
-                    console.log('[BB] chunk:', chunk.type, preview);
+                    bbLog('[BB] chunk:', chunk.type, preview);
                     if (resolveQueue) {
                         resolveQueue({ value: chunk, done: false });
                         resolveQueue = null;
@@ -273,11 +310,11 @@ export class CodebuddyProvider {
 
         proc.stderr.on('data', (d: Buffer) => {
             errOut += d.toString();
-            console.log('[BB] stderr:', errOut);
+            bbLog('[BB] stderr:', errOut);
         });
 
         proc.on('close', (code, signal) => {
-            console.log('[BB] exit:', code, signal ? 'signal:' + signal : '', '| err:', errOut.substring(0, 200));
+            bbLog('[BB] exit:', code, signal ? 'signal:' + signal : '', '| err:', errOut.substring(0, 200));
             closed = true;
             if (this.activeProc === proc) {
                 this.activeProc = null;
@@ -296,15 +333,15 @@ export class CodebuddyProvider {
             if (this.activeProc === proc) {
                 this.activeProc = null;
             }
-            console.log('[BB] spawn err:', e.message, '| scriptPath:', scriptPath);
+            bbLog('[BB] spawn err:', e.message, '| scriptPath:', scriptPath);
             closed = true;
             if (resolveQueue) {
                 let hint = e.message;
                 if (e.message.includes('ENOENT')) {
                     if (scriptPath === 'codebuddy') {
-                        hint = '找不到 codebuddy CLI。请确认已安装 WorkBuddy 桌面版，或在插件设置中指定 codebuddy 路径。';
+                        hint = t('provider.cliNotFound');
                     } else if (!isWindowsWrapper(scriptPath) && !isBareFallback(scriptPath)) {
-                        hint = `找不到 Node.js 来运行 codebuddy (路径: ${scriptPath})。请确认已安装 Node.js。`;
+                        hint = t('provider.nodeNotFound').replace('{path}', scriptPath);
                     }
                 }
                 resolveQueue({ value: { type: 'error', content: hint }, done: true });
@@ -323,7 +360,7 @@ export class CodebuddyProvider {
             }
             if (closed) {
                 if (buffer.trim()) {
-                    const chunk = parseStreamLine(buffer);
+                    const chunk = parseStreamLine(buffer, true);
                     if (chunk) yield chunk;
                 }
                 break;

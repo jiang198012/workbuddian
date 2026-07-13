@@ -37,7 +37,7 @@ __export(main_exports, {
   default: () => WorkbuddianPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/providers/codebuddy/index.ts
 var import_child_process = require("child_process");
@@ -59,6 +59,165 @@ var PERMISSION_MODES = ["default", "plan", "acceptEdits", "bypassPermissions"];
 var PERMISSION_MODE_CHOICES = ["default", "bypassPermissions"];
 function isPermissionMode(value) {
   return typeof value === "string" && PERMISSION_MODES.includes(value);
+}
+
+// src/i18n/index.ts
+var currentLang = "zh";
+function setLang(lang) {
+  currentLang = lang;
+}
+function detectLang() {
+  try {
+    const l = typeof window !== "undefined" && window.localStorage.getItem("language") || "";
+    return l.startsWith("zh") ? "zh" : "en";
+  } catch (e) {
+    return "zh";
+  }
+}
+function applyLang(setting) {
+  setLang(setting === "auto" ? detectLang() : setting);
+}
+var STRINGS = {
+  "chat.send": { zh: "\u53D1\u9001", en: "Send" },
+  "chat.stop": { zh: "\u505C\u6B62", en: "Stop" },
+  "chat.newConversation": { zh: "\u65B0\u5BF9\u8BDD", en: "New chat" },
+  "common.unknownError": { zh: "\u672A\u77E5\u9519\u8BEF", en: "Unknown error" },
+  "provider.cliNotFound": { zh: "\u627E\u4E0D\u5230 codebuddy CLI\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 WorkBuddy \u684C\u9762\u7248\uFF0C\u6216\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u6307\u5B9A codebuddy \u8DEF\u5F84\u3002", en: "codebuddy CLI not found. Make sure WorkBuddy desktop is installed, or set the codebuddy path in the plugin settings." },
+  "provider.nodeNotFound": { zh: "\u627E\u4E0D\u5230 Node.js \u6765\u8FD0\u884C codebuddy\uFF08\u8DEF\u5F84\uFF1A{path}\uFF09\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 Node.js\u3002", en: "Node.js not found to run codebuddy (path: {path}). Make sure Node.js is installed." },
+  "export.roleUser": { zh: "**\u7528\u6237**", en: "**User**" },
+  "export.roleAssistant": { zh: "**AI**", en: "**AI**" },
+  "settings.conn": { zh: "CodeBuddy \u8FDE\u63A5", en: "CodeBuddy Connection" },
+  "settings.path": { zh: "CodeBuddy \u8DEF\u5F84", en: "CodeBuddy path" },
+  "settings.pathDesc": { zh: "codebuddy \u53EF\u6267\u884C\u6587\u4EF6\u8DEF\u5F84\u3002\u5982 WorkBuddy \u81EA\u5B9A\u4E49\u5B89\u88C5\uFF0C\u8DEF\u5F84\u901A\u5E38\u4E3A\uFF1A\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy\uFF08\u53F3\u952E WorkBuddy \u5FEB\u6377\u65B9\u5F0F \u2192 \u6253\u5F00\u6587\u4EF6\u4F4D\u7F6E \u53EF\u627E\u5230\u5B89\u88C5\u76EE\u5F55\uFF09", en: "Path to the codebuddy executable. For a custom WorkBuddy install it is usually: <InstallDir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy (right-click the WorkBuddy shortcut \u2192 Open file location)." },
+  "settings.pathPlaceholder": { zh: "WorkBuddy\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy", en: "<WorkBuddy install dir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy" },
+  "settings.pathDetect": { zh: "\u81EA\u52A8\u68C0\u6D4B", en: "Auto-detect" },
+  "settings.pathDetected": { zh: "\u5DF2\u586B\u5165\u68C0\u6D4B\u5230\u7684\u8DEF\u5F84\uFF1A{path}", en: "Filled in the detected path: {path}" },
+  "settings.pathNotFound": { zh: "\u672A\u627E\u5230 WorkBuddy \u9ED8\u8BA4\u5B89\u88C5\uFF0C\u8BF7\u624B\u52A8\u6307\u5B9A\u8DEF\u5F84", en: "WorkBuddy default install not found; set the path manually." },
+  "settings.node": { zh: "\u624B\u52A8\u6307\u5B9A Node.js \u8DEF\u5F84", en: "Node.js path (manual)" },
+  "settings.nodeDesc": { zh: "\u7559\u7A7A\u5219\u81EA\u52A8\u63A2\u6D4B\u3002\u5982\u679C\u81EA\u52A8\u63A2\u6D4B\u5931\u8D25\uFF08\u4F8B\u5982\u975E\u6807\u51C6\u5B89\u88C5\u8DEF\u5F84\uFF09\uFF0C\u53EF\u4EE5\u5728\u8FD9\u91CC\u624B\u52A8\u6307\u5B9A node \u53EF\u6267\u884C\u6587\u4EF6\u7684\u5B8C\u6574\u8DEF\u5F84", en: "Leave empty to auto-detect. If detection fails (e.g. non-standard install), set the full path to the node executable here." },
+  "settings.nodePlaceholder": { zh: "\u7559\u7A7A = \u81EA\u52A8\u63A2\u6D4B", en: "Empty = auto-detect" },
+  "settings.timeout": { zh: "CLI \u8D85\u65F6\u65F6\u957F\uFF08\u5206\u949F\uFF09", en: "CLI timeout (minutes)" },
+  "settings.timeoutDesc": { zh: "CodeBuddy CLI \u5355\u6B21\u54CD\u5E94\u6700\u957F\u7B49\u5F85\u65F6\u95F4\uFF0C\u8D85\u8FC7\u4F1A\u5F3A\u5236\u4E2D\u65AD", en: "Max wait per CodeBuddy CLI response; exceeding it aborts the call." },
+  "settings.model": { zh: "\u6A21\u578B", en: "Model" },
+  "settings.modelDesc": { zh: "CodeBuddy CLI \u4F7F\u7528\u7684\u6A21\u578B", en: "Model used by the CodeBuddy CLI" },
+  "settings.modelAuto": { zh: "Auto\uFF08\u9ED8\u8BA4\uFF0C\u7531 CodeBuddy \u81EA\u52A8\u9009\u62E9\uFF09", en: "Auto (default, chosen by CodeBuddy)" },
+  "settings.inject": { zh: "\u4E0A\u4E0B\u6587\u6CE8\u5165", en: "Context injection" },
+  "settings.injectVault": { zh: "\u6CE8\u5165 Vault \u4E0A\u4E0B\u6587", en: "Inject vault context" },
+  "settings.injectVaultDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u81EA\u52A8\u9644\u4E0A\u5F53\u524D Vault \u8DEF\u5F84\uFF0C\u8BA9 AI \u57FA\u4E8E Vault \u4E2D\u7684\u6587\u4EF6\u56DE\u7B54\u95EE\u9898", en: "When on, every message includes the current vault path so the AI can answer based on vault files." },
+  "settings.injectNote": { zh: "\u6CE8\u5165\u5F53\u524D\u7B14\u8BB0\u94FE\u63A5", en: "Inject current note link" },
+  "settings.injectNoteDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u9644\u4E0A\u5F53\u524D\u6B63\u5728\u67E5\u770B\u7684\u7B14\u8BB0\u6807\u9898\u548C\u8DEF\u5F84\uFF08\u4E0D\u5305\u542B\u6B63\u6587\u5185\u5BB9\uFF09", en: "When on, every message includes the current note title and path (not its content)." },
+  "settings.appearance": { zh: "\u5916\u89C2", en: "Appearance" },
+  "settings.language": { zh: "\u754C\u9762\u8BED\u8A00", en: "Interface language" },
+  "settings.languageDesc": { zh: "\u63D2\u4EF6\u754C\u9762\u663E\u793A\u8BED\u8A00\u3002Auto \u8DDF\u968F Obsidian\u3002\u804A\u5929\u9762\u677F\u5373\u65F6\u5207\u6362\uFF1B\u547D\u4EE4\u9762\u677F\u540D\u79F0\u9700 Cmd+R \u540E\u66F4\u65B0\u3002", en: "Plugin UI language. Auto follows Obsidian. Chat panels switch instantly; command-palette names update after a reload." },
+  "settings.langAuto": { zh: "Auto\uFF08\u8DDF\u968F Obsidian\uFF09", en: "Auto (follow Obsidian)" },
+  "settings.langZh": { zh: "\u4E2D\u6587", en: "\u4E2D\u6587" },
+  "settings.langEn": { zh: "English", en: "English" },
+  "settings.langReload": { zh: "\u754C\u9762\u8BED\u8A00\u5DF2\u5207\u6362", en: "Interface language changed" },
+  "settings.contextWindow": { zh: "\u4E0A\u4E0B\u6587\u7A97\u53E3\u4E0A\u9650\uFF08token\uFF09", en: "Context window size (tokens)" },
+  "settings.contextWindowDesc": { zh: "\u8BA1\u7B97\u4E0A\u4E0B\u6587\u7528\u91CF\u767E\u5206\u6BD4\u7684\u5206\u6BCD\u3002\u4E0D\u540C\u6A21\u578B\u7A97\u53E3\u4E0D\u540C\uFF0C\u53EF\u6309\u5B9E\u9645\u8C03\u6574\uFF08\u9ED8\u8BA4 200000\uFF09\u3002", en: "Denominator for the context-usage percentage. Adjust to your model\u2019s window (default 200000)." },
+  "settings.permissionMode": { zh: "\u6388\u6743\u6A21\u5F0F", en: "Permission mode" },
+  "settings.permissionModeDesc": { zh: "\u63A7\u5236 CodeBuddy \u6267\u884C\u64CD\u4F5C\u524D\u7684\u6388\u6743\u7EA7\u522B\uFF0C\u7B49\u540C\u5DE5\u5177\u680F\u76FE\u724C\u56FE\u6807\uFF1A\u9ED8\u8BA4\uFF08\u6BCF\u6B65\u8BE2\u95EE\uFF09/ \u5B8C\u5168\u8BBF\u95EE\uFF08\u8DF3\u8FC7\u6240\u6709\u6388\u6743\uFF09\u3002", en: "Authorization level before CodeBuddy acts; same as the toolbar shield: Default (asks each step) / Full access (skips all)." },
+  "settings.primary": { zh: "\u804A\u5929\u4E3B\u8272\u8C03", en: "Chat accent color" },
+  "settings.primaryDesc": { zh: "\u81EA\u5B9A\u4E49\u804A\u5929\u9762\u677F\u7684\u5F3A\u8C03\u8272\uFF08\u7528\u6237\u6C14\u6CE1\u3001\u53D1\u9001\u6309\u94AE\u3001\u8FB9\u6846\u3001focus \u9AD8\u4EAE\u7B49\uFF09\u3002\u70B9\u300C\u6062\u590D\u9ED8\u8BA4\u300D\u8DDF\u968F Obsidian \u4E3B\u9898\u8272\u3002", en: 'Customize the chat accent color (user bubble, send button, borders, focus ring). Click "Reset" to follow the Obsidian theme.' },
+  "settings.resetTooltip": { zh: "\u6062\u590D\u9ED8\u8BA4\uFF08\u8DDF\u968F\u4E3B\u9898\u8272\uFF09", en: "Reset (follow theme color)" },
+  "settings.reset": { zh: "\u91CD\u7F6E", en: "Reset" },
+  "settings.resetDefault": { zh: "\u91CD\u7F6E\u4E3A\u9ED8\u8BA4", en: "Reset to defaults" },
+  "settings.resetDesc": { zh: "\u6E05\u7A7A\u6240\u6709\u81EA\u5B9A\u4E49\u8BBE\u7F6E\uFF0C\u6062\u590D\u5230\u63D2\u4EF6\u9ED8\u8BA4\u503C\uFF08\u5305\u62EC\u8DEF\u5F84\u3001\u6A21\u578B\u3001\u6CE8\u5165\u5F00\u5173\u3001\u4E3B\u8272\u8C03\uFF09\u3002", en: "Clear all custom settings and restore plugin defaults (paths, model, injection toggles, accent color)." },
+  "settings.resetConfirm": { zh: "\u786E\u8BA4\u91CD\u7F6E\uFF1F", en: "Confirm reset?" },
+  "settings.resetDone": { zh: "\u5DF2\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u8BBE\u7F6E", en: "Settings reset to defaults" },
+  "settings.importExport": { zh: "\u5BFC\u5165 / \u5BFC\u51FA\u8BBE\u7F6E", en: "Import / Export settings" },
+  "settings.export": { zh: "\u5BFC\u51FA\u8BBE\u7F6E", en: "Export settings" },
+  "settings.exportDesc": { zh: "\u628A\u5F53\u524D\u8BBE\u7F6E\u4FDD\u5B58\u4E3A JSON \u6587\u4EF6\uFF0C\u4FBF\u4E8E\u5907\u4EFD\u6216\u8FC1\u79FB\uFF08\u542B\u672C\u673A\u8DEF\u5F84\uFF0C\u8DE8\u673A\u5668\u9700\u81EA\u884C\u8C03\u6574\uFF09\u3002", en: "Save current settings as a JSON file for backup/migration (includes local paths; adjust when moving machines)." },
+  "settings.exportBtn": { zh: "\u5BFC\u51FA\u4E3A\u6587\u4EF6", en: "Export to file" },
+  "settings.exportDone": { zh: "\u8BBE\u7F6E\u5DF2\u5BFC\u51FA\u4E3A workbuddian-settings.json", en: "Settings exported to workbuddian-settings.json" },
+  "settings.import": { zh: "\u5BFC\u5165\u8BBE\u7F6E", en: "Import settings" },
+  "settings.importDesc": { zh: "\u9009\u62E9\u4E4B\u524D\u5BFC\u51FA\u7684 JSON \u6587\u4EF6\uFF0C\u8986\u76D6\u5F53\u524D\u8BBE\u7F6E\u3002", en: "Pick a previously exported JSON file to overwrite current settings." },
+  "settings.importBtn": { zh: "\u4ECE\u6587\u4EF6\u5BFC\u5165", en: "Import from file" },
+  "settings.importDone": { zh: "\u8BBE\u7F6E\u5DF2\u5BFC\u5165", en: "Settings imported" },
+  "settings.importErr": { zh: "\u5BFC\u5165\u5931\u8D25\uFF1AJSON \u89E3\u6790\u9519\u8BEF", en: "Import failed: invalid JSON" },
+  "settings.logs": { zh: "\u65E5\u5FD7", en: "Logs" },
+  "settings.logsDesc": { zh: "\u67E5\u770B\u6700\u8FD1\u7684\u63D2\u4EF6\u8FD0\u884C\u65E5\u5FD7\uFF08[BB]\uFF09\uFF0C\u4FBF\u4E8E\u6392\u67E5\u95EE\u9898\u3002\u4EC5\u4FDD\u5B58\u5728\u5185\u5B58\uFF0C\u91CD\u8F7D\u540E\u6E05\u7A7A\u3002", en: "View recent plugin logs ([BB]) for troubleshooting. Kept in memory only; cleared on reload." },
+  "settings.viewLogs": { zh: "\u67E5\u770B\u65E5\u5FD7", en: "View logs" },
+  "log.title": { zh: "Workbuddian \u65E5\u5FD7", en: "Workbuddian logs" },
+  "log.copy": { zh: "\u590D\u5236\u5168\u90E8", en: "Copy all" },
+  "log.clear": { zh: "\u6E05\u7A7A", en: "Clear" },
+  "log.copied": { zh: "\u65E5\u5FD7\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Logs copied to clipboard" },
+  "log.cleared": { zh: "\u65E5\u5FD7\u5DF2\u6E05\u7A7A", en: "Logs cleared" },
+  "log.empty": { zh: "\uFF08\u6682\u65E0\u65E5\u5FD7\uFF09", en: "(No logs yet)" },
+  "input.removeReference": { zh: "\u79FB\u9664\u5F15\u7528", en: "Remove reference" },
+  "input.customCommand": { zh: "\uFF08\u81EA\u5B9A\u4E49\u547D\u4EE4\uFF09", en: "(Custom command)" },
+  "input.attach": { zh: "\u9644\u52A0\u6587\u4EF6", en: "Attach files" },
+  "input.permission": { zh: "\u6388\u6743\u6A21\u5F0F", en: "Permission mode" },
+  "perm.default": { zh: "\u9ED8\u8BA4\uFF08\u6BCF\u6B65\u8BE2\u95EE\uFF09", en: "Default (ask each step)" },
+  "perm.plan": { zh: "\u8BA1\u5212\u6A21\u5F0F\uFF08\u53EA\u8BFB\u4E0D\u6539\uFF09", en: "Plan (read-only)" },
+  "perm.acceptEdits": { zh: "\u81EA\u52A8\u63A5\u53D7\u7F16\u8F91", en: "Accept edits" },
+  "perm.bypassPermissions": { zh: "\u5B8C\u5168\u8BBF\u95EE", en: "Full access" },
+  "input.stop": { zh: "\u505C\u6B62", en: "Stop" },
+  "input.bubbleNotFound": { zh: "\u627E\u4E0D\u5230 Assistant \u6D88\u606F\u6C14\u6CE1", en: "Assistant message bubble not found" },
+  "input.thinking": { zh: "\u601D\u8003\u4E2D...", en: "Thinking..." },
+  "input.toolCall": { zh: "\u5DE5\u5177\u8C03\u7528", en: "Tool call" },
+  "input.requestFailed": { zh: "\u8BF7\u6C42\u5931\u8D25", en: "Request failed" },
+  "input.noResponse": { zh: "\uFF08\u65E0\u54CD\u5E94\uFF0C\u8BF7\u91CD\u8BD5\uFF09", en: "(No response, please retry)" },
+  "input.thought": { zh: "\u5DF2\u601D\u8003", en: "Thought" },
+  "input.send": { zh: "\u53D1\u9001", en: "Send" },
+  "view.displayText": { zh: "Workbuddian \u804A\u5929", en: "Workbuddian Chat" },
+  "view.newChat": { zh: "\u65B0\u5EFA\u5BF9\u8BDD", en: "New chat" },
+  "view.inputPlaceholder": { zh: "\u8F93\u5165\u6D88\u606F... (Shift+Enter \u6362\u884C\uFF0CEnter \u53D1\u9001)", en: "Type a message... (Shift+Enter for newline, Enter to send)" },
+  "view.send": { zh: "\u53D1\u9001", en: "Send" },
+  "usage.tooltip": { zh: "\u4E0A\u4E0B\u6587 {used} / {total} tokens", en: "Context {used} / {total} tokens" },
+  "render.emptyTitle": { zh: "\u5F00\u59CB\u65B0\u5BF9\u8BDD", en: "Start a new conversation" },
+  "render.emptySubtitle": { zh: "\u70B9\u51FB\u4E0A\u65B9 + \u6309\u94AE\u6216\u8F93\u5165\u6D88\u606F\u5F00\u59CB\u804A\u5929", en: "Click the + button above or type a message to start chatting" },
+  "render.thinking": { zh: "\u601D\u8003\u4E2D", en: "Thinking" },
+  "render.errorTitle": { zh: "\u51FA\u9519\u4E86", en: "Something went wrong" },
+  "render.retry": { zh: "\u91CD\u8BD5", en: "Retry" },
+  "render.openSettings": { zh: "\u6253\u5F00\u8BBE\u7F6E", en: "Open settings" },
+  "tabs.close": { zh: "\u5173\u95ED\u5BF9\u8BDD", en: "Close chat" },
+  "tabs.rename": { zh: "\u91CD\u547D\u540D", en: "Rename" },
+  "tabs.delete": { zh: "\u5220\u9664\u5BF9\u8BDD", en: "Delete chat" },
+  "tabs.exportAsNote": { zh: "\u5BFC\u51FA\u4E3A\u7B14\u8BB0", en: "Export as note" },
+  "tabs.nothingToExport": { zh: "\u6CA1\u6709\u53EF\u5BFC\u51FA\u7684\u5185\u5BB9", en: "Nothing to export" },
+  "tabs.exportedAs": { zh: "\u5DF2\u5BFC\u51FA\u4E3A\u300C{name}\u300D", en: 'Exported as "{name}"' },
+  "tabs.exportFailed": { zh: "\u5BFC\u51FA\u5931\u8D25\uFF1A{err}", en: "Export failed: {err}" },
+  "tabs.copyToClipboard": { zh: "\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Copy to clipboard" },
+  "tabs.copiedToClipboard": { zh: "\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Copied to clipboard" },
+  "tabs.copyFailed": { zh: "\u590D\u5236\u5931\u8D25\uFF1A{err}", en: "Copy failed: {err}" },
+  "cmd.ribbonTooltip": { zh: "Workbuddian \u804A\u5929", en: "Workbuddian Chat" },
+  "cmd.openChat": { zh: "\u6253\u5F00\u804A\u5929\u9762\u677F", en: "Open chat panel" },
+  "cmd.openChatMainPane": { zh: "\u5728\u4E3B\u7F16\u8F91\u533A\u6253\u5F00\u5927\u9762\u677F", en: "Open large panel in main area" },
+  "cmd.inlineEdit": { zh: "\u7528 CodeBuddy \u7F16\u8F91\u9009\u533A", en: "Edit selection with CodeBuddy" },
+  "cmd.loadFailed": { zh: "Workbuddian \u52A0\u8F7D\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian failed to load, check the Console" },
+  "cmd.cannotCreatePanel": { zh: "Workbuddian\uFF1A\u65E0\u6CD5\u521B\u5EFA\u804A\u5929\u9762\u677F", en: "Workbuddian: could not create chat panel" },
+  "cmd.openPanelFailed": { zh: "Workbuddian\uFF1A\u6253\u5F00\u9762\u677F\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian: failed to open panel, check the Console" },
+  "cmd.openMainPaneFailed": { zh: "Workbuddian\uFF1A\u6253\u5F00\u4E3B\u7F16\u8F91\u533A\u9762\u677F\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian: failed to open main-area panel, check the Console" },
+  "inline.editTitle": { zh: "\u7528 CodeBuddy \u7F16\u8F91\u9009\u533A", en: "Edit selection with CodeBuddy" },
+  "inline.instructionLabel": { zh: "\u7F16\u8F91\u8981\u6C42", en: "Edit instruction" },
+  "inline.instructionPlaceholder": { zh: "\u5982\uFF1A\u6539\u7B80\u6D01 / \u7FFB\u8BD1\u6210\u82F1\u6587", en: "e.g. make concise / translate to English" },
+  "inline.editBtn": { zh: "\u7F16\u8F91", en: "Edit" },
+  "inline.instructionRequired": { zh: "\u8BF7\u8F93\u5165\u7F16\u8F91\u8981\u6C42", en: "Please enter an edit instruction" },
+  "inline.previewTitle": { zh: "\u9884\u89C8\u6539\u52A8", en: "Preview changes" },
+  "inline.accept": { zh: "\u63A5\u53D7", en: "Accept" },
+  "inline.reject": { zh: "\u62D2\u7EDD", en: "Reject" },
+  "inline.selectFirst": { zh: "\u8BF7\u5148\u9009\u4E2D\u4E00\u6BB5\u6587\u672C", en: "Please select some text first" },
+  "inline.editing": { zh: "CodeBuddy \u7F16\u8F91\u4E2D\u2026", en: "CodeBuddy is editing\u2026" },
+  "inline.noResult": { zh: "\u672A\u83B7\u5F97\u7F16\u8F91\u7ED3\u679C", en: "No edit result returned" },
+  "inline.editFailed": { zh: "\u7F16\u8F91\u5931\u8D25\uFF1A", en: "Edit failed: " },
+  "slash.clear": { zh: "\u6E05\u7A7A\u5E76\u65B0\u5EFA\u5BF9\u8BDD\uFF08\u672C\u5730\uFF09", en: "Clear and start a new chat (local)" },
+  "slash.compact": { zh: "\u538B\u7F29\u4E0A\u4E0B\u6587", en: "Compact context" },
+  "slash.context": { zh: "\u67E5\u770B\u4E0A\u4E0B\u6587\u7528\u91CF", en: "Show context usage" },
+  "slash.cost": { zh: "\u67E5\u770B\u672C\u6B21\u82B1\u8D39", en: "Show session cost" },
+  "slash.model": { zh: "\u5207\u6362\u6A21\u578B", en: "Switch model" },
+  "slash.permissions": { zh: "\u67E5\u770B/\u7BA1\u7406\u6743\u9650", en: "View/manage permissions" },
+  "slash.resume": { zh: "\u6062\u590D\u5386\u53F2\u4F1A\u8BDD", en: "Resume a past session" },
+  "slash.export": { zh: "\u5BFC\u51FA\u5BF9\u8BDD", en: "Export conversation" },
+  "slash.status": { zh: "\u67E5\u770B\u72B6\u6001", en: "Show status" }
+};
+function t(key) {
+  const entry = STRINGS[key];
+  return entry ? entry[currentLang] : key;
+}
+function matchesAnyLang(value, key) {
+  const entry = STRINGS[key];
+  return !!entry && (value === entry.zh || value === entry.en);
 }
 
 // src/types/index.ts
@@ -99,7 +258,7 @@ function getErrorMessage(error) {
   if (typeof error === "string") {
     return error;
   }
-  return "\u672A\u77E5\u9519\u8BEF";
+  return t("common.unknownError");
 }
 function migrateSettings(stored) {
   var _a, _b, _c, _d;
@@ -152,6 +311,45 @@ function exportSettings(settings) {
 // src/utils/cliPath.ts
 var path = __toESM(require("path"));
 var fs = __toESM(require("fs"));
+
+// src/shared/logBuffer.ts
+var MAX_ENTRIES = 300;
+var buffer = [];
+function stamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function safeStringify(v) {
+  if (typeof v === "string")
+    return v;
+  try {
+    return JSON.stringify(v);
+  } catch (e) {
+    return String(v);
+  }
+}
+function push(line) {
+  buffer.push(line);
+  if (buffer.length > MAX_ENTRIES)
+    buffer.splice(0, buffer.length - MAX_ENTRIES);
+}
+function bbLog(...args) {
+  push(`[${stamp()}] ${args.map(safeStringify).join(" ")}`);
+  console.log(...args);
+}
+function bbError(...args) {
+  push(`[${stamp()}] ERR ${args.map(safeStringify).join(" ")}`);
+  console.error(...args);
+}
+function getLogs() {
+  return buffer.slice();
+}
+function clearLogs() {
+  buffer.length = 0;
+}
+
+// src/utils/cliPath.ts
 var NODE_EXECUTABLE = process.platform === "win32" ? "node.exe" : "node";
 function findNodeExecutable() {
   const home = process.env.HOME || process.env.USERPROFILE || "";
@@ -212,13 +410,13 @@ function findNodeExecutable() {
     try {
       const nodePath = path.join(dir, NODE_EXECUTABLE);
       if (fs.existsSync(nodePath) && fs.statSync(nodePath).isFile()) {
-        console.log("[BB] found node at:", nodePath);
+        bbLog("[BB] found node at:", nodePath);
         return nodePath;
       }
     } catch (e) {
     }
   }
-  console.log("[BB] WARNING: node not found in any search path, falling back to 'node'");
+  bbLog("[BB] WARNING: node not found in any search path, falling back to 'node'");
   return "node";
 }
 function resolveCodebuddyPath(customPath) {
@@ -282,7 +480,7 @@ function resolveCodebuddyPath(customPath) {
     candidates.push(path.join(npmPrefix, "bin", "codebuddy"));
   for (const p of candidates) {
     if (fs.existsSync(p)) {
-      console.log("[BB] resolved codebuddy path:", p);
+      bbLog("[BB] resolved codebuddy path:", p);
       return p;
     }
   }
@@ -365,7 +563,7 @@ function parseStreamEvent(raw) {
     usage: parseUsage(event)
   };
 }
-function parseStreamLine(line) {
+function parseStreamLine(line, streaming = false) {
   if (!line.trim())
     return null;
   try {
@@ -375,10 +573,28 @@ function parseStreamLine(line) {
       const content = Array.isArray(message == null ? void 0 : message.content) ? message.content : [];
       for (const item of content) {
         const block = parseMessageBlock(item);
-        if (block) {
-          const chunk = blockToChunk(block);
-          if (chunk)
-            return chunk;
+        if (!block)
+          continue;
+        if (streaming && (block.type === "text" || block.type === "thinking"))
+          continue;
+        const chunk = blockToChunk(block);
+        if (chunk)
+          return chunk;
+      }
+      return null;
+    }
+    if (isObject(raw) && raw.type === "stream_event" && isObject(raw.event)) {
+      const ev = raw.event;
+      if (getString(ev, "type") === "content_block_delta" && isObject(ev.delta)) {
+        const delta = ev.delta;
+        const dtype = getString(delta, "type");
+        if (dtype === "text_delta") {
+          const text = getString(delta, "text");
+          return text ? { type: "text", content: text } : null;
+        }
+        if (dtype === "thinking_delta") {
+          const thinking = getString(delta, "thinking");
+          return thinking ? { type: "thinking", content: thinking } : null;
         }
       }
       return null;
@@ -405,9 +621,9 @@ function parseStreamLine(line) {
       return { type: "done", content: event.result || "", usage: event.usage };
     }
     if (event.type === "error") {
-      return { type: "error", content: event.error || event.message || "\u672A\u77E5\u9519\u8BEF" };
+      return { type: "error", content: event.error || event.message || t("common.unknownError") };
     }
-    console.log("[BB] unknown event:", line.substring(0, 200));
+    bbLog("[BB] unknown event:", line.substring(0, 200));
     const fallbackText = event.text || event.content || event.message || "";
     if (fallbackText) {
       return { type: "text", content: fallbackText };
@@ -457,7 +673,7 @@ var CodebuddyProvider = class {
       return v.toString(16);
     });
   }
-  async *sendMessage(sessionId, text, vaultPath) {
+  async *sendMessage(sessionId, text, vaultPath, addDirs = []) {
     var _a;
     const scriptPath = this.scriptPath;
     const procOptions = {
@@ -467,7 +683,12 @@ var CodebuddyProvider = class {
     if (vaultPath) {
       procOptions.cwd = vaultPath;
     }
-    const cliArgs = ["--print", "--output-format", "stream-json", "--session-id", sessionId, "--model", this.model, "--permission-mode", this.permissionMode, text];
+    const cliArgs = ["--print", "--output-format", "stream-json", "--include-partial-messages"];
+    if (addDirs.length) {
+      cliArgs.push("--add-dir", ...addDirs);
+      cliArgs.push("--allowedTools", ...addDirs.map((d) => `Read(${d.replace(/\\/g, "/")}/**)`));
+    }
+    cliArgs.push("--session-id", sessionId, "--model", this.model, "--permission-mode", this.permissionMode, text);
     if (needsWindowsShell(scriptPath)) {
       procOptions.shell = true;
     }
@@ -479,22 +700,22 @@ var CodebuddyProvider = class {
       proc = (0, import_child_process.spawn)(nodeBin, [scriptPath, ...cliArgs], procOptions);
     }
     this.activeProc = proc;
-    let buffer = "";
+    let buffer2 = "";
     let errOut = "";
     let hasOutput = false;
     const chunkQueue = [];
     let resolveQueue = null;
     let closed = false;
     proc.stdout.on("data", (d) => {
-      buffer += d.toString();
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
+      buffer2 += d.toString();
+      const lines = buffer2.split("\n");
+      buffer2 = lines.pop() || "";
       for (const line of lines) {
-        const chunk = parseStreamLine(line);
+        const chunk = parseStreamLine(line, true);
         if (chunk) {
           hasOutput = true;
           const preview = typeof chunk.content === "string" ? chunk.content.substring(0, 80) : JSON.stringify(chunk.content).substring(0, 80);
-          console.log("[BB] chunk:", chunk.type, preview);
+          bbLog("[BB] chunk:", chunk.type, preview);
           if (resolveQueue) {
             resolveQueue({ value: chunk, done: false });
             resolveQueue = null;
@@ -506,10 +727,10 @@ var CodebuddyProvider = class {
     });
     proc.stderr.on("data", (d) => {
       errOut += d.toString();
-      console.log("[BB] stderr:", errOut);
+      bbLog("[BB] stderr:", errOut);
     });
     proc.on("close", (code, signal) => {
-      console.log("[BB] exit:", code, signal ? "signal:" + signal : "", "| err:", errOut.substring(0, 200));
+      bbLog("[BB] exit:", code, signal ? "signal:" + signal : "", "| err:", errOut.substring(0, 200));
       closed = true;
       if (this.activeProc === proc) {
         this.activeProc = null;
@@ -527,15 +748,15 @@ var CodebuddyProvider = class {
       if (this.activeProc === proc) {
         this.activeProc = null;
       }
-      console.log("[BB] spawn err:", e.message, "| scriptPath:", scriptPath);
+      bbLog("[BB] spawn err:", e.message, "| scriptPath:", scriptPath);
       closed = true;
       if (resolveQueue) {
         let hint = e.message;
         if (e.message.includes("ENOENT")) {
           if (scriptPath === "codebuddy") {
-            hint = "\u627E\u4E0D\u5230 codebuddy CLI\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 WorkBuddy \u684C\u9762\u7248\uFF0C\u6216\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u6307\u5B9A codebuddy \u8DEF\u5F84\u3002";
+            hint = t("provider.cliNotFound");
           } else if (!isWindowsWrapper(scriptPath) && !isBareFallback(scriptPath)) {
-            hint = `\u627E\u4E0D\u5230 Node.js \u6765\u8FD0\u884C codebuddy (\u8DEF\u5F84: ${scriptPath})\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 Node.js\u3002`;
+            hint = t("provider.nodeNotFound").replace("{path}", scriptPath);
           }
         }
         resolveQueue({ value: { type: "error", content: hint }, done: true });
@@ -551,8 +772,8 @@ var CodebuddyProvider = class {
         }
       }
       if (closed) {
-        if (buffer.trim()) {
-          const chunk = parseStreamLine(buffer);
+        if (buffer2.trim()) {
+          const chunk = parseStreamLine(buffer2, true);
           if (chunk)
             yield chunk;
         }
@@ -596,150 +817,10 @@ function formatConversationAsMarkdown(conv) {
     return "";
   const lines = [`# ${conv.title}`, ""];
   for (const msg of conv.messages) {
-    const label = msg.role === "user" ? "**\u7528\u6237**" : "**AI**";
+    const label = msg.role === "user" ? t("export.roleUser") : t("export.roleAssistant");
     lines.push(`${label}:`, msg.content, "");
   }
   return lines.join("\n").trimEnd();
-}
-
-// src/i18n/index.ts
-var currentLang = "zh";
-function setLang(lang) {
-  currentLang = lang;
-}
-function detectLang() {
-  try {
-    const l = typeof window !== "undefined" && window.localStorage.getItem("language") || "";
-    if (l.startsWith("zh"))
-      return "zh";
-    return l ? "en" : "zh";
-  } catch (e) {
-    return "zh";
-  }
-}
-function applyLang(setting) {
-  setLang(setting === "auto" ? detectLang() : setting);
-}
-var STRINGS = {
-  "chat.send": { zh: "\u53D1\u9001", en: "Send" },
-  "chat.stop": { zh: "\u505C\u6B62", en: "Stop" },
-  "settings.conn": { zh: "CodeBuddy \u8FDE\u63A5", en: "CodeBuddy Connection" },
-  "settings.path": { zh: "CodeBuddy \u8DEF\u5F84", en: "CodeBuddy path" },
-  "settings.pathDesc": { zh: "codebuddy \u53EF\u6267\u884C\u6587\u4EF6\u8DEF\u5F84\u3002\u5982 WorkBuddy \u81EA\u5B9A\u4E49\u5B89\u88C5\uFF0C\u8DEF\u5F84\u901A\u5E38\u4E3A\uFF1A\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy\uFF08\u53F3\u952E WorkBuddy \u5FEB\u6377\u65B9\u5F0F \u2192 \u6253\u5F00\u6587\u4EF6\u4F4D\u7F6E \u53EF\u627E\u5230\u5B89\u88C5\u76EE\u5F55\uFF09", en: "Path to the codebuddy executable. For a custom WorkBuddy install it is usually: <InstallDir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy (right-click the WorkBuddy shortcut \u2192 Open file location)." },
-  "settings.pathPlaceholder": { zh: "WorkBuddy\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy", en: "<WorkBuddy install dir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy" },
-  "settings.node": { zh: "\u624B\u52A8\u6307\u5B9A Node.js \u8DEF\u5F84", en: "Node.js path (manual)" },
-  "settings.nodeDesc": { zh: "\u7559\u7A7A\u5219\u81EA\u52A8\u63A2\u6D4B\u3002\u5982\u679C\u81EA\u52A8\u63A2\u6D4B\u5931\u8D25\uFF08\u4F8B\u5982\u975E\u6807\u51C6\u5B89\u88C5\u8DEF\u5F84\uFF09\uFF0C\u53EF\u4EE5\u5728\u8FD9\u91CC\u624B\u52A8\u6307\u5B9A node \u53EF\u6267\u884C\u6587\u4EF6\u7684\u5B8C\u6574\u8DEF\u5F84", en: "Leave empty to auto-detect. If detection fails (e.g. non-standard install), set the full path to the node executable here." },
-  "settings.nodePlaceholder": { zh: "\u7559\u7A7A = \u81EA\u52A8\u63A2\u6D4B", en: "Empty = auto-detect" },
-  "settings.timeout": { zh: "CLI \u8D85\u65F6\u65F6\u957F\uFF08\u5206\u949F\uFF09", en: "CLI timeout (minutes)" },
-  "settings.timeoutDesc": { zh: "CodeBuddy CLI \u5355\u6B21\u54CD\u5E94\u6700\u957F\u7B49\u5F85\u65F6\u95F4\uFF0C\u8D85\u8FC7\u4F1A\u5F3A\u5236\u4E2D\u65AD", en: "Max wait per CodeBuddy CLI response; exceeding it aborts the call." },
-  "settings.model": { zh: "\u6A21\u578B", en: "Model" },
-  "settings.modelDesc": { zh: "CodeBuddy CLI \u4F7F\u7528\u7684\u6A21\u578B", en: "Model used by the CodeBuddy CLI" },
-  "settings.modelAuto": { zh: "Auto\uFF08\u9ED8\u8BA4\uFF0C\u7531 CodeBuddy \u81EA\u52A8\u9009\u62E9\uFF09", en: "Auto (default, chosen by CodeBuddy)" },
-  "settings.inject": { zh: "\u4E0A\u4E0B\u6587\u6CE8\u5165", en: "Context injection" },
-  "settings.injectVault": { zh: "\u6CE8\u5165 Vault \u4E0A\u4E0B\u6587", en: "Inject vault context" },
-  "settings.injectVaultDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u81EA\u52A8\u9644\u4E0A\u5F53\u524D Vault \u8DEF\u5F84\uFF0C\u8BA9 AI \u57FA\u4E8E Vault \u4E2D\u7684\u6587\u4EF6\u56DE\u7B54\u95EE\u9898", en: "When on, every message includes the current vault path so the AI can answer based on vault files." },
-  "settings.injectNote": { zh: "\u6CE8\u5165\u5F53\u524D\u7B14\u8BB0\u94FE\u63A5", en: "Inject current note link" },
-  "settings.injectNoteDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u9644\u4E0A\u5F53\u524D\u6B63\u5728\u67E5\u770B\u7684\u7B14\u8BB0\u6807\u9898\u548C\u8DEF\u5F84\uFF08\u4E0D\u5305\u542B\u6B63\u6587\u5185\u5BB9\uFF09", en: "When on, every message includes the current note title and path (not its content)." },
-  "settings.appearance": { zh: "\u5916\u89C2", en: "Appearance" },
-  "settings.language": { zh: "\u754C\u9762\u8BED\u8A00", en: "Interface language" },
-  "settings.languageDesc": { zh: "\u63D2\u4EF6\u754C\u9762\u663E\u793A\u8BED\u8A00\u3002Auto \u8DDF\u968F Obsidian\u3002\u5207\u6362\u540E\u91CD\u65B0\u6253\u5F00\u804A\u5929\u9762\u677F\u6216 Cmd+R \u5B8C\u5168\u751F\u6548\u3002", en: "Plugin UI language. Auto follows Obsidian. Reopen the chat panel or reload to fully apply." },
-  "settings.langAuto": { zh: "Auto\uFF08\u8DDF\u968F Obsidian\uFF09", en: "Auto (follow Obsidian)" },
-  "settings.langZh": { zh: "\u4E2D\u6587", en: "\u4E2D\u6587" },
-  "settings.langEn": { zh: "English", en: "English" },
-  "settings.langReload": { zh: "\u8BED\u8A00\u5DF2\u5207\u6362\uFF0C\u91CD\u65B0\u6253\u5F00\u804A\u5929\u9762\u677F\u6216 Cmd+R \u5B8C\u5168\u751F\u6548", en: "Language changed \u2014 reopen the chat panel or reload to fully apply" },
-  "settings.contextWindow": { zh: "\u4E0A\u4E0B\u6587\u7A97\u53E3\u4E0A\u9650\uFF08token\uFF09", en: "Context window size (tokens)" },
-  "settings.contextWindowDesc": { zh: "\u8BA1\u7B97\u4E0A\u4E0B\u6587\u7528\u91CF\u767E\u5206\u6BD4\u7684\u5206\u6BCD\u3002\u4E0D\u540C\u6A21\u578B\u7A97\u53E3\u4E0D\u540C\uFF0C\u53EF\u6309\u5B9E\u9645\u8C03\u6574\uFF08\u9ED8\u8BA4 200000\uFF09\u3002", en: "Denominator for the context-usage percentage. Adjust to your model\u2019s window (default 200000)." },
-  "settings.permissionMode": { zh: "\u6388\u6743\u6A21\u5F0F", en: "Permission mode" },
-  "settings.permissionModeDesc": { zh: "\u63A7\u5236 CodeBuddy \u6267\u884C\u64CD\u4F5C\u524D\u7684\u6388\u6743\u7EA7\u522B\uFF0C\u7B49\u540C\u5DE5\u5177\u680F\u76FE\u724C\u56FE\u6807\uFF1A\u9ED8\u8BA4\uFF08\u6BCF\u6B65\u8BE2\u95EE\uFF09/ \u5B8C\u5168\u8BBF\u95EE\uFF08\u8DF3\u8FC7\u6240\u6709\u6388\u6743\uFF09\u3002", en: "Authorization level before CodeBuddy acts; same as the toolbar shield: Default (asks each step) / Full access (skips all)." },
-  "settings.primary": { zh: "\u804A\u5929\u4E3B\u8272\u8C03", en: "Chat accent color" },
-  "settings.primaryDesc": { zh: "\u81EA\u5B9A\u4E49\u804A\u5929\u9762\u677F\u7684\u5F3A\u8C03\u8272\uFF08\u7528\u6237\u6C14\u6CE1\u3001\u53D1\u9001\u6309\u94AE\u3001\u8FB9\u6846\u3001focus \u9AD8\u4EAE\u7B49\uFF09\u3002\u70B9\u300C\u6062\u590D\u9ED8\u8BA4\u300D\u8DDF\u968F Obsidian \u4E3B\u9898\u8272\u3002", en: 'Customize the chat accent color (user bubble, send button, borders, focus ring). Click "Reset" to follow the Obsidian theme.' },
-  "settings.resetTooltip": { zh: "\u6062\u590D\u9ED8\u8BA4\uFF08\u8DDF\u968F\u4E3B\u9898\u8272\uFF09", en: "Reset (follow theme color)" },
-  "settings.reset": { zh: "\u91CD\u7F6E", en: "Reset" },
-  "settings.resetDefault": { zh: "\u91CD\u7F6E\u4E3A\u9ED8\u8BA4", en: "Reset to defaults" },
-  "settings.resetDesc": { zh: "\u6E05\u7A7A\u6240\u6709\u81EA\u5B9A\u4E49\u8BBE\u7F6E\uFF0C\u6062\u590D\u5230\u63D2\u4EF6\u9ED8\u8BA4\u503C\uFF08\u5305\u62EC\u8DEF\u5F84\u3001\u6A21\u578B\u3001\u6CE8\u5165\u5F00\u5173\u3001\u4E3B\u8272\u8C03\uFF09\u3002", en: "Clear all custom settings and restore plugin defaults (paths, model, injection toggles, accent color)." },
-  "settings.resetConfirm": { zh: "\u786E\u8BA4\u91CD\u7F6E\uFF1F", en: "Confirm reset?" },
-  "settings.resetDone": { zh: "\u5DF2\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u8BBE\u7F6E", en: "Settings reset to defaults" },
-  "settings.backup": { zh: "\u5907\u4EFD", en: "Backup" },
-  "settings.export": { zh: "\u5BFC\u51FA\u8BBE\u7F6E", en: "Export settings" },
-  "settings.exportDesc": { zh: "\u628A\u5F53\u524D\u8BBE\u7F6E\u590D\u5236\u4E3A JSON \u5230\u526A\u8D34\u677F\uFF0C\u4FBF\u4E8E\u5907\u4EFD\u6216\u8FC1\u79FB\uFF08\u542B\u672C\u673A\u8DEF\u5F84\uFF0C\u8DE8\u673A\u5668\u9700\u81EA\u884C\u8C03\u6574\uFF09\u3002", en: "Copy current settings as JSON to the clipboard for backup/migration (includes local paths; adjust when moving machines)." },
-  "settings.exportBtn": { zh: "\u590D\u5236\u4E3A JSON", en: "Copy as JSON" },
-  "settings.exportDone": { zh: "\u8BBE\u7F6E\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Settings copied to clipboard" },
-  "settings.import": { zh: "\u5BFC\u5165\u8BBE\u7F6E", en: "Import settings" },
-  "settings.importDesc": { zh: "\u7C98\u8D34\u4E4B\u524D\u5BFC\u51FA\u7684 JSON\uFF0C\u70B9\u786E\u8BA4\u8986\u76D6\u5F53\u524D\u8BBE\u7F6E\u3002", en: "Paste previously exported JSON, then confirm to overwrite current settings." },
-  "settings.importPlaceholder": { zh: "\u5728\u6B64\u7C98\u8D34\u8BBE\u7F6E JSON...", en: "Paste settings JSON here..." },
-  "settings.importBtn": { zh: "\u786E\u8BA4\u5BFC\u5165", en: "Confirm import" },
-  "settings.importDone": { zh: "\u8BBE\u7F6E\u5DF2\u5BFC\u5165", en: "Settings imported" },
-  "settings.importErr": { zh: "\u5BFC\u5165\u5931\u8D25\uFF1AJSON \u89E3\u6790\u9519\u8BEF", en: "Import failed: invalid JSON" },
-  "input.removeReference": { zh: "\u79FB\u9664\u5F15\u7528", en: "Remove reference" },
-  "input.customCommand": { zh: "\uFF08\u81EA\u5B9A\u4E49\u547D\u4EE4\uFF09", en: "(Custom command)" },
-  "input.attach": { zh: "\u9644\u52A0\u6587\u4EF6", en: "Attach files" },
-  "input.permission": { zh: "\u6388\u6743\u6A21\u5F0F", en: "Permission mode" },
-  "perm.default": { zh: "\u9ED8\u8BA4\uFF08\u6BCF\u6B65\u8BE2\u95EE\uFF09", en: "Default (ask each step)" },
-  "perm.plan": { zh: "\u8BA1\u5212\u6A21\u5F0F\uFF08\u53EA\u8BFB\u4E0D\u6539\uFF09", en: "Plan (read-only)" },
-  "perm.acceptEdits": { zh: "\u81EA\u52A8\u63A5\u53D7\u7F16\u8F91", en: "Accept edits" },
-  "perm.bypassPermissions": { zh: "\u5B8C\u5168\u8BBF\u95EE", en: "Full access" },
-  "input.stop": { zh: "\u505C\u6B62", en: "Stop" },
-  "input.bubbleNotFound": { zh: "\u627E\u4E0D\u5230 Assistant \u6D88\u606F\u6C14\u6CE1", en: "Assistant message bubble not found" },
-  "input.thinking": { zh: "\u601D\u8003\u4E2D...", en: "Thinking..." },
-  "input.toolCall": { zh: "\u5DE5\u5177\u8C03\u7528", en: "Tool call" },
-  "input.requestFailed": { zh: "\u8BF7\u6C42\u5931\u8D25", en: "Request failed" },
-  "input.noResponse": { zh: "\uFF08\u65E0\u54CD\u5E94\uFF0C\u8BF7\u91CD\u8BD5\uFF09", en: "(No response, please retry)" },
-  "input.thought": { zh: "\u5DF2\u601D\u8003", en: "Thought" },
-  "input.send": { zh: "\u53D1\u9001", en: "Send" },
-  "view.displayText": { zh: "Workbuddian \u804A\u5929", en: "Workbuddian Chat" },
-  "view.newChat": { zh: "\u65B0\u5EFA\u5BF9\u8BDD", en: "New chat" },
-  "view.searchChat": { zh: "\u641C\u7D22\u5BF9\u8BDD", en: "Search chats" },
-  "view.searchPlaceholder": { zh: "\u641C\u7D22\u5BF9\u8BDD...", en: "Search chats..." },
-  "view.inputPlaceholder": { zh: "\u8F93\u5165\u6D88\u606F... (Shift+Enter \u6362\u884C\uFF0CEnter \u53D1\u9001)", en: "Type a message... (Shift+Enter for newline, Enter to send)" },
-  "view.send": { zh: "\u53D1\u9001", en: "Send" },
-  "usage.tooltip": { zh: "\u4E0A\u4E0B\u6587 {used} / {total} tokens", en: "Context {used} / {total} tokens" },
-  "render.emptyTitle": { zh: "\u5F00\u59CB\u65B0\u5BF9\u8BDD", en: "Start a new conversation" },
-  "render.emptySubtitle": { zh: "\u70B9\u51FB\u4E0A\u65B9 + \u6309\u94AE\u6216\u8F93\u5165\u6D88\u606F\u5F00\u59CB\u804A\u5929", en: "Click the + button above or type a message to start chatting" },
-  "render.thinking": { zh: "\u601D\u8003\u4E2D", en: "Thinking" },
-  "render.errorTitle": { zh: "\u51FA\u9519\u4E86", en: "Something went wrong" },
-  "render.retry": { zh: "\u91CD\u8BD5", en: "Retry" },
-  "render.openSettings": { zh: "\u6253\u5F00\u8BBE\u7F6E", en: "Open settings" },
-  "tabs.close": { zh: "\u5173\u95ED\u5BF9\u8BDD", en: "Close chat" },
-  "tabs.exportAsNote": { zh: "\u5BFC\u51FA\u4E3A\u7B14\u8BB0", en: "Export as note" },
-  "tabs.nothingToExport": { zh: "\u6CA1\u6709\u53EF\u5BFC\u51FA\u7684\u5185\u5BB9", en: "Nothing to export" },
-  "tabs.exportedAs": { zh: "\u5DF2\u5BFC\u51FA\u4E3A\u300C{name}\u300D", en: 'Exported as "{name}"' },
-  "tabs.exportFailed": { zh: "\u5BFC\u51FA\u5931\u8D25\uFF1A{err}", en: "Export failed: {err}" },
-  "tabs.copyToClipboard": { zh: "\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Copy to clipboard" },
-  "tabs.copiedToClipboard": { zh: "\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Copied to clipboard" },
-  "tabs.copyFailed": { zh: "\u590D\u5236\u5931\u8D25\uFF1A{err}", en: "Copy failed: {err}" },
-  "cmd.ribbonTooltip": { zh: "Workbuddian \u804A\u5929", en: "Workbuddian Chat" },
-  "cmd.openChat": { zh: "\u6253\u5F00\u804A\u5929\u9762\u677F", en: "Open chat panel" },
-  "cmd.openChatMainPane": { zh: "\u5728\u4E3B\u7F16\u8F91\u533A\u6253\u5F00\u5927\u9762\u677F", en: "Open large panel in main area" },
-  "cmd.inlineEdit": { zh: "\u7528 CodeBuddy \u7F16\u8F91\u9009\u533A", en: "Edit selection with CodeBuddy" },
-  "cmd.loadFailed": { zh: "Workbuddian \u52A0\u8F7D\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian failed to load, check the Console" },
-  "cmd.cannotCreatePanel": { zh: "Workbuddian\uFF1A\u65E0\u6CD5\u521B\u5EFA\u804A\u5929\u9762\u677F", en: "Workbuddian: could not create chat panel" },
-  "cmd.openPanelFailed": { zh: "Workbuddian\uFF1A\u6253\u5F00\u9762\u677F\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian: failed to open panel, check the Console" },
-  "cmd.openMainPaneFailed": { zh: "Workbuddian\uFF1A\u6253\u5F00\u4E3B\u7F16\u8F91\u533A\u9762\u677F\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian: failed to open main-area panel, check the Console" },
-  "inline.editTitle": { zh: "\u7528 CodeBuddy \u7F16\u8F91\u9009\u533A", en: "Edit selection with CodeBuddy" },
-  "inline.instructionLabel": { zh: "\u7F16\u8F91\u8981\u6C42", en: "Edit instruction" },
-  "inline.instructionPlaceholder": { zh: "\u5982\uFF1A\u6539\u7B80\u6D01 / \u7FFB\u8BD1\u6210\u82F1\u6587", en: "e.g. make concise / translate to English" },
-  "inline.editBtn": { zh: "\u7F16\u8F91", en: "Edit" },
-  "inline.instructionRequired": { zh: "\u8BF7\u8F93\u5165\u7F16\u8F91\u8981\u6C42", en: "Please enter an edit instruction" },
-  "inline.previewTitle": { zh: "\u9884\u89C8\u6539\u52A8", en: "Preview changes" },
-  "inline.accept": { zh: "\u63A5\u53D7", en: "Accept" },
-  "inline.reject": { zh: "\u62D2\u7EDD", en: "Reject" },
-  "inline.selectFirst": { zh: "\u8BF7\u5148\u9009\u4E2D\u4E00\u6BB5\u6587\u672C", en: "Please select some text first" },
-  "inline.editing": { zh: "CodeBuddy \u7F16\u8F91\u4E2D\u2026", en: "CodeBuddy is editing\u2026" },
-  "inline.noResult": { zh: "\u672A\u83B7\u5F97\u7F16\u8F91\u7ED3\u679C", en: "No edit result returned" },
-  "inline.editFailed": { zh: "\u7F16\u8F91\u5931\u8D25\uFF1A", en: "Edit failed: " },
-  "slash.clear": { zh: "\u6E05\u7A7A\u5E76\u65B0\u5EFA\u5BF9\u8BDD\uFF08\u672C\u5730\uFF09", en: "Clear and start a new chat (local)" },
-  "slash.compact": { zh: "\u538B\u7F29\u4E0A\u4E0B\u6587", en: "Compact context" },
-  "slash.context": { zh: "\u67E5\u770B\u4E0A\u4E0B\u6587\u7528\u91CF", en: "Show context usage" },
-  "slash.cost": { zh: "\u67E5\u770B\u672C\u6B21\u82B1\u8D39", en: "Show session cost" },
-  "slash.model": { zh: "\u5207\u6362\u6A21\u578B", en: "Switch model" },
-  "slash.permissions": { zh: "\u67E5\u770B/\u7BA1\u7406\u6743\u9650", en: "View/manage permissions" },
-  "slash.resume": { zh: "\u6062\u590D\u5386\u53F2\u4F1A\u8BDD", en: "Resume a past session" },
-  "slash.export": { zh: "\u5BFC\u51FA\u5BF9\u8BDD", en: "Export conversation" },
-  "slash.status": { zh: "\u67E5\u770B\u72B6\u6001", en: "Show status" }
-};
-function t(key) {
-  const entry = STRINGS[key];
-  return entry ? entry[currentLang] : key;
 }
 
 // src/features/chat/render.ts
@@ -850,6 +931,17 @@ function parseCommandFrontmatter(content) {
 function fileBasename(p) {
   const parts = p.split(/[\\/]/);
   return parts[parts.length - 1] || p;
+}
+function fileDir(p) {
+  const idx = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+  if (idx < 0)
+    return p;
+  if (idx === 0)
+    return p.slice(0, 1);
+  return p.slice(0, idx);
+}
+function attachmentDirs(paths) {
+  return [...new Set(paths.map(fileDir))];
 }
 function buildAttachmentBlock(paths) {
   if (paths.length === 0)
@@ -988,13 +1080,25 @@ function renderSelectionChip(view) {
   const label = view.selection.note ? `${view.selection.note}: ${preview}` : preview;
   chip.createSpan({ cls: "workbuddian-ref-chip-name", text: label, attr: { title: view.selection.text } });
 }
+function attachmentPath(f) {
+  var _a, _b, _c;
+  const legacy = f.path;
+  if (legacy)
+    return legacy;
+  try {
+    const electron = require("electron");
+    return (_c = (_b = (_a = electron.webUtils) == null ? void 0 : _a.getPathForFile) == null ? void 0 : _b.call(_a, f)) != null ? _c : "";
+  } catch (e) {
+    return "";
+  }
+}
 function openAttachmentPicker(view) {
   const input = document.createElement("input");
   input.type = "file";
   input.multiple = true;
   input.onchange = () => {
     for (const f of Array.from(input.files || [])) {
-      const p = f.path;
+      const p = attachmentPath(f);
       if (p && !view.attachments.includes(p))
         view.attachments.push(p);
     }
@@ -1167,11 +1271,13 @@ async function sendText(view, text) {
   const chunkStats = {};
   try {
     let contextText;
+    let addDirs = [];
     if (slash) {
       contextText = text;
     } else {
       const referenceBlock = await buildReferenceBlock(view, text);
       const attachmentBlock = buildAttachmentBlock(view.attachments);
+      addDirs = attachmentDirs(view.attachments);
       const selectionBlock = view.selection ? buildSelectionBlock(view.selection.text, view.selection.note) : "";
       const extraBlock = [referenceBlock, attachmentBlock, selectionBlock].filter(Boolean).join("\n\n---\n\n");
       const currentNoteLink = view.settings.injectCurrentNoteLink ? buildCurrentNoteLink(view) : "";
@@ -1193,7 +1299,7 @@ async function sendText(view, text) {
     if (!(streamingBubble instanceof HTMLElement)) {
       throw new Error(t("input.bubbleNotFound"));
     }
-    for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath)) {
+    for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs)) {
       const bubble = streamingBubble;
       if (firstChunk) {
         firstChunk = false;
@@ -1281,7 +1387,7 @@ async function sendText(view, text) {
     const finalContent = pickFinalContent(textContent, thinkingContent, resultText);
     view.manager.updateMessage(convId, aiMsg.id, finalContent);
     if (!finalContent) {
-      console.log("[BB] empty response \u2014 chunks:", JSON.stringify(chunkStats), "| resultLen:", resultText.length);
+      bbLog("[BB] empty response \u2014 chunks:", JSON.stringify(chunkStats), "| resultLen:", resultText.length);
       view.manager.updateMessage(convId, aiMsg.id, t("input.noResponse"));
     }
     const thinkingLabel = streamingBubble.querySelector(".workbuddian-thinking-header-text");
@@ -1320,6 +1426,48 @@ function openWorkbuddianSettings(view) {
   const setting = view.app.setting;
   (_a = setting == null ? void 0 : setting.open) == null ? void 0 : _a.call(setting);
   (_b = setting == null ? void 0 : setting.openTabById) == null ? void 0 : _b.call(setting, "workbuddian");
+}
+
+// src/shared/tableNormalize.ts
+function ensureTableBlankLines(md) {
+  if (!md.includes("|"))
+    return md;
+  const lines = md.split("\n");
+  const out = [];
+  let fenceChar = "";
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const fence = detectFence(line);
+    if (fenceChar) {
+      if (fence === fenceChar)
+        fenceChar = "";
+      out.push(line);
+      continue;
+    }
+    if (fence) {
+      fenceChar = fence;
+      out.push(line);
+      continue;
+    }
+    if (isDelimiterRow(line) && i >= 2 && isTableRowish(lines[i - 1]) && lines[i - 2].trim() !== "" && !isTableRowish(lines[i - 2])) {
+      out.splice(out.length - 1, 0, "");
+    }
+    out.push(line);
+  }
+  return out.join("\n");
+}
+function detectFence(line) {
+  const m = line.match(/^ {0,3}(`{3,}|~{3,})/);
+  return m ? m[1][0] : "";
+}
+function isDelimiterRow(line) {
+  const t2 = line.trim();
+  if (!t2.includes("-"))
+    return false;
+  return /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?$/.test(t2);
+}
+function isTableRowish(line) {
+  return line.trim() !== "" && line.includes("|");
 }
 
 // src/features/chat/render.ts
@@ -1396,7 +1544,7 @@ async function renderMarkdownContent(view, bubble, content) {
   markdownContainer.empty();
   await import_obsidian3.MarkdownRenderer.render(
     view.app,
-    content,
+    ensureTableBlankLines(content),
     markdownContainer,
     "",
     view.markdownComponent
@@ -1421,8 +1569,11 @@ async function switchToChat(view, id) {
   await renderMessages(view);
 }
 async function deleteChat(view, id, e) {
-  var _a, _b;
   e.stopPropagation();
+  await removeChat(view, id);
+}
+async function removeChat(view, id) {
+  var _a, _b;
   const wasActive = view.activeConvId === id;
   view.manager.deleteConversation(id);
   if (wasActive) {
@@ -1432,7 +1583,6 @@ async function deleteChat(view, id, e) {
   await renderMessages(view);
 }
 function renderTabs(view) {
-  var _a, _b;
   if (view.activeRename) {
     const prev = view.activeRename;
     view.activeRename = null;
@@ -1443,8 +1593,7 @@ function renderTabs(view) {
   const newBtn = view.tabBar.querySelector(".workbuddian-new-chat-btn");
   const oldTabs = view.tabBar.querySelectorAll(".workbuddian-tab");
   oldTabs.forEach((t2) => t2.remove());
-  const query = (_b = (_a = view.searchInput) == null ? void 0 : _a.value) != null ? _b : "";
-  const conversations = view.manager.search(query);
+  const conversations = view.manager.getAll();
   const activeId = view.activeConvId;
   for (const conv of conversations) {
     const tab = view.tabBar.createDiv({ cls: "workbuddian-tab" });
@@ -1481,7 +1630,7 @@ function renderTabs(view) {
     };
     tab.oncontextmenu = (e) => {
       e.preventDefault();
-      showTabContextMenu(view, e, conv.id);
+      showTabContextMenu(view, e, conv.id, tab, titleSpan);
     };
     if (newBtn) {
       tab.after(newBtn);
@@ -1533,11 +1682,22 @@ function beginRenameTab(view, tab, titleSpan, convId) {
     }
   });
 }
-function showTabContextMenu(view, e, convId) {
+function showTabContextMenu(view, e, convId, tab, titleSpan) {
   const conv = view.manager.getAll().find((c) => c.id === convId);
   if (!conv)
     return;
   const menu = new import_obsidian4.Menu();
+  menu.addItem(
+    (item) => item.setTitle(t("tabs.rename")).setIcon("pencil").onClick(() => {
+      beginRenameTab(view, tab, titleSpan, convId);
+    })
+  );
+  menu.addItem(
+    (item) => item.setTitle(t("tabs.delete")).setIcon("trash-2").onClick(async () => {
+      await removeChat(view, convId);
+    })
+  );
+  menu.addSeparator();
   menu.addItem(
     (item) => item.setTitle(t("tabs.exportAsNote")).setIcon("file-down").onClick(async () => {
       const markdown = formatConversationAsMarkdown(conv);
@@ -1614,14 +1774,36 @@ var WorkbuddianChatView = class extends import_obsidian5.ItemView {
   }
   async onOpen() {
     var _a, _b;
-    const container = this.contentEl;
-    container.empty();
-    container.addClass("workbuddian-chat-container");
     this.lastMarkdownView = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
     this.registerEvent(this.app.workspace.on("active-leaf-change", (leaf) => {
       if ((leaf == null ? void 0 : leaf.view) instanceof import_obsidian5.MarkdownView)
         this.lastMarkdownView = leaf.view;
     }));
+    let selChangeTimer = null;
+    this.registerDomEvent(document, "selectionchange", () => {
+      if (selChangeTimer !== null)
+        window.clearTimeout(selChangeTimer);
+      selChangeTimer = window.setTimeout(() => captureNoteSelection(this), 120);
+    });
+    this.buildUI();
+    try {
+      if (this.manager.hasConversations()) {
+        this.activeConvId = (_b = (_a = this.manager.getActive()) == null ? void 0 : _a.id) != null ? _b : null;
+        renderTabs(this);
+        await renderMessages(this);
+      } else {
+        const conversations = await this.loadDataCallback();
+        await this.loadConversations(conversations);
+      }
+    } catch (e) {
+      bbError("[BB] \u52A0\u8F7D\u5386\u53F2\u5BF9\u8BDD\u5931\u8D25:", e);
+    }
+  }
+  /** 构建/重建整个面板 DOM（用当前语言的 t() 文案）。语言切换时可重复调用刷新界面语言。 */
+  buildUI() {
+    const container = this.contentEl;
+    container.empty();
+    container.addClass("workbuddian-chat-container");
     this.tabBar = container.createDiv({ cls: "workbuddian-tab-bar" });
     const newBtn = this.tabBar.createEl("button", {
       text: "",
@@ -1630,27 +1812,6 @@ var WorkbuddianChatView = class extends import_obsidian5.ItemView {
     });
     (0, import_obsidian5.setIcon)(newBtn, "plus");
     newBtn.onclick = () => createNewChat(this);
-    const searchBtn = this.tabBar.createEl("button", {
-      text: "",
-      cls: "workbuddian-search-btn",
-      attr: { title: t("view.searchChat"), "aria-label": t("view.searchChat") }
-    });
-    (0, import_obsidian5.setIcon)(searchBtn, "search");
-    this.searchInput = this.tabBar.createEl("input", {
-      cls: "workbuddian-search-input workbuddian-hidden",
-      attr: { type: "text", placeholder: t("view.searchPlaceholder") }
-    });
-    searchBtn.onclick = () => {
-      const isHidden = this.searchInput.hasClass("workbuddian-hidden");
-      this.searchInput.toggleClass("workbuddian-hidden", !isHidden);
-      if (isHidden) {
-        this.searchInput.focus();
-      } else {
-        this.searchInput.value = "";
-        renderTabs(this);
-      }
-    };
-    this.searchInput.oninput = () => renderTabs(this);
     this.messageContainer = container.createDiv({ cls: "workbuddian-messages" });
     this.chipsEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
     this.attachChipsEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
@@ -1669,12 +1830,6 @@ var WorkbuddianChatView = class extends import_obsidian5.ItemView {
         updateAtSuggest(this);
     };
     this.inputEl.addEventListener("focus", () => captureNoteSelection(this));
-    let selChangeTimer = null;
-    this.registerDomEvent(document, "selectionchange", () => {
-      if (selChangeTimer !== null)
-        window.clearTimeout(selChangeTimer);
-      selChangeTimer = window.setTimeout(() => captureNoteSelection(this), 120);
-    });
     this.atSuggestEl = inputArea.createDiv({ cls: "workbuddian-at-suggest workbuddian-hidden" });
     const toolbar = inputBox.createDiv({ cls: "workbuddian-input-toolbar" });
     const modelBtn = toolbar.createDiv({
@@ -1710,18 +1865,14 @@ var WorkbuddianChatView = class extends import_obsidian5.ItemView {
       }
     };
     void loadCustomCommands(this);
-    try {
-      if (this.manager.hasConversations()) {
-        this.activeConvId = (_b = (_a = this.manager.getActive()) == null ? void 0 : _a.id) != null ? _b : null;
-        renderTabs(this);
-        await renderMessages(this);
-      } else {
-        const conversations = await this.loadDataCallback();
-        await this.loadConversations(conversations);
-      }
-    } catch (e) {
-      console.error("[BB] \u52A0\u8F7D\u5386\u53F2\u5BF9\u8BDD\u5931\u8D25:", e);
-    }
+  }
+  /** 语言切换后重建面板 DOM 并保持当前活跃对话与已渲染内容 */
+  async refreshUI() {
+    const keepActive = this.activeConvId;
+    this.buildUI();
+    this.activeConvId = keepActive;
+    renderTabs(this);
+    await renderMessages(this);
   }
   async onClose() {
     this.markdownComponent.unload();
@@ -1755,7 +1906,7 @@ var ConversationManager = class {
     }
   }
   handlePersistError(error) {
-    console.error("[BB] persist failed:", getErrorMessage(error));
+    bbError("[BB] persist failed:", getErrorMessage(error));
   }
   /** 显式触发持久化（流式结束后调用） */
   async flush() {
@@ -1777,7 +1928,7 @@ var ConversationManager = class {
     const id = generateId();
     const conv = {
       id,
-      title: title || "\u65B0\u5BF9\u8BDD",
+      title: title || t("chat.newConversation"),
       sessionId: "",
       // 首次发送消息时由 Gateway 分配
       messages: [],
@@ -1860,7 +2011,7 @@ var ConversationManager = class {
     };
     conv.messages.push(msg);
     conv.updatedAt = Date.now();
-    if (conv.title === "\u65B0\u5BF9\u8BDD" && role === "user" && content.trim()) {
+    if (matchesAnyLang(conv.title, "chat.newConversation") && role === "user" && content.trim()) {
       conv.title = content.substring(0, 30) + (content.length > 30 ? "..." : "");
     }
     this.persist().catch((err) => this.handlePersistError(err));
@@ -1929,8 +2080,45 @@ var ConversationManager = class {
 };
 
 // src/features/settings/tab.ts
+var import_obsidian7 = require("obsidian");
+
+// src/features/settings/logModal.ts
 var import_obsidian6 = require("obsidian");
-var WorkbuddianSettingTab = class extends import_obsidian6.PluginSettingTab {
+var LogModal = class extends import_obsidian6.Modal {
+  constructor(app) {
+    super(app);
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("workbuddian-log-modal");
+    contentEl.createEl("h3", { text: t("log.title") });
+    const pre = contentEl.createEl("pre", { cls: "workbuddian-log-body" });
+    const render = () => {
+      const logs = getLogs();
+      pre.setText(logs.length ? logs.join("\n") : t("log.empty"));
+    };
+    render();
+    const actions = contentEl.createDiv({ cls: "workbuddian-log-actions" });
+    const copyBtn = actions.createEl("button", { text: t("log.copy") });
+    copyBtn.onclick = async () => {
+      await navigator.clipboard.writeText(getLogs().join("\n"));
+      new import_obsidian6.Notice(t("log.copied"));
+    };
+    const clearBtn = actions.createEl("button", { text: t("log.clear"), cls: "mod-warning" });
+    clearBtn.onclick = () => {
+      clearLogs();
+      render();
+      new import_obsidian6.Notice(t("log.cleared"));
+    };
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
+// src/features/settings/tab.ts
+var WorkbuddianSettingTab = class extends import_obsidian7.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -1938,18 +2126,33 @@ var WorkbuddianSettingTab = class extends import_obsidian6.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian6.Setting(containerEl).setName(t("settings.conn")).setHeading();
-    new import_obsidian6.Setting(containerEl).setName(t("settings.path")).setDesc(t("settings.pathDesc")).addText((text) => text.setPlaceholder(t("settings.pathPlaceholder")).setValue(this.plugin.settings.codebuddyPath).onChange(async (value) => {
-      this.plugin.settings.codebuddyPath = value;
-      this.plugin.api.setCodebuddyPath(value);
-      await this.plugin.saveSettings();
+    new import_obsidian7.Setting(containerEl).setName(t("settings.conn")).setHeading();
+    let pathInput;
+    new import_obsidian7.Setting(containerEl).setName(t("settings.path")).setDesc(t("settings.pathDesc")).addText((text) => {
+      pathInput = text;
+      text.setPlaceholder(t("settings.pathPlaceholder")).setValue(this.plugin.settings.codebuddyPath).onChange(async (value) => {
+        this.plugin.settings.codebuddyPath = value;
+        this.plugin.api.setCodebuddyPath(value);
+        await this.plugin.saveSettings();
+      });
+    }).addExtraButton((btn) => btn.setIcon("search").setTooltip(t("settings.pathDetect")).onClick(async () => {
+      const detected = resolveCodebuddyPath("");
+      if (detected && detected !== "codebuddy") {
+        this.plugin.settings.codebuddyPath = detected;
+        this.plugin.api.setCodebuddyPath(detected);
+        await this.plugin.saveSettings();
+        pathInput.setValue(detected);
+        new import_obsidian7.Notice(t("settings.pathDetected").replace("{path}", detected));
+      } else {
+        new import_obsidian7.Notice(t("settings.pathNotFound"));
+      }
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("settings.node")).setDesc(t("settings.nodeDesc")).addText((text) => text.setPlaceholder(t("settings.nodePlaceholder")).setValue(this.plugin.settings.nodePath).onChange(async (value) => {
+    new import_obsidian7.Setting(containerEl).setName(t("settings.node")).setDesc(t("settings.nodeDesc")).addText((text) => text.setPlaceholder(t("settings.nodePlaceholder")).setValue(this.plugin.settings.nodePath).onChange(async (value) => {
       this.plugin.settings.nodePath = value;
       this.plugin.api.setNodePath(value);
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("settings.timeout")).setDesc(t("settings.timeoutDesc")).addText((text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.cliTimeoutMinutes)).onChange(async (value) => {
+    new import_obsidian7.Setting(containerEl).setName(t("settings.timeout")).setDesc(t("settings.timeoutDesc")).addText((text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.cliTimeoutMinutes)).onChange(async (value) => {
       const num = parseInt(value);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.cliTimeoutMinutes = num;
@@ -1957,24 +2160,25 @@ var WorkbuddianSettingTab = class extends import_obsidian6.PluginSettingTab {
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("settings.inject")).setHeading();
-    new import_obsidian6.Setting(containerEl).setName(t("settings.injectVault")).setDesc(t("settings.injectVaultDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectVaultContext).onChange(async (value) => {
+    new import_obsidian7.Setting(containerEl).setName(t("settings.inject")).setHeading();
+    new import_obsidian7.Setting(containerEl).setName(t("settings.injectVault")).setDesc(t("settings.injectVaultDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectVaultContext).onChange(async (value) => {
       this.plugin.settings.injectVaultContext = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("settings.injectNote")).setDesc(t("settings.injectNoteDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectCurrentNoteLink).onChange(async (value) => {
+    new import_obsidian7.Setting(containerEl).setName(t("settings.injectNote")).setDesc(t("settings.injectNoteDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectCurrentNoteLink).onChange(async (value) => {
       this.plugin.settings.injectCurrentNoteLink = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("settings.appearance")).setHeading();
-    new import_obsidian6.Setting(containerEl).setName(t("settings.language")).setDesc(t("settings.languageDesc")).addDropdown((dropdown) => dropdown.addOptions({ auto: t("settings.langAuto"), zh: t("settings.langZh"), en: t("settings.langEn") }).setValue(this.plugin.settings.language).onChange(async (value) => {
+    new import_obsidian7.Setting(containerEl).setName(t("settings.appearance")).setHeading();
+    new import_obsidian7.Setting(containerEl).setName(t("settings.language")).setDesc(t("settings.languageDesc")).addDropdown((dropdown) => dropdown.addOptions({ auto: t("settings.langAuto"), zh: t("settings.langZh"), en: t("settings.langEn") }).setValue(this.plugin.settings.language).onChange(async (value) => {
       this.plugin.settings.language = value;
       applyLang(this.plugin.settings.language);
       await this.plugin.saveSettings();
+      this.plugin.refreshOpenViews();
       this.display();
-      new import_obsidian6.Notice(t("settings.langReload"));
+      new import_obsidian7.Notice(t("settings.langReload"));
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("settings.primary")).setDesc(t("settings.primaryDesc")).addColorPicker((picker) => {
+    new import_obsidian7.Setting(containerEl).setName(t("settings.primary")).setDesc(t("settings.primaryDesc")).addColorPicker((picker) => {
       const current = this.plugin.settings.primaryColor || "#C8B487";
       picker.setValue(current).onChange(async (value) => {
         this.plugin.settings.primaryColor = value;
@@ -1985,15 +2189,15 @@ var WorkbuddianSettingTab = class extends import_obsidian6.PluginSettingTab {
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("settings.contextWindow")).setDesc(t("settings.contextWindowDesc")).addText((text) => text.setPlaceholder("200000").setValue(String(this.plugin.settings.contextWindowSize)).onChange(async (value) => {
+    new import_obsidian7.Setting(containerEl).setName(t("settings.contextWindow")).setDesc(t("settings.contextWindowDesc")).addText((text) => text.setPlaceholder("200000").setValue(String(this.plugin.settings.contextWindowSize)).onChange(async (value) => {
       const num = parseInt(value, 10);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.contextWindowSize = num;
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("settings.reset")).setHeading();
-    new import_obsidian6.Setting(containerEl).setName(t("settings.resetDefault")).setDesc(t("settings.resetDesc")).addButton((btn) => {
+    new import_obsidian7.Setting(containerEl).setName(t("settings.reset")).setHeading();
+    new import_obsidian7.Setting(containerEl).setName(t("settings.resetDefault")).setDesc(t("settings.resetDesc")).addButton((btn) => {
       btn.setButtonText(t("settings.resetDefault")).setWarning();
       let armed = false;
       let timer = null;
@@ -2013,30 +2217,44 @@ var WorkbuddianSettingTab = class extends import_obsidian6.PluginSettingTab {
         this.plugin.applySettingsToApi();
         await this.plugin.saveSettings();
         this.display();
-        new import_obsidian6.Notice(t("settings.resetDone"));
+        new import_obsidian7.Notice(t("settings.resetDone"));
       });
     });
-    new import_obsidian6.Setting(containerEl).setName(t("settings.backup")).setHeading();
-    new import_obsidian6.Setting(containerEl).setName(t("settings.export")).setDesc(t("settings.exportDesc")).addButton((btn) => btn.setButtonText(t("settings.exportBtn")).onClick(async () => {
-      await navigator.clipboard.writeText(exportSettings(this.plugin.settings));
-      new import_obsidian6.Notice(t("settings.exportDone"));
+    new import_obsidian7.Setting(containerEl).setName(t("settings.importExport")).setHeading();
+    new import_obsidian7.Setting(containerEl).setName(t("settings.export")).setDesc(t("settings.exportDesc")).addButton((btn) => btn.setButtonText(t("settings.exportBtn")).onClick(() => {
+      const blob = new Blob([exportSettings(this.plugin.settings)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "workbuddian-settings.json";
+      a.click();
+      URL.revokeObjectURL(url);
+      new import_obsidian7.Notice(t("settings.exportDone"));
     }));
-    let importValue = "";
-    new import_obsidian6.Setting(containerEl).setName(t("settings.import")).setDesc(t("settings.importDesc")).addTextArea((ta) => {
-      ta.setPlaceholder(t("settings.importPlaceholder"));
-      ta.onChange((v) => {
-        importValue = v;
-      });
-    }).addButton((btn) => btn.setButtonText(t("settings.importBtn")).setWarning().onClick(async () => {
-      try {
-        this.plugin.settings = migrateSettings(JSON.parse(importValue));
-        this.plugin.applySettingsToApi();
-        await this.plugin.saveSettings();
-        new import_obsidian6.Notice(t("settings.importDone"));
-        this.display();
-      } catch (e) {
-        new import_obsidian6.Notice(t("settings.importErr"));
-      }
+    new import_obsidian7.Setting(containerEl).setName(t("settings.import")).setDesc(t("settings.importDesc")).addButton((btn) => btn.setButtonText(t("settings.importBtn")).setWarning().onClick(() => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json,application/json";
+      input.onchange = async () => {
+        var _a;
+        const file = (_a = input.files) == null ? void 0 : _a[0];
+        if (!file)
+          return;
+        try {
+          this.plugin.settings = migrateSettings(JSON.parse(await file.text()));
+          this.plugin.applySettingsToApi();
+          await this.plugin.saveSettings();
+          new import_obsidian7.Notice(t("settings.importDone"));
+          this.display();
+        } catch (e) {
+          new import_obsidian7.Notice(t("settings.importErr"));
+        }
+      };
+      input.click();
+    }));
+    new import_obsidian7.Setting(containerEl).setName(t("settings.logs")).setHeading();
+    new import_obsidian7.Setting(containerEl).setName(t("settings.viewLogs")).setDesc(t("settings.logsDesc")).addButton((btn) => btn.setButtonText(t("settings.viewLogs")).onClick(() => {
+      new LogModal(this.app).open();
     }));
   }
 };
@@ -2052,7 +2270,7 @@ function applyPrimaryColor(color) {
 }
 
 // src/features/inline-edit/index.ts
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // src/shared/lineDiff.ts
 function lineDiff(oldText, newText) {
@@ -2115,7 +2333,7 @@ async function collectEditResult(api, sessionId, prompt, vaultPath) {
   }
   return text.trim();
 }
-var InstructionModal = class extends import_obsidian7.Modal {
+var InstructionModal = class extends import_obsidian8.Modal {
   constructor(app, onSubmit) {
     super(app);
     this.onSubmit = onSubmit;
@@ -2123,15 +2341,15 @@ var InstructionModal = class extends import_obsidian7.Modal {
   onOpen() {
     this.titleEl.setText(t("inline.editTitle"));
     let value = "";
-    new import_obsidian7.Setting(this.contentEl).setName(t("inline.instructionLabel")).addText((txt) => {
+    new import_obsidian8.Setting(this.contentEl).setName(t("inline.instructionLabel")).addText((txt) => {
       txt.setPlaceholder(t("inline.instructionPlaceholder"));
       txt.onChange((v) => {
         value = v;
       });
     });
-    new import_obsidian7.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.editBtn")).setCta().onClick(() => {
+    new import_obsidian8.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.editBtn")).setCta().onClick(() => {
       if (!value.trim()) {
-        new import_obsidian7.Notice(t("inline.instructionRequired"));
+        new import_obsidian8.Notice(t("inline.instructionRequired"));
         return;
       }
       this.close();
@@ -2142,7 +2360,7 @@ var InstructionModal = class extends import_obsidian7.Modal {
     this.contentEl.empty();
   }
 };
-var DiffModal = class extends import_obsidian7.Modal {
+var DiffModal = class extends import_obsidian8.Modal {
   constructor(app, diff, onAccept) {
     super(app);
     this.diff = diff;
@@ -2155,7 +2373,7 @@ var DiffModal = class extends import_obsidian7.Modal {
       const prefix = line.type === "add" ? "+ " : line.type === "remove" ? "- " : "  ";
       box.createDiv({ cls: `workbuddian-diff-line workbuddian-diff-${line.type}`, text: prefix + line.text });
     }
-    new import_obsidian7.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.accept")).setCta().onClick(() => {
+    new import_obsidian8.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.accept")).setCta().onClick(() => {
       this.close();
       this.onAccept();
     })).addButton((b) => b.setButtonText(t("inline.reject")).onClick(() => this.close()));
@@ -2167,28 +2385,28 @@ var DiffModal = class extends import_obsidian7.Modal {
 function runInlineEdit(app, api, editor, vaultPath) {
   const selection = editor.getSelection();
   if (!selection.trim()) {
-    new import_obsidian7.Notice(t("inline.selectFirst"));
+    new import_obsidian8.Notice(t("inline.selectFirst"));
     return;
   }
   new InstructionModal(app, async (instruction) => {
-    const notice = new import_obsidian7.Notice(t("inline.editing"), 0);
+    const notice = new import_obsidian8.Notice(t("inline.editing"), 0);
     try {
       const edited = await collectEditResult(api, api.generateId(), buildEditPrompt(selection, instruction), vaultPath);
       notice.hide();
       if (!edited) {
-        new import_obsidian7.Notice(t("inline.noResult"));
+        new import_obsidian8.Notice(t("inline.noResult"));
         return;
       }
       new DiffModal(app, lineDiff(selection, edited), () => editor.replaceSelection(edited)).open();
     } catch (e) {
       notice.hide();
-      new import_obsidian7.Notice(t("inline.editFailed") + (e instanceof Error ? e.message : String(e)));
+      new import_obsidian8.Notice(t("inline.editFailed") + (e instanceof Error ? e.message : String(e)));
     }
   }).open();
 }
 
 // src/main.ts
-var WorkbuddianPlugin = class extends import_obsidian8.Plugin {
+var WorkbuddianPlugin = class extends import_obsidian9.Plugin {
   constructor() {
     super(...arguments);
     this.chatView = null;
@@ -2247,13 +2465,21 @@ var WorkbuddianPlugin = class extends import_obsidian8.Plugin {
       });
       this.addSettingTab(new WorkbuddianSettingTab(this.app, this));
     } catch (e) {
-      console.error("[BB] \u63D2\u4EF6\u52A0\u8F7D\u5931\u8D25:", e);
-      new import_obsidian8.Notice(t("cmd.loadFailed"));
+      bbError("[BB] \u63D2\u4EF6\u52A0\u8F7D\u5931\u8D25:", e);
+      new import_obsidian9.Notice(t("cmd.loadFailed"));
     }
   }
   onunload() {
     this.api.cancel();
     applyPrimaryColor("");
+  }
+  /** 语言切换后就地刷新所有已打开的聊天面板，无需重开面板或 Cmd+R */
+  refreshOpenViews() {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)) {
+      const view = leaf.view;
+      if (view instanceof WorkbuddianChatView)
+        void view.refreshUI();
+    }
   }
   /** 把当前 settings 灌入 provider（onload 与「重置为默认」复用） */
   applySettingsToApi() {
@@ -2280,11 +2506,11 @@ var WorkbuddianPlugin = class extends import_obsidian8.Plugin {
         await workspace.revealLeaf(leaf);
         workspace.setActiveLeaf(leaf, { focus: true });
       } else {
-        new import_obsidian8.Notice(t("cmd.cannotCreatePanel"));
+        new import_obsidian9.Notice(t("cmd.cannotCreatePanel"));
       }
     } catch (e) {
-      console.error("[BB] \u6253\u5F00\u804A\u5929\u9762\u677F\u5931\u8D25:", e);
-      new import_obsidian8.Notice(t("cmd.openPanelFailed"));
+      bbError("[BB] \u6253\u5F00\u804A\u5929\u9762\u677F\u5931\u8D25:", e);
+      new import_obsidian9.Notice(t("cmd.openPanelFailed"));
     }
   }
   async activateMainPaneView() {
@@ -2295,8 +2521,8 @@ var WorkbuddianPlugin = class extends import_obsidian8.Plugin {
       await workspace.revealLeaf(leaf);
       workspace.setActiveLeaf(leaf, { focus: true });
     } catch (e) {
-      console.error("[BB] \u6253\u5F00\u4E3B\u7F16\u8F91\u533A\u9762\u677F\u5931\u8D25:", e);
-      new import_obsidian8.Notice(t("cmd.openMainPaneFailed"));
+      bbError("[BB] \u6253\u5F00\u4E3B\u7F16\u8F91\u533A\u9762\u677F\u5931\u8D25:", e);
+      new import_obsidian9.Notice(t("cmd.openMainPaneFailed"));
     }
   }
   async loadPersistedConversations() {
