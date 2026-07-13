@@ -336,7 +336,6 @@ function push(line) {
 }
 function bbLog(...args) {
   push(`[${stamp()}] ${args.map(safeStringify).join(" ")}`);
-  console.log(...args);
 }
 function bbError(...args) {
   push(`[${stamp()}] ERR ${args.map(safeStringify).join(" ")}`);

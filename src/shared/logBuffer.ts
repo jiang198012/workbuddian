@@ -1,6 +1,7 @@
 /**
- * 内存环形日志缓冲：把 [BB] 运行日志既打到 devtools console，也存进上限 300 条的缓冲，
- * 供设置页「查看日志」展示。纯内存，重载 Obsidian 即清空，不写盘、不污染 vault。
+ * 内存环形日志缓冲：把 [BB] 运行日志存进上限 300 条的缓冲，供设置页「查看日志」展示。
+ * 普通日志只入缓冲、不打 console（避免控制台噪音）；错误另走 console.error。
+ * 纯内存，重载 Obsidian 即清空，不写盘、不污染 vault。
  */
 const MAX_ENTRIES = 300;
 const buffer: string[] = [];
@@ -21,10 +22,9 @@ function push(line: string): void {
     if (buffer.length > MAX_ENTRIES) buffer.splice(0, buffer.length - MAX_ENTRIES);
 }
 
-/** 普通日志：存缓冲 + 打 console.log */
+/** 普通日志：只存缓冲（设置页「查看日志」可看），不打 console，避免控制台噪音 */
 export function bbLog(...args: unknown[]): void {
     push(`[${stamp()}] ${args.map(safeStringify).join(' ')}`);
-    console.log(...args);
 }
 
 /** 错误日志：存缓冲（标 ERR）+ 打 console.error */

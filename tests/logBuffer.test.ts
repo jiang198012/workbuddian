@@ -14,13 +14,13 @@ describe('logBuffer', () => {
         errSpy.mockRestore();
     });
 
-    it('captures a log line and still forwards to console.log', () => {
+    it('captures a log line into the buffer without forwarding to console.log', () => {
         bbLog('[BB] hello', 42);
         const logs = getLogs();
         expect(logs).toHaveLength(1);
         expect(logs[0]).toContain('[BB] hello');
         expect(logs[0]).toContain('42');
-        expect(logSpy).toHaveBeenCalledWith('[BB] hello', 42);
+        expect(logSpy).not.toHaveBeenCalled();
     });
 
     it('marks error lines and forwards to console.error', () => {

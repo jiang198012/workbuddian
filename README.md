@@ -24,6 +24,23 @@
 
 Workbuddian is an unofficial Obsidian plugin that bridges your vault with the local WorkBuddy / CodeBuddy CLI. It opens a chat panel inside Obsidian, streams AI responses, displays thinking steps and tool calls, and keeps your conversation history across sessions.
 
+## Relationship to BuddyBridge
+
+Workbuddian is an **independent rework (derivative) of [BuddyBridge](https://github.com/ben4202121/buddybridge) (MIT)** — some code derives from it and stays MIT-licensed (see `LICENSE` / `NOTICE`); the UI additionally references Claudian (MIT) for design patterns only. Maintained independently; not affiliated with either.
+
+Compared with BuddyBridge, this rework adds and emphasizes:
+
+- **Real stop-generation** — cancel a running CLI response mid-stream (kills the active process)
+- **Main-area large panel** — open the chat as a full-width tab in the editor, not only the sidebar
+- **Conversation management** — multiple tabs, rename (double-click or right-click), export to a note or copy to clipboard, and full-text search across titles and messages
+- **@-note references + selection-to-chat** — a picker that inserts vault notes as removable context chips; selected note text is sent as read-only context automatically
+- **File attachments** — inject any file path for the CodeBuddy CLI to read
+- **In-chat toolbar** — switch model and permission mode inline, without opening settings
+- **Slash commands with autocomplete** — built-in commands plus your vault's `.codebuddy/commands`
+- **Inline edit with diff** — edit selected text via the CLI and preview a line-level diff before accepting
+- **Bilingual UI (中文 / English)** with instant switching, a custom accent color, and settings import/export
+- **Cross-platform auto-discovery** of the CodeBuddy CLI and Node.js on Windows and macOS (WorkBuddy install, npm global, PATH, bundled Node, Homebrew, nvm/volta)
+
 ---
 
 ## Requirements
@@ -84,7 +101,7 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 |---|---|---|
 | `Cannot find codebuddy CLI` | Auto-detection failed | Fill the **CodeBuddy path** in plugin settings. Default location: `WorkBuddyInstallDir\resources\app.asar.unpacked\cli\bin\codebuddy` |
 | `Cannot find Node.js` | Node.js is not configured | Run the first-time environment setup prompt (Chinese section below) |
-| Stuck on "Thinking..." | Streaming ended without text chunks | Fixed in v1.0.11 |
+| Stuck on "Thinking..." | Streaming ended without text chunks | Fixed |
 
 ---
 
@@ -93,6 +110,21 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 > 将 Obsidian 连接到 WorkBuddy/CodeBuddy CLI，实现侧边栏 AI 聊天。
 
 > **来源与致谢**：Workbuddian 是基于 [BuddyBridge](https://github.com/ben4202121/buddybridge) v1.0.13（MIT）的独立重构（衍生作品），部分代码源自 BuddyBridge 并保留其 MIT 许可（见 `LICENSE` / `NOTICE`）；UI 另参考了 Claudian（MIT，仅借鉴设计、未复制代码）。感谢两个项目！本插件独立维护，不隶属于它们。
+
+## 与 BuddyBridge 的区别
+
+相比 BuddyBridge，本重构新增/强化了：
+
+- **真实停止生成**——流式中途可中断正在运行的 CLI 回复（直接结束进程）
+- **主编辑区大面板**——聊天可在主编辑区以全宽标签打开，不局限于侧边栏
+- **会话管理**——多标签、重命名（双击或右键）、导出为笔记 / 复制到剪贴板、标题与正文全文搜索
+- **@ 笔记引用 + 选区注入**——选择器把金库笔记作为可删除 chip 插入；笔记里选中的文字自动作为只读上下文发送
+- **文件附件**——注入任意文件路径交 CodeBuddy CLI 读取
+- **输入框工具栏**——内联切换模型与授权模式，无需进设置
+- **斜杠命令 + 自动补全**——内置命令 + 你金库里的 `.codebuddy/commands`
+- **Inline Edit + Diff**——对选中文字调 CLI 编辑，接受前预览行级 diff
+- **中英双语界面**——即时切换、自定义主色、设置导入 / 导出
+- **跨平台自动发现** CodeBuddy CLI 与 Node.js（Windows/macOS：WorkBuddy 安装、npm 全局、PATH、自带 Node、Homebrew、nvm/volta）
 
 ## 安装
 
@@ -181,8 +213,8 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 | --------------------------- | ------------------------ | -------------------------- |
 | `找不到 codebuddy CLI`         | 自动检测未找到（如自定义安装路径） | 在插件设置中手动填写路径。默认路径：`WorkBuddy安装目录\resources\app.asar.unpacked\cli\bin\codebuddy`。右键 WorkBuddy 快捷方式 → 打开文件位置 可找到安装目录 |
 | `找不到 Node.js 来运行 codebuddy` | Node.js 未正确配置            | 完成上方的「环境初始化」               |
-| 一直显示「思考中」              | 流式结束未清理占位元素           | 已在 v1.0.11 修复                |
-| 重启后对话丢失                 | chatView 未正确持有导致无法加载历史 | 已在 v1.0.11 修复                |
+| 一直显示「思考中」              | 流式结束未清理占位元素           | 已修复                |
+| 重启后对话丢失                 | chatView 未正确持有导致无法加载历史 | 已修复                |
 | `（无响应，请重试）`           | 本轮流式结束但没收到任何正文（纯工具调用轮 / CLI 超时 / 模型空回复） | 直接重试；仍旧则打开开发者控制台看 `[BB]` 日志（chunk 类型、exit code、stderr）判断 |
 
 ## 权限授权
