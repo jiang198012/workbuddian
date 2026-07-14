@@ -1,16 +1,9 @@
 # Workbuddian
 
-> **Workbuddian** — an independent rework of [BuddyBridge](https://github.com/ben4202121/buddybridge)
-> v1.0.13 (MIT). Portions of the code derive from BuddyBridge and remain MIT-licensed
-> (see `LICENSE` / `NOTICE`); the UI additionally references Claudian (MIT) for design
-> patterns only. **Thanks to both projects!** Maintained independently; not affiliated
-> with either. Features: a main-pane large panel command, real stop-generation,
-> conversation rename/export/search, an `@`-note reference picker, file attachments,
-> a model/permission toolbar, selection-to-chat, and full macOS support (auto-detection
-> of `WorkBuddy.app` and Homebrew-installed Node.js).
+> **Turn the local WorkBuddy / CodeBuddy CLI into an AI agent that lives inside your Obsidian vault.** Chat with streaming replies, paste in a screenshot for visual analysis, reference your notes with `@`, and manage whole conversations — without ever leaving your notes.
 
-> Connect Obsidian to WorkBuddy/CodeBuddy CLI for AI chat.
-
+[![GitHub stars](https://img.shields.io/github/stars/jiang198012/workbuddian?style=flat&logo=github)](https://github.com/jiang198012/workbuddian/stargazers)
+[![Downloads](https://img.shields.io/github/downloads/jiang198012/workbuddian/total?logo=github)](https://github.com/jiang198012/workbuddian/releases)
 [![CI](https://github.com/jiang198012/workbuddian/actions/workflows/ci.yml/badge.svg)](https://github.com/jiang198012/workbuddian/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/jiang198012/workbuddian?sort=semver)](https://github.com/jiang198012/workbuddian/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -21,6 +14,8 @@
 ![Workbuddian — settings & chat](docs/images/screenshot.png)
 
 ![Workbuddian demo](docs/images/workbuddian-intro.gif)
+
+> **⭐ If Workbuddian is useful to you, please [star the repo](https://github.com/jiang198012/workbuddian) — it helps more people discover it.**
 
 Workbuddian is an unofficial Obsidian plugin that bridges your vault with the local WorkBuddy / CodeBuddy CLI. It opens a chat panel inside Obsidian, streams AI responses, displays thinking steps and tool calls, and keeps your conversation history across sessions.
 
@@ -49,9 +44,12 @@ Compared with BuddyBridge, this rework adds and emphasizes:
 - **Windows or macOS** (Linux is not supported yet).
 - **WorkBuddy desktop app** (≥ 5.0.5) with CodeBuddy CLI installed, or a custom CodeBuddy path configured in settings.
 
-## Installation
+### From the community plugins directory (recommended)
 
-### Via BRAT (recommended for now)
+1. In Obsidian: **Settings → Community plugins → Browse**.
+2. Search **"Workbuddian"** → **Install** → **Enable**.
+
+### Via BRAT (to track the latest beta)
 
 1. Install the **BRAT** community plugin.
 2. BRAT → *Add Beta Plugin* → enter `jiang198012/workbuddian`.
@@ -61,10 +59,7 @@ Compared with BuddyBridge, this rework adds and emphasizes:
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/jiang198012/workbuddian/releases/latest).
 2. Copy the three files into `.obsidian/plugins/workbuddian/` inside your vault.
-3. Restart Obsidian.
-4. Go to **Settings → Community plugins → Turn off Safe Mode → Enable Workbuddian**.
-
-> Not yet in the official Obsidian community plugins directory — submission is planned.
+3. Restart Obsidian, then enable **Workbuddian** in **Settings → Community plugins**.
 
 ### First-time setup
 
@@ -128,7 +123,12 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 
 ## 安装
 
-### 通过 BRAT（当前推荐）
+### 从社区插件目录安装（推荐）
+
+1. Obsidian 里：**设置 → 第三方插件 → 浏览**。
+2. 搜索 **"Workbuddian"** → **安装** → **启用**。
+
+### 通过 BRAT（追踪最新 beta）
 
 1. 安装社区插件 **BRAT**。
 2. BRAT → *Add Beta Plugin* → 填 `jiang198012/workbuddian`。
@@ -141,7 +141,7 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 3. 重启 Obsidian。
 4. 进入 **设置 → 第三方插件 → 关闭安全模式 → 开启 Workbuddian**。
 
-> 尚未进入 Obsidian 官方社区插件目录，收录申请计划中。
+> 已上架 Obsidian 官方社区插件目录，可直接在「设置 → 第三方插件 → 浏览」搜索 **Workbuddian** 安装。
 
 ## 使用方法
 

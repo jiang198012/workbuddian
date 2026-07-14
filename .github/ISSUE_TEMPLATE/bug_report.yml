@@ -1,0 +1,55 @@
+name: Bug report
+description: Report a problem with Workbuddian
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please fill in the details below so we can reproduce it quickly.
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: macOS 14 / Windows 11
+    validations:
+      required: true
+  - type: input
+    id: obsidian
+    attributes:
+      label: Obsidian version
+      placeholder: "1.7.2"
+    validations:
+      required: true
+  - type: input
+    id: plugin
+    attributes:
+      label: Workbuddian version
+      placeholder: "1.1.0"
+    validations:
+      required: true
+  - type: input
+    id: cli
+    attributes:
+      label: WorkBuddy / CodeBuddy version
+      placeholder: "e.g. 5.0.5"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: "[BB] logs (Settings → Workbuddian → View logs, or the developer console)"
+      render: shell
