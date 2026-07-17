@@ -27,4 +27,18 @@ describe('assembleContextText', () => {
         expect(assembleContextText('hi', '/v', true, '当前：《A》', 'REF'))
             .toBe(VAULT_PREFIX('/v', 'hi') + '\n\n---\n\n当前：《A》\n\n---\n\nREF');
     });
+
+    it('无 customInstruction 时行为不变', () => {
+        expect(assembleContextText('hi', undefined, false, '', '', '')).toBe('hi');
+    });
+
+    it('有 customInstruction 时作为最前置块注入', () => {
+        expect(assembleContextText('hi', undefined, false, '', '', 'be concise'))
+            .toBe('[用户常驻指令]\nbe concise\n\n---\n\nhi');
+    });
+
+    it('指令 + vault + 笔记 + 引用 全齐时指令在最前', () => {
+        expect(assembleContextText('hi', '/v', true, '当前：《A》', 'REF', 'be concise'))
+            .toBe('[用户常驻指令]\nbe concise\n\n---\n\n' + VAULT_PREFIX('/v', 'hi') + '\n\n---\n\n当前：《A》\n\n---\n\nREF');
+    });
 });

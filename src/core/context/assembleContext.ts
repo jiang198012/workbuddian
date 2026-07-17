@@ -1,9 +1,12 @@
+import { buildInstructionBlock } from '../../shared/instruction';
+
 export function assembleContextText(
     text: string,
     vaultPath: string | undefined,
     injectVaultContext: boolean,
     currentNoteLink: string,
-    referenceBlock: string
+    referenceBlock: string,
+    customInstruction: string = ''
 ): string {
     let contextText = (vaultPath && injectVaultContext)
         ? `当前 Obsidian Vault 路径: ${vaultPath}
@@ -26,6 +29,14 @@ ${currentNoteLink}`;
 ---
 
 ${referenceBlock}`;
+    }
+    const instructionBlock = buildInstructionBlock(customInstruction);
+    if (instructionBlock) {
+        contextText = `${instructionBlock}
+
+---
+
+${contextText}`;
     }
     return contextText;
 }
