@@ -583,7 +583,7 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
 
         if (!finalContent) {
             // 诊断：本轮各类 chunk 计数 + result 文本长度，便于判断是纯工具轮/超时/真空回复
-            bbLog('[BB] empty response — chunks:', JSON.stringify(chunkStats), '| resultLen:', resultText.length);
+            bbLog('[WB] empty response — chunks:', JSON.stringify(chunkStats), '| resultLen:', resultText.length);
             view.manager.updateMessage(convId, aiMsg.id, t('input.noResponse'));
         }
 

@@ -19,8 +19,8 @@ labels: bug
 - Workbuddian version:
 - WorkBuddy / CodeBuddy CLI version:
 
-**`[BB]` console logs**
-(Open DevTools → Console, filter `[BB]`, paste relevant lines.)
+**`[WB]` console logs**
+(Open DevTools → Console, filter `[WB]`, paste relevant lines.)
 
 ```
 ```

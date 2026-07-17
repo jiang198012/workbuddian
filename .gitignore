@@ -13,3 +13,12 @@ fix.mjs
 
 # Local Claude Code config
 .claude/
+
+# 本地 demo vault（录制素材，含录制指南，不入库）
+/demo-vault/
+
+# 录屏 mov + 转换脚本 + 输出 gif（本地，不入库）
+/recordings/
+
+# 录制成品/中间产物（本地，不入库）
+/demo-recordings/

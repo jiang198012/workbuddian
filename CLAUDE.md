@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Workbuddian is a **desktop-only Obsidian community plugin** (`isDesktopOnly: true`, Obsidian ≥ 1.7.2) that embeds the local **WorkBuddy / CodeBuddy CLI** as an AI chat agent inside a vault. It is an independent rework (derivative) of BuddyBridge (MIT); its UI references Claudian (MIT). Windows + macOS only; Linux is unsupported. Logs are prefixed `[BB]` (BuddyBridge heritage).
+Workbuddian is a **desktop-only Obsidian community plugin** (`isDesktopOnly: true`, Obsidian ≥ 1.7.2) that embeds the local **WorkBuddy / CodeBuddy CLI** as an AI chat agent inside a vault. Its UI references Claudian (MIT). Windows + macOS only; Linux is unsupported. Logs are prefixed `[WB]`.
 
 ## Commands
 

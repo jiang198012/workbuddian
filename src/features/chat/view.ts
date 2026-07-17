@@ -96,7 +96,7 @@ export class WorkbuddianChatView extends ItemView {
                 await this.loadConversations(conversations);
             }
         } catch (e) {
-            bbError('[BB] 加载历史对话失败:', e);
+            bbError('[WB] 加载历史对话失败:', e);
         }
     }
 

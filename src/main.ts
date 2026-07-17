@@ -86,7 +86,7 @@ export default class WorkbuddianPlugin extends Plugin {
 
             this.addSettingTab(new WorkbuddianSettingTab(this.app, this));
         } catch (e) {
-            bbError('[BB] 插件加载失败:', e);
+            bbError('[WB] 插件加载失败:', e);
             new Notice(t('cmd.loadFailed'));
         }
     }
@@ -139,7 +139,7 @@ export default class WorkbuddianPlugin extends Plugin {
                 new Notice(t('cmd.cannotCreatePanel'));
             }
         } catch (e) {
-            bbError('[BB] 打开聊天面板失败:', e);
+            bbError('[WB] 打开聊天面板失败:', e);
             new Notice(t('cmd.openPanelFailed'));
         }
     }
@@ -152,7 +152,7 @@ export default class WorkbuddianPlugin extends Plugin {
             await workspace.revealLeaf(leaf);
             workspace.setActiveLeaf(leaf, { focus: true });
         } catch (e) {
-            bbError('[BB] 打开主编辑区面板失败:', e);
+            bbError('[WB] 打开主编辑区面板失败:', e);
             new Notice(t('cmd.openMainPaneFailed'));
         }
     }

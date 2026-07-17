@@ -170,7 +170,7 @@ export function parseStreamLine(line: string, streaming = false): StreamChunk | 
         }
 
         // 未知事件类型, 输出原始 JSON 便于调试
-        bbLog('[BB] unknown event:', line.substring(0, 200));
+        bbLog('[WB] unknown event:', line.substring(0, 200));
         const fallbackText = event.text || event.content || event.message || '';
         if (fallbackText) {
             return { type: 'text', content: fallbackText };
@@ -241,7 +241,8 @@ export class CodebuddyProvider {
         const scriptPath = this.scriptPath;
         const procOptions: SpawnOptions = {
             timeout: this.timeout,
-            stdio: ['ignore', 'pipe', 'pipe'],
+            // stdin 打开为管道：prompt 通过 stdin 喂给 CLI，不走命令行参数
+            stdio: ['pipe', 'pipe', 'pipe'],
         };
         if (vaultPath) {
             procOptions.cwd = vaultPath;
@@ -261,7 +262,11 @@ export class CodebuddyProvider {
             cliArgs.push('--add-dir', ...addDirs);
             cliArgs.push('--allowedTools', ...addDirs.map(d => `Read(${d.replace(/\\/g, '/')}/**)`));
         }
-        cliArgs.push('--session-id', sessionId, '--model', this.model, '--permission-mode', this.permissionMode, text);
+        // prompt 不再作为位置参数：改从 stdin 传入（见下方 proc.stdin 写入）。
+        // 大笔记 / 大 @ 引用会让整条命令行超过 Windows 上限（cmd.exe 8191 / CreateProcess
+        // 32767 字符）→ spawn ENAMETOOLONG；stdin 无此长度限制。CLI 默认 --input-format text，
+        // 不带位置参数时从 stdin 读 prompt（官方 headless 用法：echo "..." | codebuddy -p）。
+        cliArgs.push('--session-id', sessionId, '--model', this.model, '--permission-mode', this.permissionMode);
 
         // Node 18+ Windows 下 spawn .cmd/.bat 需要 shell: true
         if (needsWindowsShell(scriptPath)) {
@@ -281,6 +286,16 @@ export class CodebuddyProvider {
         }
         this.activeProc = proc;
 
+        // 把整段 prompt 写入 CLI 的 stdin 后关闭；不 end 则 CLI 会一直等输入不返回。
+        const stdin = proc.stdin;
+        if (stdin) {
+            // 进程若提前退出（如 ENOENT），写 stdin 会抛 EPIPE；吞掉即可——
+            // 真正的启动失败由下面的 proc.on('error') 统一上报，不在这里重复处理。
+            stdin.on('error', () => { /* ignore EPIPE from an already-exited process */ });
+            stdin.write(text);
+            stdin.end();
+        }
+
         let buffer = '';
         let errOut = '';
         let hasOutput = false;
@@ -297,7 +312,7 @@ export class CodebuddyProvider {
                 if (chunk) {
                     hasOutput = true;
                     const preview = typeof chunk.content === 'string' ? chunk.content.substring(0, 80) : JSON.stringify(chunk.content).substring(0, 80);
-                    bbLog('[BB] chunk:', chunk.type, preview);
+                    bbLog('[WB] chunk:', chunk.type, preview);
                     if (resolveQueue) {
                         resolveQueue({ value: chunk, done: false });
                         resolveQueue = null;
@@ -310,11 +325,11 @@ export class CodebuddyProvider {
 
         proc.stderr.on('data', (d: Buffer) => {
             errOut += d.toString();
-            bbLog('[BB] stderr:', errOut);
+            bbLog('[WB] stderr:', errOut);
         });
 
         proc.on('close', (code, signal) => {
-            bbLog('[BB] exit:', code, signal ? 'signal:' + signal : '', '| err:', errOut.substring(0, 200));
+            bbLog('[WB] exit:', code, signal ? 'signal:' + signal : '', '| err:', errOut.substring(0, 200));
             closed = true;
             if (this.activeProc === proc) {
                 this.activeProc = null;
@@ -333,7 +348,7 @@ export class CodebuddyProvider {
             if (this.activeProc === proc) {
                 this.activeProc = null;
             }
-            bbLog('[BB] spawn err:', e.message, '| scriptPath:', scriptPath);
+            bbLog('[WB] spawn err:', e.message, '| scriptPath:', scriptPath);
             closed = true;
             if (resolveQueue) {
                 let hint = e.message;

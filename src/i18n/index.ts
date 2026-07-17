@@ -30,7 +30,7 @@ export function applyLang(setting: 'auto' | Lang): void {
 
 /**
  * 全部用户可见字符串的中英对照。key 用 kebab/dot 命名，逐文件补充。
- * 仅面向用户的 UI 文案进此表；[BB] 日志、发给 CLI 的 prompt、注释不进。
+ * 仅面向用户的 UI 文案进此表；[WB] 日志、发给 CLI 的 prompt、注释不进。
  */
 export const STRINGS: Record<string, { zh: string; en: string }> = {
     'chat.send': { zh: '发送', en: 'Send' },
@@ -94,7 +94,7 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'settings.importErr': { zh: '导入失败：JSON 解析错误', en: 'Import failed: invalid JSON' },
 
     'settings.logs': { zh: '日志', en: 'Logs' },
-    'settings.logsDesc': { zh: '查看最近的插件运行日志（[BB]），便于排查问题。仅保存在内存，重载后清空。', en: 'View recent plugin logs ([BB]) for troubleshooting. Kept in memory only; cleared on reload.' },
+    'settings.logsDesc': { zh: '查看最近的插件运行日志（[WB]），便于排查问题。仅保存在内存，重载后清空。', en: 'View recent plugin logs ([WB]) for troubleshooting. Kept in memory only; cleared on reload.' },
     'settings.viewLogs': { zh: '查看日志', en: 'View logs' },
     'log.title': { zh: 'Workbuddian 日志', en: 'Workbuddian logs' },
     'log.copy': { zh: '复制全部', en: 'Copy all' },

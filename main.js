@@ -136,7 +136,7 @@ var STRINGS = {
   "settings.importDone": { zh: "\u8BBE\u7F6E\u5DF2\u5BFC\u5165", en: "Settings imported" },
   "settings.importErr": { zh: "\u5BFC\u5165\u5931\u8D25\uFF1AJSON \u89E3\u6790\u9519\u8BEF", en: "Import failed: invalid JSON" },
   "settings.logs": { zh: "\u65E5\u5FD7", en: "Logs" },
-  "settings.logsDesc": { zh: "\u67E5\u770B\u6700\u8FD1\u7684\u63D2\u4EF6\u8FD0\u884C\u65E5\u5FD7\uFF08[BB]\uFF09\uFF0C\u4FBF\u4E8E\u6392\u67E5\u95EE\u9898\u3002\u4EC5\u4FDD\u5B58\u5728\u5185\u5B58\uFF0C\u91CD\u8F7D\u540E\u6E05\u7A7A\u3002", en: "View recent plugin logs ([BB]) for troubleshooting. Kept in memory only; cleared on reload." },
+  "settings.logsDesc": { zh: "\u67E5\u770B\u6700\u8FD1\u7684\u63D2\u4EF6\u8FD0\u884C\u65E5\u5FD7\uFF08[WB]\uFF09\uFF0C\u4FBF\u4E8E\u6392\u67E5\u95EE\u9898\u3002\u4EC5\u4FDD\u5B58\u5728\u5185\u5B58\uFF0C\u91CD\u8F7D\u540E\u6E05\u7A7A\u3002", en: "View recent plugin logs ([WB]) for troubleshooting. Kept in memory only; cleared on reload." },
   "settings.viewLogs": { zh: "\u67E5\u770B\u65E5\u5FD7", en: "View logs" },
   "log.title": { zh: "Workbuddian \u65E5\u5FD7", en: "Workbuddian logs" },
   "log.copy": { zh: "\u590D\u5236\u5168\u90E8", en: "Copy all" },
@@ -418,13 +418,13 @@ function findNodeExecutable() {
     try {
       const nodePath = path.join(dir, NODE_EXECUTABLE);
       if (fs.existsSync(nodePath) && fs.statSync(nodePath).isFile()) {
-        bbLog("[BB] found node at:", nodePath);
+        bbLog("[WB] found node at:", nodePath);
         return nodePath;
       }
     } catch (e) {
     }
   }
-  bbLog("[BB] WARNING: node not found in any search path, falling back to 'node'");
+  bbLog("[WB] WARNING: node not found in any search path, falling back to 'node'");
   return "node";
 }
 function resolveCodebuddyPath(customPath) {
@@ -488,7 +488,7 @@ function resolveCodebuddyPath(customPath) {
     candidates.push(path.join(npmPrefix, "bin", "codebuddy"));
   for (const p of candidates) {
     if (fs.existsSync(p)) {
-      bbLog("[BB] resolved codebuddy path:", p);
+      bbLog("[WB] resolved codebuddy path:", p);
       return p;
     }
   }
@@ -631,7 +631,7 @@ function parseStreamLine(line, streaming = false) {
     if (event.type === "error") {
       return { type: "error", content: event.error || event.message || t("common.unknownError") };
     }
-    bbLog("[BB] unknown event:", line.substring(0, 200));
+    bbLog("[WB] unknown event:", line.substring(0, 200));
     const fallbackText = event.text || event.content || event.message || "";
     if (fallbackText) {
       return { type: "text", content: fallbackText };
@@ -686,7 +686,8 @@ var CodebuddyProvider = class {
     const scriptPath = this.scriptPath;
     const procOptions = {
       timeout: this.timeout,
-      stdio: ["ignore", "pipe", "pipe"]
+      // stdin 打开为管道：prompt 通过 stdin 喂给 CLI，不走命令行参数
+      stdio: ["pipe", "pipe", "pipe"]
     };
     if (vaultPath) {
       procOptions.cwd = vaultPath;
@@ -696,7 +697,7 @@ var CodebuddyProvider = class {
       cliArgs.push("--add-dir", ...addDirs);
       cliArgs.push("--allowedTools", ...addDirs.map((d) => `Read(${d.replace(/\\/g, "/")}/**)`));
     }
-    cliArgs.push("--session-id", sessionId, "--model", this.model, "--permission-mode", this.permissionMode, text);
+    cliArgs.push("--session-id", sessionId, "--model", this.model, "--permission-mode", this.permissionMode);
     if (needsWindowsShell(scriptPath)) {
       procOptions.shell = true;
     }
@@ -708,6 +709,13 @@ var CodebuddyProvider = class {
       proc = (0, import_child_process.spawn)(nodeBin, [scriptPath, ...cliArgs], procOptions);
     }
     this.activeProc = proc;
+    const stdin = proc.stdin;
+    if (stdin) {
+      stdin.on("error", () => {
+      });
+      stdin.write(text);
+      stdin.end();
+    }
     let buffer2 = "";
     let errOut = "";
     let hasOutput = false;
@@ -723,7 +731,7 @@ var CodebuddyProvider = class {
         if (chunk) {
           hasOutput = true;
           const preview = typeof chunk.content === "string" ? chunk.content.substring(0, 80) : JSON.stringify(chunk.content).substring(0, 80);
-          bbLog("[BB] chunk:", chunk.type, preview);
+          bbLog("[WB] chunk:", chunk.type, preview);
           if (resolveQueue) {
             resolveQueue({ value: chunk, done: false });
             resolveQueue = null;
@@ -735,10 +743,10 @@ var CodebuddyProvider = class {
     });
     proc.stderr.on("data", (d) => {
       errOut += d.toString();
-      bbLog("[BB] stderr:", errOut);
+      bbLog("[WB] stderr:", errOut);
     });
     proc.on("close", (code, signal) => {
-      bbLog("[BB] exit:", code, signal ? "signal:" + signal : "", "| err:", errOut.substring(0, 200));
+      bbLog("[WB] exit:", code, signal ? "signal:" + signal : "", "| err:", errOut.substring(0, 200));
       closed = true;
       if (this.activeProc === proc) {
         this.activeProc = null;
@@ -756,7 +764,7 @@ var CodebuddyProvider = class {
       if (this.activeProc === proc) {
         this.activeProc = null;
       }
-      bbLog("[BB] spawn err:", e.message, "| scriptPath:", scriptPath);
+      bbLog("[WB] spawn err:", e.message, "| scriptPath:", scriptPath);
       closed = true;
       if (resolveQueue) {
         let hint = e.message;
@@ -1587,7 +1595,7 @@ async function sendText(view, text) {
     const finalContent = pickFinalContent(textContent, thinkingContent, resultText);
     view.manager.updateMessage(convId, aiMsg.id, finalContent);
     if (!finalContent) {
-      bbLog("[BB] empty response \u2014 chunks:", JSON.stringify(chunkStats), "| resultLen:", resultText.length);
+      bbLog("[WB] empty response \u2014 chunks:", JSON.stringify(chunkStats), "| resultLen:", resultText.length);
       view.manager.updateMessage(convId, aiMsg.id, t("input.noResponse"));
     }
     const thinkingLabel = streamingBubble.querySelector(".workbuddian-thinking-header-text");
@@ -1996,7 +2004,7 @@ var WorkbuddianChatView = class extends import_obsidian6.ItemView {
         await this.loadConversations(conversations);
       }
     } catch (e) {
-      bbError("[BB] \u52A0\u8F7D\u5386\u53F2\u5BF9\u8BDD\u5931\u8D25:", e);
+      bbError("[WB] \u52A0\u8F7D\u5386\u53F2\u5BF9\u8BDD\u5931\u8D25:", e);
     }
   }
   /** 构建/重建整个面板 DOM（用当前语言的 t() 文案）。语言切换时可重复调用刷新界面语言。 */
@@ -2131,7 +2139,7 @@ var ConversationManager = class {
     }
   }
   handlePersistError(error) {
-    bbError("[BB] persist failed:", getErrorMessage(error));
+    bbError("[WB] persist failed:", getErrorMessage(error));
   }
   /** 显式触发持久化（流式结束后调用） */
   async flush() {
@@ -2690,7 +2698,7 @@ var WorkbuddianPlugin = class extends import_obsidian10.Plugin {
       });
       this.addSettingTab(new WorkbuddianSettingTab(this.app, this));
     } catch (e) {
-      bbError("[BB] \u63D2\u4EF6\u52A0\u8F7D\u5931\u8D25:", e);
+      bbError("[WB] \u63D2\u4EF6\u52A0\u8F7D\u5931\u8D25:", e);
       new import_obsidian10.Notice(t("cmd.loadFailed"));
     }
   }
@@ -2734,7 +2742,7 @@ var WorkbuddianPlugin = class extends import_obsidian10.Plugin {
         new import_obsidian10.Notice(t("cmd.cannotCreatePanel"));
       }
     } catch (e) {
-      bbError("[BB] \u6253\u5F00\u804A\u5929\u9762\u677F\u5931\u8D25:", e);
+      bbError("[WB] \u6253\u5F00\u804A\u5929\u9762\u677F\u5931\u8D25:", e);
       new import_obsidian10.Notice(t("cmd.openPanelFailed"));
     }
   }
@@ -2746,7 +2754,7 @@ var WorkbuddianPlugin = class extends import_obsidian10.Plugin {
       await workspace.revealLeaf(leaf);
       workspace.setActiveLeaf(leaf, { focus: true });
     } catch (e) {
-      bbError("[BB] \u6253\u5F00\u4E3B\u7F16\u8F91\u533A\u9762\u677F\u5931\u8D25:", e);
+      bbError("[WB] \u6253\u5F00\u4E3B\u7F16\u8F91\u533A\u9762\u677F\u5931\u8D25:", e);
       new import_obsidian10.Notice(t("cmd.openMainPaneFailed"));
     }
   }

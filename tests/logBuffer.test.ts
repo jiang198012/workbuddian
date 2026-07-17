@@ -15,20 +15,20 @@ describe('logBuffer', () => {
     });
 
     it('captures a log line into the buffer without forwarding to console.log', () => {
-        bbLog('[BB] hello', 42);
+        bbLog('[WB] hello', 42);
         const logs = getLogs();
         expect(logs).toHaveLength(1);
-        expect(logs[0]).toContain('[BB] hello');
+        expect(logs[0]).toContain('[WB] hello');
         expect(logs[0]).toContain('42');
         expect(logSpy).not.toHaveBeenCalled();
     });
 
     it('marks error lines and forwards to console.error', () => {
-        bbError('[BB] boom');
+        bbError('[WB] boom');
         const logs = getLogs();
         expect(logs[0]).toContain('ERR');
-        expect(logs[0]).toContain('[BB] boom');
-        expect(errSpy).toHaveBeenCalledWith('[BB] boom');
+        expect(logs[0]).toContain('[WB] boom');
+        expect(errSpy).toHaveBeenCalledWith('[WB] boom');
     });
 
     it('serializes non-string args', () => {

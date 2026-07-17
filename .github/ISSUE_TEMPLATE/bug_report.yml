@@ -51,5 +51,5 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: "[BB] logs (Settings → Workbuddian → View logs, or the developer console)"
+      label: "[WB] logs (Settings → Workbuddian → View logs, or the developer console)"
       render: shell

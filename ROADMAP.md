@@ -1,4 +1,4 @@
-# BuddyBridge 改进路线图
+# Workbuddian 改进路线图
 
 > 本路线图基于 v1.0.9 的用户反馈和长期产品方向整理，按优先级和依赖关系分阶段推进。
 
@@ -38,9 +38,9 @@
 **目标**：让用户通过命令或设置页修改聊天面板的主色调，而不是固定使用 Obsidian 的 `--interactive-accent`。
 
 **实现思路**：
-1. 在 `styles.css` 中定义 `--buddybridge-primary` 变量，默认回退到 `--interactive-accent`。
+1. 在 `styles.css` 中定义 `--workbuddian-primary` 变量，默认回退到 `--interactive-accent`。
 2. 把所有紫色强调色（用户气泡、Assistant 左边框、按钮、focus ring）改用该变量。
-3. 在设置页添加颜色选择器，或在命令面板添加「设置 BuddyBridge 主色调」命令。
+3. 在设置页添加颜色选择器，或在命令面板添加「设置 Workbuddian 主色调」命令。
 4. 将用户选择的颜色写入聊天容器元素的 `style` 属性。
 
 **优先级**：高。改动小、见效快、能显著提升品牌感。
@@ -131,7 +131,7 @@
 
 ### 4.4 多语言与无障碍
 
-**状态**：i18n 中/英已完成（2026-07-11，第四阶段长任务阶段 2）。`src/i18n/index.ts` 98 个中英字典 key + `t()`（`initLang` 跟随 Obsidian 界面语言）；用 workflow 6 agents 并行抽 6 文件 UI 串 + 主汇总 settings/slashCommand + 全量 build/test/key 校验。发给 CLI 的 prompt 与 `[BB]` 日志保持中文。ARIA 已有基础，未专项加强。
+**状态**：i18n 中/英已完成（2026-07-11，第四阶段长任务阶段 2）。`src/i18n/index.ts` 98 个中英字典 key + `t()`（`initLang` 跟随 Obsidian 界面语言）；用 workflow 6 agents 并行抽 6 文件 UI 串 + 主汇总 settings/slashCommand + 全量 build/test/key 校验。发给 CLI 的 prompt 与 `[WB]` 日志保持中文。ARIA 已有基础，未专项加强。
 
 - 提取所有用户可见字符串到 i18n 文件。
 - 支持中文 / English。

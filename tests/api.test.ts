@@ -15,7 +15,20 @@ jest.mock('fs', () => {
 
 function createFakeProc() {
     const handlers: Record<string, Function[]> = {};
+    const stdinWrites: string[] = [];
+    let stdinEnded = false;
     const proc = {
+        stdin: {
+            write: (chunk: unknown) => {
+                stdinWrites.push(typeof chunk === 'string' ? chunk : String(chunk));
+                return true;
+            },
+            end: () => { stdinEnded = true; },
+            on: (event: string, cb: Function) => {
+                handlers[`stdin:${event}`] = handlers[`stdin:${event}`] || [];
+                handlers[`stdin:${event}`].push(cb);
+            }
+        },
         stdout: {
             on: (event: string, cb: Function) => {
                 handlers[`stdout:${event}`] = handlers[`stdout:${event}`] || [];
@@ -37,7 +50,7 @@ function createFakeProc() {
         const key = source ? `${source}:${event}` : event;
         handlers[key]?.forEach(cb => cb(...args));
     };
-    return { proc, emit };
+    return { proc, emit, stdinWrites, stdinEnded: () => stdinEnded };
 }
 
 describe('CodebuddyProvider', () => {
@@ -117,6 +130,30 @@ describe('CodebuddyProvider', () => {
             expect(result.done).toBe(true);
         });
 
+        it('sends the prompt via stdin, not as a CLI argument (large notes must not blow the Windows command-line limit → spawn ENAMETOOLONG)', async () => {
+            const { proc, emit, stdinWrites, stdinEnded } = createFakeProc();
+            mockedSpawn.mockReturnValue(proc as any);
+
+            const api = new CodebuddyProvider();
+            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
+            // 远超 Windows 命令行上限（cmd.exe 8191 / CreateProcess 32767），若走参数必炸
+            const bigPrompt = 'x'.repeat(100000);
+            const gen = api.sendMessage('session-stdin', bigPrompt);
+
+            const firstPromise = gen.next();
+            emit('', 'close', 0, null);
+            await firstPromise;
+
+            const [, cliArgs, spawnOptions] = mockedSpawn.mock.calls[0];
+            // prompt 绝不能作为命令行参数出现
+            expect(cliArgs).not.toContain(bigPrompt);
+            // 必须打开 stdin 管道，否则真实环境 proc.stdin 为 null
+            expect((spawnOptions as { stdio?: unknown[] }).stdio?.[0]).toBe('pipe');
+            // prompt 改从 stdin 写入并关闭（不 end 则 CLI 一直等输入不返回）
+            expect(stdinWrites.join('')).toContain(bigPrompt);
+            expect(stdinEnded()).toBe(true);
+        });
+
         it('passes --include-partial-messages so the CLI streams SSE deltas', async () => {
             const { proc, emit } = createFakeProc();
             mockedSpawn.mockReturnValue(proc as any);
@@ -156,10 +193,10 @@ describe('CodebuddyProvider', () => {
             expect(cliArgs).toContain('Read(/Users/x/Desktop/**)');
             expect(cliArgs).toContain('Read(/tmp/**)');
             expect(cliArgs).not.toContain('Read'); // 不应出现裸的全局 Read
-            // 两个变长参数都必须在 --session-id 之前，且 message 仍是最后一个位置参数
+            // 两个变长参数都必须在 --session-id 之前；message 改走 stdin，不应出现在 cliArgs 里
             expect(addIdx).toBeLessThan(sessIdx);
             expect(allowIdx).toBeLessThan(sessIdx);
-            expect(cliArgs[cliArgs.length - 1]).toBe('my message');
+            expect(cliArgs).not.toContain('my message');
         });
 
         it('omits --add-dir when no extra directories are given', async () => {
@@ -176,7 +213,8 @@ describe('CodebuddyProvider', () => {
 
             const [, cliArgs] = mockedSpawn.mock.calls[0];
             expect(cliArgs).not.toContain('--add-dir');
-            expect(cliArgs[cliArgs.length - 1]).toBe('hello');
+            // message 改走 stdin，不作为命令行参数
+            expect(cliArgs).not.toContain('hello');
         });
 
         it('passes the configured model to the CLI as --model', async () => {

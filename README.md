@@ -19,9 +19,9 @@
 
 ## ✨ What's New
 
+- **v1.2.1** — **Fix (Windows)**: referencing a large note or file with `@` no longer crashes with `spawn ENAMETOOLONG` — the prompt is now piped through stdin instead of the command line, so there's no length limit.
 - **v1.2.0** — **Instruction mode (`#`)**: type `#your rule` in the chat to set a persistent instruction / persona that applies to every conversation (edit or clear it anytime from the toolbar). **`@` any file**: reference not just notes but any vault file — markdown is read inline, other files are attached for the CLI to read.
 - **v1.1.0** — **Image vision**: paste a screenshot or drag an image into the chat and the agent analyzes it.
-- **v1.0.0** — First stable release, available in the Obsidian community plugins directory.
 
 ## Features
 
@@ -62,7 +62,7 @@
 
 ### First-time setup
 
-If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the environment setup prompt once (see the Chinese section below or open `提示词-发给workbuddy让它给buddybridge授权.md`).
+If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the environment setup prompt once (see the Chinese section below or open `提示词-授予Vault读写权限.md`).
 
 ## Usage
 
@@ -80,6 +80,10 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 | `Cannot find Node.js` | Node.js is not configured | Run the first-time environment setup prompt (Chinese section below) |
 | Stuck on "Thinking..." | Streaming ended without text chunks | Fixed |
 
+## Related
+
+Use **Obsidian** with **Claude Code** and know **Claudian**? Workbuddian is the counterpart for the **WorkBuddy / CodeBuddy** CLI — it turns that local coding agent into an in-vault chat panel. Same idea (a CLI agent living inside your notes), different backend.
+
 ---
 
 # 中文说明
@@ -88,9 +92,9 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 
 ## ✨ 更新
 
+- **v1.2.1** —— **修复（Windows）**：用 `@` 引用大笔记 / 大文件提问时不再报 `spawn ENAMETOOLONG`——prompt 改经 stdin 传入，不再受命令行长度限制。
 - **v1.2.0** —— **指令模式 `#`**：聊天框输 `#你的规则` 设一条常驻指令 / 人设，对所有对话生效（工具栏可随时改 / 清）。**`@` 引用任意文件**：不只笔记——markdown 读正文嵌入，其它文件作附件交 CLI 读。
 - **v1.1.0** —— **图片视觉**：粘贴截图 / 拖拽图片，交给 AI 分析。
-- **v1.0.0** —— 首个稳定版，已上架社区插件目录。
 
 ## 功能亮点
 
@@ -179,11 +183,11 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 | `找不到 Node.js 来运行 codebuddy` | Node.js 未正确配置            | 完成上方的「环境初始化」               |
 | 一直显示「思考中」              | 流式结束未清理占位元素           | 已修复                |
 | 重启后对话丢失                 | chatView 未正确持有导致无法加载历史 | 已修复                |
-| `（无响应，请重试）`           | 本轮流式结束但没收到任何正文（纯工具调用轮 / CLI 超时 / 模型空回复） | 直接重试；仍旧则打开开发者控制台看 `[BB]` 日志（chunk 类型、exit code、stderr）判断 |
+| `（无响应，请重试）`           | 本轮流式结束但没收到任何正文（纯工具调用轮 / CLI 超时 / 模型空回复） | 直接重试；仍旧则打开开发者控制台看 `[WB]` 日志（chunk 类型、exit code、stderr）判断 |
 
 ## 权限授权
 
-插件需要 CodeBuddy 对 Vault 有读写权限才能正常工作。如果使用时提示权限不足，将 `提示词-发给workbuddy让它给buddybridge授权.md` 的完整内容发送给 WorkBuddy/CodeBuddy 执行一次即可。
+插件需要 CodeBuddy 对 Vault 有读写权限才能正常工作。如果使用时提示权限不足，将 `提示词-授予Vault读写权限.md` 的完整内容发送给 WorkBuddy/CodeBuddy 执行一次即可。
 
 完成后**完全退出** WorkBuddy/CodeBuddy（系统托盘右键退出），重新打开即可生效。
 
@@ -208,6 +212,10 @@ npm run dev    # 开发构建
 npm run build  # 生产构建
 npm test       # 运行测试
 ```
+
+## 相关项目
+
+如果你在 **Obsidian** 里用 **Claude Code**，也许见过 **Claudian**——Workbuddian 就是面向 **WorkBuddy / CodeBuddy** CLI 的同类：把这个本地编程 agent 变成 vault 内的聊天面板。思路一致（让 CLI agent 住进笔记），后端不同。
 
 ---
 

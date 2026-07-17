@@ -20,7 +20,7 @@ The distributable is three files at the repo root: `main.js` + `manifest.json` +
 ## Conventions
 
 - **Keep new logic testable**: put pure logic in `core/` / `shared/` / `utils/` / `types/` (no `obsidian` import) and have the view layer call into it. Modules that `import ... from 'obsidian'` are not unit-tested.
-- New user-facing strings go through `src/i18n` (`STRINGS` + `t()`). Prompts sent to the CLI and `[BB]` logs stay in Chinese.
+- New user-facing strings go through `src/i18n` (`STRINGS` + `t()`). Prompts sent to the CLI and `[WB]` logs stay in Chinese.
 - Follow TDD where practical — this repo has a full unit-test suite. Match the surrounding code style (4-space indent).
 - See `CLAUDE.md` for a deeper architecture overview.
 

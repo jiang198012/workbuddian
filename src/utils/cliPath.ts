@@ -69,13 +69,13 @@ export function findNodeExecutable(): string | null {
         try {
             const nodePath = path.join(dir, NODE_EXECUTABLE);
             if (fs.existsSync(nodePath) && fs.statSync(nodePath).isFile()) {
-                bbLog('[BB] found node at:', nodePath);
+                bbLog('[WB] found node at:', nodePath);
                 return nodePath;
             }
         } catch { /* ignore inaccessible path */ }
     }
 
-    bbLog("[BB] WARNING: node not found in any search path, falling back to 'node'");
+    bbLog("[WB] WARNING: node not found in any search path, falling back to 'node'");
     return 'node';
 }
 
@@ -147,7 +147,7 @@ export function resolveCodebuddyPath(customPath: string): string {
 
     for (const p of candidates) {
         if (fs.existsSync(p)) {
-            bbLog('[BB] resolved codebuddy path:', p);
+            bbLog('[WB] resolved codebuddy path:', p);
             return p;
         }
     }

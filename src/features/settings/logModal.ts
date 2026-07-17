@@ -2,7 +2,7 @@ import { App, Modal, Notice } from 'obsidian';
 import { getLogs, clearLogs } from '../../shared/logBuffer';
 import { t } from '../../i18n';
 
-/** 展示内存里的 [BB] 运行日志，支持复制全部与清空 */
+/** 展示内存里的 [WB] 运行日志，支持复制全部与清空 */
 export class LogModal extends Modal {
     constructor(app: App) {
         super(app);

@@ -24,7 +24,7 @@ export class ConversationManager {
     }
 
     private handlePersistError(error: unknown) {
-        bbError('[BB] persist failed:', getErrorMessage(error));
+        bbError('[WB] persist failed:', getErrorMessage(error));
     }
 
     /** 显式触发持久化（流式结束后调用） */

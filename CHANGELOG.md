@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.1 — 2026-07-17
+
+### 修复
+- **`spawn ENAMETOOLONG`（Windows）**：针对大笔记 / 大 `@` 引用提问时，整段 prompt 曾作为命令行位置参数传给 CodeBuddy CLI，超出 Windows 命令行长度上限（cmd.exe 8191 / CreateProcess 32767 字符）导致 spawn 失败、无法提问。改为经 **stdin** 传入 prompt（CLI 默认 `--input-format text` 从标准输入读），命令行只剩固定 flag，彻底消除长度限制，笔记多大都不再报错。(#3)
+
+### 内部
+- 品牌命名统一：清理面向用户文档与运行日志前缀里的历史项目名残留（`LICENSE` / `NOTICE` 的 MIT 归属致谢按许可证要求保留），并移除改名重构阶段的历史过程文档。
+
 ## v1.2.0 — 2026-07-14
 
 ### 新增
@@ -14,7 +22,7 @@
 
 ## v1.0.0 — 2026-07-13
 
-首个面向 Obsidian 社区插件市场的稳定版：manifest 描述精简（只讲功能、≤250 字）、`authorUrl` 指向作者主页、去掉 console 噪音、README 增补「与 BuddyBridge 的区别」。
+首个面向 Obsidian 社区插件市场的稳定版：manifest 描述精简（只讲功能、≤250 字）、`authorUrl` 指向作者主页、去掉 console 噪音、README 增补「与同类插件的差异说明」。
 
 ## v0.4.0 — 2026-07-12
 
@@ -52,7 +60,7 @@
 - **2.2 导入/导出设置**：`exportSettings` 复制 JSON / 粘贴导入走 `migrateSettings` 容错。
 - **4.2 文件引用 chips**：`@[[note]]` 在输入框上方可视化为可删除 chip（`renderReferenceChips` + `removeAtReference`）。
 - **4.3 Inline Edit + Diff**：命令「用 CodeBuddy 编辑选区」→ 指令 Modal → 调 CLI → `lineDiff`(LCS) 行级 diff Modal → 接受写回。
-- **4.4 i18n 中 / 英**：`src/i18n/index.ts` 98 个中英字典 key + `t()`，`initLang` 跟随 Obsidian 界面语言（发给 CLI 的 prompt 与 `[BB]` 日志保持中文）。
+- **4.4 i18n 中 / 英**：`src/i18n/index.ts` 98 个中英字典 key + `t()`，`initLang` 跟随 Obsidian 界面语言（发给 CLI 的 prompt 与 `[WB]` 日志保持中文）。
 
 ### 决策
 - 3.4 交互式命令：暂缓（插件侧再造命令 UI 收益低）。
