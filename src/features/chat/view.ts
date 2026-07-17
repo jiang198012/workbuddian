@@ -7,6 +7,7 @@ import { WORKBUDDIAN_ICON_ID } from '../../shared/icon';
 import { renderTabs, createNewChat } from './tabs';
 import { renderMessages } from './render';
 import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, openAttachmentPicker, openPermissionMenu, openModelMenu, permissionIcon, captureNoteSelection, handlePaste, handleDrop } from './input';
+import { openInstructionModal } from './instructionModal';
 import type { SlashCommandInfo } from '../../shared/slashCommand';
 import { t } from '../../i18n';
 import { bbError } from '../../shared/logBuffer';
@@ -22,6 +23,7 @@ export class WorkbuddianChatView extends ItemView {
     atSuggestEl!: HTMLElement;
     chipsEl!: HTMLElement;
     sendBtn!: HTMLButtonElement;
+    instructionBtn!: HTMLButtonElement;
     tabBar!: HTMLElement;
     isStreaming: boolean = false;
     streamingMsgId: string | null = null;
@@ -171,6 +173,13 @@ export class WorkbuddianChatView extends ItemView {
         permBtn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + this.settings.permissionMode)}`);
         permBtn.onclick = (e) => openPermissionMenu(this, permBtn, e);
 
+        // 常驻指令指示（有指令时高亮，点击编辑/清除）
+        const instrBtn = toolbar.createEl('button', { cls: 'workbuddian-toolbar-btn' });
+        setIcon(instrBtn, 'hash');
+        instrBtn.onclick = () => openInstructionModal(this, '');
+        this.instructionBtn = instrBtn;
+        this.refreshInstructionIndicator();
+
         const rightGroup = toolbar.createDiv({ cls: 'workbuddian-toolbar-right' });
         this.sendBtn = rightGroup.createEl('button', {
             cls: 'workbuddian-send-btn',
@@ -195,6 +204,16 @@ export class WorkbuddianChatView extends ItemView {
         this.activeConvId = keepActive;
         renderTabs(this);
         await renderMessages(this);
+    }
+
+    /** 按 settings.customInstruction 刷新工具栏 # 指示按钮的高亮与提示 */
+    refreshInstructionIndicator() {
+        if (!this.instructionBtn) return;
+        const on = !!this.settings.customInstruction;
+        this.instructionBtn.toggleClass('workbuddian-instruction-active', on);
+        const label = on ? t('instruction.indicatorOn') : t('instruction.indicatorOff');
+        this.instructionBtn.setAttribute('title', label);
+        this.instructionBtn.setAttribute('aria-label', label);
     }
 
     async onClose() {

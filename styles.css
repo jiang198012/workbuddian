@@ -878,3 +878,9 @@
     outline: 2px dashed var(--workbuddian-primary, var(--interactive-accent));
     outline-offset: 2px;
 }
+
+/* 常驻指令指示按钮（激活态）*/
+.workbuddian-instruction-active { color: var(--workbuddian-primary, var(--interactive-accent)); }
+/* 常驻指令弹窗 */
+.workbuddian-instruction-textarea { width: 100%; min-height: 8em; resize: vertical; }
+.workbuddian-instruction-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }

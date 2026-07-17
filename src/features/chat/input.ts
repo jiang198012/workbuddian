@@ -1,4 +1,4 @@
-import { Menu, Notice, setIcon } from 'obsidian';
+import { Menu, Notice, setIcon, TFile } from 'obsidian';
 import { getErrorMessage } from '../../types';
 import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shared/atReferences';
 import { assembleContextText } from '../../core/context/assembleContext';
@@ -8,6 +8,8 @@ import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
 import { fileBasename, buildAttachmentBlock, attachmentDirs } from '../../shared/attachments';
 import { extForMime, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
+import { parseInstructionInput } from '../../shared/instruction';
+import { openInstructionModal } from './instructionModal';
 import { buildSelectionBlock } from '../../shared/selection';
 import { pickFinalContent } from '../../shared/responseFinalize';
 import { MODEL_OPTIONS, PERMISSION_MODE_CHOICES, type PermissionMode } from '../../shared/cliOptions';
@@ -28,8 +30,8 @@ export function updateAtSuggest(view: WorkbuddianChatView) {
     }
 
     const query = state.query.toLowerCase();
-    const files = view.app.vault.getMarkdownFiles()
-        .filter(f => f.basename.toLowerCase().includes(query))
+    const files = view.app.vault.getFiles()
+        .filter(f => f.name.toLowerCase().includes(query))
         .slice(0, 8);
 
     view.atSuggestEl.empty();
@@ -39,12 +41,12 @@ export function updateAtSuggest(view: WorkbuddianChatView) {
     }
     view.atSuggestEl.removeClass('workbuddian-hidden');
     for (const file of files) {
-        const item = view.atSuggestEl.createDiv({ cls: 'workbuddian-at-suggest-item', text: file.basename });
-        item.onclick = () => insertAtReference(view, file.basename);
+        const item = view.atSuggestEl.createDiv({ cls: 'workbuddian-at-suggest-item', text: file.name });
+        item.onclick = () => insertAtReference(view, file);
     }
 }
 
-export function insertAtReference(view: WorkbuddianChatView, noteName: string) {
+export function insertAtReference(view: WorkbuddianChatView, file: TFile) {
     const cursorPos = view.inputEl.selectionStart ?? view.inputEl.value.length;
     const state = extractAtQuery(view.inputEl.value, cursorPos);
     if (state) {
@@ -56,10 +58,20 @@ export function insertAtReference(view: WorkbuddianChatView, noteName: string) {
         }
         const before = value.slice(0, start);
         const after = value.slice(end);
-        const insertion = `@[[${noteName}]] `;
-        view.inputEl.value = before + insertion + after;
-        const newCursorPos = before.length + insertion.length;
-        view.inputEl.setSelectionRange(newCursorPos, newCursorPos);
+        if (file.extension === 'md') {
+            // markdown 笔记：插入 @[[名]]，由 buildReferenceBlock 读正文
+            const insertion = `@[[${file.basename}]] `;
+            view.inputEl.value = before + insertion + after;
+            const newCursorPos = before.length + insertion.length;
+            view.inputEl.setSelectionRange(newCursorPos, newCursorPos);
+        } else {
+            // 非 md：清掉正在输入的 @query，改为加附件（绝对路径交 CLI 读）
+            view.inputEl.value = before + after;
+            view.inputEl.setSelectionRange(before.length, before.length);
+            const abs = `${view.vaultPath}/${file.path}`;
+            if (!view.attachments.includes(abs)) view.attachments.push(abs);
+            renderAttachmentChips(view);
+        }
         view.inputEl.focus();
     }
 
@@ -382,6 +394,13 @@ export async function sendMessage(view: WorkbuddianChatView) {
     const text = view.inputEl.value.trim();
     if (!text) return;
 
+    // 指令模式：# 开头 → 打开常驻指令弹窗，不发送
+    const instr = parseInstructionInput(text);
+    if (instr !== null) {
+        openInstructionModal(view, instr);
+        return;
+    }
+
     const slash = parseSlashCommand(text);
     if (slash?.name === 'clear') {
         // /clear：本地新建对话，不发 CLI
@@ -449,7 +468,7 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
             const extraBlock = [referenceBlock, attachmentBlock, selectionBlock].filter(Boolean).join('\n\n---\n\n');
             const currentNoteLink = view.settings.injectCurrentNoteLink ? buildCurrentNoteLink(view) : '';
             contextText = assembleContextText(
-                text, view.vaultPath, view.settings.injectVaultContext, currentNoteLink, extraBlock
+                text, view.vaultPath, view.settings.injectVaultContext, currentNoteLink, extraBlock, view.settings.customInstruction
             );
             // 附件用完即清空；选区是实时镜像，取消选择才消失，这里不清
             if (view.attachments.length) {
