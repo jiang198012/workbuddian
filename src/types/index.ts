@@ -37,10 +37,11 @@ export interface WorkbuddianSettings {
     contextWindowSize: number;
     permissionMode: PermissionMode;
     language: 'auto' | 'zh' | 'en';
+    customInstruction: string;
     version: number;
 }
 
-const CURRENT_SETTINGS_VERSION = 8;
+const CURRENT_SETTINGS_VERSION = 9;
 const DEFAULT_CONTEXT_WINDOW_SIZE = 200000;
 
 export const DEFAULT_SETTINGS: WorkbuddianSettings = {
@@ -54,6 +55,7 @@ export const DEFAULT_SETTINGS: WorkbuddianSettings = {
     contextWindowSize: DEFAULT_CONTEXT_WINDOW_SIZE,
     permissionMode: 'default',
     language: 'auto',
+    customInstruction: '',
     version: CURRENT_SETTINGS_VERSION
 };
 
@@ -126,6 +128,7 @@ export function migrateSettings(stored: unknown): WorkbuddianSettings {
         language: language === 'zh' || language === 'en' || language === 'auto'
             ? language
             : DEFAULT_SETTINGS.language,
+        customInstruction: getString(stored, 'customInstruction') ?? DEFAULT_SETTINGS.customInstruction,
         version: CURRENT_SETTINGS_VERSION
     };
 }

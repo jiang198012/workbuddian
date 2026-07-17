@@ -31,8 +31,11 @@ describe('DEFAULT_SETTINGS', () => {
     it('should default language to auto', () => {
         expect(DEFAULT_SETTINGS.language).toBe('auto');
     });
-    it('should have settings version 8', () => {
-        expect(DEFAULT_SETTINGS.version).toBe(8);
+    it('should have settings version 9', () => {
+        expect(DEFAULT_SETTINGS.version).toBe(9);
+    });
+    it('should default customInstruction to empty string', () => {
+        expect(DEFAULT_SETTINGS.customInstruction).toBe('');
     });
 });
 
@@ -134,8 +137,17 @@ describe('migrateSettings', () => {
         expect(migrateSettings({ language: 'fr' }).language).toBe('auto');
         expect(migrateSettings({ language: 5 }).language).toBe('auto');
     });
-    it('should migrate an older stored version up to 8', () => {
-        expect(migrateSettings({ version: 4 }).version).toBe(8);
+    it('should migrate an older stored version up to 9', () => {
+        expect(migrateSettings({ version: 4 }).version).toBe(9);
+    });
+    it('should default customInstruction to empty when missing', () => {
+        expect(migrateSettings({}).customInstruction).toBe('');
+    });
+    it('should preserve a valid customInstruction', () => {
+        expect(migrateSettings({ customInstruction: 'be concise' }).customInstruction).toBe('be concise');
+    });
+    it('should reset a non-string customInstruction to empty', () => {
+        expect(migrateSettings({ customInstruction: 123 }).customInstruction).toBe('');
     });
 });
 
