@@ -17,32 +17,31 @@
 
 > **⭐ If Workbuddian is useful to you, please [star the repo](https://github.com/jiang198012/workbuddian) — it helps more people discover it.**
 
-Workbuddian is an unofficial Obsidian plugin that bridges your vault with the local WorkBuddy / CodeBuddy CLI. It opens a chat panel inside Obsidian, streams AI responses, displays thinking steps and tool calls, and keeps your conversation history across sessions.
+## ✨ What's New
 
-## Relationship to BuddyBridge
+- **v1.2.0** — **Instruction mode (`#`)**: type `#your rule` in the chat to set a persistent instruction / persona that applies to every conversation (edit or clear it anytime from the toolbar). **`@` any file**: reference not just notes but any vault file — markdown is read inline, other files are attached for the CLI to read.
+- **v1.1.0** — **Image vision**: paste a screenshot or drag an image into the chat and the agent analyzes it.
+- **v1.0.0** — First stable release, available in the Obsidian community plugins directory.
 
-Workbuddian is an **independent rework (derivative) of [BuddyBridge](https://github.com/ben4202121/buddybridge) (MIT)** — some code derives from it and stays MIT-licensed (see `LICENSE` / `NOTICE`); the UI additionally references Claudian (MIT) for design patterns only. Maintained independently; not affiliated with either.
+## Features
 
-Compared with BuddyBridge, this rework adds and emphasizes:
-
-- **Real stop-generation** — cancel a running CLI response mid-stream (kills the active process)
-- **Main-area large panel** — open the chat as a full-width tab in the editor, not only the sidebar
-- **Conversation management** — multiple tabs, rename (double-click or right-click), export to a note or copy to clipboard, and full-text search across titles and messages
-- **@-note references + selection-to-chat** — a picker that inserts vault notes as removable context chips; selected note text is sent as read-only context automatically
-- **File attachments** — inject any file path for the CodeBuddy CLI to read
-- **In-chat toolbar** — switch model and permission mode inline, without opening settings
-- **Slash commands with autocomplete** — built-in commands plus your vault's `.codebuddy/commands`
-- **Inline edit with diff** — edit selected text via the CLI and preview a line-level diff before accepting
-- **Bilingual UI (中文 / English)** with instant switching, a custom accent color, and settings import/export
-- **Cross-platform auto-discovery** of the CodeBuddy CLI and Node.js on Windows and macOS (WorkBuddy install, npm global, PATH, bundled Node, Homebrew, nvm/volta)
-
----
+- **Streaming chat** in the sidebar or a full-width main-area tab, with collapsible **thinking** and **tool-call** cards, and Markdown rendering (code, tables, lists, quotes).
+- **Image vision** — paste / drag a screenshot or image for the agent to analyze.
+- **Instruction mode (`#`)** — a persistent custom instruction / persona injected into every message.
+- **`@`-references any vault file** — notes are read inline; other files are attached for the CLI to read; selected note text is sent as read-only context automatically.
+- **File attachments** — inject any file path for the CLI to read.
+- **Conversation management** — multiple tabs, rename (double-click or right-click), export a conversation to a note or copy to clipboard, and full-text search across titles and messages; history persists across restarts.
+- **In-chat toolbar** — switch model and permission mode inline; **slash commands** with autocomplete (built-in + your vault's `.codebuddy/commands`); **inline edit** with a diff preview; **real stop-generation** to interrupt a running response.
+- **Bilingual UI (中文 / English)** with instant switching, a custom accent color, and settings import/export.
+- **Cross-platform auto-discovery** of the CodeBuddy CLI and Node.js on Windows and macOS (WorkBuddy install, npm global, PATH, bundled Node, Homebrew, nvm/volta).
 
 ## Requirements
 
 - **Obsidian 1.7.2 or later** (desktop).
 - **Windows or macOS** (Linux is not supported yet).
 - **WorkBuddy desktop app** (≥ 5.0.5) with CodeBuddy CLI installed, or a custom CodeBuddy path configured in settings.
+
+## Installation
 
 ### From the community plugins directory (recommended)
 
@@ -73,23 +72,6 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 4. Switch between conversations using the tabs at the top, or click **+** to start a new one.
 5. Open **Settings → Workbuddian** to configure the CodeBuddy CLI path manually if needed.
 
-## Features
-
-- Chat panel in Obsidian sidebar with multi-turn conversations
-- Streaming responses in real time
-- Collapsible thinking blocks and tool-call cards
-- Markdown rendering for assistant messages (code, tables, lists, quotes)
-- Vault-aware context injection
-- Conversation persistence across Obsidian restarts
-- Automatic CodeBuddy / Node.js path discovery on Windows and macOS
-- Configurable CLI path in settings
-- Real stop-generation button to interrupt long-running LLM responses
-- Conversation rename via double-click on tab titles
-- Export conversations to notes or copy to clipboard via right-click menu
-- Full-text search across conversation titles and message content
-- @-note reference picker to insert and contextualize vault notes
-- Chat opens in the sidebar as a proper tab (not stacked with other panels) by default; a separate command opens it as a full-width tab in the main editor area instead
-
 ## Troubleshooting
 
 | Symptom | Cause | Solution |
@@ -104,22 +86,23 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 
 > 将 Obsidian 连接到 WorkBuddy/CodeBuddy CLI，实现侧边栏 AI 聊天。
 
-> **来源与致谢**：Workbuddian 是基于 [BuddyBridge](https://github.com/ben4202121/buddybridge) v1.0.13（MIT）的独立重构（衍生作品），部分代码源自 BuddyBridge 并保留其 MIT 许可（见 `LICENSE` / `NOTICE`）；UI 另参考了 Claudian（MIT，仅借鉴设计、未复制代码）。感谢两个项目！本插件独立维护，不隶属于它们。
+## ✨ 更新
 
-## 与 BuddyBridge 的区别
+- **v1.2.0** —— **指令模式 `#`**：聊天框输 `#你的规则` 设一条常驻指令 / 人设，对所有对话生效（工具栏可随时改 / 清）。**`@` 引用任意文件**：不只笔记——markdown 读正文嵌入，其它文件作附件交 CLI 读。
+- **v1.1.0** —— **图片视觉**：粘贴截图 / 拖拽图片，交给 AI 分析。
+- **v1.0.0** —— 首个稳定版，已上架社区插件目录。
 
-相比 BuddyBridge，本重构新增/强化了：
+## 功能亮点
 
-- **真实停止生成**——流式中途可中断正在运行的 CLI 回复（直接结束进程）
-- **主编辑区大面板**——聊天可在主编辑区以全宽标签打开，不局限于侧边栏
-- **会话管理**——多标签、重命名（双击或右键）、导出为笔记 / 复制到剪贴板、标题与正文全文搜索
-- **@ 笔记引用 + 选区注入**——选择器把金库笔记作为可删除 chip 插入；笔记里选中的文字自动作为只读上下文发送
-- **文件附件**——注入任意文件路径交 CodeBuddy CLI 读取
-- **输入框工具栏**——内联切换模型与授权模式，无需进设置
-- **斜杠命令 + 自动补全**——内置命令 + 你金库里的 `.codebuddy/commands`
-- **Inline Edit + Diff**——对选中文字调 CLI 编辑，接受前预览行级 diff
-- **中英双语界面**——即时切换、自定义主色、设置导入 / 导出
-- **跨平台自动发现** CodeBuddy CLI 与 Node.js（Windows/macOS：WorkBuddy 安装、npm 全局、PATH、自带 Node、Homebrew、nvm/volta）
+- **流式对话** —— 侧边栏或主编辑区全宽标签；可折叠的思考过程与工具调用卡片；Markdown 渲染。
+- **图片视觉** —— 粘贴 / 拖拽截图或图片，交给 AI 分析。
+- **指令模式 `#`** —— `#你的规则` 设常驻指令 / 人设，对所有对话生效，工具栏可随时改 / 清。
+- **`@` 引用任意文件** —— markdown 读正文嵌入，其它文件作附件交 CLI 读；笔记里选中的文字自动作只读上下文。
+- **文件附件** —— 注入任意文件路径交 CodeBuddy CLI 读取。
+- **会话管理** —— 多标签、重命名（双击 / 右键）、导出为笔记 / 复制、全文搜索；重启后恢复历史。
+- **输入框工具栏** —— 内联切换模型 / 授权模式；斜杠命令 + 自动补全；Inline Edit + Diff；真实停止生成。
+- **中英双语界面** —— 即时切换、自定义主色、设置导入 / 导出。
+- **跨平台自动发现** CodeBuddy CLI 与 Node.js（Windows/macOS：WorkBuddy 安装、npm 全局、PATH、自带 Node、Homebrew、nvm/volta）。
 
 ## 安装
 
@@ -140,8 +123,6 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 2. 复制到 Vault 目录下的 `.obsidian/plugins/workbuddian/`。
 3. 重启 Obsidian。
 4. 进入 **设置 → 第三方插件 → 关闭安全模式 → 开启 Workbuddian**。
-
-> 已上架 Obsidian 官方社区插件目录，可直接在「设置 → 第三方插件 → 浏览」搜索 **Workbuddian** 安装。
 
 ## 使用方法
 
@@ -177,23 +158,6 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 ---
 
 执行完毕后，重启 Obsidian，Workbuddian 即可正常使用。
-
-## 功能
-
-- Obsidian 侧边栏聊天面板，支持多轮对话
-- 流式输出，实时显示文字
-- 可折叠的思考过程与工具调用卡片
-- Assistant 消息 Markdown 渲染（代码块、表格、列表、引用）
-- Vault 感知的上下文注入
-- 会话管理，重启后恢复对话历史
-- CodeBuddy CLI 和 Node.js 路径自动发现（Windows 和 macOS）
-- 设置中可配置 CLI 路径
-- 真实的停止生成按钮，可中断长时间运行的 LLM 回复
-- 双击对话标签页标题可快速重命名
-- 右键菜单支持导出对话至笔记或复制至剪贴板
-- 全文搜索对话标题和消息内容
-- @ 笔记引用选择器，快速插入金库笔记并自动作为上下文
-- 聊天默认在侧边栏以标准标签形式打开（不再和其他面板堆叠分割）；通过单独的命令可改为在主编辑区打开为全宽标签页
 
 ## 自动发现
 
@@ -235,7 +199,7 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 | 界面语言             | Auto（跟随 Obsidian）/ 中文 / English | Auto |
 | 聊天主色调           | 自定义强调色（留空＝默认土黄）             | 默认 |
 
-> **模型**与**授权模式**已移到聊天输入框底部工具栏：点当前模型名可切换模型，点盾牌图标切换权限（默认 / 完全访问）。工具栏还有 **📎 附件**（挑任意文件注入）。在笔记里选中文字会实时出现「选区」chip，随消息作只读上下文发送。
+> **模型**与**授权模式**已移到聊天输入框底部工具栏：点当前模型名可切换模型，点盾牌图标切换权限（默认 / 完全访问）。工具栏还有 **📎 附件**（挑任意文件注入）与 **`#` 常驻指令**。在笔记里选中文字会实时出现「选区」chip，随消息作只读上下文发送。
 
 ## 开发
 
@@ -245,6 +209,14 @@ npm run build  # 生产构建
 npm test       # 运行测试
 ```
 
-## 许可证
+---
+
+## Credits / 致谢
+
+Independent rework (derivative) of [BuddyBridge](https://github.com/ben4202121/buddybridge) (MIT); some code derives from it and stays MIT-licensed. UI references Claudian (MIT) for design patterns only. See `LICENSE` / `NOTICE`. Maintained independently; not affiliated with either.
+
+基于 [BuddyBridge](https://github.com/ben4202121/buddybridge)（MIT）的独立重构（衍生作品），部分代码源自它并保留 MIT；UI 参考 Claudian（MIT，仅设计）。见 `LICENSE` / `NOTICE`。独立维护，不隶属于二者。
+
+## License
 
 MIT
