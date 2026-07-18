@@ -140,6 +140,9 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'render.errorTitle': { zh: '出错了', en: 'Something went wrong' },
     'render.retry': { zh: '重试', en: 'Retry' },
     'render.openSettings': { zh: '打开设置', en: 'Open settings' },
+    'render.copy': { zh: '复制', en: 'Copy' },
+    'render.copied': { zh: '已复制', en: 'Copied' },
+    'render.copyFailed': { zh: '复制失败', en: 'Copy failed' },
 
     'tabs.close': { zh: '关闭对话', en: 'Close chat' },
     'tabs.rename': { zh: '重命名', en: 'Rename' },

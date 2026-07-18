@@ -1,4 +1,4 @@
-import { MarkdownRenderer, setIcon } from 'obsidian';
+import { MarkdownRenderer, Notice, setIcon } from 'obsidian';
 import type { ChatMessage } from '../../types';
 import type { WorkbuddianChatView } from './view';
 import { retryLastMessage, openWorkbuddianSettings } from './input';
@@ -41,7 +41,35 @@ export async function renderMessage(view: WorkbuddianChatView, msg: ChatMessage)
     } else {
         bubble.createSpan({ text: msg.content });
     }
+
+    // 复制按钮：有内容且非等待/错误的消息，hover 整行时浮出
+    if (!isWaiting && !msg.isError && msg.content) {
+        renderCopyButton(row, msg.content);
+    }
     return row;
+}
+
+/** 在消息行底部加「复制」按钮（默认隐藏，hover 行浮出）；点击复制该消息原始文本 */
+function renderCopyButton(row: HTMLElement, content: string) {
+    const actions = row.createDiv({ cls: 'workbuddian-message-actions' });
+    const copyBtn = actions.createEl('button', {
+        cls: 'workbuddian-message-action-btn',
+        attr: { 'aria-label': t('render.copy'), title: t('render.copy') }
+    });
+    setIcon(copyBtn, 'copy');
+    copyBtn.onclick = async () => {
+        try {
+            await navigator.clipboard.writeText(content);
+            setIcon(copyBtn, 'check');
+            copyBtn.setAttribute('title', t('render.copied'));
+            window.setTimeout(() => {
+                setIcon(copyBtn, 'copy');
+                copyBtn.setAttribute('title', t('render.copy'));
+            }, 1500);
+        } catch {
+            new Notice(t('render.copyFailed'));
+        }
+    };
 }
 
 export function renderThinkingIndicator(bubble: HTMLElement) {

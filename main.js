@@ -178,6 +178,9 @@ var STRINGS = {
   "render.errorTitle": { zh: "\u51FA\u9519\u4E86", en: "Something went wrong" },
   "render.retry": { zh: "\u91CD\u8BD5", en: "Retry" },
   "render.openSettings": { zh: "\u6253\u5F00\u8BBE\u7F6E", en: "Open settings" },
+  "render.copy": { zh: "\u590D\u5236", en: "Copy" },
+  "render.copied": { zh: "\u5DF2\u590D\u5236", en: "Copied" },
+  "render.copyFailed": { zh: "\u590D\u5236\u5931\u8D25", en: "Copy failed" },
   "tabs.close": { zh: "\u5173\u95ED\u5BF9\u8BDD", en: "Close chat" },
   "tabs.rename": { zh: "\u91CD\u547D\u540D", en: "Rename" },
   "tabs.delete": { zh: "\u5220\u9664\u5BF9\u8BDD", en: "Delete chat" },
@@ -870,6 +873,15 @@ function removeAtReference(text, name) {
   return text.replace(new RegExp(`@\\[\\[${escaped}\\]\\]\\s?`, "g"), "");
 }
 
+// src/shared/inputKeys.ts
+function shouldSendMessage(e) {
+  if (e.key !== "Enter" || e.shiftKey)
+    return false;
+  if (e.isComposing || e.keyCode === 229)
+    return false;
+  return true;
+}
+
 // src/shared/instruction.ts
 function parseInstructionInput(text) {
   const trimmed = text.trim();
@@ -1420,7 +1432,7 @@ function buildCurrentNoteLink(view) {
   return `\u5F53\u524D\u6B63\u5728\u67E5\u770B\u7B14\u8BB0\uFF1A\u300A${file.basename}\u300B\uFF08${file.path}\uFF09`;
 }
 async function handleKeydown(view, e) {
-  if (e.key === "Enter" && !e.shiftKey) {
+  if (shouldSendMessage(e)) {
     e.preventDefault();
     await sendMessage(view);
   }
@@ -1710,7 +1722,31 @@ async function renderMessage(view, msg) {
   } else {
     bubble.createSpan({ text: msg.content });
   }
+  if (!isWaiting && !msg.isError && msg.content) {
+    renderCopyButton(row, msg.content);
+  }
   return row;
+}
+function renderCopyButton(row, content) {
+  const actions = row.createDiv({ cls: "workbuddian-message-actions" });
+  const copyBtn = actions.createEl("button", {
+    cls: "workbuddian-message-action-btn",
+    attr: { "aria-label": t("render.copy"), title: t("render.copy") }
+  });
+  (0, import_obsidian4.setIcon)(copyBtn, "copy");
+  copyBtn.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      (0, import_obsidian4.setIcon)(copyBtn, "check");
+      copyBtn.setAttribute("title", t("render.copied"));
+      window.setTimeout(() => {
+        (0, import_obsidian4.setIcon)(copyBtn, "copy");
+        copyBtn.setAttribute("title", t("render.copy"));
+      }, 1500);
+    } catch (e) {
+      new import_obsidian4.Notice(t("render.copyFailed"));
+    }
+  };
 }
 function renderThinkingIndicator(bubble) {
   const thinking = bubble.createDiv({ cls: "workbuddian-thinking" });

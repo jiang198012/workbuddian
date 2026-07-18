@@ -19,9 +19,9 @@
 
 ## ✨ What's New
 
+- **v1.2.2** — **IME-friendly Enter**: composing text with an input method no longer sends the message by accident. Plus a **copy button** on every message (hover to reveal).
 - **v1.2.1** — **Fix (Windows)**: referencing a large note or file with `@` no longer crashes with `spawn ENAMETOOLONG` — the prompt is now piped through stdin instead of the command line, so there's no length limit.
 - **v1.2.0** — **Instruction mode (`#`)**: type `#your rule` in the chat to set a persistent instruction / persona that applies to every conversation (edit or clear it anytime from the toolbar). **`@` any file**: reference not just notes but any vault file — markdown is read inline, other files are attached for the CLI to read.
-- **v1.1.0** — **Image vision**: paste a screenshot or drag an image into the chat and the agent analyzes it.
 
 ## Features
 
@@ -92,9 +92,9 @@ Use **Obsidian** with **Claude Code** and know **Claudian**? Workbuddian is the 
 
 ## ✨ 更新
 
+- **v1.2.2** —— **输入法 Enter 友好**：中文输入法拼字（有候选）时按 Enter 只上屏候选、不再误发送。每条消息 hover 时浮出**复制按钮**，一键复制原文。
 - **v1.2.1** —— **修复（Windows）**：用 `@` 引用大笔记 / 大文件提问时不再报 `spawn ENAMETOOLONG`——prompt 改经 stdin 传入，不再受命令行长度限制。
 - **v1.2.0** —— **指令模式 `#`**：聊天框输 `#你的规则` 设一条常驻指令 / 人设，对所有对话生效（工具栏可随时改 / 清）。**`@` 引用任意文件**：不只笔记——markdown 读正文嵌入，其它文件作附件交 CLI 读。
-- **v1.1.0** —— **图片视觉**：粘贴截图 / 拖拽图片，交给 AI 分析。
 
 ## 功能亮点
 

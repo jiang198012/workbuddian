@@ -204,16 +204,18 @@
 /* ==================== 消息行 ==================== */
 .workbuddian-message-row {
     display: flex;
+    flex-direction: column;
     max-width: 95%;
 }
 
 .workbuddian-message-user {
     align-self: flex-end;
-    justify-content: flex-end;
+    align-items: flex-end;
 }
 
 .workbuddian-message-assistant {
     align-self: flex-start;
+    align-items: flex-start;
 }
 
 /* ==================== 消息气泡 ==================== */
@@ -248,6 +250,42 @@
     color: var(--text-normal);
     border-bottom-left-radius: var(--workbuddian-radius-sm);
     border-left: 3px solid var(--workbuddian-primary, #C8B487);
+}
+
+/* ==================== 消息操作（复制按钮，hover 整行浮出）==================== */
+.workbuddian-message-actions {
+    display: flex;
+    gap: var(--workbuddian-gap-sm);
+    padding: 2px 2px 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.workbuddian-message-row:hover .workbuddian-message-actions {
+    opacity: 1;
+}
+
+.workbuddian-message-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: var(--workbuddian-radius-sm);
+}
+
+.workbuddian-message-action-btn:hover {
+    color: var(--text-normal);
+    background: var(--background-modifier-hover);
+}
+
+.workbuddian-message-action-btn .svg-icon {
+    width: 14px;
+    height: 14px;
 }
 
 /* ==================== 思考中指示器 ==================== */

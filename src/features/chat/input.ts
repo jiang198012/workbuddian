@@ -1,6 +1,7 @@
 import { Menu, Notice, setIcon, TFile } from 'obsidian';
 import { getErrorMessage } from '../../types';
 import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shared/atReferences';
+import { shouldSendMessage } from '../../shared/inputKeys';
 import { assembleContextText } from '../../core/context/assembleContext';
 import type { WorkbuddianChatView } from './view';
 import { renderMessages, renderMarkdownContent } from './render';
@@ -382,7 +383,7 @@ export function buildCurrentNoteLink(view: WorkbuddianChatView): string {
 }
 
 export async function handleKeydown(view: WorkbuddianChatView, e: KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (shouldSendMessage(e)) {
         e.preventDefault();
         await sendMessage(view);
     }
