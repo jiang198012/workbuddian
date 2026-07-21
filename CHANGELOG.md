@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.2.3 — 2026-07-21
+
+### 新增
+- **附件文件名标签**：用户发送带附件的消息后，`ChatMessage` 新增可选 `attachments` 字段保存文件名；`ConversationManager.addMessage` 支持附件参数；渲染层在消息正文上方显示 paperclip + 文件名的 chip。不影响 prompt 注入、标题生成、搜索、导出；旧消息无 `attachments` 字段时正常渲染。
+
 ## v1.2.2 — 2026-07-17
 
 ### 修复
