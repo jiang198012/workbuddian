@@ -1,6 +1,6 @@
 {
   "name": "workbuddian",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "第三方 Obsidian 插件，桥接本地 WorkBuddy/CodeBuddy Gateway",
   "main": "main.js",
   "scripts": {
