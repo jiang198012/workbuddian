@@ -1471,7 +1471,8 @@ async function sendText(view, text) {
     conv.sessionId = view.api.generateId();
   }
   const convId = conv.id;
-  view.manager.addMessage(convId, "user", text);
+  const attachmentNames = view.attachments.map(fileBasename);
+  view.manager.addMessage(convId, "user", text, attachmentNames);
   await renderMessages(view);
   const aiMsg = view.manager.addMessage(convId, "assistant", "");
   if (!aiMsg)
@@ -1720,6 +1721,14 @@ async function renderMessage(view, msg) {
   } else if (msg.role === "assistant") {
     await renderMarkdownContent(view, bubble, msg.content);
   } else {
+    if (msg.attachments && msg.attachments.length > 0) {
+      const attachmentsRow = bubble.createDiv({ cls: "workbuddian-message-attachments" });
+      for (const name of msg.attachments) {
+        const chip = attachmentsRow.createDiv({ cls: "workbuddian-attachment-chip" });
+        (0, import_obsidian4.setIcon)(chip.createSpan({ cls: "workbuddian-attachment-chip-icon" }), "paperclip");
+        chip.createSpan({ cls: "workbuddian-attachment-chip-name", text: name });
+      }
+    }
     bubble.createSpan({ text: msg.content });
   }
   if (!isWaiting && !msg.isError && msg.content) {
@@ -2268,7 +2277,7 @@ var ConversationManager = class {
     });
   }
   /** 添加消息到当前活跃对话 */
-  addMessage(convId, role, content) {
+  addMessage(convId, role, content, attachments) {
     const conv = this.conversations.get(convId);
     if (!conv)
       return null;
@@ -2278,6 +2287,9 @@ var ConversationManager = class {
       content,
       timestamp: Date.now()
     };
+    if (attachments && attachments.length > 0) {
+      msg.attachments = attachments;
+    }
     conv.messages.push(msg);
     conv.updatedAt = Date.now();
     if (matchesAnyLang(conv.title, "chat.newConversation") && role === "user" && content.trim()) {

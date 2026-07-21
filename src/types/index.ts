@@ -8,6 +8,7 @@ export interface ChatMessage {
     content: string;
     timestamp: number;
     isError?: boolean;
+    attachments?: string[];
 }
 
 /** 单轮 CLI 上报的 token 用量（取整轮 prompt 总量的 input_tokens 作已用上下文） */

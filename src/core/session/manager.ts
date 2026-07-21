@@ -123,7 +123,7 @@ export class ConversationManager {
     }
 
     /** 添加消息到当前活跃对话 */
-    addMessage(convId: string, role: 'user' | 'assistant', content: string): ChatMessage | null {
+    addMessage(convId: string, role: 'user' | 'assistant', content: string, attachments?: string[]): ChatMessage | null {
         const conv = this.conversations.get(convId);
         if (!conv) return null;
 
@@ -133,6 +133,9 @@ export class ConversationManager {
             content,
             timestamp: Date.now()
         };
+        if (attachments && attachments.length > 0) {
+            msg.attachments = attachments;
+        }
         conv.messages.push(msg);
         conv.updatedAt = Date.now();
 

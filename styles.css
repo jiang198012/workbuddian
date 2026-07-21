@@ -917,6 +917,30 @@
     outline-offset: 2px;
 }
 
+/* ===== 消息附件标签 ===== */
+.workbuddian-message-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.workbuddian-attachment-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--background-modifier-form-field);
+    font-size: 0.85em;
+    color: var(--text-muted);
+}
+
+.workbuddian-attachment-chip-icon svg {
+    width: 12px;
+    height: 12px;
+}
+
 /* 常驻指令指示按钮（激活态）*/
 .workbuddian-instruction-active { color: var(--workbuddian-primary, var(--interactive-accent)); }
 /* 常驻指令弹窗 */

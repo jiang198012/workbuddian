@@ -39,6 +39,14 @@ export async function renderMessage(view: WorkbuddianChatView, msg: ChatMessage)
     } else if (msg.role === 'assistant') {
         await renderMarkdownContent(view, bubble, msg.content);
     } else {
+        if (msg.attachments && msg.attachments.length > 0) {
+            const attachmentsRow = bubble.createDiv({ cls: 'workbuddian-message-attachments' });
+            for (const name of msg.attachments) {
+                const chip = attachmentsRow.createDiv({ cls: 'workbuddian-attachment-chip' });
+                setIcon(chip.createSpan({ cls: 'workbuddian-attachment-chip-icon' }), 'paperclip');
+                chip.createSpan({ cls: 'workbuddian-attachment-chip-name', text: name });
+            }
+        }
         bubble.createSpan({ text: msg.content });
     }
 

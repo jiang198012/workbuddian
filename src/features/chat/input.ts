@@ -433,7 +433,8 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
 
     // 添加用户消息
     const convId = conv.id;
-    view.manager.addMessage(convId, 'user', text);
+    const attachmentNames = view.attachments.map(fileBasename);
+    view.manager.addMessage(convId, 'user', text, attachmentNames);
     await renderMessages(view);
 
     // 创建 AI 消息占位，标记为等待回复中

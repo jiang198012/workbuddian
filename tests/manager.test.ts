@@ -92,6 +92,27 @@ describe('ConversationManager', () => {
         expect(manager.getById(conv.id)?.title).toBe('My named chat');
     });
 
+    it('stores attachments when provided', () => {
+        const conv = manager.createConversation();
+        const msg = manager.addMessage(conv.id, 'user', 'hello', ['doc.pdf', 'img.png']);
+        expect(msg).not.toBeNull();
+        expect(msg!.attachments).toEqual(['doc.pdf', 'img.png']);
+    });
+
+    it('does not include attachments field when none provided', () => {
+        const conv = manager.createConversation();
+        const msg = manager.addMessage(conv.id, 'user', 'hello');
+        expect(msg).not.toBeNull();
+        expect(msg!.attachments).toBeUndefined();
+    });
+
+    it('does not include attachments field when empty array provided', () => {
+        const conv = manager.createConversation();
+        const msg = manager.addMessage(conv.id, 'user', 'hello', []);
+        expect(msg).not.toBeNull();
+        expect(msg!.attachments).toBeUndefined();
+    });
+
     it('updates an existing message', () => {
         const conv = manager.createConversation();
         const msg = manager.addMessage(conv.id, 'assistant', 'initial');
