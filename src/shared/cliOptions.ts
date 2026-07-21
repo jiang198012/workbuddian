@@ -11,6 +11,9 @@ export const MODEL_OPTIONS: Record<string, string> = {
     'deepseek-v4-pro': 'deepseek-v4-pro'
 };
 
+/** 动态拉取失败时的硬编码兜底模型列表 */
+export const FALLBACK_MODEL_OPTIONS: Record<string, string> = MODEL_OPTIONS;
+
 /** CLI --permission-mode 的合法值（与 `codebuddy --help` 一致） */
 export type PermissionMode = 'default' | 'plan' | 'acceptEdits' | 'bypassPermissions';
 

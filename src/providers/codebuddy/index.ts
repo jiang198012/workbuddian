@@ -1,10 +1,9 @@
 import { spawn, type SpawnOptions } from 'child_process';
-import * as path from 'path';
-import * as fs from 'fs';
-import { getErrorMessage, getNumber, getString, isObject, type UsageInfo } from '../../types';
+import { getNumber, getString, isObject, type UsageInfo } from '../../types';
 import { t } from '../../i18n';
-import { type PermissionMode } from '../../shared/cliOptions';
-import { findNodeExecutable, resolveCodebuddyPath } from '../../utils/cliPath';
+import { FALLBACK_MODEL_OPTIONS, type PermissionMode } from '../../shared/cliOptions';
+import { findNodeExecutable, resolveCodebuddyPath, isWindowsWrapper, isBareFallback, needsWindowsShell } from '../../utils/cliPath';
+export { isWindowsWrapper, isBareFallback, needsWindowsShell } from '../../utils/cliPath';
 import { bbLog } from '../../shared/logBuffer';
 
 const TIMEOUT = 300_000; // 5 分钟
@@ -181,21 +180,6 @@ export function parseStreamLine(line: string, streaming = false): StreamChunk | 
     }
 }
 
-// ===== 判断是否需要 node 来执行 =====
-
-export function isWindowsWrapper(scriptPath: string): boolean {
-    return scriptPath.endsWith('.cmd') || scriptPath.endsWith('.exe') || scriptPath.endsWith('.bat');
-}
-
-export function isBareFallback(scriptPath: string): boolean {
-    // 兜底值 'codebuddy' 不是真实文件路径，让 OS 在 PATH 里找
-    return scriptPath === 'codebuddy' || !path.isAbsolute(scriptPath);
-}
-
-export function needsWindowsShell(scriptPath: string): boolean {
-    return process.platform === 'win32' && (scriptPath.endsWith('.cmd') || scriptPath.endsWith('.bat'));
-}
-
 export class CodebuddyProvider {
     private timeout: number;
     private scriptPath: string;
@@ -203,6 +187,7 @@ export class CodebuddyProvider {
     private nodePathOverride: string = '';
     private model: string = 'auto';
     private permissionMode: PermissionMode = 'default';
+    private availableModels: string[] = Object.keys(FALLBACK_MODEL_OPTIONS);
 
     constructor(timeout: number = TIMEOUT) {
         this.timeout = timeout;
@@ -227,6 +212,18 @@ export class CodebuddyProvider {
 
     setPermissionMode(mode: PermissionMode): void {
         this.permissionMode = mode;
+    }
+
+    setAvailableModels(models: string[]): void {
+        this.availableModels = models;
+    }
+
+    getAvailableModels(): string[] {
+        return [...this.availableModels];
+    }
+
+    getScriptPath(): string {
+        return this.scriptPath;
     }
 
     generateId(): string {

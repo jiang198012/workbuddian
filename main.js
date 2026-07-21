@@ -40,8 +40,7 @@ module.exports = __toCommonJS(main_exports);
 var import_obsidian10 = require("obsidian");
 
 // src/providers/codebuddy/index.ts
-var import_child_process = require("child_process");
-var path2 = __toESM(require("path"));
+var import_child_process2 = require("child_process");
 
 // src/shared/cliOptions.ts
 var MODEL_OPTIONS = {
@@ -55,6 +54,7 @@ var MODEL_OPTIONS = {
   "deepseek-v4-flash": "deepseek-v4-flash",
   "deepseek-v4-pro": "deepseek-v4-pro"
 };
+var FALLBACK_MODEL_OPTIONS = MODEL_OPTIONS;
 var PERMISSION_MODES = ["default", "plan", "acceptEdits", "bypassPermissions"];
 var PERMISSION_MODE_CHOICES = ["default", "bypassPermissions"];
 function isPermissionMode(value) {
@@ -323,6 +323,7 @@ function exportSettings(settings) {
 // src/utils/cliPath.ts
 var path = __toESM(require("path"));
 var fs = __toESM(require("fs"));
+var import_child_process = require("child_process");
 
 // src/shared/logBuffer.ts
 var MAX_ENTRIES = 300;
@@ -512,6 +513,22 @@ function resolveCodebuddyPath(customPath) {
   }
   return "codebuddy";
 }
+function isWindowsWrapper(scriptPath) {
+  return scriptPath.endsWith(".cmd") || scriptPath.endsWith(".exe") || scriptPath.endsWith(".bat");
+}
+function isBareFallback(scriptPath) {
+  return scriptPath === "codebuddy" || !path.isAbsolute(scriptPath);
+}
+function needsWindowsShell(scriptPath) {
+  return process.platform === "win32" && (scriptPath.endsWith(".cmd") || scriptPath.endsWith(".bat"));
+}
+function spawnCli(scriptPath, args, options, nodeBin) {
+  if (isWindowsWrapper(scriptPath) || isBareFallback(scriptPath)) {
+    return (0, import_child_process.spawn)(scriptPath, args, options);
+  }
+  const node = nodeBin || findNodeExecutable() || "node";
+  return (0, import_child_process.spawn)(node, [scriptPath, ...args], options);
+}
 
 // src/providers/codebuddy/index.ts
 var TIMEOUT = 3e5;
@@ -644,21 +661,13 @@ function parseStreamLine(line, streaming = false) {
     return { type: "text", content: line };
   }
 }
-function isWindowsWrapper(scriptPath) {
-  return scriptPath.endsWith(".cmd") || scriptPath.endsWith(".exe") || scriptPath.endsWith(".bat");
-}
-function isBareFallback(scriptPath) {
-  return scriptPath === "codebuddy" || !path2.isAbsolute(scriptPath);
-}
-function needsWindowsShell(scriptPath) {
-  return process.platform === "win32" && (scriptPath.endsWith(".cmd") || scriptPath.endsWith(".bat"));
-}
 var CodebuddyProvider = class {
   constructor(timeout = TIMEOUT) {
     this.activeProc = null;
     this.nodePathOverride = "";
     this.model = "auto";
     this.permissionMode = "default";
+    this.availableModels = Object.keys(FALLBACK_MODEL_OPTIONS);
     this.timeout = timeout;
     this.scriptPath = resolveCodebuddyPath("");
   }
@@ -676,6 +685,15 @@ var CodebuddyProvider = class {
   }
   setPermissionMode(mode) {
     this.permissionMode = mode;
+  }
+  setAvailableModels(models) {
+    this.availableModels = models;
+  }
+  getAvailableModels() {
+    return [...this.availableModels];
+  }
+  getScriptPath() {
+    return this.scriptPath;
   }
   generateId() {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -706,10 +724,10 @@ var CodebuddyProvider = class {
     }
     let proc;
     if (isWindowsWrapper(scriptPath) || isBareFallback(scriptPath)) {
-      proc = (0, import_child_process.spawn)(scriptPath, cliArgs, procOptions);
+      proc = (0, import_child_process2.spawn)(scriptPath, cliArgs, procOptions);
     } else {
       const nodeBin = this.nodePathOverride || findNodeExecutable() || "node";
-      proc = (0, import_child_process.spawn)(nodeBin, [scriptPath, ...cliArgs], procOptions);
+      proc = (0, import_child_process2.spawn)(nodeBin, [scriptPath, ...cliArgs], procOptions);
     }
     this.activeProc = proc;
     const stdin = proc.stdin;
@@ -815,6 +833,58 @@ var CodebuddyProvider = class {
     }
   }
 };
+
+// src/providers/codebuddy/models.ts
+function parseModelList(helpText) {
+  const match = helpText.match(/--model\s+<model>[^\n]*Currently supported:\s*\(([^)]+)\)/i);
+  if (!match)
+    return [];
+  return match[1].split(",").map((s) => s.trim()).filter((s) => s && s !== "auto");
+}
+async function fetchModels(scriptPath, nodePath, timeoutMs = 1e4) {
+  const fallback = {
+    models: Object.keys(FALLBACK_MODEL_OPTIONS),
+    source: "fallback"
+  };
+  return new Promise((resolve) => {
+    var _a, _b;
+    const procOptions = { stdio: ["ignore", "pipe", "pipe"] };
+    if (needsWindowsShell(scriptPath)) {
+      procOptions.shell = true;
+    }
+    const proc = spawnCli(scriptPath, ["--help"], procOptions, nodePath);
+    let stdout = "";
+    let stderr = "";
+    (_a = proc.stdout) == null ? void 0 : _a.on("data", (d) => {
+      stdout += d.toString();
+    });
+    (_b = proc.stderr) == null ? void 0 : _b.on("data", (d) => {
+      stderr += d.toString();
+    });
+    const timer = setTimeout(() => {
+      proc.kill();
+      resolve(fallback);
+    }, timeoutMs);
+    proc.on("error", () => {
+      clearTimeout(timer);
+      resolve(fallback);
+    });
+    proc.on("close", (code) => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        resolve(fallback);
+        return;
+      }
+      const text = stdout || stderr;
+      const models = parseModelList(text);
+      if (models.length === 0) {
+        resolve(fallback);
+      } else {
+        resolve({ models, source: "cli" });
+      }
+    });
+  });
+}
 
 // src/features/chat/view.ts
 var import_obsidian6 = require("obsidian");
@@ -1003,7 +1073,7 @@ function buildAttachmentBlock(paths) {
 
 // src/shared/imageStore.ts
 var fs2 = __toESM(require("fs"));
-var path3 = __toESM(require("path"));
+var path2 = __toESM(require("path"));
 var IMAGE_EXTS = /* @__PURE__ */ new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"]);
 var MIME_EXT = {
   "image/png": ".png",
@@ -1021,11 +1091,11 @@ function pastedImageName(seq, ext = ".png") {
   return `paste-${seq}${ext}`;
 }
 function isImagePath(p) {
-  return IMAGE_EXTS.has(path3.extname(p).toLowerCase());
+  return IMAGE_EXTS.has(path2.extname(p).toLowerCase());
 }
 function writeImageFile(dir, bytes, name) {
   fs2.mkdirSync(dir, { recursive: true });
-  const full = path3.join(dir, name);
+  const full = path2.join(dir, name);
   fs2.writeFileSync(full, bytes);
   return full;
 }
@@ -1036,7 +1106,7 @@ function pruneImages(dir, keepN) {
   } catch (e) {
     return;
   }
-  const files = names.map((n) => path3.join(dir, n)).filter((p) => {
+  const files = names.map((n) => path2.join(dir, n)).filter((p) => {
     try {
       return fs2.statSync(p).isFile();
     } catch (e) {
@@ -1345,7 +1415,8 @@ function openPermissionMenu(view, btn, evt) {
 }
 function openModelMenu(view, btn) {
   const menu = new import_obsidian3.Menu();
-  for (const id of ["auto", ...Object.keys(MODEL_OPTIONS)]) {
+  const models = ["auto", ...view.api.getAvailableModels()];
+  for (const id of models) {
     menu.addItem((item) => item.setTitle(id).setChecked(view.settings.model === id).onClick(async () => {
       view.settings.model = id;
       view.api.setModel(id);
@@ -2700,6 +2771,7 @@ var WorkbuddianPlugin = class extends import_obsidian10.Plugin {
       applyPrimaryColor(this.settings.primaryColor);
       this.api = new CodebuddyProvider();
       this.applySettingsToApi();
+      void this.refreshAvailableModels();
       this.manager = new ConversationManager();
       this.manager.setPersistCallback(async (conversations) => {
         const data = normalizePersistedData(await this.loadData());
@@ -2769,6 +2841,16 @@ var WorkbuddianPlugin = class extends import_obsidian10.Plugin {
     this.api.setNodePath(this.settings.nodePath);
     this.api.setModel(this.settings.model);
     this.api.setPermissionMode(this.settings.permissionMode);
+  }
+  async refreshAvailableModels() {
+    try {
+      const result = await fetchModels(this.api.getScriptPath(), this.settings.nodePath);
+      if (result.source === "cli") {
+        this.api.setAvailableModels(result.models);
+      }
+    } catch (e) {
+      bbError("[WB] \u62C9\u53D6\u6A21\u578B\u5217\u8868\u5931\u8D25:", e);
+    }
   }
   async activateView() {
     try {

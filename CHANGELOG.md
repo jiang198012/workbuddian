@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.2.4 — 2026-07-21
+
+### 新增
+- **动态模型列表**：插件启动时后台执行 `codebuddy --help`，实时拉取当前 CLI 支持的模型列表；模型选择菜单自动展示 CLI 返回的可用模型，新增模型无需插件更新即可出现。CLI 不可达或解析失败时回退到内置硬编码白名单，不影响使用。
+- 新增纯逻辑模块 `providers/codebuddy/models.ts`（含 `parseModelList` / `fetchModels`）与对应单测 13 项。
+
+### 改进
+- `CodebuddyProvider` 新增 `availableModels`、`setAvailableModels()`、`getAvailableModels()`、`getScriptPath()`，模型菜单改为从 provider 获取列表。
+- `utils/cliPath.ts` 新增跨平台 `spawnCli()` 辅助函数，统一 CLI 启动策略；原 `providers/codebuddy/index.ts` 中的 `isWindowsWrapper`/`isBareFallback`/`needsWindowsShell` 迁移至 utils 并复用。
+
 ## v1.2.3 — 2026-07-21
 
 ### 新增

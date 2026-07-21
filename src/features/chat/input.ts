@@ -13,7 +13,7 @@ import { parseInstructionInput } from '../../shared/instruction';
 import { openInstructionModal } from './instructionModal';
 import { buildSelectionBlock } from '../../shared/selection';
 import { pickFinalContent } from '../../shared/responseFinalize';
-import { MODEL_OPTIONS, PERMISSION_MODE_CHOICES, type PermissionMode } from '../../shared/cliOptions';
+import { PERMISSION_MODE_CHOICES, type PermissionMode } from '../../shared/cliOptions';
 import { t } from '../../i18n';
 import { bbLog } from '../../shared/logBuffer';
 
@@ -282,7 +282,8 @@ export function openPermissionMenu(view: WorkbuddianChatView, btn: HTMLElement, 
 /** 弹出模型选择菜单（供悬停/点击触发），选中后写设置 + 灌 CLI + 更新按钮文字 + 持久化 */
 export function openModelMenu(view: WorkbuddianChatView, btn: HTMLElement) {
     const menu = new Menu();
-    for (const id of ['auto', ...Object.keys(MODEL_OPTIONS)]) {
+    const models = ['auto', ...view.api.getAvailableModels()];
+    for (const id of models) {
         menu.addItem(item => item
             .setTitle(id)
             .setChecked(view.settings.model === id)

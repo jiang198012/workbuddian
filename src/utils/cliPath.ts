@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { spawn, type SpawnOptions } from 'child_process';
 import { bbLog } from '../shared/logBuffer';
 
 // ===== Node.js 可执行文件查找 =====
@@ -167,4 +168,37 @@ export function resolveCodebuddyPath(customPath: string): string {
     }
 
     return 'codebuddy';
+}
+
+// ===== 跨平台 spawn 策略辅助函数 =====
+
+export function isWindowsWrapper(scriptPath: string): boolean {
+    return scriptPath.endsWith('.cmd') || scriptPath.endsWith('.exe') || scriptPath.endsWith('.bat');
+}
+
+export function isBareFallback(scriptPath: string): boolean {
+    // 兜底值 'codebuddy' 不是真实文件路径，让 OS 在 PATH 里找
+    return scriptPath === 'codebuddy' || !path.isAbsolute(scriptPath);
+}
+
+export function needsWindowsShell(scriptPath: string): boolean {
+    return process.platform === 'win32' && (scriptPath.endsWith('.cmd') || scriptPath.endsWith('.bat'));
+}
+
+/**
+ * 根据脚本路径类型选择正确的 spawn 方式：
+ * - Windows 包装器（.cmd/.exe/.bat）或裸命令直接 spawn
+ * - 纯脚本通过 node 可执行文件运行
+ */
+export function spawnCli(
+    scriptPath: string,
+    args: string[],
+    options: SpawnOptions,
+    nodeBin?: string
+): ReturnType<typeof spawn> {
+    if (isWindowsWrapper(scriptPath) || isBareFallback(scriptPath)) {
+        return spawn(scriptPath, args, options);
+    }
+    const node = nodeBin || findNodeExecutable() || 'node';
+    return spawn(node, [scriptPath, ...args], options);
 }
