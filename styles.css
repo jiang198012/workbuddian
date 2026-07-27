@@ -949,3 +949,21 @@
 /* 常驻指令弹窗 */
 .workbuddian-instruction-textarea { width: 100%; min-height: 8em; resize: vertical; }
 .workbuddian-instruction-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+
+/* 上下文用量圆环（工具栏内，发送键左侧）*/
+.workbuddian-usage-ring {
+    --workbuddian-usage-color: var(--workbuddian-primary, #C8B487);
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: conic-gradient(
+        var(--workbuddian-usage-color) 0 calc(var(--workbuddian-usage-pct, 0) * 1%),
+        var(--background-modifier-border) calc(var(--workbuddian-usage-pct, 0) * 1%) 100%
+    );
+    -webkit-mask: radial-gradient(circle, transparent 3px, #000 3.5px);
+            mask: radial-gradient(circle, transparent 3px, #000 3.5px);
+}
+.workbuddian-usage-ring.workbuddian-usage-warning {
+    --workbuddian-usage-color: var(--text-error);
+}

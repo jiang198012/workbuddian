@@ -36,6 +36,7 @@ export class WorkbuddianChatView extends ItemView {
     attachChipsEl!: HTMLElement;
     attachments: string[] = [];
     selectionEl!: HTMLElement;
+    usageEl!: HTMLElement;
     selection: { text: string; note: string } | null = null;
     lastMarkdownView: MarkdownView | null = null;
 
@@ -181,6 +182,7 @@ export class WorkbuddianChatView extends ItemView {
         this.refreshInstructionIndicator();
 
         const rightGroup = toolbar.createDiv({ cls: 'workbuddian-toolbar-right' });
+        this.usageEl = rightGroup.createDiv({ cls: 'workbuddian-usage-ring workbuddian-hidden' });
         this.sendBtn = rightGroup.createEl('button', {
             cls: 'workbuddian-send-btn',
             attr: { 'aria-label': t('view.send'), title: t('view.send') }

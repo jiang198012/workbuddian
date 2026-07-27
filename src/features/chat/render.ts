@@ -1,7 +1,7 @@
 import { MarkdownRenderer, Notice, setIcon } from 'obsidian';
 import type { ChatMessage } from '../../types';
 import type { WorkbuddianChatView } from './view';
-import { retryLastMessage, openWorkbuddianSettings, thumbSrc } from './input';
+import { retryLastMessage, openWorkbuddianSettings, thumbSrc, renderContextUsage } from './input';
 import { ensureTableBlankLines } from '../../shared/tableNormalize';
 import { fileBasename, isAbsolutePath } from '../../shared/attachments';
 import { isImagePath } from '../../shared/imageStore';
@@ -16,6 +16,7 @@ export async function renderMessages(view: WorkbuddianChatView) {
         setIcon(icon, 'message-square');
         empty.createDiv({ cls: 'workbuddian-empty-chat-title', text: t('render.emptyTitle') });
         empty.createDiv({ cls: 'workbuddian-empty-chat-subtitle', text: t('render.emptySubtitle') });
+        renderContextUsage(view); // 无对话时一并收起用量圆环，避免残留上一个对话的数值
         return;
     }
 
@@ -24,6 +25,7 @@ export async function renderMessages(view: WorkbuddianChatView) {
     }
 
     scrollToBottom(view);
+    renderContextUsage(view);
 }
 
 export async function renderMessage(view: WorkbuddianChatView, msg: ChatMessage) {

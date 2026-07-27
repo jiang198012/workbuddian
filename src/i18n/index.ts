@@ -109,6 +109,7 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'input.customCommand': { zh: '（自定义命令）', en: '(Custom command)' },
     'input.attach': { zh: '附加文件', en: 'Attach files' },
     'input.imageSaveFailed': { zh: '图片保存失败', en: 'Failed to save image' },
+    'input.contextUsage': { zh: '上下文用量', en: 'Context usage' },
     'instruction.modalTitle': { zh: '常驻指令', en: 'Custom instruction' },
     'instruction.placeholder': { zh: '给 AI 设定常驻的规则 / 人设（对所有对话生效）', en: 'Set a persistent rule/persona for the AI (applies to all chats)' },
     'instruction.save': { zh: '保存', en: 'Save' },

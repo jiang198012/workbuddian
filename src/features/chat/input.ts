@@ -14,6 +14,7 @@ import { openInstructionModal } from './instructionModal';
 import { buildSelectionBlock } from '../../shared/selection';
 import { pickFinalContent } from '../../shared/responseFinalize';
 import { PERMISSION_MODE_CHOICES, type PermissionMode } from '../../shared/cliOptions';
+import { contextPercent, usageTooltip, isUsageWarning } from '../../shared/contextUsage';
 import { t } from '../../i18n';
 import { bbLog } from '../../shared/logBuffer';
 
@@ -191,6 +192,22 @@ export function renderSelectionChip(view: WorkbuddianChatView) {
     const label = view.selection.note ? `${view.selection.note}: ${preview}` : preview;
     chip.createSpan({ cls: 'workbuddian-ref-chip-name', text: label, attr: { title: view.selection.text } });
     // 实时镜像当前笔记选区，无手动 ✕：取消选择即消失
+}
+
+/** 刷新工具栏的上下文用量圆环：无 usage 数据时隐藏，有则更新占比、悬停提示与警示态 */
+export function renderContextUsage(view: WorkbuddianChatView) {
+    const usage = view.getActiveConversation()?.lastUsage;
+    if (!usage) {
+        view.usageEl.addClass('workbuddian-hidden');
+        view.usageEl.removeAttribute('title');
+        return;
+    }
+    const windowSize = view.settings.contextWindowSize;
+    const percent = contextPercent(usage.inputTokens, windowSize);
+    view.usageEl.removeClass('workbuddian-hidden');
+    view.usageEl.style.setProperty('--workbuddian-usage-pct', String(percent));
+    view.usageEl.setAttribute('title', `${t('input.contextUsage')} ${usageTooltip(usage.inputTokens, windowSize)}`);
+    view.usageEl.toggleClass('workbuddian-usage-warning', isUsageWarning(percent));
 }
 
 /**

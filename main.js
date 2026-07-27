@@ -150,6 +150,7 @@ var STRINGS = {
   "input.customCommand": { zh: "\uFF08\u81EA\u5B9A\u4E49\u547D\u4EE4\uFF09", en: "(Custom command)" },
   "input.attach": { zh: "\u9644\u52A0\u6587\u4EF6", en: "Attach files" },
   "input.imageSaveFailed": { zh: "\u56FE\u7247\u4FDD\u5B58\u5931\u8D25", en: "Failed to save image" },
+  "input.contextUsage": { zh: "\u4E0A\u4E0B\u6587\u7528\u91CF", en: "Context usage" },
   "instruction.modalTitle": { zh: "\u5E38\u9A7B\u6307\u4EE4", en: "Custom instruction" },
   "instruction.placeholder": { zh: "\u7ED9 AI \u8BBE\u5B9A\u5E38\u9A7B\u7684\u89C4\u5219 / \u4EBA\u8BBE\uFF08\u5BF9\u6240\u6709\u5BF9\u8BDD\u751F\u6548\uFF09", en: "Set a persistent rule/persona for the AI (applies to all chats)" },
   "instruction.save": { zh: "\u4FDD\u5B58", en: "Save" },
@@ -1205,6 +1206,25 @@ function pickFinalContent(text, thinking, result) {
   return text || thinking || result;
 }
 
+// src/shared/contextUsage.ts
+function formatTokenCount(n) {
+  if (n < 1e3)
+    return String(n);
+  return (n / 1e3).toFixed(1) + "k";
+}
+function contextPercent(used, windowSize) {
+  if (windowSize <= 0)
+    return 0;
+  return Math.min(100, Math.round(used / windowSize * 100));
+}
+var USAGE_WARNING_PERCENT = 80;
+function usageTooltip(used, windowSize) {
+  return `${formatTokenCount(used)} / ${formatTokenCount(windowSize)} \xB7 ${contextPercent(used, windowSize)}%`;
+}
+function isUsageWarning(percent) {
+  return percent >= USAGE_WARNING_PERCENT;
+}
+
 // src/features/chat/input.ts
 function adjustTextareaHeight(view) {
   view.inputEl.style.setProperty("--workbuddian-input-height", `${view.inputEl.scrollHeight}px`);
@@ -1360,6 +1380,21 @@ function renderSelectionChip(view) {
   const preview = view.selection.text.replace(/\s+/g, " ").trim().slice(0, 40);
   const label = view.selection.note ? `${view.selection.note}: ${preview}` : preview;
   chip.createSpan({ cls: "workbuddian-ref-chip-name", text: label, attr: { title: view.selection.text } });
+}
+function renderContextUsage(view) {
+  var _a;
+  const usage = (_a = view.getActiveConversation()) == null ? void 0 : _a.lastUsage;
+  if (!usage) {
+    view.usageEl.addClass("workbuddian-hidden");
+    view.usageEl.removeAttribute("title");
+    return;
+  }
+  const windowSize = view.settings.contextWindowSize;
+  const percent = contextPercent(usage.inputTokens, windowSize);
+  view.usageEl.removeClass("workbuddian-hidden");
+  view.usageEl.style.setProperty("--workbuddian-usage-pct", String(percent));
+  view.usageEl.setAttribute("title", `${t("input.contextUsage")} ${usageTooltip(usage.inputTokens, windowSize)}`);
+  view.usageEl.toggleClass("workbuddian-usage-warning", isUsageWarning(percent));
 }
 function attachmentPath(f) {
   var _a, _b, _c;
@@ -1807,12 +1842,14 @@ async function renderMessages(view) {
     (0, import_obsidian4.setIcon)(icon, "message-square");
     empty.createDiv({ cls: "workbuddian-empty-chat-title", text: t("render.emptyTitle") });
     empty.createDiv({ cls: "workbuddian-empty-chat-subtitle", text: t("render.emptySubtitle") });
+    renderContextUsage(view);
     return;
   }
   for (const msg of conv.messages) {
     await renderMessage(view, msg);
   }
   scrollToBottom(view);
+  renderContextUsage(view);
 }
 async function renderMessage(view, msg) {
   const row = view.messageContainer.createDiv({
@@ -2252,6 +2289,7 @@ var WorkbuddianChatView = class extends import_obsidian6.ItemView {
     this.instructionBtn = instrBtn;
     this.refreshInstructionIndicator();
     const rightGroup = toolbar.createDiv({ cls: "workbuddian-toolbar-right" });
+    this.usageEl = rightGroup.createDiv({ cls: "workbuddian-usage-ring workbuddian-hidden" });
     this.sendBtn = rightGroup.createEl("button", {
       cls: "workbuddian-send-btn",
       attr: { "aria-label": t("view.send"), title: t("view.send") }
