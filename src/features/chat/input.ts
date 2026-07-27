@@ -631,8 +631,11 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                         diffHeader.createSpan({ text: `${t('tool.diffTitle')} ${fileBasename(change.path)}` });
                         const diffChevron = diffHeader.createSpan({ text: '▾' });
 
-                        // 撤销按钮：仅 Edit（Write 无旧内容可回退）且目标在 vault 内才提供
-                        if (change.kind === 'edit' && view.vaultPath && change.path.startsWith(view.vaultPath)) {
+                        // 撤销按钮：仅 Edit（Write 无旧内容可回退）且目标在 vault 内才提供。
+                        // newText === '' 时排除：这是纯删除操作，indexOf('') 恒返回 0，
+                        // 无法区分「文件未变」与「已面目全非」，也没有任何锚点能定位当初删除的位置——
+                        // 任何插入都是猜测，因此和 Write 一样归为不可安全回滚，不显示按钮。
+                        if (change.kind === 'edit' && change.newText !== '' && view.vaultPath && change.path.startsWith(view.vaultPath)) {
                             const undoBtn = diffHeader.createEl('button', { cls: 'workbuddian-tool-diff-undo', text: t('tool.undo') });
                             undoBtn.style.marginLeft = 'auto';
                             undoBtn.addEventListener('click', (evt) => {

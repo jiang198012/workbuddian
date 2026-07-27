@@ -1828,7 +1828,7 @@ async function sendText(view, text) {
             const diffHeader = diffBlock.createDiv({ cls: "workbuddian-tool-diff-header" });
             diffHeader.createSpan({ text: `${t("tool.diffTitle")} ${fileBasename(change.path)}` });
             const diffChevron = diffHeader.createSpan({ text: "\u25BE" });
-            if (change.kind === "edit" && view.vaultPath && change.path.startsWith(view.vaultPath)) {
+            if (change.kind === "edit" && change.newText !== "" && view.vaultPath && change.path.startsWith(view.vaultPath)) {
               const undoBtn = diffHeader.createEl("button", { cls: "workbuddian-tool-diff-undo", text: t("tool.undo") });
               undoBtn.style.marginLeft = "auto";
               undoBtn.addEventListener("click", (evt) => {
