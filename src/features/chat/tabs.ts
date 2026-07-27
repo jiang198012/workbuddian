@@ -56,8 +56,12 @@ export function renderTabs(view: WorkbuddianChatView) {
     const activeId = view.activeConvId;
 
     for (const conv of conversations) {
-        const tab = view.tabBar.createDiv({ cls: 'workbuddian-tab', attr: { role: 'tab', tabindex: '0' } });
-        if (conv.id === activeId) {
+        const isActive = conv.id === activeId;
+        const tab = view.tabBar.createDiv({
+            cls: 'workbuddian-tab',
+            attr: { role: 'tab', tabindex: '0', 'aria-selected': isActive ? 'true' : 'false' }
+        });
+        if (isActive) {
             tab.addClass('workbuddian-tab-active');
         }
         const titleSpan = tab.createSpan({ text: conv.title, cls: 'workbuddian-tab-title' });

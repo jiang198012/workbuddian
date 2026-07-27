@@ -987,8 +987,10 @@
 .workbuddian-plan-card-note { font-size: 11px; opacity: 0.7; margin-top: 6px; }
 
 /* ==================== 焦点环（键盘可达性） ==================== */
-/* 仅键盘 Tab 聚焦时显示（:focus-visible），鼠标点击不显示；限定在聊天容器内，不影响 Obsidian 其它 UI */
-.workbuddian-chat-container :focus-visible {
+/* 仅键盘 Tab 聚焦时显示（:focus-visible），鼠标点击不显示；限定在聊天容器内，不影响 Obsidian 其它 UI。
+   只作用于没有原生 focus 样式的可点击控件；不能笼统匹配所有元素，否则会盖过 .workbuddian-input
+   / .workbuddian-tab-rename-input 上刻意写的 outline: none（同选择器优先级，此规则声明顺序更靠后会赢）。 */
+.workbuddian-chat-container :is(button, [role="button"], [role="tab"], a):focus-visible {
     outline: 2px solid var(--workbuddian-primary, #C8B487);
     outline-offset: 2px;
     border-radius: 4px;

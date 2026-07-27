@@ -168,15 +168,19 @@ var STRINGS = {
   "input.bubbleNotFound": { zh: "\u627E\u4E0D\u5230 Assistant \u6D88\u606F\u6C14\u6CE1", en: "Assistant message bubble not found" },
   "input.thinking": { zh: "\u601D\u8003\u4E2D...", en: "Thinking..." },
   "input.toolCall": { zh: "\u5DE5\u5177\u8C03\u7528", en: "Tool call" },
+  "input.toolCallToggle": { zh: "\u5C55\u5F00\u6216\u6298\u53E0\u5DE5\u5177\u8C03\u7528\u8BE6\u60C5", en: "Expand or collapse tool call details" },
   "tool.diffTitle": { zh: "\u6539\u52A8", en: "Changes" },
+  "tool.diffToggle": { zh: "\u5C55\u5F00\u6216\u6298\u53E0\u6539\u52A8\u8BE6\u60C5", en: "Expand or collapse change details" },
   "tool.undo": { zh: "\u64A4\u9500\u6B64\u4FEE\u6539", en: "Undo this edit" },
   "tool.undone": { zh: "\u5DF2\u64A4\u9500", en: "Undone" },
   "tool.undoStale": { zh: "\u6587\u4EF6\u5DF2\u53D8\u5316\uFF0C\u672A\u6267\u884C\u64A4\u9500", en: "File has changed since; undo skipped" },
+  "tool.undoAmbiguous": { zh: "\u6539\u52A8\u6587\u672C\u5728\u6587\u4EF6\u4E2D\u51FA\u73B0\u591A\u6B21\uFF0C\u4E3A\u907F\u514D\u8BEF\u6539\u5DF2\u8DF3\u8FC7\u64A4\u9500", en: "The changed text appears more than once in the file; undo was skipped to avoid a wrong edit." },
   "tool.undoFailed": { zh: "\u64A4\u9500\u5931\u8D25", en: "Undo failed" },
   "plan.cardTitle": { zh: "\u6267\u884C\u8BA1\u5212", en: "Execution plan" },
   "plan.execute": { zh: "\u6309\u6B64\u6267\u884C\uFF08\u91CD\u65B0\u53D1\u8D77\u4E00\u8F6E\uFF09", en: "Run this plan (new round)" },
   "plan.dismiss": { zh: "\u5FFD\u7565", en: "Dismiss" },
   "plan.note": { zh: "CLI \u5728\u975E\u4EA4\u4E92\u6A21\u5F0F\u4E0B\u65E0\u6CD5\u539F\u751F\u6279\u51C6\u8BA1\u5212\uFF0C\u300C\u6309\u6B64\u6267\u884C\u300D\u4F1A\u4EE5\u9ED8\u8BA4\u6743\u9650\u6A21\u5F0F\u628A\u8BA1\u5212\u6B63\u6587\u91CD\u65B0\u53D1\u8D77\u4E00\u8F6E\u3002", en: 'The CLI cannot approve plans natively in non-interactive mode; "Run this plan" re-sends the plan text as a new round in default permission mode.' },
+  "plan.notApprovable": { zh: "\u8BA1\u5212\u6A21\u5F0F\u65E0\u6CD5\u5728\u975E\u4EA4\u4E92\u6A21\u5F0F\u4E0B\u539F\u751F\u6279\u51C6\u3002\u8BF7\u628A\u6743\u9650\u6A21\u5F0F\u5207\u6362\u4E3A\u300C\u9ED8\u8BA4\u300D\u6216\u300C\u5B8C\u5168\u8BBF\u95EE\u300D\u540E\u91CD\u65B0\u53D1\u9001\u4EE5\u76F4\u63A5\u6267\u884C\u3002", en: 'Plan mode cannot be approved natively in non-interactive mode. Switch the permission mode to "Default" or "Full access" and resend to run it directly.' },
   "input.requestFailed": { zh: "\u8BF7\u6C42\u5931\u8D25", en: "Request failed" },
   "input.noResponse": { zh: "\uFF08\u65E0\u54CD\u5E94\uFF0C\u8BF7\u91CD\u8BD5\uFF09", en: "(No response, please retry)" },
   "input.thought": { zh: "\u5DF2\u601D\u8003", en: "Thought" },
@@ -1531,6 +1535,10 @@ function undoEdit(change, btn) {
       new import_obsidian4.Notice(t("tool.undoStale"));
       return;
     }
+    if (idx !== content.lastIndexOf(change.newText)) {
+      new import_obsidian4.Notice(t("tool.undoAmbiguous"));
+      return;
+    }
     const reverted = content.slice(0, idx) + change.oldText + content.slice(idx + change.newText.length);
     fs3.writeFileSync(change.path, reverted, "utf8");
     btn.disabled = true;
@@ -1549,18 +1557,21 @@ async function renderPlanCard(view, container, planText) {
   const dismissBtn = actions.createEl("button", { text: t("plan.dismiss") });
   card.createDiv({ cls: "workbuddian-plan-card-note", text: t("plan.note") });
   executeBtn.onclick = async () => {
-    if (executeBtn.disabled || view.isStreaming)
+    if (executeBtn.disabled)
       return;
     executeBtn.disabled = true;
     const prevMode = view.settings.permissionMode;
+    const epochAtStart = view.permissionMenuEpoch;
     view.settings.permissionMode = "default";
     view.api.setPermissionMode("default");
     try {
       await sendText(view, planText);
     } finally {
-      if (view.settings.permissionMode === "default") {
+      if (view.permissionMenuEpoch === epochAtStart) {
         view.settings.permissionMode = prevMode;
         view.api.setPermissionMode(prevMode);
+        (0, import_obsidian4.setIcon)(view.permissionBtn, permissionIcon(prevMode));
+        view.permissionBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + prevMode)}`);
       }
     }
   };
@@ -1698,6 +1709,7 @@ function openPermissionMenu(view, btn, evt) {
   const menu = new import_obsidian4.Menu();
   for (const mode of PERMISSION_MODE_CHOICES) {
     menu.addItem((item) => item.setTitle(t("perm." + mode)).setIcon(permissionIcon(mode)).setChecked(view.settings.permissionMode === mode).onClick(async () => {
+      view.permissionMenuEpoch++;
       view.settings.permissionMode = mode;
       view.api.setPermissionMode(mode);
       (0, import_obsidian4.setIcon)(btn, permissionIcon(mode));
@@ -1864,6 +1876,8 @@ async function sendText(view, text) {
   let thinkingContent = "";
   let textContent = "";
   let resultText = "";
+  let planCardRendered = false;
+  let rejectionSwallowed = false;
   const chunkStats = {};
   try {
     let contextText;
@@ -1933,17 +1947,28 @@ async function sendText(view, text) {
         let toolsBlock = bubble.querySelector(".workbuddian-tools-block");
         if (!(toolsBlock instanceof HTMLElement)) {
           toolsBlock = bubble.createDiv({ cls: "workbuddian-tools-block" });
-          const hdr = toolsBlock.createDiv({ cls: "workbuddian-tools-header" });
+          const hdr = toolsBlock.createDiv({
+            cls: "workbuddian-tools-header",
+            attr: { role: "button", tabindex: "0", "aria-expanded": "false", "aria-label": t("input.toolCallToggle") }
+          });
           const icon = hdr.createSpan({ cls: "workbuddian-tools-header-icon" });
           (0, import_obsidian4.setIcon)(icon, "wrench");
           hdr.createSpan({ cls: "workbuddian-tools-header-text", text: t("input.toolCall") });
           const chevron = hdr.createSpan({ cls: "workbuddian-tools-header-chevron", text: "\u25BE" });
-          hdr.addEventListener("click", () => {
+          const toggleTools = () => {
             const list2 = toolsBlock.querySelector(".workbuddian-tools-list");
             if (list2 instanceof HTMLElement) {
               const hidden = list2.hasClass("workbuddian-hidden");
               list2.toggleClass("workbuddian-hidden", !hidden);
               chevron.textContent = hidden ? "\u25BE" : "\u25B8";
+              hdr.setAttribute("aria-expanded", hidden ? "true" : "false");
+            }
+          };
+          hdr.addEventListener("click", toggleTools);
+          hdr.addEventListener("keydown", (e) => {
+            if (isActivationKey(e.key)) {
+              e.preventDefault();
+              toggleTools();
             }
           });
           toolsBlock.createDiv({ cls: "workbuddian-tools-list workbuddian-hidden" });
@@ -1969,11 +1994,15 @@ async function sendText(view, text) {
           });
           const change = parseFileChange(toolName, toolDetail);
           if (change && change.kind === "write" && isPlanFilePath(change.path)) {
-            await renderPlanCard(view, list, change.newText);
+            await renderPlanCard(view, bubble, change.newText);
+            planCardRendered = true;
           } else if (change) {
             const diffLines = change.kind === "write" ? lineDiff("", change.newText) : lineDiff(change.oldText, change.newText);
             const diffBlock = list.createDiv({ cls: "workbuddian-tool-diff" });
-            const diffHeader = diffBlock.createDiv({ cls: "workbuddian-tool-diff-header" });
+            const diffHeader = diffBlock.createDiv({
+              cls: "workbuddian-tool-diff-header",
+              attr: { role: "button", tabindex: "0", "aria-expanded": "false", "aria-label": t("tool.diffToggle") }
+            });
             diffHeader.createSpan({ text: `${t("tool.diffTitle")} ${fileBasename(change.path)}` });
             const diffChevron = diffHeader.createSpan({ text: "\u25BE" });
             if (change.kind === "edit" && change.newText !== "" && view.vaultPath && change.path.startsWith(view.vaultPath)) {
@@ -1987,6 +2016,10 @@ async function sendText(view, text) {
                 evt.stopPropagation();
                 undoEdit(change, undoBtn);
               });
+              undoBtn.addEventListener("keydown", (evt) => {
+                if (isActivationKey(evt.key))
+                  evt.stopPropagation();
+              });
             }
             const diffBody = diffBlock.createDiv({ cls: "workbuddian-tool-diff-body workbuddian-hidden" });
             for (const line of diffLines) {
@@ -1996,10 +2029,18 @@ async function sendText(view, text) {
                 text: prefix + line.text
               });
             }
-            diffHeader.addEventListener("click", () => {
+            const toggleDiff = () => {
               const hidden = diffBody.hasClass("workbuddian-hidden");
               diffBody.toggleClass("workbuddian-hidden", !hidden);
               diffChevron.textContent = hidden ? "\u25BE" : "\u25B8";
+              diffHeader.setAttribute("aria-expanded", hidden ? "true" : "false");
+            };
+            diffHeader.addEventListener("click", toggleDiff);
+            diffHeader.addEventListener("keydown", (e) => {
+              if (isActivationKey(e.key)) {
+                e.preventDefault();
+                toggleDiff();
+              }
             });
           }
         }
@@ -2008,30 +2049,45 @@ async function sendText(view, text) {
         view.manager.updateMessage(convId, aiMsg.id, textContent, true);
         await renderMarkdownContent(view, bubble, textContent);
       } else if (chunk.type === "error") {
-        if (!isDeferExecuteRejection(chunk.content)) {
+        if (isDeferExecuteRejection(chunk.content)) {
+          rejectionSwallowed = true;
+        } else {
           view.manager.setError(convId, aiMsg.id, chunk.content);
           new import_obsidian4.Notice(`${t("input.requestFailed")}: ${chunk.content}`);
         }
       } else if (chunk.type === "done") {
         if (chunk.usage)
           view.manager.setUsage(convId, chunk.usage);
-        if (chunk.content && !isDeferExecuteRejection(chunk.content)) {
-          resultText = chunk.content;
+        if (chunk.content) {
+          if (isDeferExecuteRejection(chunk.content)) {
+            rejectionSwallowed = true;
+          } else {
+            resultText = chunk.content;
+          }
         }
       }
     }
     const finalContent = pickFinalContent(textContent, thinkingContent, resultText);
     view.manager.updateMessage(convId, aiMsg.id, finalContent);
+    let displayContent = finalContent;
     if (!finalContent) {
       bbLog("[WB] empty response \u2014 chunks:", JSON.stringify(chunkStats), "| resultLen:", resultText.length);
-      view.manager.updateMessage(convId, aiMsg.id, t("input.noResponse"));
+      displayContent = rejectionSwallowed && !planCardRendered ? t("plan.notApprovable") : t("input.noResponse");
+      view.manager.updateMessage(convId, aiMsg.id, displayContent);
+    }
+    if (!textContent) {
+      await renderMarkdownContent(view, streamingBubble, displayContent);
+    }
+    const thinkingPlaceholder = streamingBubble.querySelector(".workbuddian-thinking");
+    if (thinkingPlaceholder instanceof HTMLElement) {
+      thinkingPlaceholder.remove();
     }
     const thinkingLabel = streamingBubble.querySelector(".workbuddian-thinking-header-text");
     if (thinkingLabel instanceof HTMLElement) {
       thinkingLabel.setText(t("input.thought"));
     }
-    await renderMessages(view);
-    announce(view, `${t("a11y.newReply")}${finalContent || t("input.noResponse")}`);
+    renderContextUsage(view);
+    announce(view, `${t("a11y.newReply")}${displayContent}`);
     await view.manager.flush();
   } catch (error) {
     const message = getErrorMessage(error);
@@ -2294,8 +2350,12 @@ function renderTabs(view) {
   const conversations = view.manager.getAll();
   const activeId = view.activeConvId;
   for (const conv of conversations) {
-    const tab = view.tabBar.createDiv({ cls: "workbuddian-tab", attr: { role: "tab", tabindex: "0" } });
-    if (conv.id === activeId) {
+    const isActive = conv.id === activeId;
+    const tab = view.tabBar.createDiv({
+      cls: "workbuddian-tab",
+      attr: { role: "tab", tabindex: "0", "aria-selected": isActive ? "true" : "false" }
+    });
+    if (isActive) {
       tab.addClass("workbuddian-tab-active");
     }
     const titleSpan = tab.createSpan({ text: conv.title, cls: "workbuddian-tab-title" });
@@ -2445,6 +2505,9 @@ var WorkbuddianChatView = class extends import_obsidian7.ItemView {
     super(leaf);
     this.isStreaming = false;
     this.streamingMsgId = null;
+    /** 每次用户手动在工具栏切换权限模式时自增；计划卡片「按此执行」用它判断执行期间
+     *  有没有人手动切换过模式，不能靠比较模式值本身（'default' 本身也是可选值，见 I1） */
+    this.permissionMenuEpoch = 0;
     this.activeRename = null;
     this.activeConvId = null;
     this.customCommands = [];
@@ -2510,7 +2573,7 @@ var WorkbuddianChatView = class extends import_obsidian7.ItemView {
     const container = this.contentEl;
     container.empty();
     container.addClass("workbuddian-chat-container");
-    this.tabBar = container.createDiv({ cls: "workbuddian-tab-bar" });
+    this.tabBar = container.createDiv({ cls: "workbuddian-tab-bar", attr: { role: "tablist" } });
     const newBtn = this.tabBar.createEl("button", {
       text: "",
       cls: "workbuddian-new-chat-btn",
@@ -2577,6 +2640,7 @@ var WorkbuddianChatView = class extends import_obsidian7.ItemView {
     (0, import_obsidian7.setIcon)(permBtn, permissionIcon(this.settings.permissionMode));
     permBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + this.settings.permissionMode)}`);
     permBtn.onclick = (e) => openPermissionMenu(this, permBtn, e);
+    this.permissionBtn = permBtn;
     const instrBtn = toolbar.createEl("button", { cls: "workbuddian-toolbar-btn" });
     (0, import_obsidian7.setIcon)(instrBtn, "hash");
     instrBtn.onclick = () => openInstructionModal(this, "");

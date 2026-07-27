@@ -176,8 +176,10 @@ export function thumbSrc(view: WorkbuddianChatView, absPath: string): string {
 }
 
 /**
- * 撤销一次 Edit 改动：直接读盘找 newText 首次出现处替换回 oldText 再写回。
+ * 撤销一次 Edit 改动：直接读盘找 newText 出现处替换回 oldText 再写回。
  * 找不到 newText 说明文件已被后续改动，直接跳过，不做危险的猜测替换（不按行号/模糊匹配）。
+ * newText 在文件中出现不止一次时同样跳过——CLI 只保证 old_string 唯一，new_string 没有唯一性
+ * 保证，若替换了错误的那一处，会一次操作制造两处错误却仍报告"成功"（见 C2）。
  */
 function undoEdit(change: FileEdit, btn: HTMLButtonElement) {
     try {
@@ -186,6 +188,10 @@ function undoEdit(change: FileEdit, btn: HTMLButtonElement) {
         const idx = content.indexOf(change.newText);
         if (idx === -1) {
             new Notice(t('tool.undoStale'));
+            return;
+        }
+        if (idx !== content.lastIndexOf(change.newText)) {
+            new Notice(t('tool.undoAmbiguous'));
             return;
         }
         const reverted = content.slice(0, idx) + change.oldText + content.slice(idx + change.newText.length);
@@ -215,22 +221,28 @@ async function renderPlanCard(view: WorkbuddianChatView, container: HTMLElement,
     card.createDiv({ cls: 'workbuddian-plan-card-note', text: t('plan.note') });
 
     executeBtn.onclick = async () => {
-        // isStreaming 挡「原本这一轮还在流式中」；disabled 在任何 await 之前同步置位，
-        // 挡「连点这个按钮本身」——sendText 内部要经过一次 await 才会把 isStreaming 置真，
-        // 仅靠 isStreaming 挡不住这个窗口期内的第二次点击。
-        if (executeBtn.disabled || view.isStreaming) return;
+        // disabled 在任何 await 之前同步置位，挡「连点这个按钮本身」——sendText 内部要经过一次
+        // await 才会把 isStreaming 置真，仅靠 isStreaming 挡不住这个窗口期内的第二次点击；
+        // isStreaming 本身不再放进这个守卫——本轮流式结束后气泡不再被整体销毁（见 C1），
+        // 按钮此后应保持可点击，isStreaming 挡在这里反而会让它永远点不动。
+        if (executeBtn.disabled) return;
         executeBtn.disabled = true;
         const prevMode = view.settings.permissionMode;
+        // 用递增 epoch 而非「当前模式是否仍等于 default」判断"中途有没有人手动切换过权限模式"——
+        // 后者在用户手动切到的目标恰好也叫 'default' 时会误判为"无人改动"从而错误覆盖用户的选择，
+        // 造成内存与磁盘漂移（见 I1）
+        const epochAtStart = view.permissionMenuEpoch;
         view.settings.permissionMode = 'default';
         view.api.setPermissionMode('default');
         try {
             await sendText(view, planText);
         } finally {
-            // 若发送期间用户经工具栏手动切换过权限模式（会立即持久化，见 openPermissionMenu），
-            // 尊重其最新选择，不覆盖；只有仍等于我们自己写入的 'default' 时才说明中途无人改动
-            if (view.settings.permissionMode === 'default') {
+            if (view.permissionMenuEpoch === epochAtStart) {
                 view.settings.permissionMode = prevMode;
                 view.api.setPermissionMode(prevMode);
+                // 恢复后顺带刷新工具栏图标，避免图标停留在执行计划期间的中间态
+                setIcon(view.permissionBtn, permissionIcon(prevMode));
+                view.permissionBtn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + prevMode)}`);
             }
         }
     };
@@ -393,6 +405,9 @@ export function openPermissionMenu(view: WorkbuddianChatView, btn: HTMLElement, 
             .setIcon(permissionIcon(mode))
             .setChecked(view.settings.permissionMode === mode)
             .onClick(async () => {
+                // 用户手动选择权限模式：epoch 前进一格，供计划卡片「按此执行」判断
+                // 「中途有没有人手动切换过」，不能靠比较模式值本身（见 I1）
+                view.permissionMenuEpoch++;
                 view.settings.permissionMode = mode;
                 view.api.setPermissionMode(mode);
                 setIcon(btn, permissionIcon(mode));
@@ -593,6 +608,8 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
     let thinkingContent = '';
     let textContent = '';
     let resultText = '';
+    let planCardRendered = false;
+    let rejectionSwallowed = false;
     const chunkStats: Record<string, number> = {};
     try {
         let contextText: string;
@@ -667,18 +684,29 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                 let toolsBlock = bubble.querySelector('.workbuddian-tools-block');
                 if (!(toolsBlock instanceof HTMLElement)) {
                     toolsBlock = bubble.createDiv({ cls: 'workbuddian-tools-block' });
-                    const hdr = toolsBlock.createDiv({ cls: 'workbuddian-tools-header' });
+                    const hdr = toolsBlock.createDiv({
+                        cls: 'workbuddian-tools-header',
+                        attr: { role: 'button', tabindex: '0', 'aria-expanded': 'false', 'aria-label': t('input.toolCallToggle') }
+                    });
                     const icon = hdr.createSpan({ cls: 'workbuddian-tools-header-icon' });
                     setIcon(icon, 'wrench');
                     hdr.createSpan({ cls: 'workbuddian-tools-header-text', text: t('input.toolCall') });
                     const chevron = hdr.createSpan({ cls: 'workbuddian-tools-header-chevron', text: '▾' });
 
-                    hdr.addEventListener('click', () => {
+                    const toggleTools = () => {
                         const list = toolsBlock.querySelector('.workbuddian-tools-list');
                         if (list instanceof HTMLElement) {
                             const hidden = list.hasClass('workbuddian-hidden');
                             list.toggleClass('workbuddian-hidden', !hidden);
                             chevron.textContent = hidden ? '▾' : '▸';
+                            hdr.setAttribute('aria-expanded', hidden ? 'true' : 'false');
+                        }
+                    };
+                    hdr.addEventListener('click', toggleTools);
+                    hdr.addEventListener('keydown', (e: KeyboardEvent) => {
+                        if (isActivationKey(e.key)) {
+                            e.preventDefault();
+                            toggleTools();
                         }
                     });
                     toolsBlock.createDiv({ cls: 'workbuddian-tools-list workbuddian-hidden' });
@@ -706,15 +734,20 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
 
                     const change = parseFileChange(toolName, toolDetail);
                     if (change && change.kind === 'write' && isPlanFilePath(change.path)) {
-                        // 计划模式下 CLI 把计划写到 ~/.codebuddy/plans/*.md：不渲染 diff，改渲染计划卡片
-                        await renderPlanCard(view, list, change.newText);
+                        // 计划模式下 CLI 把计划写到 ~/.codebuddy/plans/*.md：不渲染 diff，改渲染计划卡片；
+                        // 计划卡片是主要操作入口，不能被折叠的工具列表挡住，渲染进 bubble 而非 list（见 C1）
+                        await renderPlanCard(view, bubble, change.newText);
+                        planCardRendered = true;
                     } else if (change) {
                         const diffLines = change.kind === 'write'
                             ? lineDiff('', change.newText)
                             : lineDiff(change.oldText, change.newText);
 
                         const diffBlock = list.createDiv({ cls: 'workbuddian-tool-diff' });
-                        const diffHeader = diffBlock.createDiv({ cls: 'workbuddian-tool-diff-header' });
+                        const diffHeader = diffBlock.createDiv({
+                            cls: 'workbuddian-tool-diff-header',
+                            attr: { role: 'button', tabindex: '0', 'aria-expanded': 'false', 'aria-label': t('tool.diffToggle') }
+                        });
                         diffHeader.createSpan({ text: `${t('tool.diffTitle')} ${fileBasename(change.path)}` });
                         const diffChevron = diffHeader.createSpan({ text: '▾' });
 
@@ -733,6 +766,11 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                                 evt.stopPropagation(); // 别顺带触发 header 的展开/折叠
                                 undoEdit(change, undoBtn);
                             });
+                            undoBtn.addEventListener('keydown', (evt) => {
+                                // Enter/Space 激活按钮时 keydown 会冒泡到 diffHeader，同样要挡掉，
+                                // 否则键盘用户点一下撤销按钮会顺带把 diff 折叠/展开
+                                if (isActivationKey(evt.key)) evt.stopPropagation();
+                            });
                         }
 
                         const diffBody = diffBlock.createDiv({ cls: 'workbuddian-tool-diff-body workbuddian-hidden' });
@@ -744,10 +782,18 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                             });
                         }
 
-                        diffHeader.addEventListener('click', () => {
+                        const toggleDiff = () => {
                             const hidden = diffBody.hasClass('workbuddian-hidden');
                             diffBody.toggleClass('workbuddian-hidden', !hidden);
                             diffChevron.textContent = hidden ? '▾' : '▸';
+                            diffHeader.setAttribute('aria-expanded', hidden ? 'true' : 'false');
+                        };
+                        diffHeader.addEventListener('click', toggleDiff);
+                        diffHeader.addEventListener('keydown', (e: KeyboardEvent) => {
+                            if (isActivationKey(e.key)) {
+                                e.preventDefault();
+                                toggleDiff();
+                            }
                         });
                     }
                 }
@@ -756,8 +802,11 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                 view.manager.updateMessage(convId, aiMsg.id, textContent, true);
                 await renderMarkdownContent(view, bubble, textContent);
             } else if (chunk.type === 'error') {
-                // 计划模式下 ExitPlanMode 被 CLI 拒绝的报错：计划卡片自带的说明已覆盖该情形，静默忽略
-                if (!isDeferExecuteRejection(chunk.content)) {
+                // 计划模式下 ExitPlanMode 被 CLI 拒绝的报错：计划卡片自带的说明已覆盖该情形，静默忽略；
+                // 但记下"确实吞掉过一次拒绝"，供收尾时判断计划卡片是否真的渲染出来了（见 I2）
+                if (isDeferExecuteRejection(chunk.content)) {
+                    rejectionSwallowed = true;
+                } else {
                     view.manager.setError(convId, aiMsg.id, chunk.content);
                     new Notice(`${t('input.requestFailed')}: ${chunk.content}`);
                 }
@@ -765,9 +814,13 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                 // result 事件带的 token 用量 → 存入会话，供上下文指示器渲染（末尾 flush 持久化）
                 if (chunk.usage) view.manager.setUsage(convId, chunk.usage);
                 // result 事件里的最终文本作兜底：有些回复只在这里给正文，不走流式 text chunk；
-                // 同样要挡掉 ExitPlanMode 的拒绝报错，避免它被当成正文展示出来
-                if (chunk.content && !isDeferExecuteRejection(chunk.content)) {
-                    resultText = chunk.content;
+                // 同样要挡掉 ExitPlanMode 的拒绝报错，避免它被当成正文展示出来（同样记一笔，见 I2）
+                if (chunk.content) {
+                    if (isDeferExecuteRejection(chunk.content)) {
+                        rejectionSwallowed = true;
+                    } else {
+                        resultText = chunk.content;
+                    }
                 }
             }
         }
@@ -775,19 +828,36 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
         const finalContent = pickFinalContent(textContent, thinkingContent, resultText);
         view.manager.updateMessage(convId, aiMsg.id, finalContent);
 
+        let displayContent = finalContent;
         if (!finalContent) {
             // 诊断：本轮各类 chunk 计数 + result 文本长度，便于判断是纯工具轮/超时/真空回复
             bbLog('[WB] empty response — chunks:', JSON.stringify(chunkStats), '| resultLen:', resultText.length);
-            view.manager.updateMessage(convId, aiMsg.id, t('input.noResponse'));
+            // 计划模式下 ExitPlanMode 被拒且计划卡片确实没渲染出来：用户看到的不该是笼统的
+            // 「无响应，请重试」，而是「非交互模式下无法原生批准计划」+ 可操作的建议（见 I2）
+            displayContent = (rejectionSwallowed && !planCardRendered) ? t('plan.notApprovable') : t('input.noResponse');
+            view.manager.updateMessage(convId, aiMsg.id, displayContent);
         }
 
-        // 流式结束后再渲染一次，确保思考指示器等占位元素被清除
+        // C1：这里不再整体 renderMessages——它会连带销毁本轮刚建好的工具行/diff/计划卡片，
+        // 且发生在 view.isStreaming 置假之前，导致计划卡片的执行按钮永远等不到可用窗口。
+        // text chunk 已经在流式过程中增量渲染进 bubble；只有最终内容退回到了 thinking/result
+        // 兜底或上面的空态兜底文案时，bubble 里还没有对应内容，才需要在这里补渲染一次。
+        if (!textContent) {
+            await renderMarkdownContent(view, streamingBubble, displayContent);
+        }
+
+        // 清理占位的思考指示器：正常情况下已在首个 chunk 到达时移除（见上方 firstChunk 分支），
+        // 这里是零 chunk（例如流式一开始就报错）场景的兜底
+        const thinkingPlaceholder = streamingBubble.querySelector('.workbuddian-thinking');
+        if (thinkingPlaceholder instanceof HTMLElement) {
+            thinkingPlaceholder.remove();
+        }
         const thinkingLabel = streamingBubble.querySelector('.workbuddian-thinking-header-text');
         if (thinkingLabel instanceof HTMLElement) {
             thinkingLabel.setText(t('input.thought'));
         }
-        await renderMessages(view);
-        announce(view, `${t('a11y.newReply')}${finalContent || t('input.noResponse')}`);
+        renderContextUsage(view); // renderMessages 原本顺带做的用量圆环刷新，这里显式补上
+        announce(view, `${t('a11y.newReply')}${displayContent}`);
         await view.manager.flush();
     } catch (error: unknown) {
         const message = getErrorMessage(error);

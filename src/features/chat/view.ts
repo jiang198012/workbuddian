@@ -25,9 +25,13 @@ export class WorkbuddianChatView extends ItemView {
     chipsEl!: HTMLElement;
     sendBtn!: HTMLButtonElement;
     instructionBtn!: HTMLButtonElement;
+    permissionBtn!: HTMLButtonElement;
     tabBar!: HTMLElement;
     isStreaming: boolean = false;
     streamingMsgId: string | null = null;
+    /** 每次用户手动在工具栏切换权限模式时自增；计划卡片「按此执行」用它判断执行期间
+     *  有没有人手动切换过模式，不能靠比较模式值本身（'default' 本身也是可选值，见 I1） */
+    permissionMenuEpoch: number = 0;
     activeRename: { input: HTMLInputElement; commit: () => void } | null = null;
     activeConvId: string | null = null;
     markdownComponent: Component;
@@ -110,7 +114,7 @@ export class WorkbuddianChatView extends ItemView {
         container.addClass('workbuddian-chat-container');
 
         // 顶部标签栏
-        this.tabBar = container.createDiv({ cls: 'workbuddian-tab-bar' });
+        this.tabBar = container.createDiv({ cls: 'workbuddian-tab-bar', attr: { role: 'tablist' } });
         const newBtn = this.tabBar.createEl('button', {
             text: '',
             cls: 'workbuddian-new-chat-btn',
@@ -188,6 +192,7 @@ export class WorkbuddianChatView extends ItemView {
         setIcon(permBtn, permissionIcon(this.settings.permissionMode));
         permBtn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + this.settings.permissionMode)}`);
         permBtn.onclick = (e) => openPermissionMenu(this, permBtn, e);
+        this.permissionBtn = permBtn;
 
         // 常驻指令指示（有指令时高亮，点击编辑/清除）
         const instrBtn = toolbar.createEl('button', { cls: 'workbuddian-toolbar-btn' });
