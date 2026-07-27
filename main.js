@@ -1524,16 +1524,19 @@ async function renderPlanCard(view, container, planText) {
   const dismissBtn = actions.createEl("button", { text: t("plan.dismiss") });
   card.createDiv({ cls: "workbuddian-plan-card-note", text: t("plan.note") });
   executeBtn.onclick = async () => {
-    if (view.isStreaming)
+    if (executeBtn.disabled || view.isStreaming)
       return;
+    executeBtn.disabled = true;
     const prevMode = view.settings.permissionMode;
     view.settings.permissionMode = "default";
     view.api.setPermissionMode("default");
     try {
       await sendText(view, planText);
     } finally {
-      view.settings.permissionMode = prevMode;
-      view.api.setPermissionMode(prevMode);
+      if (view.settings.permissionMode === "default") {
+        view.settings.permissionMode = prevMode;
+        view.api.setPermissionMode(prevMode);
+      }
     }
   };
   dismissBtn.onclick = () => card.remove();

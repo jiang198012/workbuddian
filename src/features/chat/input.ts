@@ -202,15 +202,23 @@ async function renderPlanCard(view: WorkbuddianChatView, container: HTMLElement,
     card.createDiv({ cls: 'workbuddian-plan-card-note', text: t('plan.note') });
 
     executeBtn.onclick = async () => {
-        if (view.isStreaming) return; // 当前轮次仍在流式中，避免与其重入冲突
+        // isStreaming 挡「原本这一轮还在流式中」；disabled 在任何 await 之前同步置位，
+        // 挡「连点这个按钮本身」——sendText 内部要经过一次 await 才会把 isStreaming 置真，
+        // 仅靠 isStreaming 挡不住这个窗口期内的第二次点击。
+        if (executeBtn.disabled || view.isStreaming) return;
+        executeBtn.disabled = true;
         const prevMode = view.settings.permissionMode;
         view.settings.permissionMode = 'default';
         view.api.setPermissionMode('default');
         try {
             await sendText(view, planText);
         } finally {
-            view.settings.permissionMode = prevMode;
-            view.api.setPermissionMode(prevMode);
+            // 若发送期间用户经工具栏手动切换过权限模式（会立即持久化，见 openPermissionMenu），
+            // 尊重其最新选择，不覆盖；只有仍等于我们自己写入的 'default' 时才说明中途无人改动
+            if (view.settings.permissionMode === 'default') {
+                view.settings.permissionMode = prevMode;
+                view.api.setPermissionMode(prevMode);
+            }
         }
     };
     dismissBtn.onclick = () => card.remove();
