@@ -1,4 +1,4 @@
-import { Menu, Notice, setIcon, TFile } from 'obsidian';
+import { Menu, MarkdownRenderer, Notice, setIcon, TFile } from 'obsidian';
 import { getErrorMessage } from '../../types';
 import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shared/atReferences';
 import { shouldSendMessage } from '../../shared/inputKeys';
@@ -8,7 +8,7 @@ import { renderMessages, renderMarkdownContent } from './render';
 import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
 import { fileBasename, buildAttachmentBlock, attachmentDirs } from '../../shared/attachments';
-import { parseFileChange, type FileEdit } from '../../shared/toolDetail';
+import { parseFileChange, isPlanFilePath, type FileEdit } from '../../shared/toolDetail';
 import { lineDiff } from '../../shared/lineDiff';
 import { extForMime, mimeForExt, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
 import { parseInstructionInput } from '../../shared/instruction';
@@ -182,6 +182,43 @@ function undoEdit(change: FileEdit, btn: HTMLButtonElement) {
     } catch {
         new Notice(t('tool.undoFailed'));
     }
+}
+
+/**
+ * 计划模式下渲染计划卡片：CLI 提交计划走 DeferExecuteTool，在 --print 非交互模式下必被拒绝
+ * （`permission prompts are not available in non-interactive mode`），原会话无法原生批准继续执行。
+ * 「按此执行」因此不是「批准原计划」，而是把计划正文以 default 权限模式重新发起一轮；
+ * 发送完毕（无论成功与否）都恢复用户此前的权限模式。
+ */
+async function renderPlanCard(view: WorkbuddianChatView, container: HTMLElement, planText: string): Promise<void> {
+    const card = container.createDiv({ cls: 'workbuddian-plan-card' });
+    card.createDiv({ cls: 'workbuddian-plan-card-title', text: t('plan.cardTitle') });
+    const body = card.createDiv({ cls: 'workbuddian-plan-card-body' });
+    await MarkdownRenderer.render(view.app, planText, body, '', view.markdownComponent);
+
+    const actions = card.createDiv({ cls: 'workbuddian-plan-card-actions' });
+    const executeBtn = actions.createEl('button', { text: t('plan.execute') });
+    const dismissBtn = actions.createEl('button', { text: t('plan.dismiss') });
+    card.createDiv({ cls: 'workbuddian-plan-card-note', text: t('plan.note') });
+
+    executeBtn.onclick = async () => {
+        if (view.isStreaming) return; // 当前轮次仍在流式中，避免与其重入冲突
+        const prevMode = view.settings.permissionMode;
+        view.settings.permissionMode = 'default';
+        view.api.setPermissionMode('default');
+        try {
+            await sendText(view, planText);
+        } finally {
+            view.settings.permissionMode = prevMode;
+            view.api.setPermissionMode(prevMode);
+        }
+    };
+    dismissBtn.onclick = () => card.remove();
+}
+
+/** CLI 因 DeferExecuteTool（ExitPlanMode）被拒而返回的报错：计划卡片自带的说明已覆盖该情形，不再作为错误展示 */
+function isDeferExecuteRejection(text: string): boolean {
+    return text.includes('DeferExecuteTool') && text.includes('non-interactive');
 }
 
 /** 粘贴图存储目录：<vault>/.obsidian/plugins/workbuddian/pasted */
@@ -629,7 +666,10 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                     });
 
                     const change = parseFileChange(toolName, toolDetail);
-                    if (change) {
+                    if (change && change.kind === 'write' && isPlanFilePath(change.path)) {
+                        // 计划模式下 CLI 把计划写到 ~/.codebuddy/plans/*.md：不渲染 diff，改渲染计划卡片
+                        await renderPlanCard(view, list, change.newText);
+                    } else if (change) {
                         const diffLines = change.kind === 'write'
                             ? lineDiff('', change.newText)
                             : lineDiff(change.oldText, change.newText);
@@ -673,13 +713,19 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                 view.manager.updateMessage(convId, aiMsg.id, textContent, true);
                 await renderMarkdownContent(view, bubble, textContent);
             } else if (chunk.type === 'error') {
-                view.manager.setError(convId, aiMsg.id, chunk.content);
-                new Notice(`${t('input.requestFailed')}: ${chunk.content}`);
+                // 计划模式下 ExitPlanMode 被 CLI 拒绝的报错：计划卡片自带的说明已覆盖该情形，静默忽略
+                if (!isDeferExecuteRejection(chunk.content)) {
+                    view.manager.setError(convId, aiMsg.id, chunk.content);
+                    new Notice(`${t('input.requestFailed')}: ${chunk.content}`);
+                }
             } else if (chunk.type === 'done') {
                 // result 事件带的 token 用量 → 存入会话，供上下文指示器渲染（末尾 flush 持久化）
                 if (chunk.usage) view.manager.setUsage(convId, chunk.usage);
-                // result 事件里的最终文本作兜底：有些回复只在这里给正文，不走流式 text chunk
-                resultText = chunk.content || resultText;
+                // result 事件里的最终文本作兜底：有些回复只在这里给正文，不走流式 text chunk；
+                // 同样要挡掉 ExitPlanMode 的拒绝报错，避免它被当成正文展示出来
+                if (chunk.content && !isDeferExecuteRejection(chunk.content)) {
+                    resultText = chunk.content;
+                }
             }
         }
 

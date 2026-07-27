@@ -56,7 +56,7 @@ var MODEL_OPTIONS = {
 };
 var FALLBACK_MODEL_OPTIONS = MODEL_OPTIONS;
 var PERMISSION_MODES = ["default", "plan", "acceptEdits", "bypassPermissions"];
-var PERMISSION_MODE_CHOICES = ["default", "bypassPermissions"];
+var PERMISSION_MODE_CHOICES = ["default", "plan", "bypassPermissions"];
 function isPermissionMode(value) {
   return typeof value === "string" && PERMISSION_MODES.includes(value);
 }
@@ -171,6 +171,10 @@ var STRINGS = {
   "tool.undone": { zh: "\u5DF2\u64A4\u9500", en: "Undone" },
   "tool.undoStale": { zh: "\u6587\u4EF6\u5DF2\u53D8\u5316\uFF0C\u672A\u6267\u884C\u64A4\u9500", en: "File has changed since; undo skipped" },
   "tool.undoFailed": { zh: "\u64A4\u9500\u5931\u8D25", en: "Undo failed" },
+  "plan.cardTitle": { zh: "\u6267\u884C\u8BA1\u5212", en: "Execution plan" },
+  "plan.execute": { zh: "\u6309\u6B64\u6267\u884C\uFF08\u91CD\u65B0\u53D1\u8D77\u4E00\u8F6E\uFF09", en: "Run this plan (new round)" },
+  "plan.dismiss": { zh: "\u5FFD\u7565", en: "Dismiss" },
+  "plan.note": { zh: "CLI \u5728\u975E\u4EA4\u4E92\u6A21\u5F0F\u4E0B\u65E0\u6CD5\u539F\u751F\u6279\u51C6\u8BA1\u5212\uFF0C\u300C\u6309\u6B64\u6267\u884C\u300D\u4F1A\u4EE5\u9ED8\u8BA4\u6743\u9650\u6A21\u5F0F\u628A\u8BA1\u5212\u6B63\u6587\u91CD\u65B0\u53D1\u8D77\u4E00\u8F6E\u3002", en: 'The CLI cannot approve plans natively in non-interactive mode; "Run this plan" re-sends the plan text as a new round in default permission mode.' },
   "input.requestFailed": { zh: "\u8BF7\u6C42\u5931\u8D25", en: "Request failed" },
   "input.noResponse": { zh: "\uFF08\u65E0\u54CD\u5E94\uFF0C\u8BF7\u91CD\u8BD5\uFF09", en: "(No response, please retry)" },
   "input.thought": { zh: "\u5DF2\u601D\u8003", en: "Thought" },
@@ -1123,6 +1127,10 @@ function parseFileChange(toolName, toolDetail) {
   }
   return null;
 }
+function isPlanFilePath(p) {
+  const norm = p.replace(/\\/g, "/");
+  return norm.includes("/.codebuddy/plans/") && norm.endsWith(".md");
+}
 
 // src/shared/lineDiff.ts
 function lineDiff(oldText, newText) {
@@ -1505,6 +1513,33 @@ function undoEdit(change, btn) {
   } catch (e) {
     new import_obsidian4.Notice(t("tool.undoFailed"));
   }
+}
+async function renderPlanCard(view, container, planText) {
+  const card = container.createDiv({ cls: "workbuddian-plan-card" });
+  card.createDiv({ cls: "workbuddian-plan-card-title", text: t("plan.cardTitle") });
+  const body = card.createDiv({ cls: "workbuddian-plan-card-body" });
+  await import_obsidian4.MarkdownRenderer.render(view.app, planText, body, "", view.markdownComponent);
+  const actions = card.createDiv({ cls: "workbuddian-plan-card-actions" });
+  const executeBtn = actions.createEl("button", { text: t("plan.execute") });
+  const dismissBtn = actions.createEl("button", { text: t("plan.dismiss") });
+  card.createDiv({ cls: "workbuddian-plan-card-note", text: t("plan.note") });
+  executeBtn.onclick = async () => {
+    if (view.isStreaming)
+      return;
+    const prevMode = view.settings.permissionMode;
+    view.settings.permissionMode = "default";
+    view.api.setPermissionMode("default");
+    try {
+      await sendText(view, planText);
+    } finally {
+      view.settings.permissionMode = prevMode;
+      view.api.setPermissionMode(prevMode);
+    }
+  };
+  dismissBtn.onclick = () => card.remove();
+}
+function isDeferExecuteRejection(text) {
+  return text.includes("DeferExecuteTool") && text.includes("non-interactive");
 }
 function pastedDir(view) {
   return `${view.vaultPath}/${view.app.vault.configDir}/plugins/workbuddian/pasted`;
@@ -1893,7 +1928,9 @@ async function sendText(view, text) {
             text: `${toolName} ${toolDetail}`.trim()
           });
           const change = parseFileChange(toolName, toolDetail);
-          if (change) {
+          if (change && change.kind === "write" && isPlanFilePath(change.path)) {
+            await renderPlanCard(view, list, change.newText);
+          } else if (change) {
             const diffLines = change.kind === "write" ? lineDiff("", change.newText) : lineDiff(change.oldText, change.newText);
             const diffBlock = list.createDiv({ cls: "workbuddian-tool-diff" });
             const diffHeader = diffBlock.createDiv({ cls: "workbuddian-tool-diff-header" });
@@ -1927,12 +1964,16 @@ async function sendText(view, text) {
         view.manager.updateMessage(convId, aiMsg.id, textContent, true);
         await renderMarkdownContent(view, bubble, textContent);
       } else if (chunk.type === "error") {
-        view.manager.setError(convId, aiMsg.id, chunk.content);
-        new import_obsidian4.Notice(`${t("input.requestFailed")}: ${chunk.content}`);
+        if (!isDeferExecuteRejection(chunk.content)) {
+          view.manager.setError(convId, aiMsg.id, chunk.content);
+          new import_obsidian4.Notice(`${t("input.requestFailed")}: ${chunk.content}`);
+        }
       } else if (chunk.type === "done") {
         if (chunk.usage)
           view.manager.setUsage(convId, chunk.usage);
-        resultText = chunk.content || resultText;
+        if (chunk.content && !isDeferExecuteRejection(chunk.content)) {
+          resultText = chunk.content;
+        }
       }
     }
     const finalContent = pickFinalContent(textContent, thinkingContent, resultText);

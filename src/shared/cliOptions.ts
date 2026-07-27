@@ -19,8 +19,8 @@ export type PermissionMode = 'default' | 'plan' | 'acceptEdits' | 'bypassPermiss
 
 export const PERMISSION_MODES: PermissionMode[] = ['default', 'plan', 'acceptEdits', 'bypassPermissions'];
 
-/** UI 暴露给用户的权限选项（仅「默认」与「完全访问」；CLI 仍支持全部 4 种） */
-export const PERMISSION_MODE_CHOICES: PermissionMode[] = ['default', 'bypassPermissions'];
+/** UI 暴露给用户的权限选项（默认 / 计划模式 / 完全访问；CLI 仍支持全部 4 种） */
+export const PERMISSION_MODE_CHOICES: PermissionMode[] = ['default', 'plan', 'bypassPermissions'];
 
 export function isPermissionMode(value: unknown): value is PermissionMode {
     return typeof value === 'string' && (PERMISSION_MODES as string[]).includes(value);

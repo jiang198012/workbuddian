@@ -979,3 +979,9 @@
 .workbuddian-tool-diff .workbuddian-diff-add { background: rgba(0, 160, 60, 0.15); }
 .workbuddian-tool-diff .workbuddian-diff-remove { background: rgba(200, 40, 40, 0.15); }
 .workbuddian-tool-diff .workbuddian-diff-equal { opacity: 0.65; }
+
+/* 计划卡片 */
+.workbuddian-plan-card { border: 1px solid var(--workbuddian-primary, #C8B487); border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
+.workbuddian-plan-card-title { font-weight: 600; margin-bottom: 4px; }
+.workbuddian-plan-card-actions { display: flex; gap: 8px; margin-top: 8px; }
+.workbuddian-plan-card-note { font-size: 11px; opacity: 0.7; margin-top: 6px; }
