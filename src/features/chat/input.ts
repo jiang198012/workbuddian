@@ -4,7 +4,7 @@ import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shar
 import { shouldSendMessage, isActivationKey } from '../../shared/inputKeys';
 import { assembleContextText } from '../../core/context/assembleContext';
 import type { WorkbuddianChatView } from './view';
-import { renderMessages, renderMarkdownContent } from './render';
+import { renderMessages, renderMarkdownContent, scrollToBottom } from './render';
 import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
 import { fileBasename, buildAttachmentBlock, attachmentDirs } from '../../shared/attachments';
@@ -223,9 +223,11 @@ async function renderPlanCard(view: WorkbuddianChatView, container: HTMLElement,
     executeBtn.onclick = async () => {
         // disabled 在任何 await 之前同步置位，挡「连点这个按钮本身」——sendText 内部要经过一次
         // await 才会把 isStreaming 置真，仅靠 isStreaming 挡不住这个窗口期内的第二次点击；
-        // isStreaming 本身不再放进这个守卫——本轮流式结束后气泡不再被整体销毁（见 C1），
-        // 按钮此后应保持可点击，isStreaming 挡在这里反而会让它永远点不动。
-        if (executeBtn.disabled) return;
+        // C1 修好之后气泡不再于流式结束时被整体销毁，按钮得以存活到本轮结束之后。
+        // 因此 isStreaming 在这里恢复了它本来的意义：卡片可能在流式中途就渲染出来，
+        // 此时点执行会嵌套调用 sendText——内层的 renderMessages 会摧毁外层仍在写入的气泡，
+        // 且 provider 只跟踪一个 activeProc，Stop 只能杀掉两个并发进程中较新的那个。
+        if (executeBtn.disabled || view.isStreaming) return;
         executeBtn.disabled = true;
         const prevMode = view.settings.permissionMode;
         // 用递增 epoch 而非「当前模式是否仍等于 default」判断"中途有没有人手动切换过权限模式"——
@@ -856,7 +858,9 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
         if (thinkingLabel instanceof HTMLElement) {
             thinkingLabel.setText(t('input.thought'));
         }
-        renderContextUsage(view); // renderMessages 原本顺带做的用量圆环刷新，这里显式补上
+        // renderMessages 原本顺带做的两件事，跳过它之后须显式补上：刷新用量圆环、滚到底部
+        renderContextUsage(view);
+        scrollToBottom(view);
         announce(view, `${t('a11y.newReply')}${displayContent}`);
         await view.manager.flush();
     } catch (error: unknown) {

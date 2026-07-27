@@ -1557,7 +1557,7 @@ async function renderPlanCard(view, container, planText) {
   const dismissBtn = actions.createEl("button", { text: t("plan.dismiss") });
   card.createDiv({ cls: "workbuddian-plan-card-note", text: t("plan.note") });
   executeBtn.onclick = async () => {
-    if (executeBtn.disabled)
+    if (executeBtn.disabled || view.isStreaming)
       return;
     executeBtn.disabled = true;
     const prevMode = view.settings.permissionMode;
@@ -2087,6 +2087,7 @@ async function sendText(view, text) {
       thinkingLabel.setText(t("input.thought"));
     }
     renderContextUsage(view);
+    scrollToBottom(view);
     announce(view, `${t("a11y.newReply")}${displayContent}`);
     await view.manager.flush();
   } catch (error) {
