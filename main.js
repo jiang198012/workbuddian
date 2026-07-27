@@ -37,7 +37,7 @@ __export(main_exports, {
   default: () => WorkbuddianPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 
 // src/providers/codebuddy/index.ts
 var import_child_process2 = require("child_process");
@@ -226,6 +226,13 @@ var STRINGS = {
   "slash.model": { zh: "\u5207\u6362\u6A21\u578B", en: "Switch model" },
   "slash.permissions": { zh: "\u67E5\u770B/\u7BA1\u7406\u6743\u9650", en: "View/manage permissions" },
   "slash.resume": { zh: "\u6062\u590D\u5386\u53F2\u4F1A\u8BDD", en: "Resume a past session" },
+  "resume.modalTitle": { zh: "\u9009\u62E9\u8981\u6062\u590D\u7684\u5BF9\u8BDD", en: "Resume a conversation" },
+  "resume.empty": { zh: "\uFF08\u8FD8\u6CA1\u6709\u5386\u53F2\u5BF9\u8BDD\uFF09", en: "(No conversations yet)" },
+  "resume.justNow": { zh: "\u521A\u521A", en: "just now" },
+  "resume.minutesAgo": { zh: "\u5206\u949F\u524D", en: "min ago" },
+  "resume.hoursAgo": { zh: "\u5C0F\u65F6\u524D", en: "h ago" },
+  "resume.daysAgo": { zh: "\u5929\u524D", en: "d ago" },
+  "resume.messageCount": { zh: "\u6761", en: "msgs" },
   "slash.export": { zh: "\u5BFC\u51FA\u5BF9\u8BDD", en: "Export conversation" },
   "slash.status": { zh: "\u67E5\u770B\u72B6\u6001", en: "Show status" }
 };
@@ -900,7 +907,7 @@ async function fetchModels(scriptPath, nodePath, timeoutMs = 1e4) {
 }
 
 // src/features/chat/view.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/shared/icon.ts
 var import_obsidian = require("obsidian");
@@ -911,7 +918,7 @@ function registerWorkbuddianIcon() {
 }
 
 // src/features/chat/tabs.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/shared/export.ts
 function formatConversationAsMarkdown(conv) {
@@ -926,10 +933,10 @@ function formatConversationAsMarkdown(conv) {
 }
 
 // src/features/chat/render.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // src/features/chat/input.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // src/shared/atReferences.ts
 function extractAtQuery(text, cursorPos) {
@@ -1260,6 +1267,64 @@ ${addition}` : addition : existing;
   new InstructionModal(view, initial).open();
 }
 
+// src/features/chat/resumeModal.ts
+var import_obsidian3 = require("obsidian");
+
+// src/shared/conversationSummary.ts
+var MINUTE = 6e4;
+var HOUR = 36e5;
+var DAY = 864e5;
+function relativeTime(diffMs) {
+  const diff = Math.max(0, diffMs);
+  if (diff < MINUTE)
+    return t("resume.justNow");
+  if (diff < HOUR)
+    return `${Math.floor(diff / MINUTE)} ${t("resume.minutesAgo")}`;
+  if (diff < DAY)
+    return `${Math.floor(diff / HOUR)} ${t("resume.hoursAgo")}`;
+  return `${Math.floor(diff / DAY)} ${t("resume.daysAgo")}`;
+}
+function formatConversationSummary(conv, now) {
+  const title = conv.title || t("chat.newConversation");
+  const meta = `${conv.messages.length} ${t("resume.messageCount")} \xB7 ${relativeTime(now - conv.updatedAt)}`;
+  return { title, meta };
+}
+
+// src/features/chat/resumeModal.ts
+var ResumeModal = class extends import_obsidian3.Modal {
+  constructor(view) {
+    super(view.app);
+    this.view = view;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h3", { text: t("resume.modalTitle") });
+    const conversations = this.view.manager.getAll();
+    if (conversations.length === 0) {
+      contentEl.createEl("p", { text: t("resume.empty") });
+      return;
+    }
+    const now = Date.now();
+    const list = contentEl.createDiv({ cls: "workbuddian-resume-list" });
+    for (const conv of conversations) {
+      const { title, meta } = formatConversationSummary(conv, now);
+      const item = list.createDiv({ cls: "workbuddian-resume-item" });
+      item.createDiv({ cls: "workbuddian-resume-item-title", text: title });
+      item.createDiv({ cls: "workbuddian-resume-item-meta", text: meta });
+      item.onclick = async () => {
+        await switchToChat(this.view, conv.id);
+        this.close();
+      };
+    }
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+function openResumeModal(view) {
+  new ResumeModal(view).open();
+}
+
 // src/shared/selection.ts
 function buildSelectionBlock(selectedText, noteName) {
   if (!selectedText.trim())
@@ -1368,7 +1433,7 @@ function renderReferenceChips(view) {
     const chip = view.chipsEl.createDiv({ cls: "workbuddian-ref-chip" });
     chip.createSpan({ cls: "workbuddian-ref-chip-name", text: name });
     const close = chip.createSpan({ cls: "workbuddian-ref-chip-close", attr: { "aria-label": t("input.removeReference"), role: "button", tabindex: "0" } });
-    (0, import_obsidian3.setIcon)(close, "x");
+    (0, import_obsidian4.setIcon)(close, "x");
     close.onclick = () => removeReference(view, name);
   }
 }
@@ -1392,7 +1457,7 @@ function renderAttachmentChips(view) {
       chip.createSpan({ cls: "workbuddian-ref-chip-name", text: fileBasename(p), attr: { title: p } });
     }
     const close = chip.createSpan({ cls: "workbuddian-ref-chip-close", attr: { "aria-label": t("input.removeReference"), role: "button", tabindex: "0" } });
-    (0, import_obsidian3.setIcon)(close, "x");
+    (0, import_obsidian4.setIcon)(close, "x");
     close.onclick = () => {
       view.attachments.splice(idx, 1);
       renderAttachmentChips(view);
@@ -1430,7 +1495,7 @@ function undoEdit(change, btn) {
     const content = fs3.readFileSync(change.path, "utf8");
     const idx = content.indexOf(change.newText);
     if (idx === -1) {
-      new import_obsidian3.Notice(t("tool.undoStale"));
+      new import_obsidian4.Notice(t("tool.undoStale"));
       return;
     }
     const reverted = content.slice(0, idx) + change.oldText + content.slice(idx + change.newText.length);
@@ -1438,7 +1503,7 @@ function undoEdit(change, btn) {
     btn.disabled = true;
     btn.setText(t("tool.undone"));
   } catch (e) {
-    new import_obsidian3.Notice(t("tool.undoFailed"));
+    new import_obsidian4.Notice(t("tool.undoFailed"));
   }
 }
 function pastedDir(view) {
@@ -1465,7 +1530,7 @@ function renderSelectionChip(view) {
   view.selectionEl.removeClass("workbuddian-hidden");
   const chip = view.selectionEl.createDiv({ cls: "workbuddian-ref-chip workbuddian-selection-chip" });
   const icon = chip.createSpan({ cls: "workbuddian-ref-chip-icon" });
-  (0, import_obsidian3.setIcon)(icon, "text-select");
+  (0, import_obsidian4.setIcon)(icon, "text-select");
   const preview = view.selection.text.replace(/\s+/g, " ").trim().slice(0, 40);
   const label = view.selection.note ? `${view.selection.note}: ${preview}` : preview;
   chip.createSpan({ cls: "workbuddian-ref-chip-name", text: label, attr: { title: view.selection.text } });
@@ -1531,7 +1596,7 @@ async function handlePaste(view, e) {
       if (!view.attachments.includes(p))
         view.attachments.push(p);
     } catch (e2) {
-      new import_obsidian3.Notice(t("input.imageSaveFailed"));
+      new import_obsidian4.Notice(t("input.imageSaveFailed"));
     }
   }
   pruneImages(dir, view.settings.pastedImageKeep);
@@ -1561,12 +1626,12 @@ function permissionIcon(mode) {
   return (_a = PERMISSION_MODE_ICONS[mode]) != null ? _a : "shield";
 }
 function openPermissionMenu(view, btn, evt) {
-  const menu = new import_obsidian3.Menu();
+  const menu = new import_obsidian4.Menu();
   for (const mode of PERMISSION_MODE_CHOICES) {
     menu.addItem((item) => item.setTitle(t("perm." + mode)).setIcon(permissionIcon(mode)).setChecked(view.settings.permissionMode === mode).onClick(async () => {
       view.settings.permissionMode = mode;
       view.api.setPermissionMode(mode);
-      (0, import_obsidian3.setIcon)(btn, permissionIcon(mode));
+      (0, import_obsidian4.setIcon)(btn, permissionIcon(mode));
       btn.setAttribute("title", `${t("input.permission")}: ${t("perm." + mode)}`);
       await view.saveSettingsCallback();
     }));
@@ -1574,7 +1639,7 @@ function openPermissionMenu(view, btn, evt) {
   menu.showAtMouseEvent(evt);
 }
 function openModelMenu(view, btn) {
-  const menu = new import_obsidian3.Menu();
+  const menu = new import_obsidian4.Menu();
   const models = ["auto", ...view.api.getAvailableModels()];
   for (const id of models) {
     menu.addItem((item) => item.setTitle(id).setChecked(view.settings.model === id).onClick(async () => {
@@ -1686,6 +1751,12 @@ async function sendMessage(view) {
     adjustTextareaHeight(view);
     return;
   }
+  if ((slash == null ? void 0 : slash.name) === "resume" && slash.rest === "") {
+    view.inputEl.value = "";
+    adjustTextareaHeight(view);
+    openResumeModal(view);
+    return;
+  }
   view.inputEl.value = "";
   adjustTextareaHeight(view);
   renderReferenceChips(view);
@@ -1709,7 +1780,7 @@ async function sendText(view, text) {
     return;
   view.streamingMsgId = aiMsg.id;
   view.isStreaming = true;
-  (0, import_obsidian3.setIcon)(view.sendBtn, "square");
+  (0, import_obsidian4.setIcon)(view.sendBtn, "square");
   view.sendBtn.setAttribute("aria-label", t("input.stop"));
   view.sendBtn.setAttribute("title", t("input.stop"));
   await renderMessages(view);
@@ -1769,7 +1840,7 @@ async function sendText(view, text) {
           block = bubble.createDiv({ cls: "workbuddian-thinking-block" });
           const header = block.createDiv({ cls: "workbuddian-thinking-header" });
           const icon = header.createSpan({ cls: "workbuddian-thinking-header-icon" });
-          (0, import_obsidian3.setIcon)(icon, "sparkles");
+          (0, import_obsidian4.setIcon)(icon, "sparkles");
           header.createSpan({ cls: "workbuddian-thinking-header-text", text: t("input.thinking") });
           const chevron = header.createSpan({ cls: "workbuddian-thinking-header-chevron", text: "\u25BE" });
           const bodyDiv = block.createDiv({ cls: "workbuddian-thinking-body workbuddian-hidden" });
@@ -1789,7 +1860,7 @@ async function sendText(view, text) {
           toolsBlock = bubble.createDiv({ cls: "workbuddian-tools-block" });
           const hdr = toolsBlock.createDiv({ cls: "workbuddian-tools-header" });
           const icon = hdr.createSpan({ cls: "workbuddian-tools-header-icon" });
-          (0, import_obsidian3.setIcon)(icon, "wrench");
+          (0, import_obsidian4.setIcon)(icon, "wrench");
           hdr.createSpan({ cls: "workbuddian-tools-header-text", text: t("input.toolCall") });
           const chevron = hdr.createSpan({ cls: "workbuddian-tools-header-chevron", text: "\u25BE" });
           hdr.addEventListener("click", () => {
@@ -1816,7 +1887,7 @@ async function sendText(view, text) {
           }
           const row = list.createDiv({ cls: "workbuddian-tool-call" });
           const icon = row.createSpan({ cls: "workbuddian-tool-call-icon" });
-          (0, import_obsidian3.setIcon)(icon, iconName);
+          (0, import_obsidian4.setIcon)(icon, iconName);
           row.createSpan({
             cls: "workbuddian-tool-call-text",
             text: `${toolName} ${toolDetail}`.trim()
@@ -1857,7 +1928,7 @@ async function sendText(view, text) {
         await renderMarkdownContent(view, bubble, textContent);
       } else if (chunk.type === "error") {
         view.manager.setError(convId, aiMsg.id, chunk.content);
-        new import_obsidian3.Notice(`${t("input.requestFailed")}: ${chunk.content}`);
+        new import_obsidian4.Notice(`${t("input.requestFailed")}: ${chunk.content}`);
       } else if (chunk.type === "done") {
         if (chunk.usage)
           view.manager.setUsage(convId, chunk.usage);
@@ -1879,12 +1950,12 @@ async function sendText(view, text) {
   } catch (error) {
     const message = getErrorMessage(error);
     view.manager.setError(convId, aiMsg.id, message);
-    new import_obsidian3.Notice(`${t("input.requestFailed")}: ${message}`);
+    new import_obsidian4.Notice(`${t("input.requestFailed")}: ${message}`);
     await renderMessages(view);
   } finally {
     view.isStreaming = false;
     view.streamingMsgId = null;
-    (0, import_obsidian3.setIcon)(view.sendBtn, "send");
+    (0, import_obsidian4.setIcon)(view.sendBtn, "send");
     view.sendBtn.setAttribute("aria-label", t("input.send"));
     view.sendBtn.setAttribute("title", t("input.send"));
   }
@@ -1957,7 +2028,7 @@ async function renderMessages(view) {
   if (!conv) {
     const empty = view.messageContainer.createDiv({ cls: "workbuddian-empty-chat" });
     const icon = empty.createDiv({ cls: "workbuddian-empty-chat-icon" });
-    (0, import_obsidian4.setIcon)(icon, "message-square");
+    (0, import_obsidian5.setIcon)(icon, "message-square");
     empty.createDiv({ cls: "workbuddian-empty-chat-title", text: t("render.emptyTitle") });
     empty.createDiv({ cls: "workbuddian-empty-chat-subtitle", text: t("render.emptySubtitle") });
     renderContextUsage(view);
@@ -2020,7 +2091,7 @@ function renderAttachmentChip(view, row, entry) {
   img.src = src;
 }
 function renderNameChip(chip, name) {
-  (0, import_obsidian4.setIcon)(chip.createSpan({ cls: "workbuddian-attachment-chip-icon" }), "paperclip");
+  (0, import_obsidian5.setIcon)(chip.createSpan({ cls: "workbuddian-attachment-chip-icon" }), "paperclip");
   chip.createSpan({ cls: "workbuddian-attachment-chip-name", text: name });
 }
 function renderCopyButton(row, content) {
@@ -2029,18 +2100,18 @@ function renderCopyButton(row, content) {
     cls: "workbuddian-message-action-btn",
     attr: { "aria-label": t("render.copy"), title: t("render.copy") }
   });
-  (0, import_obsidian4.setIcon)(copyBtn, "copy");
+  (0, import_obsidian5.setIcon)(copyBtn, "copy");
   copyBtn.onclick = async () => {
     try {
       await navigator.clipboard.writeText(content);
-      (0, import_obsidian4.setIcon)(copyBtn, "check");
+      (0, import_obsidian5.setIcon)(copyBtn, "check");
       copyBtn.setAttribute("title", t("render.copied"));
       window.setTimeout(() => {
-        (0, import_obsidian4.setIcon)(copyBtn, "copy");
+        (0, import_obsidian5.setIcon)(copyBtn, "copy");
         copyBtn.setAttribute("title", t("render.copy"));
       }, 1500);
     } catch (e) {
-      new import_obsidian4.Notice(t("render.copyFailed"));
+      new import_obsidian5.Notice(t("render.copyFailed"));
     }
   };
 }
@@ -2056,7 +2127,7 @@ function renderErrorCard(view, bubble, msg) {
   const card = bubble.createDiv({ cls: "workbuddian-error-card" });
   const header = card.createDiv({ cls: "workbuddian-error-header" });
   const icon = header.createSpan({ cls: "workbuddian-error-icon" });
-  (0, import_obsidian4.setIcon)(icon, "alert-triangle");
+  (0, import_obsidian5.setIcon)(icon, "alert-triangle");
   header.createSpan({ cls: "workbuddian-error-title", text: t("render.errorTitle") });
   card.createDiv({ cls: "workbuddian-error-body", text: msg.content });
   const actions = card.createDiv({ cls: "workbuddian-error-actions" });
@@ -2082,7 +2153,7 @@ async function renderMarkdownContent(view, bubble, content) {
   if (!(markdownContainer instanceof HTMLElement))
     return;
   markdownContainer.empty();
-  await import_obsidian4.MarkdownRenderer.render(
+  await import_obsidian5.MarkdownRenderer.render(
     view.app,
     ensureTableBlankLines(content),
     markdownContainer,
@@ -2154,7 +2225,7 @@ function renderTabs(view) {
       cls: "workbuddian-tab-close",
       attr: { title: t("tabs.close"), "aria-label": t("tabs.close"), role: "button", tabindex: "0" }
     });
-    (0, import_obsidian5.setIcon)(closeBtn, "x");
+    (0, import_obsidian6.setIcon)(closeBtn, "x");
     closeBtn.onclick = (e) => deleteChat(view, conv.id, e);
     closeBtn.onkeydown = (e) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -2226,7 +2297,7 @@ function showTabContextMenu(view, e, convId, tab, titleSpan) {
   const conv = view.manager.getAll().find((c) => c.id === convId);
   if (!conv)
     return;
-  const menu = new import_obsidian5.Menu();
+  const menu = new import_obsidian6.Menu();
   menu.addItem(
     (item) => item.setTitle(t("tabs.rename")).setIcon("pencil").onClick(() => {
       beginRenameTab(view, tab, titleSpan, convId);
@@ -2242,15 +2313,15 @@ function showTabContextMenu(view, e, convId, tab, titleSpan) {
     (item) => item.setTitle(t("tabs.exportAsNote")).setIcon("file-down").onClick(async () => {
       const markdown = formatConversationAsMarkdown(conv);
       if (!markdown) {
-        new import_obsidian5.Notice(t("tabs.nothingToExport"));
+        new import_obsidian6.Notice(t("tabs.nothingToExport"));
         return;
       }
       const fileName = `${conv.title.replace(/[\\/:*?"<>|]/g, " ")}.md`;
       try {
         await view.app.vault.create(fileName, markdown);
-        new import_obsidian5.Notice(t("tabs.exportedAs").replace("{name}", fileName));
+        new import_obsidian6.Notice(t("tabs.exportedAs").replace("{name}", fileName));
       } catch (err) {
-        new import_obsidian5.Notice(t("tabs.exportFailed").replace("{err}", getErrorMessage(err)));
+        new import_obsidian6.Notice(t("tabs.exportFailed").replace("{err}", getErrorMessage(err)));
       }
     })
   );
@@ -2258,14 +2329,14 @@ function showTabContextMenu(view, e, convId, tab, titleSpan) {
     (item) => item.setTitle(t("tabs.copyToClipboard")).setIcon("copy").onClick(async () => {
       const markdown = formatConversationAsMarkdown(conv);
       if (!markdown) {
-        new import_obsidian5.Notice(t("tabs.nothingToExport"));
+        new import_obsidian6.Notice(t("tabs.nothingToExport"));
         return;
       }
       try {
         await navigator.clipboard.writeText(markdown);
-        new import_obsidian5.Notice(t("tabs.copiedToClipboard"));
+        new import_obsidian6.Notice(t("tabs.copiedToClipboard"));
       } catch (err) {
-        new import_obsidian5.Notice(t("tabs.copyFailed").replace("{err}", getErrorMessage(err)));
+        new import_obsidian6.Notice(t("tabs.copyFailed").replace("{err}", getErrorMessage(err)));
       }
     })
   );
@@ -2274,7 +2345,7 @@ function showTabContextMenu(view, e, convId, tab, titleSpan) {
 
 // src/features/chat/view.ts
 var VIEW_TYPE_CHAT = "workbuddian-panel";
-var WorkbuddianChatView = class extends import_obsidian6.ItemView {
+var WorkbuddianChatView = class extends import_obsidian7.ItemView {
   constructor(leaf, api, manager, settings, loadDataCallback, saveSettingsCallback) {
     super(leaf);
     this.isStreaming = false;
@@ -2290,7 +2361,7 @@ var WorkbuddianChatView = class extends import_obsidian6.ItemView {
     this.saveSettingsCallback = saveSettingsCallback;
     this.manager = manager;
     this.settings = settings;
-    this.markdownComponent = new import_obsidian6.Component();
+    this.markdownComponent = new import_obsidian7.Component();
     this.markdownComponent.load();
   }
   get vaultPath() {
@@ -2314,9 +2385,9 @@ var WorkbuddianChatView = class extends import_obsidian6.ItemView {
   }
   async onOpen() {
     var _a, _b;
-    this.lastMarkdownView = this.app.workspace.getActiveViewOfType(import_obsidian6.MarkdownView);
+    this.lastMarkdownView = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
     this.registerEvent(this.app.workspace.on("active-leaf-change", (leaf) => {
-      if ((leaf == null ? void 0 : leaf.view) instanceof import_obsidian6.MarkdownView)
+      if ((leaf == null ? void 0 : leaf.view) instanceof import_obsidian7.MarkdownView)
         this.lastMarkdownView = leaf.view;
     }));
     let selChangeTimer = null;
@@ -2350,7 +2421,7 @@ var WorkbuddianChatView = class extends import_obsidian6.ItemView {
       cls: "workbuddian-new-chat-btn",
       attr: { title: t("view.newChat"), "aria-label": t("view.newChat") }
     });
-    (0, import_obsidian6.setIcon)(newBtn, "plus");
+    (0, import_obsidian7.setIcon)(newBtn, "plus");
     newBtn.onclick = () => createNewChat(this);
     this.messageContainer = container.createDiv({ cls: "workbuddian-messages" });
     this.chipsEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
@@ -2392,17 +2463,17 @@ var WorkbuddianChatView = class extends import_obsidian6.ItemView {
       cls: "workbuddian-toolbar-btn",
       attr: { "aria-label": t("input.attach"), title: t("input.attach") }
     });
-    (0, import_obsidian6.setIcon)(attachBtn, "paperclip");
+    (0, import_obsidian7.setIcon)(attachBtn, "paperclip");
     attachBtn.onclick = () => openAttachmentPicker(this);
     const permBtn = toolbar.createEl("button", {
       cls: "workbuddian-toolbar-btn",
       attr: { "aria-label": t("input.permission") }
     });
-    (0, import_obsidian6.setIcon)(permBtn, permissionIcon(this.settings.permissionMode));
+    (0, import_obsidian7.setIcon)(permBtn, permissionIcon(this.settings.permissionMode));
     permBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + this.settings.permissionMode)}`);
     permBtn.onclick = (e) => openPermissionMenu(this, permBtn, e);
     const instrBtn = toolbar.createEl("button", { cls: "workbuddian-toolbar-btn" });
-    (0, import_obsidian6.setIcon)(instrBtn, "hash");
+    (0, import_obsidian7.setIcon)(instrBtn, "hash");
     instrBtn.onclick = () => openInstructionModal(this, "");
     this.instructionBtn = instrBtn;
     this.refreshInstructionIndicator();
@@ -2412,7 +2483,7 @@ var WorkbuddianChatView = class extends import_obsidian6.ItemView {
       cls: "workbuddian-send-btn",
       attr: { "aria-label": t("view.send"), title: t("view.send") }
     });
-    (0, import_obsidian6.setIcon)(this.sendBtn, "send");
+    (0, import_obsidian7.setIcon)(this.sendBtn, "send");
     this.sendBtn.onclick = () => {
       if (this.isStreaming) {
         this.api.cancel();
@@ -2649,11 +2720,11 @@ var ConversationManager = class {
 };
 
 // src/features/settings/tab.ts
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/features/settings/logModal.ts
-var import_obsidian7 = require("obsidian");
-var LogModal = class extends import_obsidian7.Modal {
+var import_obsidian8 = require("obsidian");
+var LogModal = class extends import_obsidian8.Modal {
   constructor(app) {
     super(app);
   }
@@ -2672,13 +2743,13 @@ var LogModal = class extends import_obsidian7.Modal {
     const copyBtn = actions.createEl("button", { text: t("log.copy") });
     copyBtn.onclick = async () => {
       await navigator.clipboard.writeText(getLogs().join("\n"));
-      new import_obsidian7.Notice(t("log.copied"));
+      new import_obsidian8.Notice(t("log.copied"));
     };
     const clearBtn = actions.createEl("button", { text: t("log.clear"), cls: "mod-warning" });
     clearBtn.onclick = () => {
       clearLogs();
       render();
-      new import_obsidian7.Notice(t("log.cleared"));
+      new import_obsidian8.Notice(t("log.cleared"));
     };
   }
   onClose() {
@@ -2687,7 +2758,7 @@ var LogModal = class extends import_obsidian7.Modal {
 };
 
 // src/features/settings/tab.ts
-var WorkbuddianSettingTab = class extends import_obsidian8.PluginSettingTab {
+var WorkbuddianSettingTab = class extends import_obsidian9.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -2695,9 +2766,9 @@ var WorkbuddianSettingTab = class extends import_obsidian8.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian8.Setting(containerEl).setName(t("settings.conn")).setHeading();
+    new import_obsidian9.Setting(containerEl).setName(t("settings.conn")).setHeading();
     let pathInput;
-    new import_obsidian8.Setting(containerEl).setName(t("settings.path")).setDesc(t("settings.pathDesc")).addText((text) => {
+    new import_obsidian9.Setting(containerEl).setName(t("settings.path")).setDesc(t("settings.pathDesc")).addText((text) => {
       pathInput = text;
       text.setPlaceholder(t("settings.pathPlaceholder")).setValue(this.plugin.settings.codebuddyPath).onChange(async (value) => {
         this.plugin.settings.codebuddyPath = value;
@@ -2711,17 +2782,17 @@ var WorkbuddianSettingTab = class extends import_obsidian8.PluginSettingTab {
         this.plugin.api.setCodebuddyPath(detected);
         await this.plugin.saveSettings();
         pathInput.setValue(detected);
-        new import_obsidian8.Notice(t("settings.pathDetected").replace("{path}", detected));
+        new import_obsidian9.Notice(t("settings.pathDetected").replace("{path}", detected));
       } else {
-        new import_obsidian8.Notice(t("settings.pathNotFound"));
+        new import_obsidian9.Notice(t("settings.pathNotFound"));
       }
     }));
-    new import_obsidian8.Setting(containerEl).setName(t("settings.node")).setDesc(t("settings.nodeDesc")).addText((text) => text.setPlaceholder(t("settings.nodePlaceholder")).setValue(this.plugin.settings.nodePath).onChange(async (value) => {
+    new import_obsidian9.Setting(containerEl).setName(t("settings.node")).setDesc(t("settings.nodeDesc")).addText((text) => text.setPlaceholder(t("settings.nodePlaceholder")).setValue(this.plugin.settings.nodePath).onChange(async (value) => {
       this.plugin.settings.nodePath = value;
       this.plugin.api.setNodePath(value);
       await this.plugin.saveSettings();
     }));
-    new import_obsidian8.Setting(containerEl).setName(t("settings.timeout")).setDesc(t("settings.timeoutDesc")).addText((text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.cliTimeoutMinutes)).onChange(async (value) => {
+    new import_obsidian9.Setting(containerEl).setName(t("settings.timeout")).setDesc(t("settings.timeoutDesc")).addText((text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.cliTimeoutMinutes)).onChange(async (value) => {
       const num = parseInt(value);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.cliTimeoutMinutes = num;
@@ -2729,32 +2800,32 @@ var WorkbuddianSettingTab = class extends import_obsidian8.PluginSettingTab {
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian8.Setting(containerEl).setName(t("settings.inject")).setHeading();
-    new import_obsidian8.Setting(containerEl).setName(t("settings.injectVault")).setDesc(t("settings.injectVaultDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectVaultContext).onChange(async (value) => {
+    new import_obsidian9.Setting(containerEl).setName(t("settings.inject")).setHeading();
+    new import_obsidian9.Setting(containerEl).setName(t("settings.injectVault")).setDesc(t("settings.injectVaultDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectVaultContext).onChange(async (value) => {
       this.plugin.settings.injectVaultContext = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian8.Setting(containerEl).setName(t("settings.injectNote")).setDesc(t("settings.injectNoteDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectCurrentNoteLink).onChange(async (value) => {
+    new import_obsidian9.Setting(containerEl).setName(t("settings.injectNote")).setDesc(t("settings.injectNoteDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectCurrentNoteLink).onChange(async (value) => {
       this.plugin.settings.injectCurrentNoteLink = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian8.Setting(containerEl).setName(t("settings.pastedKeep")).setDesc(t("settings.pastedKeepDesc")).addText((text) => text.setPlaceholder("20").setValue(String(this.plugin.settings.pastedImageKeep)).onChange(async (value) => {
+    new import_obsidian9.Setting(containerEl).setName(t("settings.pastedKeep")).setDesc(t("settings.pastedKeepDesc")).addText((text) => text.setPlaceholder("20").setValue(String(this.plugin.settings.pastedImageKeep)).onChange(async (value) => {
       const num = parseInt(value, 10);
       if (!isNaN(num) && num >= 0 && num <= MAX_PASTED_IMAGE_KEEP) {
         this.plugin.settings.pastedImageKeep = num;
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian8.Setting(containerEl).setName(t("settings.appearance")).setHeading();
-    new import_obsidian8.Setting(containerEl).setName(t("settings.language")).setDesc(t("settings.languageDesc")).addDropdown((dropdown) => dropdown.addOptions({ auto: t("settings.langAuto"), zh: t("settings.langZh"), en: t("settings.langEn") }).setValue(this.plugin.settings.language).onChange(async (value) => {
+    new import_obsidian9.Setting(containerEl).setName(t("settings.appearance")).setHeading();
+    new import_obsidian9.Setting(containerEl).setName(t("settings.language")).setDesc(t("settings.languageDesc")).addDropdown((dropdown) => dropdown.addOptions({ auto: t("settings.langAuto"), zh: t("settings.langZh"), en: t("settings.langEn") }).setValue(this.plugin.settings.language).onChange(async (value) => {
       this.plugin.settings.language = value;
       applyLang(this.plugin.settings.language);
       await this.plugin.saveSettings();
       this.plugin.refreshOpenViews();
       this.display();
-      new import_obsidian8.Notice(t("settings.langReload"));
+      new import_obsidian9.Notice(t("settings.langReload"));
     }));
-    new import_obsidian8.Setting(containerEl).setName(t("settings.primary")).setDesc(t("settings.primaryDesc")).addColorPicker((picker) => {
+    new import_obsidian9.Setting(containerEl).setName(t("settings.primary")).setDesc(t("settings.primaryDesc")).addColorPicker((picker) => {
       const current = this.plugin.settings.primaryColor || "#C8B487";
       picker.setValue(current).onChange(async (value) => {
         this.plugin.settings.primaryColor = value;
@@ -2765,15 +2836,15 @@ var WorkbuddianSettingTab = class extends import_obsidian8.PluginSettingTab {
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian8.Setting(containerEl).setName(t("settings.contextWindow")).setDesc(t("settings.contextWindowDesc")).addText((text) => text.setPlaceholder("200000").setValue(String(this.plugin.settings.contextWindowSize)).onChange(async (value) => {
+    new import_obsidian9.Setting(containerEl).setName(t("settings.contextWindow")).setDesc(t("settings.contextWindowDesc")).addText((text) => text.setPlaceholder("200000").setValue(String(this.plugin.settings.contextWindowSize)).onChange(async (value) => {
       const num = parseInt(value, 10);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.contextWindowSize = num;
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian8.Setting(containerEl).setName(t("settings.reset")).setHeading();
-    new import_obsidian8.Setting(containerEl).setName(t("settings.resetDefault")).setDesc(t("settings.resetDesc")).addButton((btn) => {
+    new import_obsidian9.Setting(containerEl).setName(t("settings.reset")).setHeading();
+    new import_obsidian9.Setting(containerEl).setName(t("settings.resetDefault")).setDesc(t("settings.resetDesc")).addButton((btn) => {
       btn.setButtonText(t("settings.resetDefault")).setWarning();
       let armed = false;
       let timer = null;
@@ -2793,11 +2864,11 @@ var WorkbuddianSettingTab = class extends import_obsidian8.PluginSettingTab {
         this.plugin.applySettingsToApi();
         await this.plugin.saveSettings();
         this.display();
-        new import_obsidian8.Notice(t("settings.resetDone"));
+        new import_obsidian9.Notice(t("settings.resetDone"));
       });
     });
-    new import_obsidian8.Setting(containerEl).setName(t("settings.importExport")).setHeading();
-    new import_obsidian8.Setting(containerEl).setName(t("settings.export")).setDesc(t("settings.exportDesc")).addButton((btn) => btn.setButtonText(t("settings.exportBtn")).onClick(() => {
+    new import_obsidian9.Setting(containerEl).setName(t("settings.importExport")).setHeading();
+    new import_obsidian9.Setting(containerEl).setName(t("settings.export")).setDesc(t("settings.exportDesc")).addButton((btn) => btn.setButtonText(t("settings.exportBtn")).onClick(() => {
       const blob = new Blob([exportSettings(this.plugin.settings)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -2805,9 +2876,9 @@ var WorkbuddianSettingTab = class extends import_obsidian8.PluginSettingTab {
       a.download = "workbuddian-settings.json";
       a.click();
       URL.revokeObjectURL(url);
-      new import_obsidian8.Notice(t("settings.exportDone"));
+      new import_obsidian9.Notice(t("settings.exportDone"));
     }));
-    new import_obsidian8.Setting(containerEl).setName(t("settings.import")).setDesc(t("settings.importDesc")).addButton((btn) => btn.setButtonText(t("settings.importBtn")).setWarning().onClick(() => {
+    new import_obsidian9.Setting(containerEl).setName(t("settings.import")).setDesc(t("settings.importDesc")).addButton((btn) => btn.setButtonText(t("settings.importBtn")).setWarning().onClick(() => {
       const input = document.createElement("input");
       input.type = "file";
       input.accept = ".json,application/json";
@@ -2820,16 +2891,16 @@ var WorkbuddianSettingTab = class extends import_obsidian8.PluginSettingTab {
           this.plugin.settings = migrateSettings(JSON.parse(await file.text()));
           this.plugin.applySettingsToApi();
           await this.plugin.saveSettings();
-          new import_obsidian8.Notice(t("settings.importDone"));
+          new import_obsidian9.Notice(t("settings.importDone"));
           this.display();
         } catch (e) {
-          new import_obsidian8.Notice(t("settings.importErr"));
+          new import_obsidian9.Notice(t("settings.importErr"));
         }
       };
       input.click();
     }));
-    new import_obsidian8.Setting(containerEl).setName(t("settings.logs")).setHeading();
-    new import_obsidian8.Setting(containerEl).setName(t("settings.viewLogs")).setDesc(t("settings.logsDesc")).addButton((btn) => btn.setButtonText(t("settings.viewLogs")).onClick(() => {
+    new import_obsidian9.Setting(containerEl).setName(t("settings.logs")).setHeading();
+    new import_obsidian9.Setting(containerEl).setName(t("settings.viewLogs")).setDesc(t("settings.logsDesc")).addButton((btn) => btn.setButtonText(t("settings.viewLogs")).onClick(() => {
       new LogModal(this.app).open();
     }));
   }
@@ -2846,7 +2917,7 @@ function applyPrimaryColor(color) {
 }
 
 // src/features/inline-edit/index.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 
 // src/shared/editPrompt.ts
 function buildEditPrompt(selection, instruction) {
@@ -2872,7 +2943,7 @@ async function collectEditResult(api, sessionId, prompt, vaultPath) {
   }
   return text.trim();
 }
-var InstructionModal2 = class extends import_obsidian9.Modal {
+var InstructionModal2 = class extends import_obsidian10.Modal {
   constructor(app, onSubmit) {
     super(app);
     this.onSubmit = onSubmit;
@@ -2880,15 +2951,15 @@ var InstructionModal2 = class extends import_obsidian9.Modal {
   onOpen() {
     this.titleEl.setText(t("inline.editTitle"));
     let value = "";
-    new import_obsidian9.Setting(this.contentEl).setName(t("inline.instructionLabel")).addText((txt) => {
+    new import_obsidian10.Setting(this.contentEl).setName(t("inline.instructionLabel")).addText((txt) => {
       txt.setPlaceholder(t("inline.instructionPlaceholder"));
       txt.onChange((v) => {
         value = v;
       });
     });
-    new import_obsidian9.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.editBtn")).setCta().onClick(() => {
+    new import_obsidian10.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.editBtn")).setCta().onClick(() => {
       if (!value.trim()) {
-        new import_obsidian9.Notice(t("inline.instructionRequired"));
+        new import_obsidian10.Notice(t("inline.instructionRequired"));
         return;
       }
       this.close();
@@ -2899,7 +2970,7 @@ var InstructionModal2 = class extends import_obsidian9.Modal {
     this.contentEl.empty();
   }
 };
-var DiffModal = class extends import_obsidian9.Modal {
+var DiffModal = class extends import_obsidian10.Modal {
   constructor(app, diff, onAccept) {
     super(app);
     this.diff = diff;
@@ -2912,7 +2983,7 @@ var DiffModal = class extends import_obsidian9.Modal {
       const prefix = line.type === "add" ? "+ " : line.type === "remove" ? "- " : "  ";
       box.createDiv({ cls: `workbuddian-diff-line workbuddian-diff-${line.type}`, text: prefix + line.text });
     }
-    new import_obsidian9.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.accept")).setCta().onClick(() => {
+    new import_obsidian10.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.accept")).setCta().onClick(() => {
       this.close();
       this.onAccept();
     })).addButton((b) => b.setButtonText(t("inline.reject")).onClick(() => this.close()));
@@ -2924,28 +2995,28 @@ var DiffModal = class extends import_obsidian9.Modal {
 function runInlineEdit(app, api, editor, vaultPath) {
   const selection = editor.getSelection();
   if (!selection.trim()) {
-    new import_obsidian9.Notice(t("inline.selectFirst"));
+    new import_obsidian10.Notice(t("inline.selectFirst"));
     return;
   }
   new InstructionModal2(app, async (instruction) => {
-    const notice = new import_obsidian9.Notice(t("inline.editing"), 0);
+    const notice = new import_obsidian10.Notice(t("inline.editing"), 0);
     try {
       const edited = await collectEditResult(api, api.generateId(), buildEditPrompt(selection, instruction), vaultPath);
       notice.hide();
       if (!edited) {
-        new import_obsidian9.Notice(t("inline.noResult"));
+        new import_obsidian10.Notice(t("inline.noResult"));
         return;
       }
       new DiffModal(app, lineDiff(selection, edited), () => editor.replaceSelection(edited)).open();
     } catch (e) {
       notice.hide();
-      new import_obsidian9.Notice(t("inline.editFailed") + (e instanceof Error ? e.message : String(e)));
+      new import_obsidian10.Notice(t("inline.editFailed") + (e instanceof Error ? e.message : String(e)));
     }
   }).open();
 }
 
 // src/main.ts
-var WorkbuddianPlugin = class extends import_obsidian10.Plugin {
+var WorkbuddianPlugin = class extends import_obsidian11.Plugin {
   constructor() {
     super(...arguments);
     this.chatView = null;
@@ -3006,7 +3077,7 @@ var WorkbuddianPlugin = class extends import_obsidian10.Plugin {
       this.addSettingTab(new WorkbuddianSettingTab(this.app, this));
     } catch (e) {
       bbError("[WB] \u63D2\u4EF6\u52A0\u8F7D\u5931\u8D25:", e);
-      new import_obsidian10.Notice(t("cmd.loadFailed"));
+      new import_obsidian11.Notice(t("cmd.loadFailed"));
     }
   }
   onunload() {
@@ -3056,11 +3127,11 @@ var WorkbuddianPlugin = class extends import_obsidian10.Plugin {
         await workspace.revealLeaf(leaf);
         workspace.setActiveLeaf(leaf, { focus: true });
       } else {
-        new import_obsidian10.Notice(t("cmd.cannotCreatePanel"));
+        new import_obsidian11.Notice(t("cmd.cannotCreatePanel"));
       }
     } catch (e) {
       bbError("[WB] \u6253\u5F00\u804A\u5929\u9762\u677F\u5931\u8D25:", e);
-      new import_obsidian10.Notice(t("cmd.openPanelFailed"));
+      new import_obsidian11.Notice(t("cmd.openPanelFailed"));
     }
   }
   async activateMainPaneView() {
@@ -3072,7 +3143,7 @@ var WorkbuddianPlugin = class extends import_obsidian10.Plugin {
       workspace.setActiveLeaf(leaf, { focus: true });
     } catch (e) {
       bbError("[WB] \u6253\u5F00\u4E3B\u7F16\u8F91\u533A\u9762\u677F\u5931\u8D25:", e);
-      new import_obsidian10.Notice(t("cmd.openMainPaneFailed"));
+      new import_obsidian11.Notice(t("cmd.openMainPaneFailed"));
     }
   }
   async loadPersistedConversations() {

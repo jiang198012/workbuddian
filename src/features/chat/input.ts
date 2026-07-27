@@ -13,6 +13,7 @@ import { lineDiff } from '../../shared/lineDiff';
 import { extForMime, mimeForExt, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
 import { parseInstructionInput } from '../../shared/instruction';
 import { openInstructionModal } from './instructionModal';
+import { openResumeModal } from './resumeModal';
 import { buildSelectionBlock } from '../../shared/selection';
 import { pickFinalContent } from '../../shared/responseFinalize';
 import { PERMISSION_MODE_CHOICES, type PermissionMode } from '../../shared/cliOptions';
@@ -463,6 +464,13 @@ export async function sendMessage(view: WorkbuddianChatView) {
         await createNewChat(view);
         view.inputEl.value = '';
         adjustTextareaHeight(view);
+        return;
+    }
+    if (slash?.name === 'resume' && slash.rest === '') {
+        // /resume（不带参数）：本地弹出会话选择器，不发 CLI；带参数保持原透传行为
+        view.inputEl.value = '';
+        adjustTextareaHeight(view);
+        openResumeModal(view);
         return;
     }
 
