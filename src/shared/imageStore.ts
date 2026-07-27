@@ -18,6 +18,22 @@ export function extForMime(mime: string): string {
     return MIME_EXT[mime.toLowerCase()] || '.png';
 }
 
+const EXT_MIME: Record<string, string> = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.svg': 'image/svg+xml',
+};
+
+/** 扩展名 → MIME，未知回退 image/png（与 extForMime 的兜底策略对称） */
+export function mimeForExt(ext: string): string {
+    const normalized = ext.startsWith('.') ? ext : `.${ext}`;
+    return EXT_MIME[normalized.toLowerCase()] || 'image/png';
+}
+
 /** 粘贴图基名；seq 由调用方传入保证唯一，本函数纯格式化便于测试 */
 export function pastedImageName(seq: number | string, ext = '.png'): string {
     return `paste-${seq}${ext}`;
@@ -38,7 +54,7 @@ export function writeImageFile(dir: string, bytes: Uint8Array, name: string): st
 
 /** 按 mtime 保留最近 keepN 个、删除更旧的（仅作用于 dir 内文件）；keepN <= 0 表示不限制 */
 export function pruneImages(dir: string, keepN: number): void {
-    if (keepN <= 0) return; // 0 = 不限制，永不清理
+    if (!(keepN > 0)) return; // 0 / NaN / undefined = 不限制，永不清理
     let names: string[];
     try {
         names = fs.readdirSync(dir);

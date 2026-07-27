@@ -941,6 +941,9 @@
     height: 12px;
 }
 
+/* 气泡内图片 chip：与输入区缩略图外观一致，不叠加 attachment-chip 的内边距/背景 */
+.workbuddian-message-attachments .workbuddian-image-chip { padding: 2px; background: none; }
+
 /* 常驻指令指示按钮（激活态）*/
 .workbuddian-instruction-active { color: var(--workbuddian-primary, var(--interactive-accent)); }
 /* 常驻指令弹窗 */

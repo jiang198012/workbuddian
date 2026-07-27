@@ -1097,6 +1097,19 @@ var MIME_EXT = {
 function extForMime(mime) {
   return MIME_EXT[mime.toLowerCase()] || ".png";
 }
+var EXT_MIME = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".bmp": "image/bmp",
+  ".svg": "image/svg+xml"
+};
+function mimeForExt(ext) {
+  const normalized = ext.startsWith(".") ? ext : `.${ext}`;
+  return EXT_MIME[normalized.toLowerCase()] || "image/png";
+}
 function pastedImageName(seq, ext = ".png") {
   return `paste-${seq}${ext}`;
 }
@@ -1110,7 +1123,7 @@ function writeImageFile(dir, bytes, name) {
   return full;
 }
 function pruneImages(dir, keepN) {
-  if (keepN <= 0)
+  if (!(keepN > 0))
     return;
   let names;
   try {
@@ -1294,19 +1307,30 @@ function renderAttachmentChips(view) {
     };
   });
 }
+var thumbCache = /* @__PURE__ */ new Map();
+var MAX_THUMB_SOURCE_BYTES = 5 * 1024 * 1024;
 function thumbSrc(view, absPath) {
   const base = view.vaultPath;
   if (base && absPath.startsWith(base)) {
     const rel = absPath.slice(base.length).replace(/^[\\/]/, "");
     return view.app.vault.adapter.getResourcePath(rel);
   }
+  const cached = thumbCache.get(absPath);
+  if (cached !== void 0)
+    return cached;
+  let result = "";
   try {
-    const buf = require("fs").readFileSync(absPath);
-    const ext = require("path").extname(absPath).slice(1) || "png";
-    return `data:image/${ext};base64,${buf.toString("base64")}`;
+    const fs3 = require("fs");
+    if (fs3.statSync(absPath).size <= MAX_THUMB_SOURCE_BYTES) {
+      const buf = fs3.readFileSync(absPath);
+      const ext = require("path").extname(absPath);
+      result = `data:${mimeForExt(ext)};base64,${buf.toString("base64")}`;
+    }
   } catch (e) {
-    return "";
+    result = "";
   }
+  thumbCache.set(absPath, result);
+  return result;
 }
 function pastedDir(view) {
   return `${view.vaultPath}/${view.app.vault.configDir}/plugins/workbuddian/pasted`;

@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { extForMime, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../src/shared/imageStore';
+import { extForMime, mimeForExt, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../src/shared/imageStore';
 
 describe('imageStore', () => {
     it('extForMime maps known mimes and falls back to .png', () => {
@@ -11,6 +11,16 @@ describe('imageStore', () => {
         expect(extForMime('image/gif')).toBe('.gif');
         expect(extForMime('IMAGE/PNG')).toBe('.png');
         expect(extForMime('application/octet-stream')).toBe('.png');
+    });
+
+    it('mimeForExt maps known extensions and falls back to image/png', () => {
+        expect(mimeForExt('.jpg')).toBe('image/jpeg');
+        expect(mimeForExt('.jpeg')).toBe('image/jpeg');
+        expect(mimeForExt('.svg')).toBe('image/svg+xml');
+        expect(mimeForExt('.png')).toBe('image/png');
+        expect(mimeForExt('.JPG')).toBe('image/jpeg');
+        expect(mimeForExt('jpg')).toBe('image/jpeg');
+        expect(mimeForExt('.tiff')).toBe('image/png');
     });
 
     it('pastedImageName formats basename with seq and ext', () => {
@@ -57,6 +67,24 @@ describe('imageStore', () => {
             fs.utimesSync(p, new Date(1000 + i * 1000), new Date(1000 + i * 1000));
         }
         pruneImages(dir, 0);
+        expect(fs.readdirSync(dir).sort()).toEqual(['f0.png', 'f1.png', 'f2.png']);
+    });
+
+    it('pruneImages keeps every file when keepN is NaN', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'imgprunenan-'));
+        for (let i = 0; i < 3; i++) {
+            fs.writeFileSync(path.join(dir, `f${i}.png`), 'x');
+        }
+        pruneImages(dir, NaN);
+        expect(fs.readdirSync(dir).sort()).toEqual(['f0.png', 'f1.png', 'f2.png']);
+    });
+
+    it('pruneImages keeps every file when keepN is undefined', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'imgpruneundef-'));
+        for (let i = 0; i < 3; i++) {
+            fs.writeFileSync(path.join(dir, `f${i}.png`), 'x');
+        }
+        pruneImages(dir, undefined as unknown as number);
         expect(fs.readdirSync(dir).sort()).toEqual(['f0.png', 'f1.png', 'f2.png']);
     });
 });

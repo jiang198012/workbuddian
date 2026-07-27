@@ -8,7 +8,7 @@ import { renderMessages, renderMarkdownContent } from './render';
 import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
 import { fileBasename, buildAttachmentBlock, attachmentDirs } from '../../shared/attachments';
-import { extForMime, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
+import { extForMime, mimeForExt, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
 import { parseInstructionInput } from '../../shared/instruction';
 import { openInstructionModal } from './instructionModal';
 import { buildSelectionBlock } from '../../shared/selection';
@@ -129,20 +129,33 @@ export function renderAttachmentChips(view: WorkbuddianChatView) {
     });
 }
 
-/** 缩略图源：vault 内文件用 Obsidian 资源路径，vault 外文件读盘转 data URL；失败返回空串 */
+/** vault 外文件的 data URL 缓存：读盘 + base64 编码较重，避免每次全量重渲染都重做 */
+const thumbCache = new Map<string, string>();
+
+const MAX_THUMB_SOURCE_BYTES = 5 * 1024 * 1024; // 超过 5MB 不内联，降级为文件名 chip
+
+/** 缩略图源：vault 内文件用 Obsidian 资源路径（轻量，不缓存），vault 外文件读盘转 data URL（缓存）；失败或过大返回空串 */
 export function thumbSrc(view: WorkbuddianChatView, absPath: string): string {
     const base = view.vaultPath;
     if (base && absPath.startsWith(base)) {
         const rel = absPath.slice(base.length).replace(/^[\\/]/, '');
         return view.app.vault.adapter.getResourcePath(rel);
     }
+    const cached = thumbCache.get(absPath);
+    if (cached !== undefined) return cached;
+    let result = '';
     try {
-        const buf = require('fs').readFileSync(absPath) as Buffer;
-        const ext = require('path').extname(absPath).slice(1) || 'png';
-        return `data:image/${ext};base64,${buf.toString('base64')}`;
+        const fs = require('fs');
+        if (fs.statSync(absPath).size <= MAX_THUMB_SOURCE_BYTES) {
+            const buf = fs.readFileSync(absPath) as Buffer;
+            const ext = require('path').extname(absPath);
+            result = `data:${mimeForExt(ext)};base64,${buf.toString('base64')}`;
+        }
     } catch {
-        return '';
+        result = '';
     }
+    thumbCache.set(absPath, result);
+    return result;
 }
 
 /** 粘贴图存储目录：<vault>/.obsidian/plugins/workbuddian/pasted */

@@ -167,6 +167,7 @@ describe('migrateSettings', () => {
         expect(migrateSettings({ pastedImageKeep: 501 }).pastedImageKeep).toBe(20);
         expect(migrateSettings({ pastedImageKeep: 1.5 }).pastedImageKeep).toBe(20);
         expect(migrateSettings({ pastedImageKeep: '30' }).pastedImageKeep).toBe(20);
+        expect(migrateSettings({ pastedImageKeep: NaN }).pastedImageKeep).toBe(20);
     });
 });
 
