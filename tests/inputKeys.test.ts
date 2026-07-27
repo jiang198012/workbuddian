@@ -1,4 +1,4 @@
-import { shouldSendMessage } from '../src/shared/inputKeys';
+import { shouldSendMessage, isActivationKey } from '../src/shared/inputKeys';
 
 describe('shouldSendMessage', () => {
     const base = { key: 'Enter', shiftKey: false, isComposing: false, keyCode: 13 };
@@ -26,5 +26,21 @@ describe('shouldSendMessage', () => {
     it('tolerates a missing keyCode (only isComposing matters)', () => {
         expect(shouldSendMessage({ key: 'Enter', shiftKey: false, isComposing: false })).toBe(true);
         expect(shouldSendMessage({ key: 'Enter', shiftKey: false, isComposing: true })).toBe(false);
+    });
+});
+
+describe('isActivationKey', () => {
+    it('treats Enter as an activation key', () => {
+        expect(isActivationKey('Enter')).toBe(true);
+    });
+
+    it('treats Space as an activation key', () => {
+        expect(isActivationKey(' ')).toBe(true);
+    });
+
+    it('ignores other keys', () => {
+        expect(isActivationKey('Escape')).toBe(false);
+        expect(isActivationKey('Tab')).toBe(false);
+        expect(isActivationKey('a')).toBe(false);
     });
 });

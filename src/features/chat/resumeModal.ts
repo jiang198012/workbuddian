@@ -2,6 +2,7 @@ import { Modal } from 'obsidian';
 import type { WorkbuddianChatView } from './view';
 import { switchToChat } from './tabs';
 import { formatConversationSummary } from '../../shared/conversationSummary';
+import { isActivationKey } from '../../shared/inputKeys';
 import { t } from '../../i18n';
 
 class ResumeModal extends Modal {
@@ -22,12 +23,19 @@ class ResumeModal extends Modal {
         const list = contentEl.createDiv({ cls: 'workbuddian-resume-list' });
         for (const conv of conversations) {
             const { title, meta } = formatConversationSummary(conv, now);
-            const item = list.createDiv({ cls: 'workbuddian-resume-item' });
+            const item = list.createDiv({ cls: 'workbuddian-resume-item', attr: { role: 'button', tabindex: '0' } });
             item.createDiv({ cls: 'workbuddian-resume-item-title', text: title });
             item.createDiv({ cls: 'workbuddian-resume-item-meta', text: meta });
-            item.onclick = async () => {
+            const activate = async () => {
                 await switchToChat(this.view, conv.id);
                 this.close();
+            };
+            item.onclick = activate;
+            item.onkeydown = (e: KeyboardEvent) => {
+                if (isActivationKey(e.key)) {
+                    e.preventDefault();
+                    void activate();
+                }
             };
         }
     }

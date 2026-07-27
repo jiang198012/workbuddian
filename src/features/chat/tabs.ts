@@ -1,6 +1,7 @@
 import { Notice, setIcon, Menu } from 'obsidian';
 import { getErrorMessage } from '../../types';
 import { formatConversationAsMarkdown } from '../../shared/export';
+import { isActivationKey } from '../../shared/inputKeys';
 import { t } from '../../i18n';
 import type { WorkbuddianChatView } from './view';
 import { renderMessages } from './render';
@@ -55,7 +56,7 @@ export function renderTabs(view: WorkbuddianChatView) {
     const activeId = view.activeConvId;
 
     for (const conv of conversations) {
-        const tab = view.tabBar.createDiv({ cls: 'workbuddian-tab' });
+        const tab = view.tabBar.createDiv({ cls: 'workbuddian-tab', attr: { role: 'tab', tabindex: '0' } });
         if (conv.id === activeId) {
             tab.addClass('workbuddian-tab-active');
         }
@@ -76,7 +77,7 @@ export function renderTabs(view: WorkbuddianChatView) {
         setIcon(closeBtn, 'x');
         closeBtn.onclick = (e: MouseEvent) => deleteChat(view, conv.id, e);
         closeBtn.onkeydown = (e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
+            if (isActivationKey(e.key)) {
                 e.preventDefault();
                 void deleteChat(view, conv.id, e);
             }
@@ -85,6 +86,13 @@ export function renderTabs(view: WorkbuddianChatView) {
             if (view.activeRename && tab.contains(view.activeRename.input)) {
                 return;
             }
+            switchToChat(view, conv.id);
+        };
+        // tabindex="0" 的 div 没有原生键盘激活行为，补上 Enter/Space 切换到该对话
+        tab.onkeydown = (e: KeyboardEvent) => {
+            if (!isActivationKey(e.key)) return;
+            if (view.activeRename && tab.contains(view.activeRename.input)) return;
+            e.preventDefault();
             switchToChat(view, conv.id);
         };
         tab.oncontextmenu = (e: MouseEvent) => {

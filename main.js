@@ -147,6 +147,7 @@ var STRINGS = {
   "log.cleared": { zh: "\u65E5\u5FD7\u5DF2\u6E05\u7A7A", en: "Logs cleared" },
   "log.empty": { zh: "\uFF08\u6682\u65E0\u65E5\u5FD7\uFF09", en: "(No logs yet)" },
   "input.removeReference": { zh: "\u79FB\u9664\u5F15\u7528", en: "Remove reference" },
+  "input.ariaLabel": { zh: "\u804A\u5929\u8F93\u5165\u6846", en: "Chat input" },
   "input.customCommand": { zh: "\uFF08\u81EA\u5B9A\u4E49\u547D\u4EE4\uFF09", en: "(Custom command)" },
   "input.attach": { zh: "\u9644\u52A0\u6587\u4EF6", en: "Attach files" },
   "input.imageSaveFailed": { zh: "\u56FE\u7247\u4FDD\u5B58\u5931\u8D25", en: "Failed to save image" },
@@ -936,6 +937,18 @@ function formatConversationAsMarkdown(conv) {
   return lines.join("\n").trimEnd();
 }
 
+// src/shared/inputKeys.ts
+function shouldSendMessage(e) {
+  if (e.key !== "Enter" || e.shiftKey)
+    return false;
+  if (e.isComposing || e.keyCode === 229)
+    return false;
+  return true;
+}
+function isActivationKey(key) {
+  return key === "Enter" || key === " ";
+}
+
 // src/features/chat/render.ts
 var import_obsidian5 = require("obsidian");
 
@@ -965,15 +978,6 @@ function parseAtReferences(text) {
 function removeAtReference(text, name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return text.replace(new RegExp(`@\\[\\[${escaped}\\]\\]\\s?`, "g"), "");
-}
-
-// src/shared/inputKeys.ts
-function shouldSendMessage(e) {
-  if (e.key !== "Enter" || e.shiftKey)
-    return false;
-  if (e.isComposing || e.keyCode === 229)
-    return false;
-  return true;
 }
 
 // src/shared/instruction.ts
@@ -1316,12 +1320,19 @@ var ResumeModal = class extends import_obsidian3.Modal {
     const list = contentEl.createDiv({ cls: "workbuddian-resume-list" });
     for (const conv of conversations) {
       const { title, meta } = formatConversationSummary(conv, now);
-      const item = list.createDiv({ cls: "workbuddian-resume-item" });
+      const item = list.createDiv({ cls: "workbuddian-resume-item", attr: { role: "button", tabindex: "0" } });
       item.createDiv({ cls: "workbuddian-resume-item-title", text: title });
       item.createDiv({ cls: "workbuddian-resume-item-meta", text: meta });
-      item.onclick = async () => {
+      const activate = async () => {
         await switchToChat(this.view, conv.id);
         this.close();
+      };
+      item.onclick = activate;
+      item.onkeydown = (e) => {
+        if (isActivationKey(e.key)) {
+          e.preventDefault();
+          void activate();
+        }
       };
     }
   }
@@ -1443,6 +1454,12 @@ function renderReferenceChips(view) {
     const close = chip.createSpan({ cls: "workbuddian-ref-chip-close", attr: { "aria-label": t("input.removeReference"), role: "button", tabindex: "0" } });
     (0, import_obsidian4.setIcon)(close, "x");
     close.onclick = () => removeReference(view, name);
+    close.onkeydown = (e) => {
+      if (isActivationKey(e.key)) {
+        e.preventDefault();
+        removeReference(view, name);
+      }
+    };
   }
 }
 function renderAttachmentChips(view) {
@@ -1466,9 +1483,16 @@ function renderAttachmentChips(view) {
     }
     const close = chip.createSpan({ cls: "workbuddian-ref-chip-close", attr: { "aria-label": t("input.removeReference"), role: "button", tabindex: "0" } });
     (0, import_obsidian4.setIcon)(close, "x");
-    close.onclick = () => {
+    const removeAttachment = () => {
       view.attachments.splice(idx, 1);
       renderAttachmentChips(view);
+    };
+    close.onclick = removeAttachment;
+    close.onkeydown = (e) => {
+      if (isActivationKey(e.key)) {
+        e.preventDefault();
+        removeAttachment();
+      }
     };
   });
 }
@@ -1766,6 +1790,12 @@ function buildCurrentNoteLink(view) {
   return `\u5F53\u524D\u6B63\u5728\u67E5\u770B\u7B14\u8BB0\uFF1A\u300A${file.basename}\u300B\uFF08${file.path}\uFF09`;
 }
 async function handleKeydown(view, e) {
+  if (e.key === "Escape" && !view.atSuggestEl.hasClass("workbuddian-hidden")) {
+    e.stopPropagation();
+    view.atSuggestEl.addClass("workbuddian-hidden");
+    view.atSuggestEl.empty();
+    return;
+  }
   if (shouldSendMessage(e)) {
     e.preventDefault();
     await sendMessage(view);
@@ -1940,7 +1970,11 @@ async function sendText(view, text) {
             diffHeader.createSpan({ text: `${t("tool.diffTitle")} ${fileBasename(change.path)}` });
             const diffChevron = diffHeader.createSpan({ text: "\u25BE" });
             if (change.kind === "edit" && change.newText !== "" && view.vaultPath && change.path.startsWith(view.vaultPath)) {
-              const undoBtn = diffHeader.createEl("button", { cls: "workbuddian-tool-diff-undo", text: t("tool.undo") });
+              const undoBtn = diffHeader.createEl("button", {
+                cls: "workbuddian-tool-diff-undo",
+                text: t("tool.undo"),
+                attr: { title: t("tool.undo"), "aria-label": t("tool.undo") }
+              });
               undoBtn.style.marginLeft = "auto";
               undoBtn.addEventListener("click", (evt) => {
                 evt.stopPropagation();
@@ -2251,7 +2285,7 @@ function renderTabs(view) {
   const conversations = view.manager.getAll();
   const activeId = view.activeConvId;
   for (const conv of conversations) {
-    const tab = view.tabBar.createDiv({ cls: "workbuddian-tab" });
+    const tab = view.tabBar.createDiv({ cls: "workbuddian-tab", attr: { role: "tab", tabindex: "0" } });
     if (conv.id === activeId) {
       tab.addClass("workbuddian-tab-active");
     }
@@ -2272,7 +2306,7 @@ function renderTabs(view) {
     (0, import_obsidian6.setIcon)(closeBtn, "x");
     closeBtn.onclick = (e) => deleteChat(view, conv.id, e);
     closeBtn.onkeydown = (e) => {
-      if (e.key === "Enter" || e.key === " ") {
+      if (isActivationKey(e.key)) {
         e.preventDefault();
         void deleteChat(view, conv.id, e);
       }
@@ -2281,6 +2315,14 @@ function renderTabs(view) {
       if (view.activeRename && tab.contains(view.activeRename.input)) {
         return;
       }
+      switchToChat(view, conv.id);
+    };
+    tab.onkeydown = (e) => {
+      if (!isActivationKey(e.key))
+        return;
+      if (view.activeRename && tab.contains(view.activeRename.input))
+        return;
+      e.preventDefault();
       switchToChat(view, conv.id);
     };
     tab.oncontextmenu = (e) => {
@@ -2467,7 +2509,10 @@ var WorkbuddianChatView = class extends import_obsidian7.ItemView {
     });
     (0, import_obsidian7.setIcon)(newBtn, "plus");
     newBtn.onclick = () => createNewChat(this);
-    this.messageContainer = container.createDiv({ cls: "workbuddian-messages" });
+    this.messageContainer = container.createDiv({
+      cls: "workbuddian-messages",
+      attr: { "aria-live": "polite", "aria-relevant": "additions text" }
+    });
     this.chipsEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
     this.attachChipsEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
     this.selectionEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
@@ -2475,7 +2520,7 @@ var WorkbuddianChatView = class extends import_obsidian7.ItemView {
     const inputBox = inputArea.createDiv({ cls: "workbuddian-input-box" });
     this.inputEl = inputBox.createEl("textarea", {
       cls: "workbuddian-input",
-      attr: { placeholder: t("view.inputPlaceholder"), rows: "2" }
+      attr: { placeholder: t("view.inputPlaceholder"), rows: "2", "aria-label": t("input.ariaLabel") }
     });
     this.inputEl.onkeydown = (e) => handleKeydown(this, e);
     this.inputEl.oninput = () => {
@@ -2503,6 +2548,12 @@ var WorkbuddianChatView = class extends import_obsidian7.ItemView {
     });
     modelBtn.setText(this.settings.model);
     modelBtn.addEventListener("click", () => openModelMenu(this, modelBtn));
+    modelBtn.addEventListener("keydown", (e) => {
+      if (isActivationKey(e.key)) {
+        e.preventDefault();
+        openModelMenu(this, modelBtn);
+      }
+    });
     const attachBtn = toolbar.createEl("button", {
       cls: "workbuddian-toolbar-btn",
       attr: { "aria-label": t("input.attach"), title: t("input.attach") }

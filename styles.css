@@ -985,3 +985,39 @@
 .workbuddian-plan-card-title { font-weight: 600; margin-bottom: 4px; }
 .workbuddian-plan-card-actions { display: flex; gap: 8px; margin-top: 8px; }
 .workbuddian-plan-card-note { font-size: 11px; opacity: 0.7; margin-top: 6px; }
+
+/* ==================== 焦点环（键盘可达性） ==================== */
+/* 仅键盘 Tab 聚焦时显示（:focus-visible），鼠标点击不显示；限定在聊天容器内，不影响 Obsidian 其它 UI */
+.workbuddian-chat-container :focus-visible {
+    outline: 2px solid var(--workbuddian-primary, #C8B487);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* /resume 会话选择弹窗：列表行原来是裸 div（无 hover/cursor 提示），补上可点击的视觉反馈 */
+.workbuddian-resume-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+.workbuddian-resume-item {
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+.workbuddian-resume-item:hover,
+.workbuddian-resume-item:focus-visible {
+    background: var(--background-modifier-hover);
+}
+.workbuddian-resume-item-title {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.workbuddian-resume-item-meta {
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+}

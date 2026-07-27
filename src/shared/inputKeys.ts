@@ -9,3 +9,11 @@ export function shouldSendMessage(e: { key: string; shiftKey: boolean; isComposi
     if (e.isComposing || e.keyCode === 229) return false;
     return true;
 }
+
+/**
+ * Enter / Space 是否应「激活」一个自定义可点击控件（role="button" 的 div/span 没有原生键盘激活行为，
+ * 需手动补上）。供各处 ✕ 按钮 / 标签 / 会话列表行等复用，避免重复写按键判断。
+ */
+export function isActivationKey(key: string): boolean {
+    return key === 'Enter' || key === ' ';
+}

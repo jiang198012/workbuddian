@@ -1,7 +1,7 @@
 import { Menu, MarkdownRenderer, Notice, setIcon, TFile } from 'obsidian';
 import { getErrorMessage } from '../../types';
 import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shared/atReferences';
-import { shouldSendMessage } from '../../shared/inputKeys';
+import { shouldSendMessage, isActivationKey } from '../../shared/inputKeys';
 import { assembleContextText } from '../../core/context/assembleContext';
 import type { WorkbuddianChatView } from './view';
 import { renderMessages, renderMarkdownContent } from './render';
@@ -101,6 +101,12 @@ export function renderReferenceChips(view: WorkbuddianChatView) {
         const close = chip.createSpan({ cls: 'workbuddian-ref-chip-close', attr: { 'aria-label': t('input.removeReference'), role: 'button', tabindex: '0' } });
         setIcon(close, 'x');
         close.onclick = () => removeReference(view, name);
+        close.onkeydown = (e: KeyboardEvent) => {
+            if (isActivationKey(e.key)) {
+                e.preventDefault();
+                removeReference(view, name);
+            }
+        };
     }
 }
 
@@ -126,9 +132,16 @@ export function renderAttachmentChips(view: WorkbuddianChatView) {
         }
         const close = chip.createSpan({ cls: 'workbuddian-ref-chip-close', attr: { 'aria-label': t('input.removeReference'), role: 'button', tabindex: '0' } });
         setIcon(close, 'x');
-        close.onclick = () => {
+        const removeAttachment = () => {
             view.attachments.splice(idx, 1);
             renderAttachmentChips(view);
+        };
+        close.onclick = removeAttachment;
+        close.onkeydown = (e: KeyboardEvent) => {
+            if (isActivationKey(e.key)) {
+                e.preventDefault();
+                removeAttachment();
+            }
         };
     });
 }
@@ -484,6 +497,13 @@ export function buildCurrentNoteLink(view: WorkbuddianChatView): string {
 }
 
 export async function handleKeydown(view: WorkbuddianChatView, e: KeyboardEvent) {
+    // Esc 关闭 @ / / 补全下拉；仅在下拉确实可见时拦截，避免吞掉 Obsidian 自身的 Esc 行为
+    if (e.key === 'Escape' && !view.atSuggestEl.hasClass('workbuddian-hidden')) {
+        e.stopPropagation();
+        view.atSuggestEl.addClass('workbuddian-hidden');
+        view.atSuggestEl.empty();
+        return;
+    }
     if (shouldSendMessage(e)) {
         e.preventDefault();
         await sendMessage(view);
@@ -692,7 +712,11 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                         // 无法区分「文件未变」与「已面目全非」，也没有任何锚点能定位当初删除的位置——
                         // 任何插入都是猜测，因此和 Write 一样归为不可安全回滚，不显示按钮。
                         if (change.kind === 'edit' && change.newText !== '' && view.vaultPath && change.path.startsWith(view.vaultPath)) {
-                            const undoBtn = diffHeader.createEl('button', { cls: 'workbuddian-tool-diff-undo', text: t('tool.undo') });
+                            const undoBtn = diffHeader.createEl('button', {
+                                cls: 'workbuddian-tool-diff-undo',
+                                text: t('tool.undo'),
+                                attr: { title: t('tool.undo'), 'aria-label': t('tool.undo') }
+                            });
                             undoBtn.style.marginLeft = 'auto';
                             undoBtn.addEventListener('click', (evt) => {
                                 evt.stopPropagation(); // 别顺带触发 header 的展开/折叠

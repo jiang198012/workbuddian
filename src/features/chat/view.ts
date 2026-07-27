@@ -9,6 +9,7 @@ import { renderMessages } from './render';
 import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, openAttachmentPicker, openPermissionMenu, openModelMenu, permissionIcon, captureNoteSelection, handlePaste, handleDrop } from './input';
 import { openInstructionModal } from './instructionModal';
 import type { SlashCommandInfo } from '../../shared/slashCommand';
+import { isActivationKey } from '../../shared/inputKeys';
 import { t } from '../../i18n';
 import { bbError } from '../../shared/logBuffer';
 
@@ -117,8 +118,11 @@ export class WorkbuddianChatView extends ItemView {
         setIcon(newBtn, 'plus');
         newBtn.onclick = () => createNewChat(this);
 
-        // 消息区域
-        this.messageContainer = container.createDiv({ cls: 'workbuddian-messages' });
+        // 消息区域：aria-live 让屏幕阅读器感知新消息到达（渲染频率见 renderMessages 的重建逻辑）
+        this.messageContainer = container.createDiv({
+            cls: 'workbuddian-messages',
+            attr: { 'aria-live': 'polite', 'aria-relevant': 'additions text' }
+        });
 
         // 底部输入区
         this.chipsEl = container.createDiv({ cls: 'workbuddian-ref-chips workbuddian-hidden' });
@@ -128,7 +132,7 @@ export class WorkbuddianChatView extends ItemView {
         const inputBox = inputArea.createDiv({ cls: 'workbuddian-input-box' });
         this.inputEl = inputBox.createEl('textarea', {
             cls: 'workbuddian-input',
-            attr: { placeholder: t('view.inputPlaceholder'), rows: '2' }
+            attr: { placeholder: t('view.inputPlaceholder'), rows: '2', 'aria-label': t('input.ariaLabel') }
         });
         this.inputEl.onkeydown = (e) => handleKeydown(this, e);
         this.inputEl.oninput = () => {
@@ -156,6 +160,13 @@ export class WorkbuddianChatView extends ItemView {
         });
         modelBtn.setText(this.settings.model);
         modelBtn.addEventListener('click', () => openModelMenu(this, modelBtn));
+        // role="button" 的 div 没有原生键盘激活行为，手动补上 Enter/Space
+        modelBtn.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (isActivationKey(e.key)) {
+                e.preventDefault();
+                openModelMenu(this, modelBtn);
+            }
+        });
 
         // 附件（系统文件选择器挑任意文件）
         const attachBtn = toolbar.createEl('button', {
