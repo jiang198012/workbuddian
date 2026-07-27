@@ -63,6 +63,8 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'settings.injectVaultDesc': { zh: '开启后，每次发送消息都会自动附上当前 Vault 路径，让 AI 基于 Vault 中的文件回答问题', en: 'When on, every message includes the current vault path so the AI can answer based on vault files.' },
     'settings.injectNote': { zh: '注入当前笔记链接', en: 'Inject current note link' },
     'settings.injectNoteDesc': { zh: '开启后，每次发送消息都会附上当前正在查看的笔记标题和路径（不包含正文内容）', en: 'When on, every message includes the current note title and path (not its content).' },
+    'settings.pastedKeep': { zh: '粘贴图保留数量', en: 'Pasted image retention' },
+    'settings.pastedKeepDesc': { zh: '插件目录内最多保留多少张粘贴的图片，超出的自动删除。填 0 表示不限制（历史消息里的缩略图不会失效，但图片会一直累积）。默认 20，最大 500。', en: 'How many pasted images to keep in the plugin folder; older ones are deleted automatically. 0 means unlimited (thumbnails in old messages stay valid, but images accumulate). Default 20, max 500.' },
     'settings.appearance': { zh: '外观', en: 'Appearance' },
     'settings.language': { zh: '界面语言', en: 'Interface language' },
     'settings.languageDesc': { zh: '插件界面显示语言。Auto 跟随 Obsidian。聊天面板即时切换；命令面板名称需 Cmd+R 后更新。', en: 'Plugin UI language. Auto follows Obsidian. Chat panels switch instantly; command-palette names update after a reload.' },

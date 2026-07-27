@@ -1,6 +1,6 @@
 import { App, Notice, PluginSettingTab, Setting, type TextComponent } from 'obsidian';
 import type WorkbuddianPlugin from '../../main';
-import { DEFAULT_SETTINGS, migrateSettings, exportSettings } from '../../types';
+import { DEFAULT_SETTINGS, migrateSettings, exportSettings, MAX_PASTED_IMAGE_KEEP } from '../../types';
 import { applyLang, t } from '../../i18n';
 import { resolveCodebuddyPath } from '../../utils/cliPath';
 import { LogModal } from './logModal';
@@ -102,6 +102,20 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     this.plugin.settings.injectCurrentNoteLink = value;
                     await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+            .setName(t('settings.pastedKeep'))
+            .setDesc(t('settings.pastedKeepDesc'))
+            .addText(text => text
+                .setPlaceholder('20')
+                .setValue(String(this.plugin.settings.pastedImageKeep))
+                .onChange(async (value) => {
+                    const num = parseInt(value, 10);
+                    if (!isNaN(num) && num >= 0 && num <= MAX_PASTED_IMAGE_KEEP) {
+                        this.plugin.settings.pastedImageKeep = num;
+                        await this.plugin.saveSettings();
+                    }
                 }));
 
         // ===== 外观 =====

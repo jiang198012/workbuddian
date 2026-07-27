@@ -231,7 +231,7 @@ export async function handlePaste(view: WorkbuddianChatView, e: ClipboardEvent) 
             new Notice(t('input.imageSaveFailed'));
         }
     }
-    pruneImages(dir, 20);
+    pruneImages(dir, view.settings.pastedImageKeep);
     renderAttachmentChips(view);
 }
 

@@ -106,6 +106,8 @@ var STRINGS = {
   "settings.injectVaultDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u81EA\u52A8\u9644\u4E0A\u5F53\u524D Vault \u8DEF\u5F84\uFF0C\u8BA9 AI \u57FA\u4E8E Vault \u4E2D\u7684\u6587\u4EF6\u56DE\u7B54\u95EE\u9898", en: "When on, every message includes the current vault path so the AI can answer based on vault files." },
   "settings.injectNote": { zh: "\u6CE8\u5165\u5F53\u524D\u7B14\u8BB0\u94FE\u63A5", en: "Inject current note link" },
   "settings.injectNoteDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u9644\u4E0A\u5F53\u524D\u6B63\u5728\u67E5\u770B\u7684\u7B14\u8BB0\u6807\u9898\u548C\u8DEF\u5F84\uFF08\u4E0D\u5305\u542B\u6B63\u6587\u5185\u5BB9\uFF09", en: "When on, every message includes the current note title and path (not its content)." },
+  "settings.pastedKeep": { zh: "\u7C98\u8D34\u56FE\u4FDD\u7559\u6570\u91CF", en: "Pasted image retention" },
+  "settings.pastedKeepDesc": { zh: "\u63D2\u4EF6\u76EE\u5F55\u5185\u6700\u591A\u4FDD\u7559\u591A\u5C11\u5F20\u7C98\u8D34\u7684\u56FE\u7247\uFF0C\u8D85\u51FA\u7684\u81EA\u52A8\u5220\u9664\u3002\u586B 0 \u8868\u793A\u4E0D\u9650\u5236\uFF08\u5386\u53F2\u6D88\u606F\u91CC\u7684\u7F29\u7565\u56FE\u4E0D\u4F1A\u5931\u6548\uFF0C\u4F46\u56FE\u7247\u4F1A\u4E00\u76F4\u7D2F\u79EF\uFF09\u3002\u9ED8\u8BA4 20\uFF0C\u6700\u5927 500\u3002", en: "How many pasted images to keep in the plugin folder; older ones are deleted automatically. 0 means unlimited (thumbnails in old messages stay valid, but images accumulate). Default 20, max 500." },
   "settings.appearance": { zh: "\u5916\u89C2", en: "Appearance" },
   "settings.language": { zh: "\u754C\u9762\u8BED\u8A00", en: "Interface language" },
   "settings.languageDesc": { zh: "\u63D2\u4EF6\u754C\u9762\u663E\u793A\u8BED\u8A00\u3002Auto \u8DDF\u968F Obsidian\u3002\u804A\u5929\u9762\u677F\u5373\u65F6\u5207\u6362\uFF1B\u547D\u4EE4\u9762\u677F\u540D\u79F0\u9700 Cmd+R \u540E\u66F4\u65B0\u3002", en: "Plugin UI language. Auto follows Obsidian. Chat panels switch instantly; command-palette names update after a reload." },
@@ -1381,7 +1383,7 @@ async function handlePaste(view, e) {
       new import_obsidian3.Notice(t("input.imageSaveFailed"));
     }
   }
-  pruneImages(dir, 20);
+  pruneImages(dir, view.settings.pastedImageKeep);
   renderAttachmentChips(view);
 }
 function handleDrop(view, e) {
@@ -2527,6 +2529,13 @@ var WorkbuddianSettingTab = class extends import_obsidian8.PluginSettingTab {
     new import_obsidian8.Setting(containerEl).setName(t("settings.injectNote")).setDesc(t("settings.injectNoteDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectCurrentNoteLink).onChange(async (value) => {
       this.plugin.settings.injectCurrentNoteLink = value;
       await this.plugin.saveSettings();
+    }));
+    new import_obsidian8.Setting(containerEl).setName(t("settings.pastedKeep")).setDesc(t("settings.pastedKeepDesc")).addText((text) => text.setPlaceholder("20").setValue(String(this.plugin.settings.pastedImageKeep)).onChange(async (value) => {
+      const num = parseInt(value, 10);
+      if (!isNaN(num) && num >= 0 && num <= MAX_PASTED_IMAGE_KEEP) {
+        this.plugin.settings.pastedImageKeep = num;
+        await this.plugin.saveSettings();
+      }
     }));
     new import_obsidian8.Setting(containerEl).setName(t("settings.appearance")).setHeading();
     new import_obsidian8.Setting(containerEl).setName(t("settings.language")).setDesc(t("settings.languageDesc")).addDropdown((dropdown) => dropdown.addOptions({ auto: t("settings.langAuto"), zh: t("settings.langZh"), en: t("settings.langEn") }).setValue(this.plugin.settings.language).onChange(async (value) => {
