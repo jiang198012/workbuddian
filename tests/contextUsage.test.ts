@@ -1,4 +1,4 @@
-import { formatTokenCount, contextPercent } from '../src/shared/contextUsage';
+import { formatTokenCount, contextPercent, usageTooltip, isUsageWarning, USAGE_WARNING_PERCENT } from '../src/shared/contextUsage';
 
 describe('formatTokenCount', () => {
     it('shows the raw integer below 1000', () => {
@@ -25,5 +25,35 @@ describe('contextPercent', () => {
     it('returns 0 for a non-positive window size', () => {
         expect(contextPercent(1000, 0)).toBe(0);
         expect(contextPercent(1000, -5)).toBe(0);
+    });
+});
+
+describe('usageTooltip', () => {
+    it('formats sub-1000 token counts without k', () => {
+        expect(usageTooltip(999, 200000)).toBe('999 / 200.0k · 0%');
+    });
+
+    it('formats large counts with k and a rounded percentage', () => {
+        expect(usageTooltip(22600, 200000)).toBe('22.6k / 200.0k · 11%');
+    });
+
+    it('caps the percentage at 100 when usage exceeds the window', () => {
+        expect(usageTooltip(250000, 200000)).toBe('250.0k / 200.0k · 100%');
+    });
+
+    it('reports 0% for a non-positive window instead of dividing by zero', () => {
+        expect(usageTooltip(5000, 0)).toBe('5.0k / 0 · 0%');
+    });
+});
+
+describe('isUsageWarning', () => {
+    it('is false below the threshold', () => {
+        expect(isUsageWarning(0)).toBe(false);
+        expect(isUsageWarning(79)).toBe(false);
+    });
+
+    it('is true at and above the threshold', () => {
+        expect(isUsageWarning(USAGE_WARNING_PERCENT)).toBe(true);
+        expect(isUsageWarning(100)).toBe(true);
     });
 });
