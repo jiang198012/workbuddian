@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck + bundle
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      # tag 必须与 manifest.json 的 version 完全一致（Obsidian 市场按此匹配，且不带 v 前缀）
+      - name: Verify tag matches manifest version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          MANIFEST_VERSION=$(node -p "require('./manifest.json').version")
+          if [ "$MANIFEST_VERSION" != "$RELEASE_TAG" ]; then
+            echo "::error::tag ($RELEASE_TAG) 与 manifest.json 的 version ($MANIFEST_VERSION) 不一致"
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            --title "Workbuddian $RELEASE_TAG" \
+            --generate-notes \
+            main.js manifest.json styles.css
+
+      # Obsidian 审核会检查 release 资产的构建溯源；缺失时报 "Missing GitHub artifact attestations"
+      - name: Attest release assets
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            main.js
+            styles.css
