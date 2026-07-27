@@ -167,6 +167,10 @@ var STRINGS = {
   "input.thinking": { zh: "\u601D\u8003\u4E2D...", en: "Thinking..." },
   "input.toolCall": { zh: "\u5DE5\u5177\u8C03\u7528", en: "Tool call" },
   "tool.diffTitle": { zh: "\u6539\u52A8", en: "Changes" },
+  "tool.undo": { zh: "\u64A4\u9500\u6B64\u4FEE\u6539", en: "Undo this edit" },
+  "tool.undone": { zh: "\u5DF2\u64A4\u9500", en: "Undone" },
+  "tool.undoStale": { zh: "\u6587\u4EF6\u5DF2\u53D8\u5316\uFF0C\u672A\u6267\u884C\u64A4\u9500", en: "File has changed since; undo skipped" },
+  "tool.undoFailed": { zh: "\u64A4\u9500\u5931\u8D25", en: "Undo failed" },
   "input.requestFailed": { zh: "\u8BF7\u6C42\u5931\u8D25", en: "Request failed" },
   "input.noResponse": { zh: "\uFF08\u65E0\u54CD\u5E94\uFF0C\u8BF7\u91CD\u8BD5\uFF09", en: "(No response, please retry)" },
   "input.thought": { zh: "\u5DF2\u601D\u8003", en: "Thought" },
@@ -1420,6 +1424,23 @@ function thumbSrc(view, absPath) {
   thumbCache.set(absPath, result);
   return result;
 }
+function undoEdit(change, btn) {
+  try {
+    const fs3 = require("fs");
+    const content = fs3.readFileSync(change.path, "utf8");
+    const idx = content.indexOf(change.newText);
+    if (idx === -1) {
+      new import_obsidian3.Notice(t("tool.undoStale"));
+      return;
+    }
+    const reverted = content.slice(0, idx) + change.oldText + content.slice(idx + change.newText.length);
+    fs3.writeFileSync(change.path, reverted, "utf8");
+    btn.disabled = true;
+    btn.setText(t("tool.undone"));
+  } catch (e) {
+    new import_obsidian3.Notice(t("tool.undoFailed"));
+  }
+}
 function pastedDir(view) {
   return `${view.vaultPath}/${view.app.vault.configDir}/plugins/workbuddian/pasted`;
 }
@@ -1807,6 +1828,14 @@ async function sendText(view, text) {
             const diffHeader = diffBlock.createDiv({ cls: "workbuddian-tool-diff-header" });
             diffHeader.createSpan({ text: `${t("tool.diffTitle")} ${fileBasename(change.path)}` });
             const diffChevron = diffHeader.createSpan({ text: "\u25BE" });
+            if (change.kind === "edit" && view.vaultPath && change.path.startsWith(view.vaultPath)) {
+              const undoBtn = diffHeader.createEl("button", { cls: "workbuddian-tool-diff-undo", text: t("tool.undo") });
+              undoBtn.style.marginLeft = "auto";
+              undoBtn.addEventListener("click", (evt) => {
+                evt.stopPropagation();
+                undoEdit(change, undoBtn);
+              });
+            }
             const diffBody = diffBlock.createDiv({ cls: "workbuddian-tool-diff-body workbuddian-hidden" });
             for (const line of diffLines) {
               const prefix = line.type === "add" ? "+ " : line.type === "remove" ? "- " : "  ";

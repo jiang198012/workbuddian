@@ -8,7 +8,7 @@ import { renderMessages, renderMarkdownContent } from './render';
 import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
 import { fileBasename, buildAttachmentBlock, attachmentDirs } from '../../shared/attachments';
-import { parseFileChange } from '../../shared/toolDetail';
+import { parseFileChange, type FileEdit } from '../../shared/toolDetail';
 import { lineDiff } from '../../shared/lineDiff';
 import { extForMime, mimeForExt, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
 import { parseInstructionInput } from '../../shared/instruction';
@@ -159,6 +159,28 @@ export function thumbSrc(view: WorkbuddianChatView, absPath: string): string {
     }
     thumbCache.set(absPath, result);
     return result;
+}
+
+/**
+ * 撤销一次 Edit 改动：直接读盘找 newText 首次出现处替换回 oldText 再写回。
+ * 找不到 newText 说明文件已被后续改动，直接跳过，不做危险的猜测替换（不按行号/模糊匹配）。
+ */
+function undoEdit(change: FileEdit, btn: HTMLButtonElement) {
+    try {
+        const fs = require('fs');
+        const content = fs.readFileSync(change.path, 'utf8') as string;
+        const idx = content.indexOf(change.newText);
+        if (idx === -1) {
+            new Notice(t('tool.undoStale'));
+            return;
+        }
+        const reverted = content.slice(0, idx) + change.oldText + content.slice(idx + change.newText.length);
+        fs.writeFileSync(change.path, reverted, 'utf8');
+        btn.disabled = true;
+        btn.setText(t('tool.undone'));
+    } catch {
+        new Notice(t('tool.undoFailed'));
+    }
 }
 
 /** 粘贴图存储目录：<vault>/.obsidian/plugins/workbuddian/pasted */
@@ -608,6 +630,16 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                         const diffHeader = diffBlock.createDiv({ cls: 'workbuddian-tool-diff-header' });
                         diffHeader.createSpan({ text: `${t('tool.diffTitle')} ${fileBasename(change.path)}` });
                         const diffChevron = diffHeader.createSpan({ text: '▾' });
+
+                        // 撤销按钮：仅 Edit（Write 无旧内容可回退）且目标在 vault 内才提供
+                        if (change.kind === 'edit' && view.vaultPath && change.path.startsWith(view.vaultPath)) {
+                            const undoBtn = diffHeader.createEl('button', { cls: 'workbuddian-tool-diff-undo', text: t('tool.undo') });
+                            undoBtn.style.marginLeft = 'auto';
+                            undoBtn.addEventListener('click', (evt) => {
+                                evt.stopPropagation(); // 别顺带触发 header 的展开/折叠
+                                undoEdit(change, undoBtn);
+                            });
+                        }
 
                         const diffBody = diffBlock.createDiv({ cls: 'workbuddian-tool-diff-body workbuddian-hidden' });
                         for (const line of diffLines) {
