@@ -48,4 +48,15 @@ describe('imageStore', () => {
     it('pruneImages is a no-op on a missing directory', () => {
         expect(() => pruneImages('/no/such/dir/xyz', 5)).not.toThrow();
     });
+
+    it('pruneImages keeps every file when keepN is 0 (unlimited)', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'imgprune0-'));
+        for (let i = 0; i < 3; i++) {
+            const p = path.join(dir, `f${i}.png`);
+            fs.writeFileSync(p, 'x');
+            fs.utimesSync(p, new Date(1000 + i * 1000), new Date(1000 + i * 1000));
+        }
+        pruneImages(dir, 0);
+        expect(fs.readdirSync(dir).sort()).toEqual(['f0.png', 'f1.png', 'f2.png']);
+    });
 });

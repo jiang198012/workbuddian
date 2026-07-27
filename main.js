@@ -1100,6 +1100,8 @@ function writeImageFile(dir, bytes, name) {
   return full;
 }
 function pruneImages(dir, keepN) {
+  if (keepN <= 0)
+    return;
   let names;
   try {
     names = fs2.readdirSync(dir);

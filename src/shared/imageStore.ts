@@ -36,8 +36,9 @@ export function writeImageFile(dir: string, bytes: Uint8Array, name: string): st
     return full;
 }
 
-/** 按 mtime 保留最近 keepN 个、删除更旧的（仅作用于 dir 内文件） */
+/** 按 mtime 保留最近 keepN 个、删除更旧的（仅作用于 dir 内文件）；keepN <= 0 表示不限制 */
 export function pruneImages(dir: string, keepN: number): void {
+    if (keepN <= 0) return; // 0 = 不限制，永不清理
     let names: string[];
     try {
         names = fs.readdirSync(dir);
