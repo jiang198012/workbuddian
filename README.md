@@ -19,6 +19,7 @@
 
 ## ✨ What's New
 
+- **v1.3.0** — **Message thumbnails**: image attachments now show as 40×40 thumbnails inside the sent message bubble, degrading to a filename chip when the file is gone or the path no longer resolves. **Configurable pasted-image retention**: the settings page now lets you set how many pasted images to keep on disk (default 20, max 500, 0 = unlimited).
 - **v1.2.4** — **Dynamic model list**: the model selector now fetches the live list of available CodeBuddy models from `codebuddy --help` on startup, so newly added models appear automatically without waiting for a plugin update. Falls back to the built-in whitelist if the CLI is not reachable.
 - **v1.2.3** — **Attachment name labels**: files attached to a user message now appear as labeled chips (paperclip + filename) inside the message bubble, so you can see at a glance what was sent.
 - **v1.2.2** — **IME-friendly Enter**: composing text with an input method no longer sends the message by accident. Plus a **copy button** on every message (hover to reveal).
@@ -94,6 +95,7 @@ Use **Obsidian** with **Claude Code** and know **Claudian**? Workbuddian is the 
 
 ## ✨ 更新
 
+- **v1.3.0** —— **消息内图片缩略图**：图片附件发送后在气泡内以 40×40 缩略图显示，文件被清理或路径失效时自动降级为文件名 chip。**粘贴图保留数量可配置**：设置页可设置粘贴图在磁盘上保留的数量（默认 20，最大 500，0 = 不限制）。
 - **v1.2.4** —— **动态模型列表**：模型选择器启动时会从 `codebuddy --help` 实时拉取可用模型列表，新模型无需等插件更新即可自动出现；CLI 不可达时回退到内置白名单。
 - **v1.2.3** —— **附件文件名标签**：用户消息附带文件后，气泡内会显示 paperclip + 文件名的 chip，一眼就能看到这条消息带了哪些附件。
 - **v1.2.2** —— **输入法 Enter 友好**：中文输入法拼字（有候选）时按 Enter 只上屏候选、不再误发送。每条消息 hover 时浮出**复制按钮**，一键复制原文。
