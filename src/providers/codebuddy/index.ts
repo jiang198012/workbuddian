@@ -19,7 +19,7 @@ export interface StreamChunk {
 }
 
 interface MessageBlock {
-    type: 'thinking' | 'text' | 'tool_call';
+    type: 'thinking' | 'text' | 'tool_call' | 'tool_use';
     thinking?: string;
     text?: string;
     name?: string;
@@ -55,7 +55,7 @@ export function parseUsage(raw: unknown): UsageInfo | undefined {
 export function parseMessageBlock(block: unknown): MessageBlock | null {
     if (!isObject(block)) return null;
     const type = getString(block, 'type');
-    if (type !== 'thinking' && type !== 'text' && type !== 'tool_call') return null;
+    if (type !== 'thinking' && type !== 'text' && type !== 'tool_call' && type !== 'tool_use') return null;
     return {
         type,
         thinking: getString(block, 'thinking'),

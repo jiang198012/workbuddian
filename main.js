@@ -555,7 +555,7 @@ function parseMessageBlock(block) {
   if (!isObject(block))
     return null;
   const type = getString(block, "type");
-  if (type !== "thinking" && type !== "text" && type !== "tool_call")
+  if (type !== "thinking" && type !== "text" && type !== "tool_call" && type !== "tool_use")
     return null;
   return {
     type,

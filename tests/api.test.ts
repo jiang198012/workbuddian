@@ -720,3 +720,27 @@ describe('parseStreamLine', () => {
         });
     });
 });
+
+describe('parseStreamLine tool blocks', () => {
+    it('accepts the tool_use block shape the CLI actually emits', () => {
+        const line = JSON.stringify({
+            type: 'assistant',
+            message: { content: [{ type: 'tool_use', name: 'Edit', input: { file_path: '/a/b.txt', old_string: 'x', new_string: 'y' } }] }
+        });
+        const chunk = parseStreamLine(line);
+        expect(chunk).not.toBeNull();
+        expect(chunk!.type).toBe('tool');
+        expect(chunk!.toolName).toBe('Edit');
+        expect(JSON.parse(chunk!.toolDetail!)).toEqual({ file_path: '/a/b.txt', old_string: 'x', new_string: 'y' });
+    });
+
+    it('still accepts the legacy tool_call block shape', () => {
+        const line = JSON.stringify({
+            type: 'assistant',
+            message: { content: [{ type: 'tool_call', name: 'Read', input: { file_path: '/a/b.txt' } }] }
+        });
+        const chunk = parseStreamLine(line);
+        expect(chunk!.type).toBe('tool');
+        expect(chunk!.toolName).toBe('Read');
+    });
+});
