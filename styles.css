@@ -463,7 +463,9 @@
     text-overflow: ellipsis;
 }
 
-.workbuddian-tool-call + .workbuddian-tool-call {
+/* 不用相邻兄弟选择器：条目间若插入了 .workbuddian-tool-diff（行级 diff），下一个
+   .workbuddian-tool-call 就不再与前一个直接相邻，会丢失分隔线 */
+.workbuddian-tool-call:not(:first-child) {
     border-top: 1px solid var(--background-modifier-border-hover);
 }
 
@@ -972,7 +974,8 @@
 .workbuddian-tool-diff { margin: 4px 0 0 0; }
 .workbuddian-tool-diff-header { cursor: pointer; font-size: 12px; opacity: 0.8; display: flex; align-items: center; gap: 4px; }
 .workbuddian-tool-diff-body { margin-top: 4px; border-radius: 4px; overflow-x: auto; }
-.workbuddian-diff-line { font-family: var(--font-monospace); font-size: 12px; white-space: pre; padding: 0 6px; }
-.workbuddian-diff-add { background: rgba(0, 160, 60, 0.15); }
-.workbuddian-diff-remove { background: rgba(200, 40, 40, 0.15); }
-.workbuddian-diff-equal { opacity: 0.65; }
+/* 限定在 .workbuddian-tool-diff 容器下，避免与 inline-edit DiffModal 的同名裸类（styles.css:880-882）碰撞 */
+.workbuddian-tool-diff .workbuddian-diff-line { font-family: var(--font-monospace); font-size: 12px; white-space: pre; padding: 0 6px; }
+.workbuddian-tool-diff .workbuddian-diff-add { background: rgba(0, 160, 60, 0.15); }
+.workbuddian-tool-diff .workbuddian-diff-remove { background: rgba(200, 40, 40, 0.15); }
+.workbuddian-tool-diff .workbuddian-diff-equal { opacity: 0.65; }
