@@ -38,6 +38,7 @@ export class WorkbuddianChatView extends ItemView {
     attachments: string[] = [];
     selectionEl!: HTMLElement;
     usageEl!: HTMLElement;
+    liveRegionEl!: HTMLElement;
     selection: { text: string; note: string } | null = null;
     lastMarkdownView: MarkdownView | null = null;
 
@@ -118,10 +119,13 @@ export class WorkbuddianChatView extends ItemView {
         setIcon(newBtn, 'plus');
         newBtn.onclick = () => createNewChat(this);
 
-        // 消息区域：aria-live 让屏幕阅读器感知新消息到达（渲染频率见 renderMessages 的重建逻辑）
-        this.messageContainer = container.createDiv({
-            cls: 'workbuddian-messages',
-            attr: { 'aria-live': 'polite', 'aria-relevant': 'additions text' }
+        this.messageContainer = container.createDiv({ cls: 'workbuddian-messages' });
+
+        // 屏幕阅读器播报区：renderMessages 每次都会清空重建 messageContainer，若把 aria-live 挂在
+        // 那上面，整段历史会被当作新增内容反复朗读。改用这个视觉隐藏的独立节点，只写入新回复本身。
+        this.liveRegionEl = container.createDiv({
+            cls: 'workbuddian-sr-only',
+            attr: { 'aria-live': 'polite', role: 'status' }
         });
 
         // 底部输入区

@@ -1010,6 +1010,8 @@
 .workbuddian-resume-item:hover,
 .workbuddian-resume-item:focus-visible {
     background: var(--background-modifier-hover);
+    outline: 2px solid var(--workbuddian-primary, #C8B487);
+    outline-offset: 2px;
 }
 .workbuddian-resume-item-title {
     font-weight: 500;
@@ -1020,4 +1022,17 @@
 .workbuddian-resume-item-meta {
     font-size: var(--font-ui-smaller);
     color: var(--text-muted);
+}
+
+/* 屏幕阅读器专用播报区：视觉上完全隐藏，但对辅助技术可见 */
+.workbuddian-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }

@@ -277,6 +277,17 @@ export function renderSelectionChip(view: WorkbuddianChatView) {
     // 实时镜像当前笔记选区，无手动 ✕：取消选择即消失
 }
 
+/**
+ * 向屏幕阅读器播报一条消息。写入独立的视觉隐藏 live region，而非消息容器——后者每次
+ * renderMessages 都会整体重建，挂 aria-live 会导致整段历史被反复朗读。
+ * 先清空再写入，确保内容相同的连续两次播报也会被朗读（AT 靠内容变化触发）。
+ */
+export function announce(view: WorkbuddianChatView, text: string) {
+    if (!view.liveRegionEl || !text) return;
+    view.liveRegionEl.setText('');
+    window.setTimeout(() => view.liveRegionEl.setText(text), 50);
+}
+
 /** 刷新工具栏的上下文用量圆环：无 usage 数据时隐藏，有则更新占比、悬停提示与警示态 */
 export function renderContextUsage(view: WorkbuddianChatView) {
     const usage = view.getActiveConversation()?.lastUsage;
@@ -776,12 +787,14 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
             thinkingLabel.setText(t('input.thought'));
         }
         await renderMessages(view);
+        announce(view, `${t('a11y.newReply')}${finalContent || t('input.noResponse')}`);
         await view.manager.flush();
     } catch (error: unknown) {
         const message = getErrorMessage(error);
         view.manager.setError(convId, aiMsg.id, message);
         new Notice(`${t('input.requestFailed')}: ${message}`);
         await renderMessages(view);
+        announce(view, `${t('input.requestFailed')}: ${message}`);
     } finally {
         view.isStreaming = false;
         view.streamingMsgId = null;

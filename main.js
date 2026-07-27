@@ -148,6 +148,7 @@ var STRINGS = {
   "log.empty": { zh: "\uFF08\u6682\u65E0\u65E5\u5FD7\uFF09", en: "(No logs yet)" },
   "input.removeReference": { zh: "\u79FB\u9664\u5F15\u7528", en: "Remove reference" },
   "input.ariaLabel": { zh: "\u804A\u5929\u8F93\u5165\u6846", en: "Chat input" },
+  "a11y.newReply": { zh: "\u65B0\u56DE\u590D\uFF1A", en: "New reply: " },
   "input.customCommand": { zh: "\uFF08\u81EA\u5B9A\u4E49\u547D\u4EE4\uFF09", en: "(Custom command)" },
   "input.attach": { zh: "\u9644\u52A0\u6587\u4EF6", en: "Attach files" },
   "input.imageSaveFailed": { zh: "\u56FE\u7247\u4FDD\u5B58\u5931\u8D25", en: "Failed to save image" },
@@ -1597,6 +1598,12 @@ function renderSelectionChip(view) {
   const label = view.selection.note ? `${view.selection.note}: ${preview}` : preview;
   chip.createSpan({ cls: "workbuddian-ref-chip-name", text: label, attr: { title: view.selection.text } });
 }
+function announce(view, text) {
+  if (!view.liveRegionEl || !text)
+    return;
+  view.liveRegionEl.setText("");
+  window.setTimeout(() => view.liveRegionEl.setText(text), 50);
+}
 function renderContextUsage(view) {
   var _a;
   const usage = (_a = view.getActiveConversation()) == null ? void 0 : _a.lastUsage;
@@ -2024,12 +2031,14 @@ async function sendText(view, text) {
       thinkingLabel.setText(t("input.thought"));
     }
     await renderMessages(view);
+    announce(view, `${t("a11y.newReply")}${finalContent || t("input.noResponse")}`);
     await view.manager.flush();
   } catch (error) {
     const message = getErrorMessage(error);
     view.manager.setError(convId, aiMsg.id, message);
     new import_obsidian4.Notice(`${t("input.requestFailed")}: ${message}`);
     await renderMessages(view);
+    announce(view, `${t("input.requestFailed")}: ${message}`);
   } finally {
     view.isStreaming = false;
     view.streamingMsgId = null;
@@ -2509,9 +2518,10 @@ var WorkbuddianChatView = class extends import_obsidian7.ItemView {
     });
     (0, import_obsidian7.setIcon)(newBtn, "plus");
     newBtn.onclick = () => createNewChat(this);
-    this.messageContainer = container.createDiv({
-      cls: "workbuddian-messages",
-      attr: { "aria-live": "polite", "aria-relevant": "additions text" }
+    this.messageContainer = container.createDiv({ cls: "workbuddian-messages" });
+    this.liveRegionEl = container.createDiv({
+      cls: "workbuddian-sr-only",
+      attr: { "aria-live": "polite", role: "status" }
     });
     this.chipsEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
     this.attachChipsEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
