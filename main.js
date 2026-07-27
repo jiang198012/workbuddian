@@ -166,6 +166,7 @@ var STRINGS = {
   "input.bubbleNotFound": { zh: "\u627E\u4E0D\u5230 Assistant \u6D88\u606F\u6C14\u6CE1", en: "Assistant message bubble not found" },
   "input.thinking": { zh: "\u601D\u8003\u4E2D...", en: "Thinking..." },
   "input.toolCall": { zh: "\u5DE5\u5177\u8C03\u7528", en: "Tool call" },
+  "tool.diffTitle": { zh: "\u6539\u52A8", en: "Changes" },
   "input.requestFailed": { zh: "\u8BF7\u6C42\u5931\u8D25", en: "Request failed" },
   "input.noResponse": { zh: "\uFF08\u65E0\u54CD\u5E94\uFF0C\u8BF7\u91CD\u8BD5\uFF09", en: "(No response, please retry)" },
   "input.thought": { zh: "\u5DF2\u601D\u8003", en: "Thought" },
@@ -1082,6 +1083,73 @@ function isAbsolutePath(p) {
   return /^([\\/]|[A-Za-z]:[\\/])/.test(p);
 }
 
+// src/shared/toolDetail.ts
+function parseFileChange(toolName, toolDetail) {
+  let input;
+  try {
+    input = JSON.parse(toolDetail);
+  } catch (e) {
+    return null;
+  }
+  if (typeof input !== "object" || input === null)
+    return null;
+  const obj = input;
+  const path3 = typeof obj.file_path === "string" ? obj.file_path : "";
+  if (!path3)
+    return null;
+  if (toolName === "Edit") {
+    const oldText = obj.old_string;
+    const newText = obj.new_string;
+    if (typeof oldText !== "string" || typeof newText !== "string")
+      return null;
+    return { kind: "edit", path: path3, oldText, newText };
+  }
+  if (toolName === "Write") {
+    const content = obj.content;
+    if (typeof content !== "string")
+      return null;
+    return { kind: "write", path: path3, newText: content };
+  }
+  return null;
+}
+
+// src/shared/lineDiff.ts
+function lineDiff(oldText, newText) {
+  const a = oldText.split("\n");
+  const b = newText.split("\n");
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i2 = m - 1; i2 >= 0; i2--) {
+    for (let j2 = n - 1; j2 >= 0; j2--) {
+      dp[i2][j2] = a[i2] === b[j2] ? dp[i2 + 1][j2 + 1] + 1 : Math.max(dp[i2 + 1][j2], dp[i2][j2 + 1]);
+    }
+  }
+  const out = [];
+  let i = 0, j = 0;
+  while (i < m && j < n) {
+    if (a[i] === b[j]) {
+      out.push({ type: "equal", text: a[i] });
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      out.push({ type: "remove", text: a[i] });
+      i++;
+    } else {
+      out.push({ type: "add", text: b[j] });
+      j++;
+    }
+  }
+  while (i < m) {
+    out.push({ type: "remove", text: a[i] });
+    i++;
+  }
+  while (j < n) {
+    out.push({ type: "add", text: b[j] });
+    j++;
+  }
+  return out;
+}
+
 // src/shared/imageStore.ts
 var fs2 = __toESM(require("fs"));
 var path2 = __toESM(require("path"));
@@ -1732,6 +1800,27 @@ async function sendText(view, text) {
             cls: "workbuddian-tool-call-text",
             text: `${toolName} ${toolDetail}`.trim()
           });
+          const change = parseFileChange(toolName, toolDetail);
+          if (change) {
+            const diffLines = change.kind === "write" ? lineDiff("", change.newText) : lineDiff(change.oldText, change.newText);
+            const diffBlock = list.createDiv({ cls: "workbuddian-tool-diff" });
+            const diffHeader = diffBlock.createDiv({ cls: "workbuddian-tool-diff-header" });
+            diffHeader.createSpan({ text: `${t("tool.diffTitle")} ${fileBasename(change.path)}` });
+            const diffChevron = diffHeader.createSpan({ text: "\u25BE" });
+            const diffBody = diffBlock.createDiv({ cls: "workbuddian-tool-diff-body workbuddian-hidden" });
+            for (const line of diffLines) {
+              const prefix = line.type === "add" ? "+ " : line.type === "remove" ? "- " : "  ";
+              diffBody.createDiv({
+                cls: `workbuddian-diff-line workbuddian-diff-${line.type}`,
+                text: prefix + line.text
+              });
+            }
+            diffHeader.addEventListener("click", () => {
+              const hidden = diffBody.hasClass("workbuddian-hidden");
+              diffBody.toggleClass("workbuddian-hidden", !hidden);
+              diffChevron.textContent = hidden ? "\u25BE" : "\u25B8";
+            });
+          }
         }
       } else if (chunk.type === "text") {
         textContent += chunk.content;
@@ -2729,43 +2818,6 @@ function applyPrimaryColor(color) {
 
 // src/features/inline-edit/index.ts
 var import_obsidian9 = require("obsidian");
-
-// src/shared/lineDiff.ts
-function lineDiff(oldText, newText) {
-  const a = oldText.split("\n");
-  const b = newText.split("\n");
-  const m = a.length, n = b.length;
-  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-  for (let i2 = m - 1; i2 >= 0; i2--) {
-    for (let j2 = n - 1; j2 >= 0; j2--) {
-      dp[i2][j2] = a[i2] === b[j2] ? dp[i2 + 1][j2 + 1] + 1 : Math.max(dp[i2 + 1][j2], dp[i2][j2 + 1]);
-    }
-  }
-  const out = [];
-  let i = 0, j = 0;
-  while (i < m && j < n) {
-    if (a[i] === b[j]) {
-      out.push({ type: "equal", text: a[i] });
-      i++;
-      j++;
-    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-      out.push({ type: "remove", text: a[i] });
-      i++;
-    } else {
-      out.push({ type: "add", text: b[j] });
-      j++;
-    }
-  }
-  while (i < m) {
-    out.push({ type: "remove", text: a[i] });
-    i++;
-  }
-  while (j < n) {
-    out.push({ type: "add", text: b[j] });
-    j++;
-  }
-  return out;
-}
 
 // src/shared/editPrompt.ts
 function buildEditPrompt(selection, instruction) {

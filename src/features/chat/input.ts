@@ -8,6 +8,8 @@ import { renderMessages, renderMarkdownContent } from './render';
 import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
 import { fileBasename, buildAttachmentBlock, attachmentDirs } from '../../shared/attachments';
+import { parseFileChange } from '../../shared/toolDetail';
+import { lineDiff } from '../../shared/lineDiff';
 import { extForMime, mimeForExt, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
 import { parseInstructionInput } from '../../shared/instruction';
 import { openInstructionModal } from './instructionModal';
@@ -595,6 +597,33 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
                         cls: 'workbuddian-tool-call-text',
                         text: `${toolName} ${toolDetail}`.trim()
                     });
+
+                    const change = parseFileChange(toolName, toolDetail);
+                    if (change) {
+                        const diffLines = change.kind === 'write'
+                            ? lineDiff('', change.newText)
+                            : lineDiff(change.oldText, change.newText);
+
+                        const diffBlock = list.createDiv({ cls: 'workbuddian-tool-diff' });
+                        const diffHeader = diffBlock.createDiv({ cls: 'workbuddian-tool-diff-header' });
+                        diffHeader.createSpan({ text: `${t('tool.diffTitle')} ${fileBasename(change.path)}` });
+                        const diffChevron = diffHeader.createSpan({ text: '▾' });
+
+                        const diffBody = diffBlock.createDiv({ cls: 'workbuddian-tool-diff-body workbuddian-hidden' });
+                        for (const line of diffLines) {
+                            const prefix = line.type === 'add' ? '+ ' : line.type === 'remove' ? '- ' : '  ';
+                            diffBody.createDiv({
+                                cls: `workbuddian-diff-line workbuddian-diff-${line.type}`,
+                                text: prefix + line.text
+                            });
+                        }
+
+                        diffHeader.addEventListener('click', () => {
+                            const hidden = diffBody.hasClass('workbuddian-hidden');
+                            diffBody.toggleClass('workbuddian-hidden', !hidden);
+                            diffChevron.textContent = hidden ? '▾' : '▸';
+                        });
+                    }
                 }
             } else if (chunk.type === 'text') {
                 textContent += chunk.content;

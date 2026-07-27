@@ -967,3 +967,12 @@
 .workbuddian-usage-ring.workbuddian-usage-warning {
     --workbuddian-usage-color: var(--text-error);
 }
+
+/* 工具块内的行级 diff */
+.workbuddian-tool-diff { margin: 4px 0 0 0; }
+.workbuddian-tool-diff-header { cursor: pointer; font-size: 12px; opacity: 0.8; display: flex; align-items: center; gap: 4px; }
+.workbuddian-tool-diff-body { margin-top: 4px; border-radius: 4px; overflow-x: auto; }
+.workbuddian-diff-line { font-family: var(--font-monospace); font-size: 12px; white-space: pre; padding: 0 6px; }
+.workbuddian-diff-add { background: rgba(0, 160, 60, 0.15); }
+.workbuddian-diff-remove { background: rgba(200, 40, 40, 0.15); }
+.workbuddian-diff-equal { opacity: 0.65; }

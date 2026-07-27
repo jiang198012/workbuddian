@@ -125,6 +125,7 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'input.bubbleNotFound': { zh: '找不到 Assistant 消息气泡', en: 'Assistant message bubble not found' },
     'input.thinking': { zh: '思考中...', en: 'Thinking...' },
     'input.toolCall': { zh: '工具调用', en: 'Tool call' },
+    'tool.diffTitle': { zh: '改动', en: 'Changes' },
     'input.requestFailed': { zh: '请求失败', en: 'Request failed' },
     'input.noResponse': { zh: '（无响应，请重试）', en: '(No response, please retry)' },
     'input.thought': { zh: '已思考', en: 'Thought' },
