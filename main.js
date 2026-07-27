@@ -1554,8 +1554,7 @@ async function sendText(view, text) {
     conv.sessionId = view.api.generateId();
   }
   const convId = conv.id;
-  const attachmentNames = view.attachments.map(fileBasename);
-  view.manager.addMessage(convId, "user", text, attachmentNames);
+  view.manager.addMessage(convId, "user", text, [...view.attachments]);
   await renderMessages(view);
   const aiMsg = view.manager.addMessage(convId, "assistant", "");
   if (!aiMsg)

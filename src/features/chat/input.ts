@@ -434,8 +434,8 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
 
     // 添加用户消息
     const convId = conv.id;
-    const attachmentNames = view.attachments.map(fileBasename);
-    view.manager.addMessage(convId, 'user', text, attachmentNames);
+    // 存绝对路径（而非文件名），渲染层据此出缩略图；旧消息存的是文件名，由 isAbsolutePath 区分
+    view.manager.addMessage(convId, 'user', text, [...view.attachments]);
     await renderMessages(view);
 
     // 创建 AI 消息占位，标记为等待回复中
