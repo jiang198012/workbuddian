@@ -39,11 +39,15 @@ export interface WorkbuddianSettings {
     permissionMode: PermissionMode;
     language: 'auto' | 'zh' | 'en';
     customInstruction: string;
+    pastedImageKeep: number;
     version: number;
 }
 
-const CURRENT_SETTINGS_VERSION = 9;
+const CURRENT_SETTINGS_VERSION = 10;
 const DEFAULT_CONTEXT_WINDOW_SIZE = 200000;
+const DEFAULT_PASTED_IMAGE_KEEP = 20;
+/** 粘贴图保留数量上限；0 表示不限制 */
+export const MAX_PASTED_IMAGE_KEEP = 500;
 
 export const DEFAULT_SETTINGS: WorkbuddianSettings = {
     codebuddyPath: '',
@@ -57,6 +61,7 @@ export const DEFAULT_SETTINGS: WorkbuddianSettings = {
     permissionMode: 'default',
     language: 'auto',
     customInstruction: '',
+    pastedImageKeep: DEFAULT_PASTED_IMAGE_KEEP,
     version: CURRENT_SETTINGS_VERSION
 };
 
@@ -105,6 +110,7 @@ export function migrateSettings(stored: unknown): WorkbuddianSettings {
     const injectCurrentNoteLink = getBoolean(stored, 'injectCurrentNoteLink');
     const contextWindowSize = getNumber(stored, 'contextWindowSize');
     const language = getString(stored, 'language');
+    const pastedImageKeep = getNumber(stored, 'pastedImageKeep');
 
     return {
         codebuddyPath: getString(stored, 'codebuddyPath') ?? DEFAULT_SETTINGS.codebuddyPath,
@@ -130,6 +136,12 @@ export function migrateSettings(stored: unknown): WorkbuddianSettings {
             ? language
             : DEFAULT_SETTINGS.language,
         customInstruction: getString(stored, 'customInstruction') ?? DEFAULT_SETTINGS.customInstruction,
+        pastedImageKeep: typeof pastedImageKeep === 'number'
+            && Number.isInteger(pastedImageKeep)
+            && pastedImageKeep >= 0
+            && pastedImageKeep <= MAX_PASTED_IMAGE_KEEP
+            ? pastedImageKeep
+            : DEFAULT_SETTINGS.pastedImageKeep,
         version: CURRENT_SETTINGS_VERSION
     };
 }

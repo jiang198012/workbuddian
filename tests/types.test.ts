@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, migrateSettings, isObject, getString, getNumber, getBoolean, getErrorMessage, normalizePersistedData, exportSettings, type Conversation } from '../src/types';
+import { DEFAULT_SETTINGS, migrateSettings, isObject, getString, getNumber, getBoolean, getErrorMessage, normalizePersistedData, exportSettings, MAX_PASTED_IMAGE_KEEP, type Conversation } from '../src/types';
 
 describe('DEFAULT_SETTINGS', () => {
     it('should accept empty codebuddyPath', () => {
@@ -31,11 +31,14 @@ describe('DEFAULT_SETTINGS', () => {
     it('should default language to auto', () => {
         expect(DEFAULT_SETTINGS.language).toBe('auto');
     });
-    it('should have settings version 9', () => {
-        expect(DEFAULT_SETTINGS.version).toBe(9);
+    it('should have settings version 10', () => {
+        expect(DEFAULT_SETTINGS.version).toBe(10);
     });
     it('should default customInstruction to empty string', () => {
         expect(DEFAULT_SETTINGS.customInstruction).toBe('');
+    });
+    it('should default pastedImageKeep to 20', () => {
+        expect(DEFAULT_SETTINGS.pastedImageKeep).toBe(20);
     });
 });
 
@@ -137,8 +140,8 @@ describe('migrateSettings', () => {
         expect(migrateSettings({ language: 'fr' }).language).toBe('auto');
         expect(migrateSettings({ language: 5 }).language).toBe('auto');
     });
-    it('should migrate an older stored version up to 9', () => {
-        expect(migrateSettings({ version: 4 }).version).toBe(9);
+    it('should migrate an older stored version up to 10', () => {
+        expect(migrateSettings({ version: 4 }).version).toBe(10);
     });
     it('should default customInstruction to empty when missing', () => {
         expect(migrateSettings({}).customInstruction).toBe('');
@@ -148,6 +151,22 @@ describe('migrateSettings', () => {
     });
     it('should reset a non-string customInstruction to empty', () => {
         expect(migrateSettings({ customInstruction: 123 }).customInstruction).toBe('');
+    });
+    it('should fill pastedImageKeep default when missing', () => {
+        expect(migrateSettings({}).pastedImageKeep).toBe(20);
+    });
+    it('should keep 0 as unlimited', () => {
+        expect(migrateSettings({ pastedImageKeep: 0 }).pastedImageKeep).toBe(0);
+    });
+    it('should keep a valid in-range value', () => {
+        expect(migrateSettings({ pastedImageKeep: 50 }).pastedImageKeep).toBe(50);
+        expect(migrateSettings({ pastedImageKeep: MAX_PASTED_IMAGE_KEEP }).pastedImageKeep).toBe(MAX_PASTED_IMAGE_KEEP);
+    });
+    it('should fall back to default for out-of-range, fractional or non-number values', () => {
+        expect(migrateSettings({ pastedImageKeep: -1 }).pastedImageKeep).toBe(20);
+        expect(migrateSettings({ pastedImageKeep: 501 }).pastedImageKeep).toBe(20);
+        expect(migrateSettings({ pastedImageKeep: 1.5 }).pastedImageKeep).toBe(20);
+        expect(migrateSettings({ pastedImageKeep: '30' }).pastedImageKeep).toBe(20);
     });
 });
 

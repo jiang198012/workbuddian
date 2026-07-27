@@ -231,8 +231,10 @@ function matchesAnyLang(value, key) {
 }
 
 // src/types/index.ts
-var CURRENT_SETTINGS_VERSION = 9;
+var CURRENT_SETTINGS_VERSION = 10;
 var DEFAULT_CONTEXT_WINDOW_SIZE = 2e5;
+var DEFAULT_PASTED_IMAGE_KEEP = 20;
+var MAX_PASTED_IMAGE_KEEP = 500;
 var DEFAULT_SETTINGS = {
   codebuddyPath: "",
   cliTimeoutMinutes: 5,
@@ -245,6 +247,7 @@ var DEFAULT_SETTINGS = {
   permissionMode: "default",
   language: "auto",
   customInstruction: "",
+  pastedImageKeep: DEFAULT_PASTED_IMAGE_KEEP,
   version: CURRENT_SETTINGS_VERSION
 };
 function isObject(value) {
@@ -281,6 +284,7 @@ function migrateSettings(stored) {
   const injectCurrentNoteLink = getBoolean(stored, "injectCurrentNoteLink");
   const contextWindowSize = getNumber(stored, "contextWindowSize");
   const language = getString(stored, "language");
+  const pastedImageKeep = getNumber(stored, "pastedImageKeep");
   return {
     codebuddyPath: (_a = getString(stored, "codebuddyPath")) != null ? _a : DEFAULT_SETTINGS.codebuddyPath,
     cliTimeoutMinutes: typeof cliTimeoutMinutes === "number" && cliTimeoutMinutes > 0 ? cliTimeoutMinutes : DEFAULT_SETTINGS.cliTimeoutMinutes,
@@ -293,6 +297,7 @@ function migrateSettings(stored) {
     permissionMode: isPermissionMode(stored.permissionMode) ? stored.permissionMode : DEFAULT_SETTINGS.permissionMode,
     language: language === "zh" || language === "en" || language === "auto" ? language : DEFAULT_SETTINGS.language,
     customInstruction: (_e = getString(stored, "customInstruction")) != null ? _e : DEFAULT_SETTINGS.customInstruction,
+    pastedImageKeep: typeof pastedImageKeep === "number" && Number.isInteger(pastedImageKeep) && pastedImageKeep >= 0 && pastedImageKeep <= MAX_PASTED_IMAGE_KEEP ? pastedImageKeep : DEFAULT_SETTINGS.pastedImageKeep,
     version: CURRENT_SETTINGS_VERSION
   };
 }
