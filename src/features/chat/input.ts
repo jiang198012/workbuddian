@@ -129,8 +129,8 @@ export function renderAttachmentChips(view: WorkbuddianChatView) {
     });
 }
 
-/** 缩略图源：vault 内文件用 Obsidian 资源路径，vault 外文件读盘转 data URL */
-function thumbSrc(view: WorkbuddianChatView, absPath: string): string {
+/** 缩略图源：vault 内文件用 Obsidian 资源路径，vault 外文件读盘转 data URL；失败返回空串 */
+export function thumbSrc(view: WorkbuddianChatView, absPath: string): string {
     const base = view.vaultPath;
     if (base && absPath.startsWith(base)) {
         const rel = absPath.slice(base.length).replace(/^[\\/]/, '');

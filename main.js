@@ -1077,6 +1077,9 @@ function buildAttachmentBlock(paths) {
     lines.push(`- ${p}`);
   return lines.join("\n");
 }
+function isAbsolutePath(p) {
+  return /^([\\/]|[A-Za-z]:[\\/])/.test(p);
+}
 
 // src/shared/imageStore.ts
 var fs2 = __toESM(require("fs"));
@@ -1803,10 +1806,8 @@ async function renderMessage(view, msg) {
   } else {
     if (msg.attachments && msg.attachments.length > 0) {
       const attachmentsRow = bubble.createDiv({ cls: "workbuddian-message-attachments" });
-      for (const name of msg.attachments) {
-        const chip = attachmentsRow.createDiv({ cls: "workbuddian-attachment-chip" });
-        (0, import_obsidian4.setIcon)(chip.createSpan({ cls: "workbuddian-attachment-chip-icon" }), "paperclip");
-        chip.createSpan({ cls: "workbuddian-attachment-chip-name", text: name });
+      for (const entry of msg.attachments) {
+        renderAttachmentChip(view, attachmentsRow, entry);
       }
     }
     bubble.createSpan({ text: msg.content });
@@ -1815,6 +1816,34 @@ async function renderMessage(view, msg) {
     renderCopyButton(row, msg.content);
   }
   return row;
+}
+function renderAttachmentChip(view, row, entry) {
+  const chip = row.createDiv({ cls: "workbuddian-attachment-chip" });
+  const name = fileBasename(entry);
+  if (!isAbsolutePath(entry) || !isImagePath(entry)) {
+    renderNameChip(chip, name);
+    return;
+  }
+  const src = thumbSrc(view, entry);
+  if (!src) {
+    renderNameChip(chip, name);
+    return;
+  }
+  chip.addClass("workbuddian-image-chip");
+  const img = chip.createEl("img", {
+    cls: "workbuddian-image-thumb",
+    attr: { alt: name, title: name }
+  });
+  img.onerror = () => {
+    chip.empty();
+    chip.removeClass("workbuddian-image-chip");
+    renderNameChip(chip, name);
+  };
+  img.src = src;
+}
+function renderNameChip(chip, name) {
+  (0, import_obsidian4.setIcon)(chip.createSpan({ cls: "workbuddian-attachment-chip-icon" }), "paperclip");
+  chip.createSpan({ cls: "workbuddian-attachment-chip-name", text: name });
 }
 function renderCopyButton(row, content) {
   const actions = row.createDiv({ cls: "workbuddian-message-actions" });

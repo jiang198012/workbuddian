@@ -1,8 +1,10 @@
 import { MarkdownRenderer, Notice, setIcon } from 'obsidian';
 import type { ChatMessage } from '../../types';
 import type { WorkbuddianChatView } from './view';
-import { retryLastMessage, openWorkbuddianSettings } from './input';
+import { retryLastMessage, openWorkbuddianSettings, thumbSrc } from './input';
 import { ensureTableBlankLines } from '../../shared/tableNormalize';
+import { fileBasename, isAbsolutePath } from '../../shared/attachments';
+import { isImagePath } from '../../shared/imageStore';
 import { t } from '../../i18n';
 
 export async function renderMessages(view: WorkbuddianChatView) {
@@ -41,10 +43,8 @@ export async function renderMessage(view: WorkbuddianChatView, msg: ChatMessage)
     } else {
         if (msg.attachments && msg.attachments.length > 0) {
             const attachmentsRow = bubble.createDiv({ cls: 'workbuddian-message-attachments' });
-            for (const name of msg.attachments) {
-                const chip = attachmentsRow.createDiv({ cls: 'workbuddian-attachment-chip' });
-                setIcon(chip.createSpan({ cls: 'workbuddian-attachment-chip-icon' }), 'paperclip');
-                chip.createSpan({ cls: 'workbuddian-attachment-chip-name', text: name });
+            for (const entry of msg.attachments) {
+                renderAttachmentChip(view, attachmentsRow, entry);
             }
         }
         bubble.createSpan({ text: msg.content });
@@ -55,6 +55,38 @@ export async function renderMessage(view: WorkbuddianChatView, msg: ChatMessage)
         renderCopyButton(row, msg.content);
     }
     return row;
+}
+
+/** 单个附件 chip：图片出缩略图，其余（含旧数据的纯文件名）出文件名 */
+function renderAttachmentChip(view: WorkbuddianChatView, row: HTMLElement, entry: string) {
+    const chip = row.createDiv({ cls: 'workbuddian-attachment-chip' });
+    const name = fileBasename(entry);
+    if (!isAbsolutePath(entry) || !isImagePath(entry)) {
+        renderNameChip(chip, name);
+        return;
+    }
+    const src = thumbSrc(view, entry);
+    if (!src) {
+        renderNameChip(chip, name); // 文件读不到（已被清理 / 换了机器）
+        return;
+    }
+    chip.addClass('workbuddian-image-chip');
+    const img = chip.createEl('img', {
+        cls: 'workbuddian-image-thumb',
+        attr: { alt: name, title: name },
+    });
+    img.onerror = () => {
+        chip.empty();
+        chip.removeClass('workbuddian-image-chip');
+        renderNameChip(chip, name);
+    };
+    img.src = src;
+}
+
+/** paperclip + 文件名（正常的非图片附件，以及缩略图加载失败后的降级） */
+function renderNameChip(chip: HTMLElement, name: string) {
+    setIcon(chip.createSpan({ cls: 'workbuddian-attachment-chip-icon' }), 'paperclip');
+    chip.createSpan({ cls: 'workbuddian-attachment-chip-name', text: name });
 }
 
 /** 在消息行底部加「复制」按钮（默认隐藏，hover 行浮出）；点击复制该消息原始文本 */
