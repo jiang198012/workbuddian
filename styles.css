@@ -1010,6 +1010,10 @@
 .workbuddian-resume-item:hover,
 .workbuddian-resume-item:focus-visible {
     background: var(--background-modifier-hover);
+}
+/* 描边只给键盘聚焦，鼠标 hover 仅背景高亮——与面板内 :focus-visible 的约定一致。
+   Modal 挂在 .workbuddian-chat-container 之外，覆盖不到，故在此重复一份同样的视觉。 */
+.workbuddian-resume-item:focus-visible {
     outline: 2px solid var(--workbuddian-primary, #C8B487);
     outline-offset: 2px;
 }
