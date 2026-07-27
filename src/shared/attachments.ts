@@ -24,3 +24,9 @@ export function buildAttachmentBlock(paths: string[]): string {
     for (const p of paths) lines.push(`- ${p}`);
     return lines.join('\n');
 }
+
+/** 跨平台判断是否绝对路径：POSIX `/a/b`、Windows `C:\a\b` 或 `C:/a/b`、UNC `\\host\share`。
+ *  用于区分新数据（绝对路径）与旧消息里存的纯文件名。 */
+export function isAbsolutePath(p: string): boolean {
+    return /^([\\/]|[A-Za-z]:[\\/])/.test(p);
+}

@@ -1,4 +1,4 @@
-import { fileBasename, fileDir, attachmentDirs, buildAttachmentBlock } from '../src/shared/attachments';
+import { fileBasename, fileDir, attachmentDirs, buildAttachmentBlock, isAbsolutePath } from '../src/shared/attachments';
 
 describe('fileBasename', () => {
     it('extracts the filename from a POSIX path', () => {
@@ -48,5 +48,28 @@ describe('buildAttachmentBlock', () => {
         expect(block.startsWith('用户附加了以下文件')).toBe(true);
         expect(block).toContain('- /a/b.txt');
         expect(block).toContain('- /c/d.png');
+    });
+});
+
+describe('isAbsolutePath', () => {
+    it('accepts POSIX absolute paths', () => {
+        expect(isAbsolutePath('/Users/x/paste-1.png')).toBe(true);
+    });
+    it('accepts Windows drive paths with either separator', () => {
+        expect(isAbsolutePath('C:\\Users\\x\\paste-1.png')).toBe(true);
+        expect(isAbsolutePath('C:/Users/x/paste-1.png')).toBe(true);
+    });
+    it('accepts UNC paths', () => {
+        expect(isAbsolutePath('\\\\server\\share\\paste-1.png')).toBe(true);
+    });
+    it('rejects a bare filename (legacy attachment data)', () => {
+        expect(isAbsolutePath('paste-1.png')).toBe(false);
+    });
+    it('rejects relative paths', () => {
+        expect(isAbsolutePath('docs/paste-1.png')).toBe(false);
+        expect(isAbsolutePath('./paste-1.png')).toBe(false);
+    });
+    it('rejects an empty string', () => {
+        expect(isAbsolutePath('')).toBe(false);
     });
 });
