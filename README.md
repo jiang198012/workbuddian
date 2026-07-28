@@ -19,6 +19,7 @@
 
 ## ✨ What's New
 
+- **v1.5.0** — **Tool calls are visible at last**: a parser bug meant every tool call was silently dropped before reaching the UI. With that fixed, Edit/Write changes now render as a collapsible line-level **diff**, in-vault edits get a guarded **one-click undo**, **plan mode** returns with a plan card you can run, `/resume` opens a **conversation picker**, and the completion dropdown finally works with the **keyboard** — plus a broad accessibility pass.
 - **v1.4.0** — **Context usage ring**: a 14px ring in the input toolbar shows how much of the context window the current conversation has used. Hover for the exact numbers (`Context usage 22.6k / 200.0k · 11%`); the ring turns red at 80% so you know when to start a fresh chat. It stays hidden until there's data to show, so it never crowds the toolbar.
 - **v1.3.0** — **Message thumbnails**: image attachments now show as 40×40 thumbnails inside the sent message bubble, degrading to a filename chip when the file is gone or the path no longer resolves. **Configurable pasted-image retention**: the settings page now lets you set how many pasted images to keep on disk (default 20, max 500, 0 = unlimited).
 - **v1.2.4** — **Dynamic model list**: the model selector now fetches the live list of available CodeBuddy models from `codebuddy --help` on startup, so newly added models appear automatically without waiting for a plugin update. Falls back to the built-in whitelist if the CLI is not reachable.
@@ -96,6 +97,7 @@ Use **Obsidian** with **Claude Code** and know **Claudian**? Workbuddian is the 
 
 ## ✨ 更新
 
+- **v1.5.0** —— **工具调用终于看得见了**：此前一个解析 bug 让所有工具调用在到达界面前就被静默丢弃。修复之后，Edit/Write 的改动以可折叠的**行级 diff** 呈现，vault 内的编辑支持带安全闸门的**一键撤销**，**计划模式**回归并可一键执行计划，`/resume` 弹出**会话选择器**，补全下拉终于支持**键盘操作**，另有一轮完整的无障碍改进。
 - **v1.4.0** —— **上下文用量圆环**：输入区工具栏用一个 14px 圆环显示当前对话的上下文占用，悬停出准确数字（`上下文用量 22.6k / 200.0k · 11%`），占比 ≥80% 时变红提示该开新对话了。没有用量数据时完全不显示，不占工具栏空间。
 - **v1.3.0** —— **消息内图片缩略图**：图片附件发送后在气泡内以 40×40 缩略图显示，文件被清理或路径失效时自动降级为文件名 chip。**粘贴图保留数量可配置**：设置页可设置粘贴图在磁盘上保留的数量（默认 20，最大 500，0 = 不限制）。
 - **v1.2.4** —— **动态模型列表**：模型选择器启动时会从 `codebuddy --help` 实时拉取可用模型列表，新模型无需等插件更新即可自动出现；CLI 不可达时回退到内置白名单。
