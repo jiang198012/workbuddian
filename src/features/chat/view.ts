@@ -29,9 +29,6 @@ export class WorkbuddianChatView extends ItemView {
     tabBar!: HTMLElement;
     isStreaming: boolean = false;
     streamingMsgId: string | null = null;
-    /** 每次用户手动在工具栏切换权限模式时自增；计划卡片「按此执行」用它判断执行期间
-     *  有没有人手动切换过模式，不能靠比较模式值本身（'default' 本身也是可选值，见 I1） */
-    permissionMenuEpoch: number = 0;
     activeRename: { input: HTMLInputElement; commit: () => void } | null = null;
     activeConvId: string | null = null;
     markdownComponent: Component;
@@ -203,7 +200,9 @@ export class WorkbuddianChatView extends ItemView {
         this.refreshInstructionIndicator();
 
         const rightGroup = toolbar.createDiv({ cls: 'workbuddian-toolbar-right' });
-        this.usageEl = rightGroup.createDiv({ cls: 'workbuddian-usage-ring workbuddian-hidden' });
+        // role="img" 配合 aria-label：裸 div 是隐式 role=generic，ARIA 规范禁止在其上用
+        // aria-label（多数辅助技术会忽略），见 M2
+        this.usageEl = rightGroup.createDiv({ cls: 'workbuddian-usage-ring workbuddian-hidden', attr: { role: 'img' } });
         this.sendBtn = rightGroup.createEl('button', {
             cls: 'workbuddian-send-btn',
             attr: { 'aria-label': t('view.send'), title: t('view.send') }

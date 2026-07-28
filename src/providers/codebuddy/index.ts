@@ -234,7 +234,13 @@ export class CodebuddyProvider {
         });
     }
 
-    async *sendMessage(sessionId: string, text: string, vaultPath?: string, addDirs: string[] = []): AsyncGenerator<StreamChunk> {
+    /**
+     * permissionModeOverride：仅供本次调用使用的权限模式覆盖值（例如计划卡片「按此执行」需要
+     * acceptEdits 才能落盘写操作），不传时沿用 this.permissionMode。不会修改 this.permissionMode
+     * 本身——view/settings 与 provider 在两个面板间共享同一实例，若在这里改全局字段，放宽状态会
+     * 泄漏到另一个面板正在发送的普通消息上（见 C1/I1/I2/I3）。
+     */
+    async *sendMessage(sessionId: string, text: string, vaultPath?: string, addDirs: string[] = [], permissionModeOverride?: PermissionMode): AsyncGenerator<StreamChunk> {
         const scriptPath = this.scriptPath;
         const procOptions: SpawnOptions = {
             timeout: this.timeout,
@@ -263,7 +269,7 @@ export class CodebuddyProvider {
         // 大笔记 / 大 @ 引用会让整条命令行超过 Windows 上限（cmd.exe 8191 / CreateProcess
         // 32767 字符）→ spawn ENAMETOOLONG；stdin 无此长度限制。CLI 默认 --input-format text，
         // 不带位置参数时从 stdin 读 prompt（官方 headless 用法：echo "..." | codebuddy -p）。
-        cliArgs.push('--session-id', sessionId, '--model', this.model, '--permission-mode', this.permissionMode);
+        cliArgs.push('--session-id', sessionId, '--model', this.model, '--permission-mode', permissionModeOverride ?? this.permissionMode);
 
         // Node 18+ Windows 下 spawn .cmd/.bat 需要 shell: true
         if (needsWindowsShell(scriptPath)) {

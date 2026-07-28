@@ -287,6 +287,53 @@ describe('CodebuddyProvider', () => {
             expect(cliArgs).toContain('plan');
         });
 
+        it('uses the per-call permissionModeOverride argument for --permission-mode, without touching setPermissionMode()', async () => {
+            const { proc, emit } = createFakeProc();
+            mockedSpawn.mockReturnValue(proc as any);
+
+            const api = new CodebuddyProvider();
+            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
+            // 计划卡片「按此执行」的用法：不调用 setPermissionMode，只在这一次 sendMessage 上
+            // 传入覆盖值——这一次调用应该用它，且不应改动实例内部的 this.permissionMode
+            const gen = api.sendMessage('session-perm-override', 'hello', undefined, [], 'acceptEdits');
+
+            const firstPromise = gen.next();
+            emit('', 'close', 0, null);
+            await firstPromise;
+
+            const [, cliArgs] = mockedSpawn.mock.calls[0];
+            expect(cliArgs).toContain('--permission-mode');
+            expect(cliArgs).toContain('acceptEdits');
+            expect(cliArgs).not.toContain('default');
+        });
+
+        it('omitting permissionModeOverride preserves today\'s behaviour: falls back to this.permissionMode, and a prior override does not leak into the next call', async () => {
+            const { proc: proc1, emit: emit1 } = createFakeProc();
+            mockedSpawn.mockReturnValueOnce(proc1 as any);
+
+            const api = new CodebuddyProvider();
+            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
+            const overriddenGen = api.sendMessage('session-a', 'hello', undefined, [], 'acceptEdits');
+            const overriddenFirst = overriddenGen.next();
+            emit1('', 'close', 0, null);
+            await overriddenFirst;
+            const [, overriddenArgs] = mockedSpawn.mock.calls[0];
+            expect(overriddenArgs).toContain('acceptEdits');
+
+            const { proc: proc2, emit: emit2 } = createFakeProc();
+            mockedSpawn.mockReturnValueOnce(proc2 as any);
+            // 不传 override 的下一次调用：应回落到实例默认的 'default'，证明上一次的覆盖值
+            // 没有残留进 this.permissionMode（即没有任何一条代码路径改写过它，见 Fix 1）
+            const plainGen = api.sendMessage('session-b', 'hello');
+            const plainFirst = plainGen.next();
+            emit2('', 'close', 0, null);
+            await plainFirst;
+            const [, plainArgs] = mockedSpawn.mock.calls[1];
+            expect(plainArgs).toContain('--permission-mode');
+            expect(plainArgs).toContain('default');
+            expect(plainArgs).not.toContain('acceptEdits');
+        });
+
         it('uses setNodePath() to override automatic Node.js discovery', async () => {
             const { proc, emit } = createFakeProc();
             mockedSpawn.mockReturnValue(proc as any);

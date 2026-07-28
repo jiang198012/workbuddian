@@ -657,6 +657,7 @@
     font-size: var(--font-ui-small);
     cursor: pointer;
     white-space: nowrap;
+    border-left: 3px solid transparent;
 }
 
 .workbuddian-at-suggest-item:hover {
@@ -1043,9 +1044,11 @@
     border: 0;
 }
 
-/* 补全下拉的键盘高亮项（与鼠标 hover 使用同一套视觉） */
+/* 补全下拉的键盘高亮项：hover 与 active 现由 mouseenter 同步（见 I5），背景相同时
+   两者本就是同一项；额外加左侧 accent 边以防万一（如触屏无 hover 事件），避免高亮完全不可辨识 */
 .workbuddian-at-suggest-active {
     background: var(--background-modifier-hover);
+    border-left-color: var(--workbuddian-primary, #C8B487);
 }
 
 /* 已撤销的按钮：文案之外再给一个视觉区分，避免只靠 disabled 变灰不易察觉 */

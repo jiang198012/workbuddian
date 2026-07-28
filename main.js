@@ -732,7 +732,13 @@ var CodebuddyProvider = class {
       return v.toString(16);
     });
   }
-  async *sendMessage(sessionId, text, vaultPath, addDirs = []) {
+  /**
+   * permissionModeOverride：仅供本次调用使用的权限模式覆盖值（例如计划卡片「按此执行」需要
+   * acceptEdits 才能落盘写操作），不传时沿用 this.permissionMode。不会修改 this.permissionMode
+   * 本身——view/settings 与 provider 在两个面板间共享同一实例，若在这里改全局字段，放宽状态会
+   * 泄漏到另一个面板正在发送的普通消息上（见 C1/I1/I2/I3）。
+   */
+  async *sendMessage(sessionId, text, vaultPath, addDirs = [], permissionModeOverride) {
     var _a;
     const scriptPath = this.scriptPath;
     const procOptions = {
@@ -748,7 +754,7 @@ var CodebuddyProvider = class {
       cliArgs.push("--add-dir", ...addDirs);
       cliArgs.push("--allowedTools", ...addDirs.map((d) => `Read(${d.replace(/\\/g, "/")}/**)`));
     }
-    cliArgs.push("--session-id", sessionId, "--model", this.model, "--permission-mode", this.permissionMode);
+    cliArgs.push("--session-id", sessionId, "--model", this.model, "--permission-mode", permissionModeOverride != null ? permissionModeOverride : this.permissionMode);
     if (needsWindowsShell(scriptPath)) {
       procOptions.shell = true;
     }
@@ -1428,10 +1434,11 @@ function updateAtSuggest(view) {
     return;
   }
   view.atSuggestEl.removeClass("workbuddian-hidden");
-  for (const file of files) {
+  files.forEach((file, i) => {
     const item = view.atSuggestEl.createDiv({ cls: "workbuddian-at-suggest-item", text: file.name });
     item.onclick = () => insertAtReference(view, file);
-  }
+    item.onmouseenter = () => highlightSuggest(view, i);
+  });
   highlightSuggest(view, 0);
 }
 function insertAtReference(view, file) {
@@ -1564,6 +1571,8 @@ function undoEdit(change, btn) {
     fs3.writeFileSync(change.path, reverted, "utf8");
     btn.disabled = true;
     btn.setText(t("tool.undone"));
+    btn.setAttribute("title", t("tool.undone"));
+    btn.setAttribute("aria-label", t("tool.undone"));
     btn.addClass("workbuddian-tool-diff-undone");
     new import_obsidian4.Notice(t("tool.undone"));
   } catch (e) {
@@ -1583,20 +1592,7 @@ async function renderPlanCard(view, container, planText) {
     if (executeBtn.disabled || view.isStreaming)
       return;
     executeBtn.disabled = true;
-    const prevMode = view.settings.permissionMode;
-    const epochAtStart = view.permissionMenuEpoch;
-    view.settings.permissionMode = "acceptEdits";
-    view.api.setPermissionMode("acceptEdits");
-    try {
-      await sendText(view, planText);
-    } finally {
-      if (view.permissionMenuEpoch === epochAtStart) {
-        view.settings.permissionMode = prevMode;
-        view.api.setPermissionMode(prevMode);
-        (0, import_obsidian4.setIcon)(view.permissionBtn, permissionIcon(prevMode));
-        view.permissionBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + prevMode)}`);
-      }
-    }
+    await sendText(view, planText, "acceptEdits");
   };
   dismissBtn.onclick = () => card.remove();
 }
@@ -1643,7 +1639,8 @@ function renderContextUsage(view) {
   const usage = (_a = view.getActiveConversation()) == null ? void 0 : _a.lastUsage;
   if (!usage) {
     view.usageEl.addClass("workbuddian-hidden");
-    view.usageEl.removeAttribute("title");
+    (0, import_obsidian4.setTooltip)(view.usageEl, "");
+    view.usageEl.removeAttribute("aria-label");
     return;
   }
   const windowSize = view.settings.contextWindowSize;
@@ -1734,7 +1731,6 @@ function openPermissionMenu(view, btn, evt) {
   const menu = new import_obsidian4.Menu();
   for (const mode of PERMISSION_MODE_CHOICES) {
     menu.addItem((item) => item.setTitle(t("perm." + mode)).setIcon(permissionIcon(mode)).setChecked(view.settings.permissionMode === mode).onClick(async () => {
-      view.permissionMenuEpoch++;
       view.settings.permissionMode = mode;
       view.api.setPermissionMode(mode);
       (0, import_obsidian4.setIcon)(btn, permissionIcon(mode));
@@ -1782,12 +1778,13 @@ function updateSlashSuggest(view) {
     return true;
   }
   view.atSuggestEl.removeClass("workbuddian-hidden");
-  for (const cmd of matches) {
+  matches.forEach((cmd, i) => {
     const item = view.atSuggestEl.createDiv({ cls: "workbuddian-at-suggest-item" });
     item.createSpan({ text: `/${cmd.name}` });
     item.createSpan({ cls: "workbuddian-slash-cmd-desc", text: cmd.desc });
     item.onclick = () => insertSlashCommand(view, cmd.name);
-  }
+    item.onmouseenter = () => highlightSuggest(view, i);
+  });
   highlightSuggest(view, 0);
   return true;
 }
@@ -1843,12 +1840,12 @@ async function handleKeydown(view, e) {
   if (!view.atSuggestEl.hasClass("workbuddian-hidden")) {
     const items = suggestItems(view);
     if (items.length > 0) {
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !e.isComposing && e.keyCode !== 229) {
         e.preventDefault();
         highlightSuggest(view, nextSuggestIndex(view.suggestIndex, items.length, e.key === "ArrowDown" ? 1 : -1));
         return;
       }
-      if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      if (shouldSendMessage(e)) {
         e.preventDefault();
         const idx = view.suggestIndex >= 0 && view.suggestIndex < items.length ? view.suggestIndex : 0;
         items[idx].click();
@@ -1890,7 +1887,7 @@ async function sendMessage(view) {
   renderReferenceChips(view);
   await sendText(view, text);
 }
-async function sendText(view, text) {
+async function sendText(view, text, permissionModeOverride) {
   let conv = view.getActiveConversation();
   if (!conv) {
     conv = view.manager.createConversation();
@@ -1951,7 +1948,7 @@ async function sendText(view, text) {
     if (!(streamingBubble instanceof HTMLElement)) {
       throw new Error(t("input.bubbleNotFound"));
     }
-    for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs)) {
+    for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride)) {
       const bubble = streamingBubble;
       if (firstChunk) {
         firstChunk = false;
@@ -2547,9 +2544,6 @@ var WorkbuddianChatView = class extends import_obsidian7.ItemView {
     super(leaf);
     this.isStreaming = false;
     this.streamingMsgId = null;
-    /** 每次用户手动在工具栏切换权限模式时自增；计划卡片「按此执行」用它判断执行期间
-     *  有没有人手动切换过模式，不能靠比较模式值本身（'default' 本身也是可选值，见 I1） */
-    this.permissionMenuEpoch = 0;
     this.activeRename = null;
     this.activeConvId = null;
     this.customCommands = [];
@@ -2691,7 +2685,7 @@ var WorkbuddianChatView = class extends import_obsidian7.ItemView {
     this.instructionBtn = instrBtn;
     this.refreshInstructionIndicator();
     const rightGroup = toolbar.createDiv({ cls: "workbuddian-toolbar-right" });
-    this.usageEl = rightGroup.createDiv({ cls: "workbuddian-usage-ring workbuddian-hidden" });
+    this.usageEl = rightGroup.createDiv({ cls: "workbuddian-usage-ring workbuddian-hidden", attr: { role: "img" } });
     this.sendBtn = rightGroup.createEl("button", {
       cls: "workbuddian-send-btn",
       attr: { "aria-label": t("view.send"), title: t("view.send") }

@@ -66,10 +66,12 @@ export function updateAtSuggest(view: WorkbuddianChatView) {
         return;
     }
     view.atSuggestEl.removeClass('workbuddian-hidden');
-    for (const file of files) {
+    files.forEach((file, i) => {
         const item = view.atSuggestEl.createDiv({ cls: 'workbuddian-at-suggest-item', text: file.name });
         item.onclick = () => insertAtReference(view, file);
-    }
+        // 鼠标移入即同步键盘高亮到该项，避免 hover 与 active 各自为政导致回车插错项（见 I5）
+        item.onmouseenter = () => highlightSuggest(view, i);
+    });
     highlightSuggest(view, 0); // 默认高亮首项，回车即可选中
 }
 
@@ -219,6 +221,10 @@ function undoEdit(change: FileEdit, btn: HTMLButtonElement) {
         fs.writeFileSync(change.path, reverted, 'utf8');
         btn.disabled = true;
         btn.setText(t('tool.undone'));
+        // aria-label 存在时会作为元素的可访问名覆盖文本内容，title 也不会随 setText 变化——
+        // 两者不跟着更新，GUI 自动化按可访问名读到的、屏幕阅读器读到的都仍是「撤销此修改」（见 I6）
+        btn.setAttribute('title', t('tool.undone'));
+        btn.setAttribute('aria-label', t('tool.undone'));
         btn.addClass('workbuddian-tool-diff-undone');
         new Notice(t('tool.undone')); // 按钮就地变文案不够显眼，补一条全局提示
     } catch {
@@ -229,8 +235,10 @@ function undoEdit(change: FileEdit, btn: HTMLButtonElement) {
 /**
  * 计划模式下渲染计划卡片：CLI 提交计划走 DeferExecuteTool，在 --print 非交互模式下必被拒绝
  * （`permission prompts are not available in non-interactive mode`），原会话无法原生批准继续执行。
- * 「按此执行」因此不是「批准原计划」，而是把计划正文以 default 权限模式重新发起一轮；
- * 发送完毕（无论成功与否）都恢复用户此前的权限模式。
+ * 「按此执行」因此不是「批准原计划」，而是把计划正文以 acceptEdits 权限模式重新发起一轮——
+ * 这会自动接受该轮 CLI 提出的全部编辑，不限于计划里列出的那些。acceptEdits 仅作为这一次
+ * sendMessage 调用的覆盖值传给 provider，不修改用户在工具栏配置的权限模式，因此也无需在
+ * 执行完毕后做任何恢复。
  */
 async function renderPlanCard(view: WorkbuddianChatView, container: HTMLElement, planText: string): Promise<void> {
     const card = container.createDiv({ cls: 'workbuddian-plan-card' });
@@ -252,28 +260,14 @@ async function renderPlanCard(view: WorkbuddianChatView, container: HTMLElement,
         // 且 provider 只跟踪一个 activeProc，Stop 只能杀掉两个并发进程中较新的那个。
         if (executeBtn.disabled || view.isStreaming) return;
         executeBtn.disabled = true;
-        const prevMode = view.settings.permissionMode;
-        // 用递增 epoch 而非「当前模式是否仍等于 default」判断"中途有没有人手动切换过权限模式"——
-        // 后者在用户手动切到的目标恰好也叫 'default' 时会误判为"无人改动"从而错误覆盖用户的选择，
-        // 造成内存与磁盘漂移（见 I1）
-        const epochAtStart = view.permissionMenuEpoch;
         // 必须用 acceptEdits 而不是 default：default 是「每步询问」，而 --print 非交互模式下
         // 根本无从询问，写操作会被 CLI 直接拒绝（与 ExitPlanMode 被拒是同一原因），
         // 结果就是「点了执行、跑了一轮、文件却没动」。acceptEdits 自动接受编辑，
         // 语义上恰好对应「用户已经看过计划并批准了」，也比 bypassPermissions 保守。
-        view.settings.permissionMode = 'acceptEdits';
-        view.api.setPermissionMode('acceptEdits');
-        try {
-            await sendText(view, planText);
-        } finally {
-            if (view.permissionMenuEpoch === epochAtStart) {
-                view.settings.permissionMode = prevMode;
-                view.api.setPermissionMode(prevMode);
-                // 恢复后顺带刷新工具栏图标，避免图标停留在执行计划期间的中间态
-                setIcon(view.permissionBtn, permissionIcon(prevMode));
-                view.permissionBtn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + prevMode)}`);
-            }
-        }
+        // 作为 sendText 的一次性覆盖值传入，不写 view.settings.permissionMode 也不调用
+        // view.api.setPermissionMode——两者都是两个面板共享的实例，写了就会泄漏到另一个
+        // 面板正在发送的普通消息上（见 C1），也不再需要事后恢复。
+        await sendText(view, planText, 'acceptEdits');
     };
     dismissBtn.onclick = () => card.remove();
 }
@@ -334,7 +328,10 @@ export function renderContextUsage(view: WorkbuddianChatView) {
     const usage = view.getActiveConversation()?.lastUsage;
     if (!usage) {
         view.usageEl.addClass('workbuddian-hidden');
-        view.usageEl.removeAttribute('title');
+        // 实际设上的是 Obsidian tooltip 与 aria-label（见下方），不是原生 title，
+        // 这里清的应是它们本身，否则切到无 usage 的会话后仍留着上一个会话的用量文案
+        setTooltip(view.usageEl, '');
+        view.usageEl.removeAttribute('aria-label');
         return;
     }
     const windowSize = view.settings.contextWindowSize;
@@ -438,9 +435,6 @@ export function openPermissionMenu(view: WorkbuddianChatView, btn: HTMLElement, 
             .setIcon(permissionIcon(mode))
             .setChecked(view.settings.permissionMode === mode)
             .onClick(async () => {
-                // 用户手动选择权限模式：epoch 前进一格，供计划卡片「按此执行」判断
-                // 「中途有没有人手动切换过」，不能靠比较模式值本身（见 I1）
-                view.permissionMenuEpoch++;
                 view.settings.permissionMode = mode;
                 view.api.setPermissionMode(mode);
                 setIcon(btn, permissionIcon(mode));
@@ -497,12 +491,14 @@ export function updateSlashSuggest(view: WorkbuddianChatView): boolean {
         return true;
     }
     view.atSuggestEl.removeClass('workbuddian-hidden');
-    for (const cmd of matches) {
+    matches.forEach((cmd, i) => {
         const item = view.atSuggestEl.createDiv({ cls: 'workbuddian-at-suggest-item' });
         item.createSpan({ text: `/${cmd.name}` });
         item.createSpan({ cls: 'workbuddian-slash-cmd-desc', text: cmd.desc });
         item.onclick = () => insertSlashCommand(view, cmd.name);
-    }
+        // 鼠标移入即同步键盘高亮到该项，避免 hover 与 active 各自为政导致回车插错项（见 I5）
+        item.onmouseenter = () => highlightSuggest(view, i);
+    });
     highlightSuggest(view, 0); // 默认高亮首项，回车即可选中
     return true;
 }
@@ -567,12 +563,16 @@ export async function handleKeydown(view: WorkbuddianChatView, e: KeyboardEvent)
     if (!view.atSuggestEl.hasClass('workbuddian-hidden')) {
         const items = suggestItems(view);
         if (items.length > 0) {
-            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            // 组字态（拼音选字）下方向键要留给输入法选候选，不能被这里拦截去移动补全高亮
+            if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !e.isComposing && e.keyCode !== 229) {
                 e.preventDefault();
                 highlightSuggest(view, nextSuggestIndex(view.suggestIndex, items.length, e.key === 'ArrowDown' ? 1 : -1));
                 return;
             }
-            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+            // 用 shouldSendMessage 而非自行拼条件：它与「这次回车本来会发送消息」同一语义，
+            // 也是这里唯一需要接管的场景——同时保证与其组字防护（isComposing + keyCode 229）
+            // 完全一致，不会开出一条防护更弱的岔路（见 I4）
+            if (shouldSendMessage(e)) {
                 e.preventDefault();
                 const idx = view.suggestIndex >= 0 && view.suggestIndex < items.length ? view.suggestIndex : 0;
                 items[idx].click(); // 复用条目自身的插入逻辑
@@ -622,7 +622,7 @@ export async function sendMessage(view: WorkbuddianChatView) {
     await sendText(view, text);
 }
 
-export async function sendText(view: WorkbuddianChatView, text: string) {
+export async function sendText(view: WorkbuddianChatView, text: string, permissionModeOverride?: PermissionMode) {
     // 确保有活跃对话
     let conv = view.getActiveConversation();
     if (!conv) {
@@ -693,7 +693,7 @@ export async function sendText(view: WorkbuddianChatView, text: string) {
             throw new Error(t('input.bubbleNotFound'));
         }
 
-        for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs)) {
+        for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride)) {
             const bubble = streamingBubble;
 
             if (firstChunk) {
