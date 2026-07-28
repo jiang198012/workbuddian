@@ -138,7 +138,7 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'plan.cardTitle': { zh: '执行计划', en: 'Execution plan' },
     'plan.execute': { zh: '按此执行（重新发起一轮）', en: 'Run this plan (new round)' },
     'plan.dismiss': { zh: '忽略', en: 'Dismiss' },
-    'plan.note': { zh: 'CLI 在非交互模式下无法原生批准计划，「按此执行」会以默认权限模式把计划正文重新发起一轮。', en: 'The CLI cannot approve plans natively in non-interactive mode; "Run this plan" re-sends the plan text as a new round in default permission mode.' },
+    'plan.note': { zh: 'CLI 在非交互模式下无法原生批准计划。「按此执行」会以「自动接受编辑」权限把计划正文重新发起一轮，执行完毕后恢复你原来的权限模式。', en: 'The CLI cannot approve plans natively in non-interactive mode. "Run this plan" re-sends the plan text as a new round with accept-edits permission, then restores your previous mode.' },
     'plan.notApprovable': { zh: '计划模式无法在非交互模式下原生批准。请把权限模式切换为「默认」或「完全访问」后重新发送以直接执行。', en: 'Plan mode cannot be approved natively in non-interactive mode. Switch the permission mode to "Default" or "Full access" and resend to run it directly.' },
     'input.requestFailed': { zh: '请求失败', en: 'Request failed' },
     'input.noResponse': { zh: '（无响应，请重试）', en: '(No response, please retry)' },

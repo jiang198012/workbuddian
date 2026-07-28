@@ -43,6 +43,7 @@ export class WorkbuddianChatView extends ItemView {
     selectionEl!: HTMLElement;
     usageEl!: HTMLElement;
     liveRegionEl!: HTMLElement;
+    suggestIndex: number = -1; // 补全下拉当前高亮项，-1 = 无
     selection: { text: string; note: string } | null = null;
     lastMarkdownView: MarkdownView | null = null;
 

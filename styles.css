@@ -1042,3 +1042,14 @@
     white-space: nowrap;
     border: 0;
 }
+
+/* 补全下拉的键盘高亮项（与鼠标 hover 使用同一套视觉） */
+.workbuddian-at-suggest-active {
+    background: var(--background-modifier-hover);
+}
+
+/* 已撤销的按钮：文案之外再给一个视觉区分，避免只靠 disabled 变灰不易察觉 */
+.workbuddian-tool-diff-undone {
+    text-decoration: line-through;
+    opacity: 0.6;
+}

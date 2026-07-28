@@ -1,7 +1,7 @@
-import { Menu, MarkdownRenderer, Notice, setIcon, TFile } from 'obsidian';
+import { Menu, MarkdownRenderer, Notice, setIcon, setTooltip, TFile } from 'obsidian';
 import { getErrorMessage } from '../../types';
 import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shared/atReferences';
-import { shouldSendMessage, isActivationKey } from '../../shared/inputKeys';
+import { shouldSendMessage, isActivationKey, nextSuggestIndex } from '../../shared/inputKeys';
 import { assembleContextText } from '../../core/context/assembleContext';
 import type { WorkbuddianChatView } from './view';
 import { renderMessages, renderMarkdownContent, scrollToBottom } from './render';
@@ -20,6 +20,27 @@ import { PERMISSION_MODE_CHOICES, type PermissionMode } from '../../shared/cliOp
 import { contextPercent, usageTooltip, isUsageWarning } from '../../shared/contextUsage';
 import { t } from '../../i18n';
 import { bbLog } from '../../shared/logBuffer';
+
+/** 补全下拉当前的条目列表（@ 与斜杠命令共用同一个下拉容器） */
+function suggestItems(view: WorkbuddianChatView): HTMLElement[] {
+    return Array.from(view.atSuggestEl.querySelectorAll<HTMLElement>('.workbuddian-at-suggest-item'));
+}
+
+/** 关闭补全下拉并复位高亮 */
+export function closeSuggest(view: WorkbuddianChatView) {
+    view.atSuggestEl.addClass('workbuddian-hidden');
+    view.atSuggestEl.empty();
+    view.suggestIndex = -1;
+}
+
+/** 把第 idx 项设为高亮项（并滚入可视区）；idx 为 -1 表示无高亮 */
+export function highlightSuggest(view: WorkbuddianChatView, idx: number) {
+    view.suggestIndex = idx;
+    suggestItems(view).forEach((el, i) => {
+        el.toggleClass('workbuddian-at-suggest-active', i === idx);
+        if (i === idx) el.scrollIntoView({ block: 'nearest' });
+    });
+}
 
 export function adjustTextareaHeight(view: WorkbuddianChatView) {
     view.inputEl.style.setProperty('--workbuddian-input-height', `${view.inputEl.scrollHeight}px`);
@@ -49,6 +70,7 @@ export function updateAtSuggest(view: WorkbuddianChatView) {
         const item = view.atSuggestEl.createDiv({ cls: 'workbuddian-at-suggest-item', text: file.name });
         item.onclick = () => insertAtReference(view, file);
     }
+    highlightSuggest(view, 0); // 默认高亮首项，回车即可选中
 }
 
 export function insertAtReference(view: WorkbuddianChatView, file: TFile) {
@@ -80,8 +102,7 @@ export function insertAtReference(view: WorkbuddianChatView, file: TFile) {
         view.inputEl.focus();
     }
 
-    view.atSuggestEl.addClass('workbuddian-hidden');
-    view.atSuggestEl.empty();
+    closeSuggest(view);
     renderReferenceChips(view);
     adjustTextareaHeight(view);
 }
@@ -198,6 +219,8 @@ function undoEdit(change: FileEdit, btn: HTMLButtonElement) {
         fs.writeFileSync(change.path, reverted, 'utf8');
         btn.disabled = true;
         btn.setText(t('tool.undone'));
+        btn.addClass('workbuddian-tool-diff-undone');
+        new Notice(t('tool.undone')); // 按钮就地变文案不够显眼，补一条全局提示
     } catch {
         new Notice(t('tool.undoFailed'));
     }
@@ -234,8 +257,12 @@ async function renderPlanCard(view: WorkbuddianChatView, container: HTMLElement,
         // 后者在用户手动切到的目标恰好也叫 'default' 时会误判为"无人改动"从而错误覆盖用户的选择，
         // 造成内存与磁盘漂移（见 I1）
         const epochAtStart = view.permissionMenuEpoch;
-        view.settings.permissionMode = 'default';
-        view.api.setPermissionMode('default');
+        // 必须用 acceptEdits 而不是 default：default 是「每步询问」，而 --print 非交互模式下
+        // 根本无从询问，写操作会被 CLI 直接拒绝（与 ExitPlanMode 被拒是同一原因），
+        // 结果就是「点了执行、跑了一轮、文件却没动」。acceptEdits 自动接受编辑，
+        // 语义上恰好对应「用户已经看过计划并批准了」，也比 bypassPermissions 保守。
+        view.settings.permissionMode = 'acceptEdits';
+        view.api.setPermissionMode('acceptEdits');
         try {
             await sendText(view, planText);
         } finally {
@@ -314,7 +341,11 @@ export function renderContextUsage(view: WorkbuddianChatView) {
     const percent = contextPercent(usage.inputTokens, windowSize);
     view.usageEl.removeClass('workbuddian-hidden');
     view.usageEl.style.setProperty('--workbuddian-usage-pct', String(percent));
-    view.usageEl.setAttribute('title', `${t('input.contextUsage')} ${usageTooltip(usage.inputTokens, windowSize)}`);
+    // 用 Obsidian 的 tooltip 而非原生 title：后者要鼠标悬停约 1 秒才弹，可发现性差；
+    // aria-label 一并设上，供屏幕阅读器读取。
+    const tip = `${t('input.contextUsage')} ${usageTooltip(usage.inputTokens, windowSize)}`;
+    setTooltip(view.usageEl, tip);
+    view.usageEl.setAttribute('aria-label', tip);
     view.usageEl.toggleClass('workbuddian-usage-warning', isUsageWarning(percent));
 }
 
@@ -472,6 +503,7 @@ export function updateSlashSuggest(view: WorkbuddianChatView): boolean {
         item.createSpan({ cls: 'workbuddian-slash-cmd-desc', text: cmd.desc });
         item.onclick = () => insertSlashCommand(view, cmd.name);
     }
+    highlightSuggest(view, 0); // 默认高亮首项，回车即可选中
     return true;
 }
 
@@ -528,9 +560,25 @@ export async function handleKeydown(view: WorkbuddianChatView, e: KeyboardEvent)
     // Esc 关闭 @ / / 补全下拉；仅在下拉确实可见时拦截，避免吞掉 Obsidian 自身的 Esc 行为
     if (e.key === 'Escape' && !view.atSuggestEl.hasClass('workbuddian-hidden')) {
         e.stopPropagation();
-        view.atSuggestEl.addClass('workbuddian-hidden');
-        view.atSuggestEl.empty();
+        closeSuggest(view);
         return;
+    }
+    // 补全下拉打开时接管方向键与回车：否则回车会直接走发送，把「@」或「/xxx」当正文发出去
+    if (!view.atSuggestEl.hasClass('workbuddian-hidden')) {
+        const items = suggestItems(view);
+        if (items.length > 0) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                highlightSuggest(view, nextSuggestIndex(view.suggestIndex, items.length, e.key === 'ArrowDown' ? 1 : -1));
+                return;
+            }
+            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+                e.preventDefault();
+                const idx = view.suggestIndex >= 0 && view.suggestIndex < items.length ? view.suggestIndex : 0;
+                items[idx].click(); // 复用条目自身的插入逻辑
+                return;
+            }
+        }
     }
     if (shouldSendMessage(e)) {
         e.preventDefault();
@@ -542,7 +590,8 @@ export async function sendMessage(view: WorkbuddianChatView) {
     if (view.isStreaming) return;
 
     const text = view.inputEl.value.trim();
-    if (!text) return;
+    // 纯附件消息（粘贴图片后不打字直接发）也要能发出去，因此附件非空时不拦截
+    if (!text && view.attachments.length === 0) return;
 
     // 指令模式：# 开头 → 打开常驻指令弹窗，不发送
     const instr = parseInstructionInput(text);

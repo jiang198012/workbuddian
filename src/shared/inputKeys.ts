@@ -17,3 +17,12 @@ export function shouldSendMessage(e: { key: string; shiftKey: boolean; isComposi
 export function isActivationKey(key: string): boolean {
     return key === 'Enter' || key === ' ';
 }
+
+/**
+ * 补全下拉的键盘高亮移动：在 [0, total) 内循环。
+ * total 为 0 时返回 -1（无可高亮项）。
+ */
+export function nextSuggestIndex(current: number, total: number, delta: number): number {
+    if (total <= 0) return -1;
+    return ((current + delta) % total + total) % total;
+}

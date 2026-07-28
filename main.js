@@ -179,7 +179,7 @@ var STRINGS = {
   "plan.cardTitle": { zh: "\u6267\u884C\u8BA1\u5212", en: "Execution plan" },
   "plan.execute": { zh: "\u6309\u6B64\u6267\u884C\uFF08\u91CD\u65B0\u53D1\u8D77\u4E00\u8F6E\uFF09", en: "Run this plan (new round)" },
   "plan.dismiss": { zh: "\u5FFD\u7565", en: "Dismiss" },
-  "plan.note": { zh: "CLI \u5728\u975E\u4EA4\u4E92\u6A21\u5F0F\u4E0B\u65E0\u6CD5\u539F\u751F\u6279\u51C6\u8BA1\u5212\uFF0C\u300C\u6309\u6B64\u6267\u884C\u300D\u4F1A\u4EE5\u9ED8\u8BA4\u6743\u9650\u6A21\u5F0F\u628A\u8BA1\u5212\u6B63\u6587\u91CD\u65B0\u53D1\u8D77\u4E00\u8F6E\u3002", en: 'The CLI cannot approve plans natively in non-interactive mode; "Run this plan" re-sends the plan text as a new round in default permission mode.' },
+  "plan.note": { zh: "CLI \u5728\u975E\u4EA4\u4E92\u6A21\u5F0F\u4E0B\u65E0\u6CD5\u539F\u751F\u6279\u51C6\u8BA1\u5212\u3002\u300C\u6309\u6B64\u6267\u884C\u300D\u4F1A\u4EE5\u300C\u81EA\u52A8\u63A5\u53D7\u7F16\u8F91\u300D\u6743\u9650\u628A\u8BA1\u5212\u6B63\u6587\u91CD\u65B0\u53D1\u8D77\u4E00\u8F6E\uFF0C\u6267\u884C\u5B8C\u6BD5\u540E\u6062\u590D\u4F60\u539F\u6765\u7684\u6743\u9650\u6A21\u5F0F\u3002", en: 'The CLI cannot approve plans natively in non-interactive mode. "Run this plan" re-sends the plan text as a new round with accept-edits permission, then restores your previous mode.' },
   "plan.notApprovable": { zh: "\u8BA1\u5212\u6A21\u5F0F\u65E0\u6CD5\u5728\u975E\u4EA4\u4E92\u6A21\u5F0F\u4E0B\u539F\u751F\u6279\u51C6\u3002\u8BF7\u628A\u6743\u9650\u6A21\u5F0F\u5207\u6362\u4E3A\u300C\u9ED8\u8BA4\u300D\u6216\u300C\u5B8C\u5168\u8BBF\u95EE\u300D\u540E\u91CD\u65B0\u53D1\u9001\u4EE5\u76F4\u63A5\u6267\u884C\u3002", en: 'Plan mode cannot be approved natively in non-interactive mode. Switch the permission mode to "Default" or "Full access" and resend to run it directly.' },
   "input.requestFailed": { zh: "\u8BF7\u6C42\u5931\u8D25", en: "Request failed" },
   "input.noResponse": { zh: "\uFF08\u65E0\u54CD\u5E94\uFF0C\u8BF7\u91CD\u8BD5\uFF09", en: "(No response, please retry)" },
@@ -953,6 +953,11 @@ function shouldSendMessage(e) {
 function isActivationKey(key) {
   return key === "Enter" || key === " ";
 }
+function nextSuggestIndex(current, total, delta) {
+  if (total <= 0)
+    return -1;
+  return ((current + delta) % total + total) % total;
+}
 
 // src/features/chat/render.ts
 var import_obsidian5 = require("obsidian");
@@ -1387,6 +1392,22 @@ function isUsageWarning(percent) {
 }
 
 // src/features/chat/input.ts
+function suggestItems(view) {
+  return Array.from(view.atSuggestEl.querySelectorAll(".workbuddian-at-suggest-item"));
+}
+function closeSuggest(view) {
+  view.atSuggestEl.addClass("workbuddian-hidden");
+  view.atSuggestEl.empty();
+  view.suggestIndex = -1;
+}
+function highlightSuggest(view, idx) {
+  view.suggestIndex = idx;
+  suggestItems(view).forEach((el, i) => {
+    el.toggleClass("workbuddian-at-suggest-active", i === idx);
+    if (i === idx)
+      el.scrollIntoView({ block: "nearest" });
+  });
+}
 function adjustTextareaHeight(view) {
   view.inputEl.style.setProperty("--workbuddian-input-height", `${view.inputEl.scrollHeight}px`);
 }
@@ -1411,6 +1432,7 @@ function updateAtSuggest(view) {
     const item = view.atSuggestEl.createDiv({ cls: "workbuddian-at-suggest-item", text: file.name });
     item.onclick = () => insertAtReference(view, file);
   }
+  highlightSuggest(view, 0);
 }
 function insertAtReference(view, file) {
   var _a;
@@ -1440,8 +1462,7 @@ function insertAtReference(view, file) {
     }
     view.inputEl.focus();
   }
-  view.atSuggestEl.addClass("workbuddian-hidden");
-  view.atSuggestEl.empty();
+  closeSuggest(view);
   renderReferenceChips(view);
   adjustTextareaHeight(view);
 }
@@ -1543,6 +1564,8 @@ function undoEdit(change, btn) {
     fs3.writeFileSync(change.path, reverted, "utf8");
     btn.disabled = true;
     btn.setText(t("tool.undone"));
+    btn.addClass("workbuddian-tool-diff-undone");
+    new import_obsidian4.Notice(t("tool.undone"));
   } catch (e) {
     new import_obsidian4.Notice(t("tool.undoFailed"));
   }
@@ -1562,8 +1585,8 @@ async function renderPlanCard(view, container, planText) {
     executeBtn.disabled = true;
     const prevMode = view.settings.permissionMode;
     const epochAtStart = view.permissionMenuEpoch;
-    view.settings.permissionMode = "default";
-    view.api.setPermissionMode("default");
+    view.settings.permissionMode = "acceptEdits";
+    view.api.setPermissionMode("acceptEdits");
     try {
       await sendText(view, planText);
     } finally {
@@ -1627,7 +1650,9 @@ function renderContextUsage(view) {
   const percent = contextPercent(usage.inputTokens, windowSize);
   view.usageEl.removeClass("workbuddian-hidden");
   view.usageEl.style.setProperty("--workbuddian-usage-pct", String(percent));
-  view.usageEl.setAttribute("title", `${t("input.contextUsage")} ${usageTooltip(usage.inputTokens, windowSize)}`);
+  const tip = `${t("input.contextUsage")} ${usageTooltip(usage.inputTokens, windowSize)}`;
+  (0, import_obsidian4.setTooltip)(view.usageEl, tip);
+  view.usageEl.setAttribute("aria-label", tip);
   view.usageEl.toggleClass("workbuddian-usage-warning", isUsageWarning(percent));
 }
 function attachmentPath(f) {
@@ -1763,6 +1788,7 @@ function updateSlashSuggest(view) {
     item.createSpan({ cls: "workbuddian-slash-cmd-desc", text: cmd.desc });
     item.onclick = () => insertSlashCommand(view, cmd.name);
   }
+  highlightSuggest(view, 0);
   return true;
 }
 async function loadCustomCommands(view) {
@@ -1811,9 +1837,24 @@ function buildCurrentNoteLink(view) {
 async function handleKeydown(view, e) {
   if (e.key === "Escape" && !view.atSuggestEl.hasClass("workbuddian-hidden")) {
     e.stopPropagation();
-    view.atSuggestEl.addClass("workbuddian-hidden");
-    view.atSuggestEl.empty();
+    closeSuggest(view);
     return;
+  }
+  if (!view.atSuggestEl.hasClass("workbuddian-hidden")) {
+    const items = suggestItems(view);
+    if (items.length > 0) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        highlightSuggest(view, nextSuggestIndex(view.suggestIndex, items.length, e.key === "ArrowDown" ? 1 : -1));
+        return;
+      }
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        const idx = view.suggestIndex >= 0 && view.suggestIndex < items.length ? view.suggestIndex : 0;
+        items[idx].click();
+        return;
+      }
+    }
   }
   if (shouldSendMessage(e)) {
     e.preventDefault();
@@ -1824,7 +1865,7 @@ async function sendMessage(view) {
   if (view.isStreaming)
     return;
   const text = view.inputEl.value.trim();
-  if (!text)
+  if (!text && view.attachments.length === 0)
     return;
   const instr = parseInstructionInput(text);
   if (instr !== null) {
@@ -2513,6 +2554,8 @@ var WorkbuddianChatView = class extends import_obsidian7.ItemView {
     this.activeConvId = null;
     this.customCommands = [];
     this.attachments = [];
+    this.suggestIndex = -1;
+    // 补全下拉当前高亮项，-1 = 无
     this.selection = null;
     this.lastMarkdownView = null;
     this.api = api;

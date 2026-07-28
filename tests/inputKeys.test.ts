@@ -1,4 +1,4 @@
-import { shouldSendMessage, isActivationKey } from '../src/shared/inputKeys';
+import { shouldSendMessage, isActivationKey, nextSuggestIndex } from '../src/shared/inputKeys';
 
 describe('shouldSendMessage', () => {
     const base = { key: 'Enter', shiftKey: false, isComposing: false, keyCode: 13 };
@@ -42,5 +42,27 @@ describe('isActivationKey', () => {
         expect(isActivationKey('Escape')).toBe(false);
         expect(isActivationKey('Tab')).toBe(false);
         expect(isActivationKey('a')).toBe(false);
+    });
+});
+
+describe('nextSuggestIndex', () => {
+    it('moves down and wraps to the top', () => {
+        expect(nextSuggestIndex(0, 3, 1)).toBe(1);
+        expect(nextSuggestIndex(2, 3, 1)).toBe(0);
+    });
+
+    it('moves up and wraps to the bottom', () => {
+        expect(nextSuggestIndex(1, 3, -1)).toBe(0);
+        expect(nextSuggestIndex(0, 3, -1)).toBe(2);
+    });
+
+    it('returns -1 when there is nothing to highlight', () => {
+        expect(nextSuggestIndex(0, 0, 1)).toBe(-1);
+        expect(nextSuggestIndex(-1, 0, -1)).toBe(-1);
+    });
+
+    it('recovers from an out-of-range current index', () => {
+        expect(nextSuggestIndex(-1, 3, 1)).toBe(0);
+        expect(nextSuggestIndex(9, 3, 1)).toBe(1);
     });
 });
