@@ -19,7 +19,14 @@
 
 ## ✨ What's New
 
-- **v1.5.0** — **Tool calls are visible at last**: a parser bug meant every tool call was silently dropped before reaching the UI. With that fixed, Edit/Write changes now render as a collapsible line-level **diff**, in-vault edits get a guarded **one-click undo**, **plan mode** returns with a plan card you can run, `/resume` opens a **conversation picker**, and the completion dropdown finally works with the **keyboard** — plus a broad accessibility pass.
+- **v1.5.0** — **The agent's work is finally visible, reviewable, and reversible.** A parser bug had been silently dropping *every* tool call before it reached the UI; fixing it unlocked this whole release:
+  - **Line-level diffs** — every `Edit` / `Write` shows exactly which lines changed, in green/red, collapsible inside the tool card.
+  - **One-click undo** — revert an edit inside your vault without leaving the chat. Three guards protect your files: it refuses when the file changed since, when the replacement text isn't unique, and for pure deletions — each case tells you why instead of guessing. (`Write` has no undo: the CLI never sends the overwritten content, so it *cannot* be reversed honestly.)
+  - **Plan mode is back** — ask for a plan, read it as a rendered card, then run it with one click. The card states plainly that the CLI can't approve plans natively in non-interactive mode, so "run" re-sends the plan with accept-edits permission — applied to that single run only, leaving your permission setting untouched.
+  - **`/resume` conversation picker** — pick from your past conversations (newest first, with message count and relative time) instead of typing a session id.
+  - **Keyboard-first completion** — `@` and slash-command dropdowns now respond to ↑↓ and Enter, with mouse hover and keyboard highlight kept in sync.
+  - **Accessibility pass** — ARIA roles and labels, a keyboard-only focus ring, Esc to close dropdowns, Enter/Space to activate chips and tabs, and new replies announced to screen readers without re-reading the whole conversation.
+  - **Send an image with no text**, and long tool arguments no longer stretch the bubble into a horizontal scrollbar.
 - **v1.4.0** — **Context usage ring**: a 14px ring in the input toolbar shows how much of the context window the current conversation has used. Hover for the exact numbers (`Context usage 22.6k / 200.0k · 11%`); the ring turns red at 80% so you know when to start a fresh chat. It stays hidden until there's data to show, so it never crowds the toolbar.
 - **v1.3.0** — **Message thumbnails**: image attachments now show as 40×40 thumbnails inside the sent message bubble, degrading to a filename chip when the file is gone or the path no longer resolves. **Configurable pasted-image retention**: the settings page now lets you set how many pasted images to keep on disk (default 20, max 500, 0 = unlimited).
 - **v1.2.4** — **Dynamic model list**: the model selector now fetches the live list of available CodeBuddy models from `codebuddy --help` on startup, so newly added models appear automatically without waiting for a plugin update. Falls back to the built-in whitelist if the CLI is not reachable.
@@ -97,7 +104,14 @@ Use **Obsidian** with **Claude Code** and know **Claudian**? Workbuddian is the 
 
 ## ✨ 更新
 
-- **v1.5.0** —— **工具调用终于看得见了**：此前一个解析 bug 让所有工具调用在到达界面前就被静默丢弃。修复之后，Edit/Write 的改动以可折叠的**行级 diff** 呈现，vault 内的编辑支持带安全闸门的**一键撤销**，**计划模式**回归并可一键执行计划，`/resume` 弹出**会话选择器**，补全下拉终于支持**键盘操作**，另有一轮完整的无障碍改进。
+- **v1.5.0** —— **AI 干了什么，终于看得见、审得了、退得回。** 此前一个解析 bug 让**每一次**工具调用在到达界面前就被静默丢弃；修好它之后，这一整版才成为可能：
+  - **行级 diff** —— 每次 `Edit` / `Write` 都能看到具体改了哪几行，绿增红删，在工具卡片内可折叠展开。
+  - **一键撤销** —— 不离开聊天就能回退 vault 内的改动。三道闸门守着你的文件：文件已被改过、替换文本在文件中不唯一、纯删除操作——三种情况都**明确告诉你原因并拒绝执行**，绝不猜着改。（`Write` 没有撤销：CLI 从不回传被覆盖的原内容，诚实地说它就是退不回来。）
+  - **计划模式回归** —— 让 AI 先出计划，以卡片形式读完，再一键执行。卡片会如实说明：CLI 在非交互模式下无法原生批准计划，所以「执行」是把计划重新发起一轮，使用「自动接受编辑」权限，且**仅对这一次生效，不改动你的权限设置**。
+  - **`/resume` 会话选择器** —— 从历史对话里直接挑（按最近更新排序，带消息数和相对时间），不用再记 session id。
+  - **补全支持键盘** —— `@` 和斜杠命令下拉可用 ↑↓ 选择、回车确认，鼠标悬停与键盘高亮同步，不会各高亮一个。
+  - **无障碍改进** —— ARIA 角色与标签、仅键盘可见的焦点环、Esc 关闭下拉、Enter/Space 激活 chip 与标签页，新回复播报给屏幕阅读器时不会把整段历史重念一遍。
+  - **图片可以不配文字直接发送**，超长工具参数也不再把气泡撑出横向滚动条。
 - **v1.4.0** —— **上下文用量圆环**：输入区工具栏用一个 14px 圆环显示当前对话的上下文占用，悬停出准确数字（`上下文用量 22.6k / 200.0k · 11%`），占比 ≥80% 时变红提示该开新对话了。没有用量数据时完全不显示，不占工具栏空间。
 - **v1.3.0** —— **消息内图片缩略图**：图片附件发送后在气泡内以 40×40 缩略图显示，文件被清理或路径失效时自动降级为文件名 chip。**粘贴图保留数量可配置**：设置页可设置粘贴图在磁盘上保留的数量（默认 20，最大 500，0 = 不限制）。
 - **v1.2.4** —— **动态模型列表**：模型选择器启动时会从 `codebuddy --help` 实时拉取可用模型列表，新模型无需等插件更新即可自动出现；CLI 不可达时回退到内置白名单。
