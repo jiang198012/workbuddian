@@ -220,6 +220,8 @@
 
 /* ==================== 消息气泡 ==================== */
 .workbuddian-bubble {
+    max-width: 100%;
+    min-width: 0;
     padding: 10px 14px;
     border-radius: var(--workbuddian-radius-xl);
     font-size: var(--font-ui-small);
@@ -401,6 +403,8 @@
 
 /* ==================== 工具调用块 ==================== */
 .workbuddian-tools-block {
+    max-width: 100%;
+    min-width: 0;
     margin: var(--workbuddian-gap-md) 0;
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--workbuddian-radius-lg);
@@ -451,6 +455,7 @@
 .workbuddian-tool-call {
     display: flex;
     align-items: center;
+    min-width: 0;
     gap: var(--workbuddian-gap-sm);
     padding: var(--workbuddian-gap-xs) var(--workbuddian-gap-lg);
     font-size: 11px;
@@ -482,6 +487,10 @@
 }
 
 .workbuddian-tool-call-text {
+    /* flex 子项默认 min-width:auto，不加这行就拒绝收缩到内容宽度以下，
+       ellipsis 永远不会生效，长 JSON 会把整行连同气泡一起撑开 */
+    min-width: 0;
+    flex: 1 1 auto;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -973,7 +982,27 @@
 
 /* 工具块内的行级 diff */
 .workbuddian-tool-diff { margin: 4px 0 0 0; }
-.workbuddian-tool-diff-header { cursor: pointer; font-size: 12px; opacity: 0.8; display: flex; align-items: center; gap: 4px; }
+.workbuddian-tool-diff-header {
+    cursor: pointer;
+    font-size: 12px;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+/* 文件名过长时省略，而不是把右侧的撤销按钮挤出可视区 */
+.workbuddian-tool-diff-header > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* 撤销按钮：贴右、永不收缩（原先靠内联 style 设置 margin-left） */
+.workbuddian-tool-diff-undo {
+    margin-left: auto;
+    flex-shrink: 0;
+}
 .workbuddian-tool-diff-body { margin-top: 4px; border-radius: 4px; overflow-x: auto; }
 /* 限定在 .workbuddian-tool-diff 容器下，避免与 inline-edit DiffModal 的同名裸类（styles.css:880-882）碰撞 */
 .workbuddian-tool-diff .workbuddian-diff-line { font-family: var(--font-monospace); font-size: 12px; white-space: pre; padding: 0 6px; }

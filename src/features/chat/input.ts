@@ -812,7 +812,6 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                                 text: t('tool.undo'),
                                 attr: { title: t('tool.undo'), 'aria-label': t('tool.undo') }
                             });
-                            undoBtn.style.marginLeft = 'auto';
                             undoBtn.addEventListener('click', (evt) => {
                                 evt.stopPropagation(); // 别顺带触发 header 的展开/折叠
                                 undoEdit(change, undoBtn);

@@ -2049,7 +2049,6 @@ async function sendText(view, text, permissionModeOverride) {
                 text: t("tool.undo"),
                 attr: { title: t("tool.undo"), "aria-label": t("tool.undo") }
               });
-              undoBtn.style.marginLeft = "auto";
               undoBtn.addEventListener("click", (evt) => {
                 evt.stopPropagation();
                 undoEdit(change, undoBtn);
