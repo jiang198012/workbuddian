@@ -214,7 +214,7 @@ describe('CodebuddyProvider v2 sendMessage', () => {
         const first = api.sendMessage('s1', 'a', '/v');
         const firstNext = first.next();
         await flush();
-        await expect(consume(api.sendMessage('s1', 'b', '/v'))).rejects.toThrow('session busy');
+        await expect(consume(api.sendMessage('s1', 'b', '/v'))).rejects.toThrow(t('provider.busy'));
         promptGate.resolve({ stopReason: 'cancelled' });
         await firstNext;
     });

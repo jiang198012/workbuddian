@@ -18,6 +18,10 @@ export interface StreamChunk {
     content: string;
     toolName?: string;
     toolDetail?: string;
+    /** ACP 工具调用 id：同 id 的后续 chunk 就地更新同一行（乙方案） */
+    toolCallId?: string;
+    /** 工具终态信号：仅 completed 时出现，携带 JSON 快照 detail 供 diff/撤销 */
+    toolStatus?: 'in_progress' | 'completed';
     usage?: UsageInfo;
 }
 
@@ -192,7 +196,7 @@ export class CodebuddyProvider {
             promptPromise = session.prompt(text, handlers);
         } catch (e) {
             clearTimeout(timer);
-            throw e; // session busy / not loaded
+            throw e;
         }
         promptPromise.then(({ stopReason }) => {
             clearTimeout(timer);
@@ -211,7 +215,8 @@ export class CodebuddyProvider {
             }
         }, (e: Error) => {
             clearTimeout(timer);
-            push({ error: e.message });
+            // session busy 走本地化文案（async 函数的"同步"throw 实际都落到这个拒绝分支）
+            push({ error: e.message === 'session busy' ? t('provider.busy') : e.message });
         });
 
         while (true) {
