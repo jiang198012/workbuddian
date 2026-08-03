@@ -218,3 +218,31 @@ describe('ConversationManager', () => {
         expect(manager.deleteLastExchange(conv.id)).toBeNull();
     });
 });
+
+describe('acpSessionId', () => {
+    it('setAcpSessionId stores id without persisting immediately', () => {
+        const manager = new ConversationManager();
+        const persist = jest.fn();
+        manager.setPersistCallback(persist);
+        const conv = manager.createConversation();
+        persist.mockClear();
+        expect(manager.setAcpSessionId(conv.id, 'acp-1')).toBe(true);
+        expect(manager.getById(conv.id)?.acpSessionId).toBe('acp-1');
+        expect(manager.setAcpSessionId('missing', 'acp-1')).toBe(false);
+        expect(persist).not.toHaveBeenCalled();
+    });
+
+    it('findBySessionId locates conversation by v1 sessionId', () => {
+        const manager = new ConversationManager();
+        const conv = manager.createConversation();
+        manager.setSessionId(conv.id, 'v1-uuid');
+        expect(manager.findBySessionId('v1-uuid')?.id).toBe(conv.id);
+        expect(manager.findBySessionId('nope')).toBeNull();
+    });
+
+    it('acpSessionId survives load roundtrip', () => {
+        const manager = new ConversationManager();
+        manager.load([{ id: 'c1', title: 't', sessionId: 's', acpSessionId: 'acp-9', messages: [], createdAt: 1, updatedAt: 1 }]);
+        expect(manager.getById('c1')?.acpSessionId).toBe('acp-9');
+    });
+});

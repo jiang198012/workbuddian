@@ -170,6 +170,22 @@ export class ConversationManager {
         return true;
     }
 
+    /** 回写 CLI 分配的 ACP 会话 id；与 setSessionId 一样不单独触发持久化，靠同轮后续 persist/flush 顺带落盘 */
+    setAcpSessionId(convId: string, acpSessionId: string): boolean {
+        const conv = this.conversations.get(convId);
+        if (!conv) return false;
+        conv.acpSessionId = acpSessionId;
+        return true;
+    }
+
+    /** 按 v1 sessionId（provider 会话 key）反查会话，供 provider 的 ConversationLookup 注入用 */
+    findBySessionId(sessionId: string): Conversation | null {
+        for (const conv of this.conversations.values()) {
+            if (conv.sessionId === sessionId) return conv;
+        }
+        return null;
+    }
+
     /** 记录对话最近一轮的 token 用量（流式内更新，随后 flush 持久化） */
     setUsage(convId: string, usage: UsageInfo): boolean {
         const conv = this.conversations.get(convId);

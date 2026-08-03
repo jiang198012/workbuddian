@@ -20,6 +20,8 @@ export interface Conversation {
     id: string;
     title: string;
     sessionId: string;
+    /** ACP 持久会话 id（CLI 分配，以此为准）；sessionId 保留为 v1 兼容字段 */
+    acpSessionId?: string;
     messages: ChatMessage[];
     createdAt: number;
     updatedAt: number;
@@ -44,7 +46,7 @@ export interface WorkbuddianSettings {
 }
 
 const CURRENT_SETTINGS_VERSION = 10;
-const DEFAULT_CONTEXT_WINDOW_SIZE = 200000;
+export const DEFAULT_CONTEXT_WINDOW_SIZE = 200000;
 const DEFAULT_PASTED_IMAGE_KEEP = 20;
 /** 粘贴图保留数量上限；0 表示不限制 */
 export const MAX_PASTED_IMAGE_KEEP = 500;
