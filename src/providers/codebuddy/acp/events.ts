@@ -37,15 +37,7 @@ export function summarizeRawInput(rawInput: unknown): string {
     }
 }
 
-/** tool_call_update 的 rawInput 增量累积：对象浅合并，非对象增量整体替换 */
-export function mergeRawInput(prev: unknown, increment: unknown): unknown {
-    if (!increment || typeof increment !== 'object' || Array.isArray(increment)) return increment ?? prev;
-    const base = prev && typeof prev === 'object' && !Array.isArray(prev) ? prev as Record<string, unknown> : {};
-    return { ...base, ...(increment as Record<string, unknown>) };
-}
-
-export function mapSessionUpdate(update: AcpUpdate): StreamChunk | null {
-    switch (update.sessionUpdate) {
+export function mapSessionUpdate(update: AcpUpdate): StreamChunk | null {    switch (update.sessionUpdate) {
         case 'agent_thought_chunk': {
             const text = textOf(update);
             return text === null ? null : { type: 'thinking', content: text };
@@ -56,12 +48,35 @@ export function mapSessionUpdate(update: AcpUpdate): StreamChunk | null {
         }
         case 'tool_call': {
             const toolName = extractToolName(update);
-            return { type: 'tool', content: '', toolName, toolDetail: summarizeRawInput(update.rawInput) };
+            const toolCallId = typeof update.toolCallId === 'string' ? update.toolCallId : undefined;
+            return { type: 'tool', content: '', toolName, toolCallId, toolDetail: summarizeRawInput(update.rawInput) };
         }
-        // tool_call_update 只进内部状态；usage/config 走旁路；info/checkpoint/commands/user echo 不进 UI
+        // usage/config 走旁路；info/checkpoint/commands/user echo 不进 UI；
+        // tool_call_update 由 mapToolCallUpdate 处理（需要调用方的快照累积）
         default:
             return null;
     }
+}
+
+/**
+ * tool_call_update 映射：snapshot 为该 toolCallId 的最新 rawInput 快照（调用方负责替换式累积）。
+ * 流式中（无 status）出摘要 chunk；status:'completed' 出 JSON 快照 chunk 供 diff/撤销。
+ */
+export function mapToolCallUpdate(update: AcpUpdate, snapshot: unknown): StreamChunk | null {
+    if (update.sessionUpdate !== 'tool_call_update') return null;
+    const toolCallId = typeof update.toolCallId === 'string' ? update.toolCallId : '';
+    if (!toolCallId) return null;
+    const toolName = extractToolName(update);
+    if (update.status === 'completed') {
+        let toolDetail = '';
+        try {
+            toolDetail = JSON.stringify(snapshot) ?? '';
+        } catch {
+            // 循环引用等异常情况：留空，UI 只更新行文本
+        }
+        return { type: 'tool', content: '', toolName, toolCallId, toolStatus: 'completed', toolDetail };
+    }
+    return { type: 'tool', content: '', toolName, toolCallId, toolDetail: summarizeRawInput(snapshot) };
 }
 
 export function mapUsageUpdate(update: AcpUpdate): { used: number; size: number } | null {

@@ -1,6 +1,6 @@
 import {
-    mapSessionUpdate, mapUsageUpdate, mapConfigUpdate,
-    extractToolName, summarizeRawInput, mergeRawInput, isReplayUpdate,
+    mapSessionUpdate, mapToolCallUpdate, mapUsageUpdate, mapConfigUpdate,
+    extractToolName, summarizeRawInput, isReplayUpdate,
 } from '../src/providers/codebuddy/acp/events';
 
 describe('mapSessionUpdate', () => {
@@ -15,12 +15,12 @@ describe('mapSessionUpdate', () => {
     it('returns null for non-text content blocks', () => {
         expect(mapSessionUpdate({ sessionUpdate: 'agent_message_chunk', content: { type: 'image', data: 'x' } })).toBeNull();
     });
-    it('maps tool_call to tool chunk with _meta toolName and rawInput summary', () => {
+    it('maps tool_call to tool chunk with _meta toolName, toolCallId and rawInput summary', () => {
         const chunk = mapSessionUpdate({
             sessionUpdate: 'tool_call', toolCallId: 'c1', title: 'Write', rawInput: { file_path: '/a/b.md' },
             _meta: { 'codebuddy.ai/toolName': 'Write' },
         });
-        expect(chunk).toEqual({ type: 'tool', content: '', toolName: 'Write', toolDetail: '/a/b.md' });
+        expect(chunk).toEqual({ type: 'tool', content: '', toolName: 'Write', toolCallId: 'c1', toolDetail: '/a/b.md' });
     });
     it.each(['tool_call_update', 'usage_update', 'config_option_update', 'current_mode_update',
         'session_info_update', 'available_commands_update', 'user_message_chunk'])('returns null for %s', (k) => {
@@ -28,7 +28,7 @@ describe('mapSessionUpdate', () => {
     });
 });
 
-describe('extractToolName / summarizeRawInput / mergeRawInput', () => {
+describe('extractToolName / summarizeRawInput', () => {
     it('prefers _meta codebuddy toolName over title', () => {
         expect(extractToolName({ title: 'Write', _meta: { 'codebuddy.ai/toolName': 'Write' } })).toBe('Write');
         expect(extractToolName({ title: 'Bash' })).toBe('Bash');
@@ -43,11 +43,6 @@ describe('extractToolName / summarizeRawInput / mergeRawInput', () => {
         const long = summarizeRawInput({ data: 'x'.repeat(200) });
         expect(long.length).toBeLessThanOrEqual(120);
         expect(long.endsWith('...')).toBe(true);
-    });
-    it('merges rawInput increments shallowly', () => {
-        expect(mergeRawInput({ file_path: 'a' }, { content: 'x' })).toEqual({ file_path: 'a', content: 'x' });
-        expect(mergeRawInput(null, { a: 1 })).toEqual({ a: 1 });
-        expect(mergeRawInput({ a: 1 }, null)).toEqual({ a: 1 });
     });
 });
 
@@ -72,5 +67,30 @@ describe('mapUsageUpdate / mapConfigUpdate / isReplayUpdate', () => {
     it('detects history replay via _meta mode', () => {
         expect(isReplayUpdate({ _meta: { 'codebuddy.ai': { mode: 'history' } } })).toBe(true);
         expect(isReplayUpdate({})).toBe(false);
+    });
+});
+
+describe('mapToolCallUpdate', () => {
+    it('returns null for non tool_call_update or missing toolCallId', () => {
+        expect(mapToolCallUpdate({ sessionUpdate: 'usage_update' }, {})).toBeNull();
+        expect(mapToolCallUpdate({ sessionUpdate: 'tool_call_update' }, {})).toBeNull();
+    });
+    it('maps streaming update to summary chunk with toolCallId', () => {
+        const chunk = mapToolCallUpdate(
+            { sessionUpdate: 'tool_call_update', toolCallId: 'c1', _meta: { 'codebuddy.ai/toolName': 'Write' } },
+            { file_path: '/a/b.md', content: 'l1\nl2' },
+        );
+        expect(chunk).toEqual({ type: 'tool', content: '', toolName: 'Write', toolCallId: 'c1', toolDetail: '/a/b.md' });
+    });
+    it('maps completed update to JSON detail chunk with toolStatus', () => {
+        const snapshot = { file_path: '/a/b.md', content: 'l1' };
+        const chunk = mapToolCallUpdate(
+            { sessionUpdate: 'tool_call_update', toolCallId: 'c1', status: 'completed', _meta: { 'codebuddy.ai/toolName': 'Write' } },
+            snapshot,
+        );
+        expect(chunk).toEqual({
+            type: 'tool', content: '', toolName: 'Write', toolCallId: 'c1',
+            toolStatus: 'completed', toolDetail: JSON.stringify(snapshot),
+        });
     });
 });
