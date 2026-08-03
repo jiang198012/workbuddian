@@ -1,6 +1,5 @@
 import { Notice, Plugin } from 'obsidian';
 import { CodebuddyProvider } from './providers/codebuddy';
-import { fetchModels } from './providers/codebuddy/models';
 import { WorkbuddianChatView, VIEW_TYPE_CHAT } from './features/chat/view';
 import { ConversationManager } from './core/session/manager';
 import { migrateSettings, normalizePersistedData, type WorkbuddianSettings, type PersistedData } from './types';
@@ -32,9 +31,6 @@ export default class WorkbuddianPlugin extends Plugin {
             this.api = new CodebuddyProvider();
             this.applySettingsToApi();
 
-            // 后台刷新可用模型列表，不阻塞启动；失败时保留硬编码兜底
-            void this.refreshAvailableModels();
-
             // 所有聊天视图共享同一个 ConversationManager 实例，避免侧边栏 + 主编辑区
             // 两个面板同时打开时各自持有独立内存状态、互相用旧快照覆盖对方的改动
             this.manager = new ConversationManager();
@@ -42,6 +38,15 @@ export default class WorkbuddianPlugin extends Plugin {
                 const data = normalizePersistedData(await this.loadData());
                 data.conversations = conversations;
                 await this.saveData(data);
+            });
+
+            // provider 懒加载/回写 ACP 会话 id 的桥（Conversation.acpSessionId 为唯一真相）
+            this.api.setConversationLookup({
+                getAcpSessionId: (key) => this.manager.findBySessionId(key)?.acpSessionId,
+                setAcpSessionId: (key, id) => {
+                    const conv = this.manager.findBySessionId(key);
+                    if (conv) this.manager.setAcpSessionId(conv.id, id);
+                },
             });
 
             // 注册聊天视图
@@ -96,7 +101,7 @@ export default class WorkbuddianPlugin extends Plugin {
     }
 
     onunload() {
-        this.api.cancel();
+        this.api.dispose();
         applyPrimaryColor('');
     }
 
@@ -115,17 +120,6 @@ export default class WorkbuddianPlugin extends Plugin {
         this.api.setNodePath(this.settings.nodePath);
         this.api.setModel(this.settings.model);
         this.api.setPermissionMode(this.settings.permissionMode);
-    }
-
-    private async refreshAvailableModels(): Promise<void> {
-        try {
-            const result = await fetchModels(this.api.getScriptPath(), this.settings.nodePath);
-            if (result.source === 'cli') {
-                this.api.setAvailableModels(result.models);
-            }
-        } catch (e) {
-            bbError('[WB] 拉取模型列表失败:', e);
-        }
     }
 
     async activateView() {
