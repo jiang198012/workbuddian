@@ -1,5 +1,5 @@
-import { Menu, MarkdownRenderer, Notice, setIcon, setTooltip, TFile } from 'obsidian';
-import { getErrorMessage } from '../../types';
+import { Menu, Notice, setIcon, setTooltip, TFile } from 'obsidian';
+import { getErrorMessage, DEFAULT_CONTEXT_WINDOW_SIZE } from '../../types';
 import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shared/atReferences';
 import { shouldSendMessage, isActivationKey, nextSuggestIndex } from '../../shared/inputKeys';
 import { assembleContextText } from '../../core/context/assembleContext';
@@ -8,8 +8,9 @@ import { renderMessages, renderMarkdownContent, scrollToBottom } from './render'
 import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
 import { fileBasename, buildAttachmentBlock, attachmentDirs } from '../../shared/attachments';
-import { parseFileChange, isPlanFilePath, type FileEdit } from '../../shared/toolDetail';
+import { parseFileChange, type FileEdit } from '../../shared/toolDetail';
 import { lineDiff } from '../../shared/lineDiff';
+import { pickOptionId, type PermissionCardData, type PermissionDetail } from '../../providers/codebuddy/acp/permission';
 import { extForMime, mimeForExt, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
 import { parseInstructionInput } from '../../shared/instruction';
 import { openInstructionModal } from './instructionModal';
@@ -233,48 +234,95 @@ function undoEdit(change: FileEdit, btn: HTMLButtonElement) {
 }
 
 /**
- * 计划模式下渲染计划卡片：CLI 提交计划走 DeferExecuteTool，在 --print 非交互模式下必被拒绝
- * （`permission prompts are not available in non-interactive mode`），原会话无法原生批准继续执行。
- * 「按此执行」因此不是「批准原计划」，而是把计划正文以 acceptEdits 权限模式重新发起一轮——
- * 这会自动接受该轮 CLI 提出的全部编辑，不限于计划里列出的那些。acceptEdits 仅作为这一次
- * sendMessage 调用的覆盖值传给 provider，不修改用户在工具栏配置的权限模式，因此也无需在
- * 执行完毕后做任何恢复。
+ * ACP 权限请求 → 气泡内批准卡（复用 v1.5.0 卡片样式体系）：Write→路径+行数、Edit→路径+diff 预览、
+ * Bash→命令全文；DeferExecuteTool 特化为「计划已就绪」。点击即 respondPermission 应答 CLI；
+ * 卡片应答后留存供回看（批准历史），悬挂卡在面板关闭/切会话/卸载时由 view 统一答 reject。
  */
-async function renderPlanCard(view: WorkbuddianChatView, container: HTMLElement, planText: string): Promise<void> {
-    const card = container.createDiv({ cls: 'workbuddian-plan-card' });
-    card.createDiv({ cls: 'workbuddian-plan-card-title', text: t('plan.cardTitle') });
-    const body = card.createDiv({ cls: 'workbuddian-plan-card-body' });
-    await MarkdownRenderer.render(view.app, planText, body, '', view.markdownComponent);
+async function renderApprovalCard(view: WorkbuddianChatView, container: HTMLElement, data: PermissionCardData): Promise<void> {
+    const card = container.createDiv({ cls: 'workbuddian-approval-card workbuddian-approval-card-pending' });
+    card.createDiv({
+        cls: 'workbuddian-approval-card-title',
+        text: data.isPlanApproval ? t('approval.planReady') : `${t('approval.title')}: ${data.toolName}`,
+    });
+    if (data.detail.kind !== 'plan') {
+        // 计划正文已作为 message chunk 流在上方气泡，无需在卡里重复
+        renderApprovalDetail(card.createDiv({ cls: 'workbuddian-approval-card-body' }), data.detail);
+    }
 
-    const actions = card.createDiv({ cls: 'workbuddian-plan-card-actions' });
-    const executeBtn = actions.createEl('button', { text: t('plan.execute') });
-    const dismissBtn = actions.createEl('button', { text: t('plan.dismiss') });
-    card.createDiv({ cls: 'workbuddian-plan-card-note', text: t('plan.note') });
-
-    executeBtn.onclick = async () => {
-        // disabled 在任何 await 之前同步置位，挡「连点这个按钮本身」——sendText 内部要经过一次
-        // await 才会把 isStreaming 置真，仅靠 isStreaming 挡不住这个窗口期内的第二次点击；
-        // C1 修好之后气泡不再于流式结束时被整体销毁，按钮得以存活到本轮结束之后。
-        // 因此 isStreaming 在这里恢复了它本来的意义：卡片可能在流式中途就渲染出来，
-        // 此时点执行会嵌套调用 sendText——内层的 renderMessages 会摧毁外层仍在写入的气泡，
-        // 且 provider 只跟踪一个 activeProc，Stop 只能杀掉两个并发进程中较新的那个。
-        if (executeBtn.disabled || view.isStreaming) return;
-        executeBtn.disabled = true;
-        // 必须用 acceptEdits 而不是 default：default 是「每步询问」，而 --print 非交互模式下
-        // 根本无从询问，写操作会被 CLI 直接拒绝（与 ExitPlanMode 被拒是同一原因），
-        // 结果就是「点了执行、跑了一轮、文件却没动」。acceptEdits 自动接受编辑，
-        // 语义上恰好对应「用户已经看过计划并批准了」，也比 bypassPermissions 保守。
-        // 作为 sendText 的一次性覆盖值传入，不写 view.settings.permissionMode 也不调用
-        // view.api.setPermissionMode——两者都是两个面板共享的实例，写了就会泄漏到另一个
-        // 面板正在发送的普通消息上（见 C1），也不再需要事后恢复。
-        await sendText(view, planText, 'acceptEdits');
-    };
-    dismissBtn.onclick = () => card.remove();
+    const actions = card.createDiv({ cls: 'workbuddian-approval-card-actions' });
+    const rejectId = pickOptionId(data.options, 'reject') ?? 'reject';
+    view.pendingApprovals.set(data.requestId, rejectId);
+    const defs: Array<{ label: string; kind: 'allow_once' | 'allow_always' | 'reject'; resolved: string; cta?: boolean }> = data.isPlanApproval
+        ? [
+            { label: t('approval.execute'), kind: 'allow_once', resolved: t('approval.resolvedAllow'), cta: true },
+            { label: t('approval.alwaysExecute'), kind: 'allow_always', resolved: t('approval.resolvedAlways') },
+            { label: t('approval.cancel'), kind: 'reject', resolved: t('approval.resolvedReject') },
+        ]
+        : [
+            { label: t('approval.allow'), kind: 'allow_once', resolved: t('approval.resolvedAllow'), cta: true },
+            { label: t('approval.alwaysAllow'), kind: 'allow_always', resolved: t('approval.resolvedAlways') },
+            { label: t('approval.reject'), kind: 'reject', resolved: t('approval.resolvedReject') },
+        ];
+    let responded = false;
+    for (const def of defs) {
+        const btn = actions.createEl('button', { text: def.label, cls: def.cta ? 'mod-cta' : '' });
+        btn.onclick = () => {
+            if (responded) return;
+            const optionId = pickOptionId(data.options, def.kind);
+            if (!optionId) return;
+            responded = true;
+            view.pendingApprovals.delete(data.requestId);
+            view.api.respondPermission(data.requestId, optionId);
+            card.removeClass('workbuddian-approval-card-pending');
+            actions.empty();
+            card.createDiv({ cls: 'workbuddian-approval-card-resolved', text: def.resolved });
+        };
+    }
 }
 
-/** CLI 因 DeferExecuteTool（ExitPlanMode）被拒而返回的报错：计划卡片自带的说明已覆盖该情形，不再作为错误展示 */
-function isDeferExecuteRejection(text: string): boolean {
-    return text.includes('DeferExecuteTool') && text.includes('non-interactive');
+function renderApprovalDetail(body: HTMLElement, detail: PermissionDetail): void {
+    switch (detail.kind) {
+        case 'write':
+            body.setText(t('approval.writeLines').replace('{path}', detail.path).replace('{count}', String(detail.lines)));
+            return;
+        case 'edit': {
+            body.createDiv({ cls: 'workbuddian-approval-card-path', text: detail.path });
+            const diffEl = body.createDiv({ cls: 'workbuddian-tool-diff-body' });
+            for (const line of lineDiff(detail.oldText, detail.newText)) {
+                const prefix = line.type === 'add' ? '+ ' : line.type === 'remove' ? '- ' : '  ';
+                diffEl.createDiv({
+                    cls: `workbuddian-diff-line workbuddian-diff-${line.type}`,
+                    text: prefix + line.text,
+                });
+            }
+            return;
+        }
+        case 'bash':
+            body.createEl('pre', { cls: 'workbuddian-approval-card-cmd', text: detail.command });
+            return;
+        case 'generic':
+            body.setText(detail.summary);
+            return;
+        default:
+            return;
+    }
+}
+
+/** CLI 为真相源：config_option_update 回流时同步工具栏与 settings（不回调 api.set*，避免回环） */
+function applyToolbarConfig(view: WorkbuddianChatView, cfg: { mode?: string; model?: string }): void {
+    let changed = false;
+    if (cfg.mode && (PERMISSION_MODE_CHOICES as readonly string[]).includes(cfg.mode) && cfg.mode !== view.settings.permissionMode) {
+        view.settings.permissionMode = cfg.mode as PermissionMode;
+        setIcon(view.permissionBtn, permissionIcon(view.settings.permissionMode));
+        view.permissionBtn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + view.settings.permissionMode)}`);
+        changed = true;
+    }
+    if (cfg.model && cfg.model !== view.settings.model) {
+        view.settings.model = cfg.model;
+        view.containerEl.querySelector('.workbuddian-model-btn')?.setText(cfg.model);
+        changed = true;
+    }
+    if (changed) void view.saveSettingsCallback();
 }
 
 /** 粘贴图存储目录：<vault>/.obsidian/plugins/workbuddian/pasted */
@@ -323,8 +371,9 @@ export function announce(view: WorkbuddianChatView, text: string) {
     window.setTimeout(() => view.liveRegionEl.setText(text), 50);
 }
 
-/** 刷新工具栏的上下文用量圆环：无 usage 数据时隐藏，有则更新占比、悬停提示与警示态 */
-export function renderContextUsage(view: WorkbuddianChatView) {
+/** 刷新工具栏的上下文用量圆环：无 usage 数据时隐藏，有则更新占比、悬停提示与警示态。
+ *  窗口取值：用户改过 contextWindowSize 以用户值为准，否则用 CLI 上报的真实窗口（usage_update） */
+export function renderContextUsage(view: WorkbuddianChatView, cliWindowSize?: number) {
     const usage = view.getActiveConversation()?.lastUsage;
     if (!usage) {
         view.usageEl.addClass('workbuddian-hidden');
@@ -334,7 +383,10 @@ export function renderContextUsage(view: WorkbuddianChatView) {
         view.usageEl.removeAttribute('aria-label');
         return;
     }
-    const windowSize = view.settings.contextWindowSize;
+    const userWindow = view.settings.contextWindowSize;
+    const windowSize = userWindow !== DEFAULT_CONTEXT_WINDOW_SIZE
+        ? userWindow
+        : (cliWindowSize ?? view.cliWindowSize ?? userWindow);
     const percent = contextPercent(usage.inputTokens, windowSize);
     view.usageEl.removeClass('workbuddian-hidden');
     view.usageEl.style.setProperty('--workbuddian-usage-pct', String(percent));
@@ -659,8 +711,6 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
     let thinkingContent = '';
     let textContent = '';
     let resultText = '';
-    let planCardRendered = false;
-    let rejectionSwallowed = false;
     const chunkStats: Record<string, number> = {};
     try {
         let contextText: string;
@@ -671,7 +721,8 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         } else {
             const referenceBlock = await buildReferenceBlock(view, text);
             const attachmentBlock = buildAttachmentBlock(view.attachments);
-            // 放开 vault 外附件所在目录的读取权限（清空 view.attachments 前先算好）
+            // v1 用这些目录拼 --add-dir 放开读取权限；v2（ACP）起 provider 忽略 addDirs（占位兼容），
+            // vault 外文件 Read 改由 CLI 在 default 模式弹批准卡
             addDirs = attachmentDirs(view.attachments);
             const selectionBlock = view.selection ? buildSelectionBlock(view.selection.text, view.selection.note) : '';
             const extraBlock = [referenceBlock, attachmentBlock, selectionBlock].filter(Boolean).join('\n\n---\n\n');
@@ -692,6 +743,19 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         if (!(streamingBubble instanceof HTMLElement)) {
             throw new Error(t('input.bubbleNotFound'));
         }
+
+        // ACP 旁路注册：批准卡渲染进当前 assistant 气泡区；用量/配置回流按会话 key 路由到本面板
+        const sessionKey = conv.sessionId;
+        const msgEl = streamingBubble.closest('.workbuddian-message-assistant');
+        view.api.onPermissionRequest(sessionKey, (data) => {
+            if (msgEl instanceof HTMLElement) void renderApprovalCard(view, msgEl as HTMLElement, data);
+        });
+        view.api.onUsage(sessionKey, (used, size) => {
+            view.cliWindowSize = size;
+            view.manager.setUsage(convId, { inputTokens: used });
+            renderContextUsage(view, size);
+        });
+        view.api.onConfigUpdate(sessionKey, (cfg) => applyToolbarConfig(view, cfg));
 
         for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride)) {
             const bubble = streamingBubble;
@@ -784,12 +848,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                     });
 
                     const change = parseFileChange(toolName, toolDetail);
-                    if (change && change.kind === 'write' && isPlanFilePath(change.path)) {
-                        // 计划模式下 CLI 把计划写到 ~/.codebuddy/plans/*.md：不渲染 diff，改渲染计划卡片；
-                        // 计划卡片是主要操作入口，不能被折叠的工具列表挡住，渲染进 bubble 而非 list（见 C1）
-                        await renderPlanCard(view, bubble, change.newText);
-                        planCardRendered = true;
-                    } else if (change) {
+                    if (change) {
                         const diffLines = change.kind === 'write'
                             ? lineDiff('', change.newText)
                             : lineDiff(change.oldText, change.newText);
@@ -852,25 +911,14 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                 view.manager.updateMessage(convId, aiMsg.id, textContent, true);
                 await renderMarkdownContent(view, bubble, textContent);
             } else if (chunk.type === 'error') {
-                // 计划模式下 ExitPlanMode 被 CLI 拒绝的报错：计划卡片自带的说明已覆盖该情形，静默忽略；
-                // 但记下"确实吞掉过一次拒绝"，供收尾时判断计划卡片是否真的渲染出来了（见 I2）
-                if (isDeferExecuteRejection(chunk.content)) {
-                    rejectionSwallowed = true;
-                } else {
-                    view.manager.setError(convId, aiMsg.id, chunk.content);
-                    new Notice(`${t('input.requestFailed')}: ${chunk.content}`);
-                }
+                view.manager.setError(convId, aiMsg.id, chunk.content);
+                new Notice(`${t('input.requestFailed')}: ${chunk.content}`);
             } else if (chunk.type === 'done') {
                 // result 事件带的 token 用量 → 存入会话，供上下文指示器渲染（末尾 flush 持久化）
                 if (chunk.usage) view.manager.setUsage(convId, chunk.usage);
-                // result 事件里的最终文本作兜底：有些回复只在这里给正文，不走流式 text chunk；
-                // 同样要挡掉 ExitPlanMode 的拒绝报错，避免它被当成正文展示出来（同样记一笔，见 I2）
+                // result 事件里的最终文本作兜底：有些回复只在这里给正文，不走流式 text chunk
                 if (chunk.content) {
-                    if (isDeferExecuteRejection(chunk.content)) {
-                        rejectionSwallowed = true;
-                    } else {
-                        resultText = chunk.content;
-                    }
+                    resultText = chunk.content;
                 }
             }
         }
@@ -882,14 +930,12 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         if (!finalContent) {
             // 诊断：本轮各类 chunk 计数 + result 文本长度，便于判断是纯工具轮/超时/真空回复
             bbLog('[WB] empty response — chunks:', JSON.stringify(chunkStats), '| resultLen:', resultText.length);
-            // 计划模式下 ExitPlanMode 被拒且计划卡片确实没渲染出来：用户看到的不该是笼统的
-            // 「无响应，请重试」，而是「非交互模式下无法原生批准计划」+ 可操作的建议（见 I2）
-            displayContent = (rejectionSwallowed && !planCardRendered) ? t('plan.notApprovable') : t('input.noResponse');
+            displayContent = t('input.noResponse');
             view.manager.updateMessage(convId, aiMsg.id, displayContent);
         }
 
-        // C1：这里不再整体 renderMessages——它会连带销毁本轮刚建好的工具行/diff/计划卡片，
-        // 且发生在 view.isStreaming 置假之前，导致计划卡片的执行按钮永远等不到可用窗口。
+        // C1：这里不再整体 renderMessages——它会连带销毁本轮刚建好的工具行/diff/批准卡，
+        // 且发生在 view.isStreaming 置假之前，批准卡按钮会因此等不到可用窗口。
         // text chunk 已经在流式过程中增量渲染进 bubble；只有最终内容退回到了 thinking/result
         // 兜底或上面的空态兜底文案时，bubble 里还没有对应内容，才需要在这里补渲染一次。
         if (!textContent) {

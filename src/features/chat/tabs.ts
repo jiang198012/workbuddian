@@ -15,6 +15,7 @@ export async function createNewChat(view: WorkbuddianChatView) {
 
 export async function switchToChat(view: WorkbuddianChatView, id: string) {
     if (!view.manager.getById(id)) return;
+    view.rejectPendingApprovals(); // 悬挂批准卡不切走：统一答 reject，不悬挂到 CLI 侧干等
     view.activeConvId = id;
     renderTabs(view);
     await renderMessages(view);

@@ -28,9 +28,3 @@ export function parseFileChange(toolName: string, toolDetail: string): FileChang
     }
     return null;
 }
-
-/** 是否 CodeBuddy 写出的计划文件（.codebuddy/plans 下的 .md），跨平台兼容 / 与 \ */
-export function isPlanFilePath(p: string): boolean {
-    const norm = p.replace(/\\/g, '/');
-    return norm.includes('/.codebuddy/plans/') && norm.endsWith('.md');
-}

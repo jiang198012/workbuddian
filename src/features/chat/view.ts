@@ -29,6 +29,10 @@ export class WorkbuddianChatView extends ItemView {
     tabBar!: HTMLElement;
     isStreaming: boolean = false;
     streamingMsgId: string | null = null;
+    /** 本面板悬挂的批准卡：requestId → 兜底 reject optionId（关面板/切会话/卸载时统一答 reject） */
+    pendingApprovals = new Map<number, string>();
+    /** CLI usage_update 上报的真实上下文窗口（用户未自定义 contextWindowSize 时优先于设置值） */
+    cliWindowSize: number | undefined;
     activeRename: { input: HTMLInputElement; commit: () => void } | null = null;
     activeConvId: string | null = null;
     markdownComponent: Component;
@@ -210,7 +214,8 @@ export class WorkbuddianChatView extends ItemView {
         setIcon(this.sendBtn, 'send');
         this.sendBtn.onclick = () => {
             if (this.isStreaming) {
-                this.api.cancel();
+                // ACP 定向 cancel：只停本面板会话的在飞轮次，不误杀另一面板（v1 共享进程误杀已消灭）
+                this.api.cancel(this.getActiveConversation()?.sessionId);
             } else {
                 void sendMessage(this);
             }
@@ -238,7 +243,14 @@ export class WorkbuddianChatView extends ItemView {
         this.instructionBtn.setAttribute('aria-label', label);
     }
 
+    /** 面板关闭/切会话/卸载前，把本面板悬挂的批准卡统一答 reject（批准请求不设超时，不能悬挂到 CLI 侧干等） */
+    rejectPendingApprovals(): void {
+        for (const [requestId, rejectId] of this.pendingApprovals) this.api.respondPermission(requestId, rejectId);
+        this.pendingApprovals.clear();
+    }
+
     async onClose() {
+        this.rejectPendingApprovals();
         this.markdownComponent.unload();
     }
 

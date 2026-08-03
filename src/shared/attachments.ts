@@ -12,7 +12,9 @@ export function fileDir(p: string): string {
     return p.slice(0, idx);
 }
 
-/** 附件绝对路径 → 去重后的父目录列表，供 CLI 用 --add-dir 放开这些目录的读取权限 */
+/** 附件绝对路径 → 去重后的父目录列表。
+ *  v1 用于 --add-dir 放开读取权限；v2（ACP）起该 hack 退役，provider 保留形参占位但不再消费，
+ *  vault 外文件 Read 由 CLI 在 default 模式弹批准卡 */
 export function attachmentDirs(paths: string[]): string[] {
     return [...new Set(paths.map(fileDir))];
 }

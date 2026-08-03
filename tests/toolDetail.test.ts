@@ -1,4 +1,4 @@
-import { parseFileChange, isPlanFilePath } from '../src/shared/toolDetail';
+import { parseFileChange } from '../src/shared/toolDetail';
 
 describe('parseFileChange', () => {
     it('parses an Edit into old/new text', () => {
@@ -21,18 +21,5 @@ describe('parseFileChange', () => {
         expect(parseFileChange('Write', JSON.stringify({ content: 'x' }))).toBeNull();
         expect(parseFileChange('Edit', 'not json')).toBeNull();
         expect(parseFileChange('Edit', '')).toBeNull();
-    });
-});
-
-describe('isPlanFilePath', () => {
-    it('recognises CodeBuddy plan files', () => {
-        expect(isPlanFilePath('/Users/x/.codebuddy/plans/swift-forging-newton.md')).toBe(true);
-        expect(isPlanFilePath('C:\\Users\\x\\.codebuddy\\plans\\a.md')).toBe(true);
-    });
-
-    it('rejects everything else', () => {
-        expect(isPlanFilePath('/Users/x/.codebuddy/plans/notes.txt')).toBe(false);
-        expect(isPlanFilePath('/Users/x/notes/plans/a.md')).toBe(false);
-        expect(isPlanFilePath('')).toBe(false);
     });
 });

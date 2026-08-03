@@ -1010,11 +1010,14 @@
 .workbuddian-tool-diff .workbuddian-diff-remove { background: rgba(200, 40, 40, 0.15); }
 .workbuddian-tool-diff .workbuddian-diff-equal { opacity: 0.65; }
 
-/* 计划卡片 */
-.workbuddian-plan-card { border: 1px solid var(--workbuddian-primary, #C8B487); border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
-.workbuddian-plan-card-title { font-weight: 600; margin-bottom: 4px; }
-.workbuddian-plan-card-actions { display: flex; gap: 8px; margin-top: 8px; }
-.workbuddian-plan-card-note { font-size: 11px; opacity: 0.7; margin-top: 6px; }
+/* 批准卡（ACP 权限请求） */
+.workbuddian-approval-card { border: 1px solid var(--workbuddian-primary, #C8B487); border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
+.workbuddian-approval-card-pending { border-color: var(--interactive-accent); }
+.workbuddian-approval-card-title { font-weight: 600; margin-bottom: 4px; }
+.workbuddian-approval-card-actions { display: flex; gap: 8px; margin-top: 8px; }
+.workbuddian-approval-card-resolved { color: var(--text-muted); font-size: var(--font-ui-smaller); padding: 4px 0; }
+.workbuddian-approval-card-cmd { white-space: pre-wrap; word-break: break-all; margin: 4px 0; }
+.workbuddian-approval-card-path { color: var(--text-muted); margin-bottom: 4px; }
 
 /* ==================== 焦点环（键盘可达性） ==================== */
 /* 仅键盘 Tab 聚焦时显示（:focus-visible），鼠标点击不显示；限定在聊天容器内，不影响 Obsidian 其它 UI。
