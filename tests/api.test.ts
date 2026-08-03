@@ -1,457 +1,242 @@
-import { spawn } from 'child_process';
-import { CodebuddyProvider, parseStreamLine, parseMessageBlock, blockToChunk, parseStreamEvent, parseUsage, isWindowsWrapper, isBareFallback, needsWindowsShell, type StreamChunk } from '../src/providers/codebuddy';
+import { CodebuddyProvider, isWindowsWrapper, isBareFallback, needsWindowsShell, type StreamChunk } from '../src/providers/codebuddy';
+import { AcpClient, AcpStartError } from '../src/providers/codebuddy/acp/client';
 import { resolveCodebuddyPath, findNodeExecutable } from '../src/utils/cliPath';
+import { t } from '../src/i18n';
+import { makeFakeClient, deferred, flush, consume } from './helpers/fakeAcpClient';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-jest.mock('child_process');
-const mockedSpawn = spawn as jest.MockedFunction<typeof spawn>;
+jest.mock('../src/providers/codebuddy/acp/client', () => {
+    const actual = jest.requireActual('../src/providers/codebuddy/acp/client');
+    return { ...actual, AcpClient: jest.fn() };
+});
+const MockAcpClient = AcpClient as jest.MockedClass<typeof AcpClient>;
 
 jest.mock('fs', () => {
     const actualFs = jest.requireActual('fs');
     return { ...actualFs, existsSync: jest.fn(actualFs.existsSync) };
 });
 
-function createFakeProc() {
-    const handlers: Record<string, Function[]> = {};
-    const stdinWrites: string[] = [];
-    let stdinEnded = false;
-    const proc = {
-        stdin: {
-            write: (chunk: unknown) => {
-                stdinWrites.push(typeof chunk === 'string' ? chunk : String(chunk));
-                return true;
-            },
-            end: () => { stdinEnded = true; },
-            on: (event: string, cb: Function) => {
-                handlers[`stdin:${event}`] = handlers[`stdin:${event}`] || [];
-                handlers[`stdin:${event}`].push(cb);
+beforeEach(() => { MockAcpClient.mockReset(); });
+
+// ---------- provider v2 生成器契约 ----------
+
+describe('CodebuddyProvider v2 sendMessage', () => {
+    it('should create instance', () => {
+        makeFakeClient(MockAcpClient);
+        expect(new CodebuddyProvider()).toBeDefined();
+    });
+
+    it('streams chunks and ends with a done chunk carrying usage', async () => {
+        const { fake, events } = makeFakeClient(MockAcpClient);
+        fake.request.mockImplementation(async (method: string) => {
+            if (method === 'session/prompt') {
+                events().onSessionUpdate('acp-1', { sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: 'hmm' } });
+                events().onSessionUpdate('acp-1', { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'world' } });
+                events().onSessionUpdate('acp-1', { sessionUpdate: 'usage_update', used: 42, size: 168000 });
+                return { stopReason: 'end_turn' };
             }
-        },
-        stdout: {
-            on: (event: string, cb: Function) => {
-                handlers[`stdout:${event}`] = handlers[`stdout:${event}`] || [];
-                handlers[`stdout:${event}`].push(cb);
+            if (method === 'session/new') return { sessionId: 'acp-1' };
+            if (method === 'session/load') throw new Error('not found');
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        const chunks = await consume(api.sendMessage('s1', 'hello', '/v'));
+        expect(chunks).toEqual([
+            { type: 'thinking', content: 'hmm' },
+            { type: 'text', content: 'world' },
+            { type: 'done', content: '', usage: { inputTokens: 42 } },
+        ]);
+        // 懒加载链：先试 load 旧 uuid，失败后 session/new
+        expect(fake.request).toHaveBeenCalledWith('session/load', expect.objectContaining({ sessionId: 's1' }));
+        expect(fake.request).toHaveBeenCalledWith('session/new', expect.objectContaining({ cwd: '/v', mcpServers: [] }));
+    });
+
+    it('cancel(sessionId) sends session/cancel and ends generator silently without killing the process', async () => {
+        const { fake } = makeFakeClient(MockAcpClient);
+        const promptGate = deferred<{ stopReason: string }>();
+        fake.request.mockImplementation(async (method: string) => {
+            if (method === 'session/prompt') return promptGate.promise;
+            if (method === 'session/new') return { sessionId: 'acp-1' };
+            if (method === 'session/load') throw new Error('not found');
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        const gen = api.sendMessage('s1', 'hello', '/v');
+        const firstPromise = gen.next();
+        await flush();
+        api.cancel('s1');
+        expect(fake.notify).toHaveBeenCalledWith('session/cancel', { sessionId: 'acp-1' });
+        promptGate.resolve({ stopReason: 'cancelled' });
+        const first = await firstPromise;
+        expect(first.done).toBe(true); // cancelled → 静默结束，无 done chunk（对齐 v1）
+        expect(fake.dispose).not.toHaveBeenCalled(); // 进程保活
+    });
+
+    it('cancel() without args cancels every in-flight session', async () => {
+        const { fake } = makeFakeClient(MockAcpClient);
+        const gates = new Map<string, ReturnType<typeof deferred<{ stopReason: string }>>>();
+        let newCount = 0;
+        fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
+            if (method === 'session/prompt') {
+                const d = deferred<{ stopReason: string }>();
+                gates.set(String(params.sessionId), d);
+                return d.promise;
             }
-        },
-        stderr: {
-            on: (event: string, cb: Function) => {
-                handlers[`stderr:${event}`] = handlers[`stderr:${event}`] || [];
-                handlers[`stderr:${event}`].push(cb);
+            if (method === 'session/new') return { sessionId: `acp-${++newCount}` };
+            if (method === 'session/load') throw new Error('not found');
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        const gen1 = api.sendMessage('s1', 'a', '/v');
+        const gen2 = api.sendMessage('s2', 'b', '/v');
+        const p1 = gen1.next();
+        const p2 = gen2.next();
+        await flush();
+        api.cancel();
+        expect(fake.notify).toHaveBeenCalledWith('session/cancel', { sessionId: 'acp-1' });
+        expect(fake.notify).toHaveBeenCalledWith('session/cancel', { sessionId: 'acp-2' });
+        gates.get('acp-1')!.resolve({ stopReason: 'cancelled' });
+        gates.get('acp-2')!.resolve({ stopReason: 'cancelled' });
+        expect((await p1).done).toBe(true);
+        expect((await p2).done).toBe(true);
+    });
+
+    it('targeted cancel does not affect another in-flight session (双面板)', async () => {
+        const { fake, events } = makeFakeClient(MockAcpClient);
+        const gates = new Map<string, ReturnType<typeof deferred<{ stopReason: string }>>>();
+        let newCount = 0;
+        fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
+            if (method === 'session/prompt') {
+                const d = deferred<{ stopReason: string }>();
+                gates.set(String(params.sessionId), d);
+                return d.promise;
             }
-        },
-        on: (event: string, cb: Function) => {
-            handlers[event] = handlers[event] || [];
-            handlers[event].push(cb);
-        }
-    };
-    const emit = (source: string, event: string, ...args: unknown[]) => {
-        const key = source ? `${source}:${event}` : event;
-        handlers[key]?.forEach(cb => cb(...args));
-    };
-    return { proc, emit, stdinWrites, stdinEnded: () => stdinEnded };
-}
-
-describe('CodebuddyProvider', () => {
-    let api: CodebuddyProvider;
-    beforeEach(() => { api = new CodebuddyProvider(); });
-
-    it('should create instance', () => { expect(api).toBeDefined(); });
-    it('should accept custom timeout', () => { const a = new CodebuddyProvider(5000); expect(a).toBeDefined(); });
-    it('should generate valid UUID', () => { expect(api.generateId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i); });
-
-    describe('setCodebuddyPath', () => {
-        it('should not throw', () => { api.setCodebuddyPath(''); });
+            if (method === 'session/new') return { sessionId: `acp-${++newCount}` };
+            if (method === 'session/load') throw new Error('not found');
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        const chunks1: StreamChunk[] = [];
+        const chunks2: StreamChunk[] = [];
+        const c1 = (async () => { for await (const c of api.sendMessage('s1', 'a', '/v')) chunks1.push(c); })();
+        const c2 = (async () => { for await (const c of api.sendMessage('s2', 'b', '/v')) chunks2.push(c); })();
+        await flush();
+        api.cancel('s1');
+        expect(fake.notify).toHaveBeenCalledWith('session/cancel', { sessionId: 'acp-1' });
+        expect(fake.notify).not.toHaveBeenCalledWith('session/cancel', { sessionId: 'acp-2' });
+        gates.get('acp-1')!.resolve({ stopReason: 'cancelled' });
+        // s2 继续正常流式
+        events().onSessionUpdate('acp-2', { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'still going' } });
+        gates.get('acp-2')!.resolve({ stopReason: 'end_turn' });
+        await Promise.all([c1, c2]);
+        expect(chunks1).toEqual([]);
+        expect(chunks2.map((c) => c.type)).toEqual(['text', 'done']);
+        expect(chunks2[0].content).toBe('still going');
     });
 
-    describe('cancel', () => {
-        it('should not throw', () => { api.cancel(); });
+    it('times out a turn with session/cancel + turnTimeout error, process stays alive', async () => {
+        const { fake } = makeFakeClient(MockAcpClient);
+        fake.request.mockImplementation(async (method: string) => {
+            if (method === 'session/prompt') return new Promise(() => { /* 永不落账 */ });
+            if (method === 'session/new') return { sessionId: 'acp-1' };
+            if (method === 'session/load') throw new Error('not found');
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        api.setTimeout(50);
+        await expect(consume(api.sendMessage('s1', 'slow', '/v'))).rejects.toThrow(t('provider.turnTimeout'));
+        expect(fake.notify).toHaveBeenCalledWith('session/cancel', { sessionId: 'acp-1' });
+        expect(fake.dispose).not.toHaveBeenCalled();
     });
 
-    describe('sendMessage', () => {
-        beforeEach(() => {
-            mockedSpawn.mockClear();
+    it('surfaces preflight failure as thrown localized error', async () => {
+        const { fake } = makeFakeClient(MockAcpClient);
+        fake.ensureStarted.mockRejectedValue(new AcpStartError('acp-unsupported', 'unrecognized option'));
+        const api = new CodebuddyProvider();
+        await expect(consume(api.sendMessage('s1', 'x', '/v'))).rejects.toThrow(t('provider.acpUnsupported'));
+    });
+
+    it('surfaces cli-not-found tier with v1 wording', async () => {
+        const { fake } = makeFakeClient(MockAcpClient);
+        fake.ensureStarted.mockRejectedValue(new AcpStartError('cli-not-found', 'ENOENT'));
+        const api = new CodebuddyProvider();
+        await expect(consume(api.sendMessage('s1', 'x', '/v'))).rejects.toThrow(t('provider.cliNotFound'));
+    });
+
+    it('fails in-flight turn on process death and recovers via session/load on next send', async () => {
+        const { fake, events } = makeFakeClient(MockAcpClient);
+        const promptGate = deferred<{ stopReason: string }>();
+        let loadShouldFail = true;
+        fake.request.mockImplementation(async (method: string) => {
+            if (method === 'session/prompt') return promptGate.promise;
+            if (method === 'session/new') return { sessionId: 'acp-1' };
+            if (method === 'session/load') {
+                if (loadShouldFail) throw new Error('not found');
+                return {};
+            }
+            return {};
         });
+        const api = new CodebuddyProvider();
+        const dying = consume(api.sendMessage('s1', 'x', '/v'));
+        await flush();
+        const assertion = expect(dying).rejects.toThrow(t('provider.processDied'));
+        events().onExit(1, null);
+        promptGate.reject(new Error('acp process exited')); // client 死亡时 pending 请求一并拒绝
+        await assertion;
 
-        it('streams text chunks from child process', async () => {
-            const { proc, emit } = createFakeProc();
-            mockedSpawn.mockReturnValue(proc as any);
-
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
-            const gen = api.sendMessage('session-1', 'hello');
-
-            const firstPromise = gen.next();
-            emit('stdout', 'data', Buffer.from(JSON.stringify({ type: 'text', text: 'world' }) + '\n'));
-            const first = await firstPromise;
-            expect(first.done).toBe(false);
-            expect(first.value).toEqual({ type: 'text', content: 'world' });
-
-            const secondPromise = gen.next();
-            emit('', 'close', 0, null);
-            const second = await secondPromise;
-            expect(second.done).toBe(true);
+        // 第二轮：进程已重启（ensureStarted 再 resolve），受影响会话 session/load 恢复
+        loadShouldFail = false;
+        fake.request.mockImplementation(async (method: string) => {
+            if (method === 'session/prompt') {
+                events().onSessionUpdate('acp-1', { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'back' } });
+                return { stopReason: 'end_turn' };
+            }
+            if (method === 'session/load') return {};
+            return {};
         });
+        const chunks = await consume(api.sendMessage('s1', 'again', '/v'));
+        expect(fake.request).toHaveBeenCalledWith('session/load', expect.objectContaining({ sessionId: 'acp-1' }));
+        expect(chunks.map((c) => c.type)).toEqual(['text', 'done']);
+    });
 
-        it('throws when stderr is non-empty and stdout is empty', async () => {
-            const { proc, emit } = createFakeProc();
-            mockedSpawn.mockReturnValue(proc as any);
-
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
-            const gen = api.sendMessage('session-2', 'hello');
-
-            const firstPromise = gen.next();
-            emit('stderr', 'data', Buffer.from('command not found'));
-            emit('', 'close', 1, null);
-            await expect(firstPromise).rejects.toThrow('command not found');
+    it('rejects a second send on the same session while busy', async () => {
+        const { fake } = makeFakeClient(MockAcpClient);
+        const promptGate = deferred<{ stopReason: string }>();
+        fake.request.mockImplementation(async (method: string) => {
+            if (method === 'session/prompt') return promptGate.promise;
+            if (method === 'session/new') return { sessionId: 'acp-1' };
+            if (method === 'session/load') throw new Error('not found');
+            return {};
         });
+        const api = new CodebuddyProvider();
+        const first = api.sendMessage('s1', 'a', '/v');
+        const firstNext = first.next();
+        await flush();
+        await expect(consume(api.sendMessage('s1', 'b', '/v'))).rejects.toThrow('session busy');
+        promptGate.resolve({ stopReason: 'cancelled' });
+        await firstNext;
+    });
 
-        it('cancel() kills the active process and ends the generator', async () => {
-            const { proc, emit } = createFakeProc();
-            (proc as any).kill = jest.fn();
-            mockedSpawn.mockReturnValue(proc as any);
+    it('ignores addDirs and permissionModeOverride (退役参数保留签名)', async () => {
+        const { fake } = makeFakeClient(MockAcpClient);
+        const api = new CodebuddyProvider();
+        const chunks = await consume(api.sendMessage('s1', 'x', '/v', ['/etc', '/tmp'], 'acceptEdits'));
+        expect(chunks.map((c) => c.type)).toEqual(['done']);
+        const promptCall = fake.request.mock.calls.find((c) => c[0] === 'session/prompt');
+        expect(JSON.stringify(promptCall)).not.toContain('add-dir');
+        expect(JSON.stringify(promptCall)).not.toContain('/etc');
+    });
 
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
-            const gen = api.sendMessage('session-3', 'hello');
-
-            const firstPromise = gen.next();
-            emit('stdout', 'data', Buffer.from(JSON.stringify({ type: 'text', text: 'partial' }) + '\n'));
-            await firstPromise;
-
-            api.cancel();
-            expect((proc as any).kill).toHaveBeenCalled();
-
-            const nextPromise = gen.next();
-            emit('', 'close', null, 'SIGTERM');
-            const result = await nextPromise;
-            expect(result.done).toBe(true);
-        });
-
-        it('sends the prompt via stdin, not as a CLI argument (large notes must not blow the Windows command-line limit → spawn ENAMETOOLONG)', async () => {
-            const { proc, emit, stdinWrites, stdinEnded } = createFakeProc();
-            mockedSpawn.mockReturnValue(proc as any);
-
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
-            // 远超 Windows 命令行上限（cmd.exe 8191 / CreateProcess 32767），若走参数必炸
-            const bigPrompt = 'x'.repeat(100000);
-            const gen = api.sendMessage('session-stdin', bigPrompt);
-
-            const firstPromise = gen.next();
-            emit('', 'close', 0, null);
-            await firstPromise;
-
-            const [, cliArgs, spawnOptions] = mockedSpawn.mock.calls[0];
-            // prompt 绝不能作为命令行参数出现
-            expect(cliArgs).not.toContain(bigPrompt);
-            // 必须打开 stdin 管道，否则真实环境 proc.stdin 为 null
-            expect((spawnOptions as { stdio?: unknown[] }).stdio?.[0]).toBe('pipe');
-            // prompt 改从 stdin 写入并关闭（不 end 则 CLI 一直等输入不返回）
-            expect(stdinWrites.join('')).toContain(bigPrompt);
-            expect(stdinEnded()).toBe(true);
-        });
-
-        it('passes --include-partial-messages so the CLI streams SSE deltas', async () => {
-            const { proc, emit } = createFakeProc();
-            mockedSpawn.mockReturnValue(proc as any);
-
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
-            const gen = api.sendMessage('session-partial', 'hello');
-
-            const firstPromise = gen.next();
-            emit('', 'close', 0, null);
-            await firstPromise;
-
-            const [, cliArgs] = mockedSpawn.mock.calls[0];
-            expect(cliArgs).toContain('--include-partial-messages');
-        });
-
-        it('passes --add-dir before --session-id so the variadic does not swallow the message', async () => {
-            const { proc, emit } = createFakeProc();
-            mockedSpawn.mockReturnValue(proc as any);
-
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
-            const gen = api.sendMessage('session-adddir', 'my message', undefined, ['/Users/x/Desktop', '/tmp']);
-
-            const firstPromise = gen.next();
-            emit('', 'close', 0, null);
-            await firstPromise;
-
-            const [, cliArgs] = mockedSpawn.mock.calls[0];
-            const addIdx = cliArgs.indexOf('--add-dir');
-            const allowIdx = cliArgs.indexOf('--allowedTools');
-            const sessIdx = cliArgs.indexOf('--session-id');
-            expect(addIdx).toBeGreaterThanOrEqual(0);
-            expect(cliArgs).toContain('/Users/x/Desktop');
-            expect(cliArgs).toContain('/tmp');
-            // 每个目录配一条限定的只读授权规则（不是全局 Read，避免越界读任意文件）
-            expect(cliArgs).toContain('Read(/Users/x/Desktop/**)');
-            expect(cliArgs).toContain('Read(/tmp/**)');
-            expect(cliArgs).not.toContain('Read'); // 不应出现裸的全局 Read
-            // 两个变长参数都必须在 --session-id 之前；message 改走 stdin，不应出现在 cliArgs 里
-            expect(addIdx).toBeLessThan(sessIdx);
-            expect(allowIdx).toBeLessThan(sessIdx);
-            expect(cliArgs).not.toContain('my message');
-        });
-
-        it('omits --add-dir when no extra directories are given', async () => {
-            const { proc, emit } = createFakeProc();
-            mockedSpawn.mockReturnValue(proc as any);
-
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
-            const gen = api.sendMessage('session-nodir', 'hello');
-
-            const firstPromise = gen.next();
-            emit('', 'close', 0, null);
-            await firstPromise;
-
-            const [, cliArgs] = mockedSpawn.mock.calls[0];
-            expect(cliArgs).not.toContain('--add-dir');
-            // message 改走 stdin，不作为命令行参数
-            expect(cliArgs).not.toContain('hello');
-        });
-
-        it('passes the configured model to the CLI as --model', async () => {
-            const { proc, emit } = createFakeProc();
-            mockedSpawn.mockReturnValue(proc as any);
-
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
-            const gen = api.sendMessage('session-model', 'hello');
-
-            const firstPromise = gen.next();
-            emit('', 'close', 0, null);
-            await firstPromise;
-
-            const [, cliArgs] = mockedSpawn.mock.calls[0];
-            expect(cliArgs).toContain('--model');
-            expect(cliArgs).toContain('auto');
-        });
-
-        it('uses setModel() to override the model passed to the CLI', async () => {
-            const { proc, emit } = createFakeProc();
-            mockedSpawn.mockReturnValue(proc as any);
-
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
-            api.setModel('glm-5.2');
-            const gen = api.sendMessage('session-model-2', 'hello');
-
-            const firstPromise = gen.next();
-            emit('', 'close', 0, null);
-            await firstPromise;
-
-            const [, cliArgs] = mockedSpawn.mock.calls[0];
-            expect(cliArgs).toContain('--model');
-            expect(cliArgs).toContain('glm-5.2');
-        });
-
-        it('passes the default permission mode to the CLI as --permission-mode', async () => {
-            const { proc, emit } = createFakeProc();
-            mockedSpawn.mockReturnValue(proc as any);
-
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
-            const gen = api.sendMessage('session-perm', 'hello');
-
-            const firstPromise = gen.next();
-            emit('', 'close', 0, null);
-            await firstPromise;
-
-            const [, cliArgs] = mockedSpawn.mock.calls[0];
-            expect(cliArgs).toContain('--permission-mode');
-            expect(cliArgs).toContain('default');
-        });
-
-        it('uses setPermissionMode() to override the permission mode passed to the CLI', async () => {
-            const { proc, emit } = createFakeProc();
-            mockedSpawn.mockReturnValue(proc as any);
-
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
-            api.setPermissionMode('plan');
-            const gen = api.sendMessage('session-perm-2', 'hello');
-
-            const firstPromise = gen.next();
-            emit('', 'close', 0, null);
-            await firstPromise;
-
-            const [, cliArgs] = mockedSpawn.mock.calls[0];
-            expect(cliArgs).toContain('--permission-mode');
-            expect(cliArgs).toContain('plan');
-        });
-
-        it('uses the per-call permissionModeOverride argument for --permission-mode, without touching setPermissionMode()', async () => {
-            const { proc, emit } = createFakeProc();
-            mockedSpawn.mockReturnValue(proc as any);
-
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
-            // 计划卡片「按此执行」的用法：不调用 setPermissionMode，只在这一次 sendMessage 上
-            // 传入覆盖值——这一次调用应该用它，且不应改动实例内部的 this.permissionMode
-            const gen = api.sendMessage('session-perm-override', 'hello', undefined, [], 'acceptEdits');
-
-            const firstPromise = gen.next();
-            emit('', 'close', 0, null);
-            await firstPromise;
-
-            const [, cliArgs] = mockedSpawn.mock.calls[0];
-            expect(cliArgs).toContain('--permission-mode');
-            expect(cliArgs).toContain('acceptEdits');
-            expect(cliArgs).not.toContain('default');
-        });
-
-        it('omitting permissionModeOverride preserves today\'s behaviour: falls back to this.permissionMode, and a prior override does not leak into the next call', async () => {
-            const { proc: proc1, emit: emit1 } = createFakeProc();
-            mockedSpawn.mockReturnValueOnce(proc1 as any);
-
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('C:\\fake\\codebuddy.exe');
-            const overriddenGen = api.sendMessage('session-a', 'hello', undefined, [], 'acceptEdits');
-            const overriddenFirst = overriddenGen.next();
-            emit1('', 'close', 0, null);
-            await overriddenFirst;
-            const [, overriddenArgs] = mockedSpawn.mock.calls[0];
-            expect(overriddenArgs).toContain('acceptEdits');
-
-            const { proc: proc2, emit: emit2 } = createFakeProc();
-            mockedSpawn.mockReturnValueOnce(proc2 as any);
-            // 不传 override 的下一次调用：应回落到实例默认的 'default'，证明上一次的覆盖值
-            // 没有残留进 this.permissionMode（即没有任何一条代码路径改写过它，见 Fix 1）
-            const plainGen = api.sendMessage('session-b', 'hello');
-            const plainFirst = plainGen.next();
-            emit2('', 'close', 0, null);
-            await plainFirst;
-            const [, plainArgs] = mockedSpawn.mock.calls[1];
-            expect(plainArgs).toContain('--permission-mode');
-            expect(plainArgs).toContain('default');
-            expect(plainArgs).not.toContain('acceptEdits');
-        });
-
-        it('uses setNodePath() to override automatic Node.js discovery', async () => {
-            const { proc, emit } = createFakeProc();
-            mockedSpawn.mockReturnValue(proc as any);
-
-            // resolveCodebuddyPath('/fake/codebuddy') 只有在 fs.existsSync('/fake/codebuddy')
-            // 为 true 时才会原样返回这个路径；否则会走真实候选路径搜索，在装了
-            // WorkBuddy 的开发机上会意外解析到真实安装路径，让这条测试的通过与否
-            // 取决于运行测试的机器上装没装 WorkBuddy——必须 mock existsSync 让它
-            // 对这一个路径返回 true，才能让测试在任何机器上都确定性通过
-            const realExistsSync = jest.requireActual('fs').existsSync;
-            (fs.existsSync as jest.Mock).mockImplementation((p: fs.PathLike) => p === '/fake/codebuddy');
-
-            const api = new CodebuddyProvider();
-            api.setCodebuddyPath('/fake/codebuddy');
-            api.setNodePath('/custom/node/path/node');
-            const gen = api.sendMessage('session-node', 'hello');
-
-            const firstPromise = gen.next();
-            emit('', 'close', 0, null);
-            await firstPromise;
-
-            const [command] = mockedSpawn.mock.calls[0];
-            expect(command).toBe('/custom/node/path/node');
-
-            (fs.existsSync as jest.Mock).mockImplementation(realExistsSync);
-        });
+    it('generateId returns v4 uuid shape', () => {
+        makeFakeClient(MockAcpClient);
+        const api = new CodebuddyProvider();
+        expect(api.generateId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     });
 });
 
-describe('parseMessageBlock', () => {
-    it('returns null for non-objects', () => {
-        expect(parseMessageBlock(null)).toBeNull();
-        expect(parseMessageBlock('text')).toBeNull();
-    });
-
-    it('returns null for unsupported types', () => {
-        expect(parseMessageBlock({ type: 'image' })).toBeNull();
-    });
-
-    it('parses thinking block', () => {
-        expect(parseMessageBlock({ type: 'thinking', thinking: 'reason' })).toEqual({
-            type: 'thinking',
-            thinking: 'reason',
-            text: undefined,
-            name: undefined,
-            input: undefined
-        });
-    });
-
-    it('parses text block', () => {
-        expect(parseMessageBlock({ type: 'text', text: 'hi' })).toEqual({
-            type: 'text', thinking: undefined, text: 'hi', name: undefined, input: undefined
-        });
-    });
-
-    it('parses tool_call block', () => {
-        expect(parseMessageBlock({ type: 'tool_call', name: 'read', input: { x: 1 } })).toEqual({
-            type: 'tool_call',
-            thinking: undefined,
-            text: undefined,
-            name: 'read',
-            input: { x: 1 }
-        });
-    });
-});
-
-describe('blockToChunk', () => {
-    it('converts thinking block', () => {
-        expect(blockToChunk({ type: 'thinking', thinking: 't' })).toEqual({ type: 'thinking', content: 't' });
-    });
-
-    it('converts text block', () => {
-        expect(blockToChunk({ type: 'text', text: 't' })).toEqual({ type: 'text', content: 't' });
-    });
-
-    it('converts tool_call block with string input', () => {
-        expect(blockToChunk({ type: 'tool_call', name: 'n', input: 'arg' })).toEqual({
-            type: 'tool', content: '', toolName: 'n', toolDetail: 'arg'
-        });
-    });
-
-    it('converts tool_call block with object input', () => {
-        expect(blockToChunk({ type: 'tool_call', name: 'n', input: { x: 1 } })).toEqual({
-            type: 'tool', content: '', toolName: 'n', toolDetail: JSON.stringify({ x: 1 })
-        });
-    });
-});
-
-describe('parseStreamEvent', () => {
-    it('returns null for non-objects', () => {
-        expect(parseStreamEvent('string')).toBeNull();
-        expect(parseStreamEvent(null)).toBeNull();
-    });
-
-    it('extracts event from nested event property', () => {
-        expect(parseStreamEvent({ event: { type: 'text', text: 'nested' } })).toMatchObject({
-            type: 'text', text: 'nested'
-        });
-    });
-
-    it('falls back to raw object when event property is not an object', () => {
-        expect(parseStreamEvent({ type: 'direct', text: 'value' })).toMatchObject({
-            type: 'direct', text: 'value'
-        });
-    });
-});
-
-describe('parseUsage', () => {
-    it('extracts inputTokens from a usage object', () => {
-        expect(parseUsage({ usage: { input_tokens: 22594 } })).toEqual({ inputTokens: 22594 });
-    });
-
-    it('returns undefined when usage or input_tokens is missing or invalid', () => {
-        expect(parseUsage({})).toBeUndefined();
-        expect(parseUsage(null)).toBeUndefined();
-        expect(parseUsage({ usage: { input_tokens: 'x' } })).toBeUndefined();
-    });
-});
+// ---------- cliPath 纯函数（原样保留） ----------
 
 describe('path helpers', () => {
     describe('isWindowsWrapper', () => {
@@ -596,198 +381,5 @@ describe('findNodeExecutable on macOS', () => {
 
         const result = findNodeExecutable();
         expect(result).toBe(path.join(binDir, 'node'));
-    });
-});
-
-describe('parseStreamLine', () => {
-    it('returns null for empty lines', () => {
-        expect(parseStreamLine('')).toBeNull();
-        expect(parseStreamLine('   ')).toBeNull();
-    });
-
-    it('returns text chunk for plain text on parse failure', () => {
-        expect(parseStreamLine('not json')).toEqual({ type: 'text', content: 'not json' });
-    });
-
-    it('parses assistant envelope with thinking block', () => {
-        const line = JSON.stringify({
-            type: 'assistant',
-            message: {
-                content: [{ type: 'thinking', thinking: 'step 1' }]
-            }
-        });
-        expect(parseStreamLine(line)).toEqual({ type: 'thinking', content: 'step 1' });
-    });
-
-    it('parses assistant envelope with text block', () => {
-        const line = JSON.stringify({
-            type: 'assistant',
-            message: {
-                content: [{ type: 'text', text: 'hello' }]
-            }
-        });
-        expect(parseStreamLine(line)).toEqual({ type: 'text', content: 'hello' });
-    });
-
-    it('parses assistant envelope with tool_call block', () => {
-        const line = JSON.stringify({
-            type: 'assistant',
-            message: {
-                content: [{ type: 'tool_call', name: 'read', input: { path: '/tmp' } }]
-            }
-        });
-        const expected: StreamChunk = {
-            type: 'tool',
-            content: '',
-            toolName: 'read',
-            toolDetail: JSON.stringify({ path: '/tmp' })
-        };
-        expect(parseStreamLine(line)).toEqual(expected);
-    });
-
-    it('parses user envelope with text block', () => {
-        const line = JSON.stringify({
-            type: 'user',
-            message: {
-                content: [{ type: 'text', text: 'user hello' }]
-            }
-        });
-        expect(parseStreamLine(line)).toEqual({ type: 'text', content: 'user hello' });
-    });
-
-    it('returns null for assistant envelope without recognized blocks', () => {
-        const line = JSON.stringify({
-            type: 'assistant',
-            message: {
-                content: [{ type: 'image', url: 'http://x' }]
-            }
-        });
-        expect(parseStreamLine(line)).toBeNull();
-    });
-
-    it('parses direct thinking event', () => {
-        const line = JSON.stringify({ type: 'thinking', thinking: 'reasoning' });
-        expect(parseStreamLine(line)).toEqual({ type: 'thinking', content: 'reasoning' });
-    });
-
-    it('parses direct message_delta event', () => {
-        const line = JSON.stringify({ type: 'message_delta', text: 'delta' });
-        expect(parseStreamLine(line)).toEqual({ type: 'text', content: 'delta' });
-    });
-
-    it('parses direct tool_call event', () => {
-        const line = JSON.stringify({ type: 'tool_call', name: 'write', input: 'data' });
-        const expected: StreamChunk = {
-            type: 'tool',
-            content: '',
-            toolName: 'write',
-            toolDetail: 'data'
-        };
-        expect(parseStreamLine(line)).toEqual(expected);
-    });
-
-    it('parses result event', () => {
-        const line = JSON.stringify({ type: 'result', result: 'done' });
-        expect(parseStreamLine(line)).toEqual({ type: 'done', content: 'done' });
-    });
-
-    it('carries token usage from a result event', () => {
-        const line = JSON.stringify({ type: 'result', result: 'done', usage: { input_tokens: 22594, output_tokens: 3 } });
-        expect(parseStreamLine(line)).toEqual({ type: 'done', content: 'done', usage: { inputTokens: 22594 } });
-    });
-
-    it('parses error event', () => {
-        const line = JSON.stringify({ type: 'error', error: 'fail' });
-        expect(parseStreamLine(line)).toEqual({ type: 'error', content: 'fail' });
-    });
-
-    it('falls back to message when error field is missing', () => {
-        const line = JSON.stringify({ type: 'error', message: 'oops' });
-        expect(parseStreamLine(line)).toEqual({ type: 'error', content: 'oops' });
-    });
-
-    it('uses fallback text fields for unknown events', () => {
-        const line = JSON.stringify({ type: 'unknown', content: 'fallback' });
-        expect(parseStreamLine(line)).toEqual({ type: 'text', content: 'fallback' });
-    });
-
-    it('returns null for unknown events without fallback text', () => {
-        const line = JSON.stringify({ type: 'unknown', value: 123 });
-        expect(parseStreamLine(line)).toBeNull();
-    });
-
-    // ---- 增量流式（--include-partial-messages）----
-
-    it('parses a content_block_delta text_delta stream_event as a text chunk', () => {
-        const line = JSON.stringify({
-            type: 'stream_event',
-            event: { type: 'content_block_delta', delta: { type: 'text_delta', text: '你好' } }
-        });
-        expect(parseStreamLine(line)).toEqual({ type: 'text', content: '你好' });
-    });
-
-    it('parses a content_block_delta thinking_delta stream_event as a thinking chunk', () => {
-        const line = JSON.stringify({
-            type: 'stream_event',
-            event: { type: 'content_block_delta', delta: { type: 'thinking_delta', thinking: 'hmm' } }
-        });
-        expect(parseStreamLine(line)).toEqual({ type: 'thinking', content: 'hmm' });
-    });
-
-    it('returns null for an empty text_delta', () => {
-        const line = JSON.stringify({
-            type: 'stream_event',
-            event: { type: 'content_block_delta', delta: { type: 'text_delta', text: '' } }
-        });
-        expect(parseStreamLine(line)).toBeNull();
-    });
-
-    it('returns null for non-delta stream_events (message_start / content_block_stop)', () => {
-        expect(parseStreamLine(JSON.stringify({ type: 'stream_event', event: { type: 'message_start' } }))).toBeNull();
-        expect(parseStreamLine(JSON.stringify({ type: 'stream_event', event: { type: 'content_block_stop' } }))).toBeNull();
-    });
-
-    it('in streaming mode, drops the duplicate text block from the trailing assistant envelope', () => {
-        const line = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: '你好呀' }] } });
-        // 默认（非 streaming）仍解析出 text，保持向后兼容
-        expect(parseStreamLine(line)).toEqual({ type: 'text', content: '你好呀' });
-        // streaming 模式下跳过，避免与增量 delta 的正文翻倍
-        expect(parseStreamLine(line, true)).toBeNull();
-    });
-
-    it('in streaming mode, drops the duplicate thinking block from the assistant envelope', () => {
-        const line = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: 'reason' }] } });
-        expect(parseStreamLine(line, true)).toBeNull();
-    });
-
-    it('in streaming mode, still keeps tool_call blocks from the assistant envelope', () => {
-        const line = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_call', name: 'read', input: { path: '/tmp' } }] } });
-        expect(parseStreamLine(line, true)).toEqual({
-            type: 'tool', content: '', toolName: 'read', toolDetail: JSON.stringify({ path: '/tmp' })
-        });
-    });
-});
-
-describe('parseStreamLine tool blocks', () => {
-    it('accepts the tool_use block shape the CLI actually emits', () => {
-        const line = JSON.stringify({
-            type: 'assistant',
-            message: { content: [{ type: 'tool_use', name: 'Edit', input: { file_path: '/a/b.txt', old_string: 'x', new_string: 'y' } }] }
-        });
-        const chunk = parseStreamLine(line);
-        expect(chunk).not.toBeNull();
-        expect(chunk!.type).toBe('tool');
-        expect(chunk!.toolName).toBe('Edit');
-        expect(JSON.parse(chunk!.toolDetail!)).toEqual({ file_path: '/a/b.txt', old_string: 'x', new_string: 'y' });
-    });
-
-    it('still accepts the legacy tool_call block shape', () => {
-        const line = JSON.stringify({
-            type: 'assistant',
-            message: { content: [{ type: 'tool_call', name: 'Read', input: { file_path: '/a/b.txt' } }] }
-        });
-        const chunk = parseStreamLine(line);
-        expect(chunk!.type).toBe('tool');
-        expect(chunk!.toolName).toBe('Read');
     });
 });

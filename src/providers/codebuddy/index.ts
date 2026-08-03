@@ -1,14 +1,17 @@
-import { spawn, type SpawnOptions } from 'child_process';
-import { getNumber, getString, isObject, type UsageInfo } from '../../types';
-import { t } from '../../i18n';
 import { FALLBACK_MODEL_OPTIONS, type PermissionMode } from '../../shared/cliOptions';
-import { findNodeExecutable, resolveCodebuddyPath, isWindowsWrapper, isBareFallback, needsWindowsShell } from '../../utils/cliPath';
-export { isWindowsWrapper, isBareFallback, needsWindowsShell } from '../../utils/cliPath';
+import { t } from '../../i18n';
 import { bbLog } from '../../shared/logBuffer';
+import type { UsageInfo } from '../../types';
+import { AcpClient, AcpStartError, type AcpStartTier } from './acp/client';
+import {
+    SessionRegistry, type ConversationLookup, type SessionConfig, type TurnHandlers,
+} from './acp/session';
+import type { PermissionCardData } from './acp/permission';
+
+// 供测试与外部消费方沿用 v1 的 re-export 路径
+export { isWindowsWrapper, isBareFallback, needsWindowsShell } from '../../utils/cliPath';
 
 const TIMEOUT = 300_000; // 5 分钟
-
-// ===== 流式事件类型 =====
 
 export interface StreamChunk {
     type: 'thinking' | 'text' | 'tool' | 'error' | 'done';
@@ -18,385 +21,236 @@ export interface StreamChunk {
     usage?: UsageInfo;
 }
 
-interface MessageBlock {
-    type: 'thinking' | 'text' | 'tool_call' | 'tool_use';
-    thinking?: string;
-    text?: string;
-    name?: string;
-    input?: unknown;
+interface SessionCallbacks {
+    onPermissionRequest?: (data: PermissionCardData) => void;
+    onUsage?: (used: number, size: number) => void;
+    onConfigUpdate?: (cfg: { mode?: string; model?: string }) => void;
+
 }
 
-interface StreamEvent {
-    type: string;
-    thinking?: string;
-    text?: string;
-    name?: string;
-    input?: unknown;
-    result?: string;
-    error?: string;
-    message?: string;
-    content?: string;
-    usage?: UsageInfo;
-}
+const NOOP_LOOKUP: ConversationLookup = { getAcpSessionId: () => undefined, setAcpSessionId: () => {} };
 
-/** 从事件对象里抽取 token 用量：读 usage.input_tokens，缺失或非数字返回 undefined */
-export function parseUsage(raw: unknown): UsageInfo | undefined {
-    if (!isObject(raw)) return undefined;
-    const usage = raw.usage;
-    if (!isObject(usage)) return undefined;
-    const inputTokens = getNumber(usage, 'input_tokens');
-    if (typeof inputTokens !== 'number') return undefined;
-    return { inputTokens };
-}
-
-
-// ===== 消息块解析 =====
-
-export function parseMessageBlock(block: unknown): MessageBlock | null {
-    if (!isObject(block)) return null;
-    const type = getString(block, 'type');
-    if (type !== 'thinking' && type !== 'text' && type !== 'tool_call' && type !== 'tool_use') return null;
-    return {
-        type,
-        thinking: getString(block, 'thinking'),
-        text: getString(block, 'text'),
-        name: getString(block, 'name'),
-        input: block.input,
-    };
-}
-
-export function blockToChunk(block: MessageBlock): StreamChunk | null {
-    if (block.type === 'thinking') {
-        return { type: 'thinking', content: block.thinking || '' };
-    }
-    if (block.type === 'text') {
-        return { type: 'text', content: block.text || '' };
-    }
-    const input = block.input;
-    return {
-        type: 'tool',
-        content: '',
-        toolName: block.name || 'unknown',
-        toolDetail: typeof input === 'string' ? input : JSON.stringify(input ?? {}),
-    };
-}
-
-// ===== 流事件解析 =====
-
-export function parseStreamEvent(raw: unknown): StreamEvent | null {
-    if (!isObject(raw)) return null;
-    const event = isObject(raw.event) ? raw.event : raw;
-    if (!isObject(event)) return null;
-    return {
-        type: getString(event, 'type') || '',
-        thinking: getString(event, 'thinking'),
-        text: getString(event, 'text'),
-        name: getString(event, 'name'),
-        input: event.input,
-        result: getString(event, 'result'),
-        error: getString(event, 'error'),
-        message: getString(event, 'message'),
-        content: getString(event, 'content'),
-        usage: parseUsage(event),
-    };
-}
-
-export function parseStreamLine(line: string, streaming = false): StreamChunk | null {
-    if (!line.trim()) return null;
-    try {
-        const raw = JSON.parse(line) as unknown;
-
-        // Shape 1: assistant/user envelope with nested message.content blocks
-        if (isObject(raw) && (raw.type === 'assistant' || raw.type === 'user')) {
-            const message = isObject(raw.message) ? raw.message : null;
-            const content = Array.isArray(message?.content) ? message.content : [];
-            for (const item of content) {
-                const block = parseMessageBlock(item);
-                if (!block) continue;
-                // streaming 模式下 text/thinking 已由增量 delta 逐字吐过，envelope 末尾会
-                // 重复整段正文，跳过以免翻倍；工具块（tool_call）不走 delta，仍需保留
-                if (streaming && (block.type === 'text' || block.type === 'thinking')) continue;
-                const chunk = blockToChunk(block);
-                if (chunk) return chunk;
-            }
-            return null;
-        }
-
-        // Shape 3: --include-partial-messages 的 SSE 增量事件，逐字流式的来源
-        // { type:'stream_event', event:{ type:'content_block_delta', delta:{ type:'text_delta'|'thinking_delta', ... } } }
-        if (isObject(raw) && raw.type === 'stream_event' && isObject(raw.event)) {
-            const ev = raw.event;
-            if (getString(ev, 'type') === 'content_block_delta' && isObject(ev.delta)) {
-                const delta = ev.delta;
-                const dtype = getString(delta, 'type');
-                if (dtype === 'text_delta') {
-                    const text = getString(delta, 'text');
-                    return text ? { type: 'text', content: text } : null;
-                }
-                if (dtype === 'thinking_delta') {
-                    const thinking = getString(delta, 'thinking');
-                    return thinking ? { type: 'thinking', content: thinking } : null;
-                }
-            }
-            // 其它 stream_event（message_start/stop、content_block_start/stop、input_json_delta）无需展示
-            return null;
-        }
-
-        // Shape 2: direct event object
-        const event = parseStreamEvent(raw);
-        if (!event) return null;
-
-        if (event.type === 'thinking') {
-            return { type: 'thinking', content: event.thinking || '' };
-        }
-        if (event.type === 'message_delta') {
-            return { type: 'text', content: event.text || '' };
-        }
-        if (event.type === 'tool_call') {
-            const input = event.input;
-            return {
-                type: 'tool',
-                content: '',
-                toolName: event.name || 'unknown',
-                toolDetail: typeof input === 'string' ? input : JSON.stringify(input ?? {}),
-            };
-        }
-        if (event.type === 'result') {
-            return { type: 'done', content: event.result || '', usage: event.usage };
-        }
-        if (event.type === 'error') {
-            return { type: 'error', content: event.error || event.message || t('common.unknownError') };
-        }
-
-        // 未知事件类型, 输出原始 JSON 便于调试
-        bbLog('[WB] unknown event:', line.substring(0, 200));
-        const fallbackText = event.text || event.content || event.message || '';
-        if (fallbackText) {
-            return { type: 'text', content: fallbackText };
-        }
-        return null;
-    } catch {
-        return { type: 'text', content: line };
-    }
-}
-
+/**
+ * CodebuddyProvider v2 —— ACP 持久会话架构：单进程 `codebuddy --acp` + 多 session。
+ * 对外契约（StreamChunk / 公共方法签名 / 错误 throw）与 v1 保持一致，UI 层零契约改动。
+ * 数据流：input.ts → sendMessage → 会话懒加载 → session/prompt → session/update 映射成 chunk 回流；
+ * 权限请求/用量/配置走旁路回调。
+ */
 export class CodebuddyProvider {
     private timeout: number;
-    private scriptPath: string;
-    private activeProc: ReturnType<typeof spawn> | null = null;
-    private nodePathOverride: string = '';
-    private model: string = 'auto';
-    private permissionMode: PermissionMode = 'default';
+    private readonly client: AcpClient;
+    private readonly registry: SessionRegistry;
+    private readonly config: SessionConfig = { model: 'auto', mode: 'default' };
+    private lookup: ConversationLookup = NOOP_LOOKUP;
     private availableModels: string[] = Object.keys(FALLBACK_MODEL_OPTIONS);
+    private callbacks = new Map<string, SessionCallbacks>();
 
     constructor(timeout: number = TIMEOUT) {
         this.timeout = timeout;
-        this.scriptPath = resolveCodebuddyPath('');
+        this.client = new AcpClient({
+            onSessionUpdate: (acpSessionId, update) => this.registry.byAcpId(acpSessionId)?.handleUpdate(update),
+            onPermissionRequest: (requestId, params) => this.routePermissionRequest(requestId, params),
+            onAgentNotification: (method) => bbLog('[WB] acp 通知:', method),
+            onModels: (models) => { this.availableModels = models; },
+            onExit: (code, signal) => this.handleProcessExit(code, signal),
+        });
+        this.registry = new SessionRegistry(
+            this.client,
+            {
+                getAcpSessionId: (k) => this.lookup.getAcpSessionId(k),
+                setAcpSessionId: (k, id) => this.lookup.setAcpSessionId(k, id),
+            },
+            this.config,
+        );
     }
 
-    setCodebuddyPath(p: string): void {
-        this.scriptPath = resolveCodebuddyPath(p);
-    }
-
-    setTimeout(ms: number): void {
-        this.timeout = ms;
-    }
-
-    setNodePath(nodePath: string): void {
-        this.nodePathOverride = nodePath;
-    }
+    setCodebuddyPath(p: string): void { this.client.setCodebuddyPath(p); }
+    setTimeout(ms: number): void { this.timeout = ms; }
+    setNodePath(nodePath: string): void { this.client.setNodePath(nodePath); }
 
     setModel(model: string): void {
-        this.model = model;
+        this.config.model = model;
+        for (const s of this.registry.all()) void s.applyRemoteConfig();
     }
 
     setPermissionMode(mode: PermissionMode): void {
-        this.permissionMode = mode;
+        this.config.mode = mode;
+        for (const s of this.registry.all()) void s.applyRemoteConfig();
     }
 
-    setAvailableModels(models: string[]): void {
-        this.availableModels = models;
-    }
+    setAvailableModels(models: string[]): void { this.availableModels = models; }
+    getAvailableModels(): string[] { return [...this.availableModels]; }
+    getScriptPath(): string { return this.client.getScriptPath(); }
 
-    getAvailableModels(): string[] {
-        return [...this.availableModels];
-    }
-
-    getScriptPath(): string {
-        return this.scriptPath;
-    }
+    /** main.ts 注入：Conversation.acpSessionId 的读写桥（懒加载与回写的唯一通道） */
+    setConversationLookup(lookup: ConversationLookup): void { this.lookup = lookup; }
 
     generateId(): string {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-            const r: number = (Math.random() * 16) | 0;
-            const v: number = c === 'x' ? r : (r & 0x3) | 0x8;
-            return v.toString(16);
+            const r = Math.random() * 16 | 0;
+            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
         });
     }
 
-    /**
-     * permissionModeOverride：仅供本次调用使用的权限模式覆盖值（例如计划卡片「按此执行」需要
-     * acceptEdits 才能落盘写操作），不传时沿用 this.permissionMode。不会修改 this.permissionMode
-     * 本身——view/settings 与 provider 在两个面板间共享同一实例，若在这里改全局字段，放宽状态会
-     * 泄漏到另一个面板正在发送的普通消息上（见 C1/I1/I2/I3）。
-     */
-    async *sendMessage(sessionId: string, text: string, vaultPath?: string, addDirs: string[] = [], permissionModeOverride?: PermissionMode): AsyncGenerator<StreamChunk> {
-        const scriptPath = this.scriptPath;
-        const procOptions: SpawnOptions = {
-            timeout: this.timeout,
-            // stdin 打开为管道：prompt 通过 stdin 喂给 CLI，不走命令行参数
-            stdio: ['pipe', 'pipe', 'pipe'],
+    // ---- 旁路回调注册（view 在 sendText 时按会话 key 注册） ----
+
+    onPermissionRequest(sessionKey: string, cb: SessionCallbacks['onPermissionRequest']): void {
+        this.callbacks.set(sessionKey, { ...this.callbacks.get(sessionKey), onPermissionRequest: cb });
+    }
+
+    onUsage(sessionKey: string, cb: SessionCallbacks['onUsage']): void {
+        this.callbacks.set(sessionKey, { ...this.callbacks.get(sessionKey), onUsage: cb });
+    }
+
+    onConfigUpdate(sessionKey: string, cb: SessionCallbacks['onConfigUpdate']): void {
+        this.callbacks.set(sessionKey, { ...this.callbacks.get(sessionKey), onConfigUpdate: cb });
+    }
+
+    /** 批准卡按钮应答：requestId 归哪个会话由 pending 持有情况路由 */
+    respondPermission(requestId: number, optionId: string): void {
+        for (const s of this.registry.all()) {
+            if (s.respondPermission(requestId, optionId)) return;
+        }
+        bbLog('[WB] respondPermission 未找到悬挂请求:', requestId);
+    }
+
+    /** 悬挂边界：关面板/切会话/卸载前把批准请求统一答 reject，不悬挂到 CLI 侧干等 */
+    rejectPendingPermissions(sessionKey?: string): void {
+        for (const s of this.registry.all()) {
+            if (!sessionKey || s.key === sessionKey) s.rejectPendingPermissions();
+        }
+    }
+
+    /** 定向 cancel：有参只停该会话在飞轮次（双面板互不影响）；无参停全部（卸载兜底） */
+    cancel(sessionId?: string): void {
+        for (const s of this.registry.all()) {
+            if (!sessionId || s.key === sessionId) void s.cancelTurn();
+        }
+    }
+
+    /** 卸载：拒悬挂批准 → terminate 进程 */
+    dispose(): void {
+        this.rejectPendingPermissions();
+        this.client.dispose();
+    }
+
+    async *sendMessage(
+        sessionId: string,
+        text: string,
+        vaultPath?: string,
+        addDirs: string[] = [],
+        permissionModeOverride?: PermissionMode,
+    ): AsyncGenerator<StreamChunk> {
+        // v2 退役项：addDirs（--add-dir 预授权 hack）与 permissionModeOverride（计划卡重发 workaround）
+        // 仅保留签名兼容，不再消费；vault 外文件 Read 由 CLI 在 default 模式弹批准卡
+        void addDirs; void permissionModeOverride;
+
+        const session = this.registry.get(sessionId);
+        try {
+            await this.client.ensureStarted();
+            await session.ensureLoaded(vaultPath);
+        } catch (e) {
+            throw new Error(this.startErrorMessage(e));
+        }
+
+        const cbs = this.callbacks.get(sessionId) ?? {};
+        type QueueItem = { chunk?: StreamChunk; end?: boolean; error?: string };
+        const queue: QueueItem[] = [];
+        let waiter: ((item: QueueItem) => void) | null = null;
+        let settled = false;
+        const push = (item: QueueItem) => {
+            if (settled) return;
+            if (item.end || item.error) settled = true;
+            if (waiter) {
+                const w = waiter;
+                waiter = null;
+                w(item);
+            } else {
+                queue.push(item);
+            }
         };
-        if (vaultPath) {
-            procOptions.cwd = vaultPath;
+        const pull = (): Promise<QueueItem> =>
+            queue.length ? Promise.resolve(queue.shift()!) : new Promise((r) => { waiter = r; });
+
+        const handlers: TurnHandlers = {
+            onChunk: (chunk) => push({ chunk }),
+            onError: (message) => push({ error: message }),
+            // 未注册批准回调时保持 undefined，session 层自动统一拒绝
+            onPermissionRequest: cbs.onPermissionRequest ? (data) => cbs.onPermissionRequest!(data) : undefined,
+            onUsage: (used, size) => cbs.onUsage?.(used, size),
+            onConfigUpdate: (cfg) => cbs.onConfigUpdate?.(cfg),
+        };
+
+        // 单轮总超时照常计时（批准请求悬挂期间也在计）；到点 cancel + 错误卡，进程保活
+        const timer = setTimeout(() => {
+            void session.cancelTurn();
+            push({ error: t('provider.turnTimeout') });
+        }, this.timeout);
+
+        let promptPromise: Promise<{ stopReason: string }>;
+        try {
+            promptPromise = session.prompt(text, handlers);
+        } catch (e) {
+            clearTimeout(timer);
+            throw e; // session busy / not loaded
         }
-
-        // --print --output-format stream-json: 结构化流式输出
-        // --include-partial-messages: 吐 SSE 增量事件（content_block_delta），实现逐字流式；
-        //   否则 CLI 只在末尾整段给完整 assistant 消息，界面会一次性冒出全文而非逐字
-        const cliArgs = ['--print', '--output-format', 'stream-json', '--include-partial-messages'];
-        // 附件在 vault 外时：--add-dir 放开这些目录的访问边界；--allowedTools 再用「限定到该
-        //   目录」的只读规则 Read(dir/**) 免掉非交互(--print)模式下弹不出来的审批——否则外部
-        //   文件既进不了边界、Read 又会因无法审批而失败。
-        //   安全：只授权到附件所在目录的只读。实测「全局 Read」会突破 --add-dir 边界读任意文件，
-        //   故必须限定目录；也不用 -y / bypassPermissions，避免放开写和执行。
-        //   两者都是变长参数，必须放在 --session-id 之前，让后续 flag 终结它们，避免吞掉末尾 message。
-        if (addDirs.length) {
-            cliArgs.push('--add-dir', ...addDirs);
-            cliArgs.push('--allowedTools', ...addDirs.map(d => `Read(${d.replace(/\\/g, '/')}/**)`));
-        }
-        // prompt 不再作为位置参数：改从 stdin 传入（见下方 proc.stdin 写入）。
-        // 大笔记 / 大 @ 引用会让整条命令行超过 Windows 上限（cmd.exe 8191 / CreateProcess
-        // 32767 字符）→ spawn ENAMETOOLONG；stdin 无此长度限制。CLI 默认 --input-format text，
-        // 不带位置参数时从 stdin 读 prompt（官方 headless 用法：echo "..." | codebuddy -p）。
-        cliArgs.push('--session-id', sessionId, '--model', this.model, '--permission-mode', permissionModeOverride ?? this.permissionMode);
-
-        // Node 18+ Windows 下 spawn .cmd/.bat 需要 shell: true
-        if (needsWindowsShell(scriptPath)) {
-            procOptions.shell = true;
-        }
-
-        // 根据实际路径类型选择启动方式：
-        // - .cmd/.exe/.bat → 直接 spawn（Windows 可执行/包装脚本）
-        // - 兜底 'codebuddy' → 直接 spawn（让 OS 在 PATH 中查找）
-        // - 纯脚本文件（无扩展名或 .js）→ spawn via node
-        let proc: ReturnType<typeof spawn>;
-        if (isWindowsWrapper(scriptPath) || isBareFallback(scriptPath)) {
-            proc = spawn(scriptPath, cliArgs, procOptions);
-        } else {
-            const nodeBin = this.nodePathOverride || findNodeExecutable() || 'node';
-            proc = spawn(nodeBin, [scriptPath, ...cliArgs], procOptions);
-        }
-        this.activeProc = proc;
-
-        // 把整段 prompt 写入 CLI 的 stdin 后关闭；不 end 则 CLI 会一直等输入不返回。
-        const stdin = proc.stdin;
-        if (stdin) {
-            // 进程若提前退出（如 ENOENT），写 stdin 会抛 EPIPE；吞掉即可——
-            // 真正的启动失败由下面的 proc.on('error') 统一上报，不在这里重复处理。
-            stdin.on('error', () => { /* ignore EPIPE from an already-exited process */ });
-            stdin.write(text);
-            stdin.end();
-        }
-
-        let buffer = '';
-        let errOut = '';
-        let hasOutput = false;
-        const chunkQueue: StreamChunk[] = [];
-        let resolveQueue: ((r: IteratorResult<StreamChunk>) => void) | null = null;
-        let closed = false;
-
-        proc.stdout.on('data', (d: Buffer) => {
-            buffer += d.toString();
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-            for (const line of lines) {
-                const chunk = parseStreamLine(line, true);
-                if (chunk) {
-                    hasOutput = true;
-                    const preview = typeof chunk.content === 'string' ? chunk.content.substring(0, 80) : JSON.stringify(chunk.content).substring(0, 80);
-                    bbLog('[WB] chunk:', chunk.type, preview);
-                    if (resolveQueue) {
-                        resolveQueue({ value: chunk, done: false });
-                        resolveQueue = null;
-                    } else {
-                        chunkQueue.push(chunk);
-                    }
-                }
+        promptPromise.then(({ stopReason }) => {
+            clearTimeout(timer);
+            if (stopReason === 'end_turn') {
+                push({
+                    chunk: {
+                        type: 'done', content: '',
+                        usage: session.lastUsage ? { inputTokens: session.lastUsage.used } : undefined,
+                    },
+                });
+                push({ end: true });
+            } else if (stopReason === 'cancelled') {
+                push({ end: true }); // 现有停止路径：静默结束（对齐 v1）
+            } else {
+                push({ error: t('provider.turnFailed').replace('{reason}', stopReason) });
             }
+        }, (e: Error) => {
+            clearTimeout(timer);
+            push({ error: e.message });
         });
 
-        proc.stderr.on('data', (d: Buffer) => {
-            errOut += d.toString();
-            bbLog('[WB] stderr:', errOut);
-        });
-
-        proc.on('close', (code, signal) => {
-            bbLog('[WB] exit:', code, signal ? 'signal:' + signal : '', '| err:', errOut.substring(0, 200));
-            closed = true;
-            if (this.activeProc === proc) {
-                this.activeProc = null;
-            }
-            if (resolveQueue) {
-                if (errOut && !hasOutput) {
-                    resolveQueue({ value: { type: 'error', content: errOut }, done: true });
-                } else {
-                    resolveQueue({ value: { type: 'done', content: '' }, done: true });
-                }
-                resolveQueue = null;
-            }
-        });
-
-        proc.on('error', (e) => {
-            if (this.activeProc === proc) {
-                this.activeProc = null;
-            }
-            bbLog('[WB] spawn err:', e.message, '| scriptPath:', scriptPath);
-            closed = true;
-            if (resolveQueue) {
-                let hint = e.message;
-                if (e.message.includes('ENOENT')) {
-                    if (scriptPath === 'codebuddy') {
-                        hint = t('provider.cliNotFound');
-                    } else if (!isWindowsWrapper(scriptPath) && !isBareFallback(scriptPath)) {
-                        hint = t('provider.nodeNotFound').replace('{path}', scriptPath);
-                    }
-                }
-                resolveQueue({ value: { type: 'error', content: hint }, done: true });
-                resolveQueue = null;
-            }
-        });
-
-        // 主循环
         while (true) {
-            if (chunkQueue.length > 0) {
-                const nextChunk = chunkQueue.shift();
-                if (nextChunk) {
-                    yield nextChunk;
-                    continue;
-                }
-            }
-            if (closed) {
-                if (buffer.trim()) {
-                    const chunk = parseStreamLine(buffer, true);
-                    if (chunk) yield chunk;
-                }
-                break;
-            }
-            const next = await new Promise<IteratorResult<StreamChunk>>((r) => {
-                resolveQueue = r;
-            });
-            if (next.done) {
-                if (next.value?.type === 'error') throw new Error(next.value.content);
-                break;
-            }
-            yield next.value;
+            const item = await pull();
+            if (item.end) return;
+            if (item.error) throw new Error(item.error);
+            if (item.chunk) yield item.chunk;
         }
     }
 
-    cancel(): void {
-        if (this.activeProc) {
-            this.activeProc.kill();
+    private routePermissionRequest(requestId: number, params: unknown): void {
+        const sessionId = (params as { sessionId?: unknown } | undefined)?.sessionId;
+        const session = typeof sessionId === 'string' ? this.registry.byAcpId(sessionId) : undefined;
+        if (session) {
+            session.handlePermissionRequest(requestId, params);
+        } else {
+            // 找不到归属会话：安全兜底统一拒绝
+            this.client.respond(requestId, { outcome: { outcome: 'selected', optionId: 'reject' } });
         }
+    }
+
+    private handleProcessExit(code: number | null, signal: string | null): void {
+        bbLog('[WB] acp 进程退出:', code, signal);
+        for (const s of this.registry.all()) {
+            s.markStale(); // 下次发送自动重启 + session/load 恢复（CLI 侧上下文不丢）
+            s.failTurn(t('provider.processDied'));
+        }
+    }
+
+    private startErrorMessage(e: unknown): string {
+        if (e instanceof AcpStartError) {
+            const byTier: Record<AcpStartTier, string> = {
+                'cli-not-found': t('provider.cliNotFound'),
+                'acp-unsupported': t('provider.acpUnsupported'),
+                'auth-required': t('provider.notLoggedIn'),
+                'handshake-failed': t('provider.handshakeFailed').replace('{detail}', e.message),
+            };
+            return byTier[e.tier];
+        }
+        return e instanceof Error ? e.message : String(e);
     }
 }
