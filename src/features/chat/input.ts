@@ -712,6 +712,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
     let textContent = '';
     let resultText = '';
     const chunkStats: Record<string, number> = {};
+    const toolRows = new Map<string, HTMLElement>(); // toolCallId → 工具行（同 id 后续 chunk 就地更新）
     try {
         let contextText: string;
         let addDirs: string[] = [];
@@ -830,6 +831,11 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                 if (list instanceof HTMLElement) {
                     const toolName = chunk.toolName || '';
                     const toolDetail = chunk.toolDetail || '';
+                    // completed chunk 的 toolDetail 是 JSON 快照：行文本只留路径，JSON 仅供 parseFileChange
+                    const completedChange = chunk.toolStatus === 'completed' ? parseFileChange(toolName, toolDetail) : null;
+                    const rowText = chunk.toolStatus === 'completed'
+                        ? `${toolName} ${completedChange?.path ?? ''}`.trim()
+                        : `${toolName} ${toolDetail}`.trim();
                     let iconName = 'wrench';
                     if (toolName.includes('read') || toolName.includes('查看') || toolName.includes('读取')) {
                         iconName = 'file-text';
@@ -839,21 +845,30 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                         iconName = 'search';
                     }
 
-                    const row = list.createDiv({ cls: 'workbuddian-tool-call' });
-                    const icon = row.createSpan({ cls: 'workbuddian-tool-call-icon' });
-                    setIcon(icon, iconName);
-                    row.createSpan({
-                        cls: 'workbuddian-tool-call-text',
-                        text: `${toolName} ${toolDetail}`.trim()
-                    });
+                    let row: HTMLElement;
+                    if (chunk.toolCallId && toolRows.has(chunk.toolCallId)) {
+                        // 同一工具调用的后续 chunk：就地更新行文本，不新增行
+                        row = toolRows.get(chunk.toolCallId)!;
+                        row.querySelector('.workbuddian-tool-call-text')?.setText(rowText);
+                    } else {
+                        row = list.createDiv({ cls: 'workbuddian-tool-call' });
+                        const icon = row.createSpan({ cls: 'workbuddian-tool-call-icon' });
+                        setIcon(icon, iconName);
+                        row.createSpan({ cls: 'workbuddian-tool-call-text', text: rowText });
+                        if (chunk.toolCallId) toolRows.set(chunk.toolCallId, row);
+                    }
 
-                    const change = parseFileChange(toolName, toolDetail);
-                    if (change) {
+                    // 终态：diff 预览 + 撤销按钮（v1 原路径复活）；dataset 幂等防重复 completed
+                    if (completedChange && row.dataset.diffRendered !== '1') {
+                        row.dataset.diffRendered = '1';
+                        const change = completedChange;
                         const diffLines = change.kind === 'write'
                             ? lineDiff('', change.newText)
                             : lineDiff(change.oldText, change.newText);
 
                         const diffBlock = list.createDiv({ cls: 'workbuddian-tool-diff' });
+                        // diff 跟在所属行之后（增量更新下行序与完成序可能交错）
+                        list.insertBefore(diffBlock, row.nextSibling);
                         const diffHeader = diffBlock.createDiv({
                             cls: 'workbuddian-tool-diff-header',
                             attr: { role: 'button', tabindex: '0', 'aria-expanded': 'false', 'aria-label': t('tool.diffToggle') }
