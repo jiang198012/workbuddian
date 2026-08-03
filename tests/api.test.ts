@@ -383,3 +383,30 @@ describe('findNodeExecutable on macOS', () => {
         expect(result).toBe(path.join(binDir, 'node'));
     });
 });
+
+describe('CodebuddyProvider forkSession', () => {
+    it('loads the session then returns the forked acpSessionId', async () => {
+        const { fake, events } = makeFakeClient(MockAcpClient);
+        fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
+            if (method === 'session/prompt') {
+                const text = (params.prompt as Array<{ text: string }>)[0].text;
+                if (text.startsWith('/branch ')) {
+                    events().onSessionUpdate('acp-1', {
+                        sessionUpdate: 'session_info_update',
+                        _meta: { 'codebuddy.ai/sessionReset': true, 'codebuddy.ai/newSessionId': 'acp-forked-9' },
+                    });
+                }
+                return { stopReason: 'end_turn' };
+            }
+            if (method === 'session/new') return { sessionId: 'acp-1' };
+            if (method === 'session/load') throw new Error('not found');
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        await expect(api.forkSession('s1', '分叉 - x', '/v')).resolves.toBe('acp-forked-9');
+        expect(fake.request).toHaveBeenCalledWith('session/new', expect.objectContaining({ cwd: '/v' }));
+        const branchCall = fake.request.mock.calls.find((c) => c[0] === 'session/prompt'
+            && String((c[1].prompt as Array<{ text: string }>)[0].text).startsWith('/branch '));
+        expect(branchCall).toBeDefined();
+    });
+});

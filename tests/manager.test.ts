@@ -246,3 +246,23 @@ describe('acpSessionId', () => {
         expect(manager.getById('c1')?.acpSessionId).toBe('acp-9');
     });
 });
+
+describe('forkConversation', () => {
+    it('copies messages, writes acpSessionId, persists, and returns new conversation', () => {
+        const manager = new ConversationManager();
+        const persist = jest.fn();
+        manager.setPersistCallback(persist);
+        const src = manager.createConversation('源会话');
+        manager.addMessage(src.id, 'user', 'hello');
+        manager.addMessage(src.id, 'assistant', 'world');
+        persist.mockClear();
+        const forked = manager.forkConversation(src.id, '分叉 - 源会话', 'acp-forked-1');
+        expect(forked).not.toBeNull();
+        expect(forked!.messages.map((m) => m.content)).toEqual(['hello', 'world']);
+        expect(forked!.messages[0].id).not.toBe(src.messages[0].id); // 消息 id 重新生成
+        expect(forked!.acpSessionId).toBe('acp-forked-1');
+        expect(forked!.sessionId).toBe('');
+        expect(persist).toHaveBeenCalled();
+        expect(manager.forkConversation('missing', 't', 'x')).toBeNull();
+    });
+});

@@ -220,5 +220,17 @@ export class ConversationManager {
         this.persist().catch((err) => this.handlePersistError(err));
         return userText;
     }
+    /** 分叉会话：复制源会话消息（id 重生成）、写入 CLI 分配的分叉 acpSessionId；源不存在返回 null */
+    forkConversation(sourceId: string, title: string, acpSessionId: string): Conversation | null {
+        const src = this.conversations.get(sourceId);
+        if (!src) return null;
+        const forked = this.createConversation(title);
+        forked.messages = src.messages.map((m) => ({ ...m, id: generateId() }));
+        forked.sessionId = ''; // 首次发送时由 input.ts 生成 v1 key；CLI 侧上下文走 acpSessionId load
+        forked.acpSessionId = acpSessionId;
+        forked.updatedAt = Date.now();
+        this.persist().catch((err) => this.handlePersistError(err));
+        return forked;
+    }
 
 }

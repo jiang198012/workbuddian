@@ -132,6 +132,18 @@ export class CodebuddyProvider {
         }
     }
 
+    /** 会话级分叉：懒加载后走 /branch，返回 CLI 分配的新 acpSessionId（启动失败沿用分级文案） */
+    async forkSession(sessionKey: string, name: string, vaultPath?: string): Promise<string> {
+        const session = this.registry.get(sessionKey);
+        try {
+            await this.client.ensureStarted();
+            await session.ensureLoaded(vaultPath);
+        } catch (e) {
+            throw new Error(this.startErrorMessage(e));
+        }
+        return session.fork(name);
+    }
+
     /** 卸载：拒悬挂批准 → terminate 进程 */
     dispose(): void {
         this.rejectPendingPermissions();
