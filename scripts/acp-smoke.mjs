@@ -167,6 +167,23 @@ async function main() {
             params?.toolCall?._meta?.['codebuddy.ai/toolName'] === 'DeferExecuteTool'
             || params?.toolCall?.rawInput?.toolName === 'ExitPlanMode');
         check('plan 模式收到 DeferExecuteTool 计划批准请求', sawDefer);
+
+        // 9. fork：/branch → session_info_update 回报 newSessionId → load 验证
+        let forkedId = null;
+        p.onMessage((msg) => {
+            const u = msg.params?.update ?? {};
+            const meta = u._meta ?? {};
+            if (msg.method === 'session/update' && u.sessionUpdate === 'session_info_update'
+                && meta['codebuddy.ai/sessionReset'] && meta['codebuddy.ai/newSessionId']) {
+                forkedId = meta['codebuddy.ai/newSessionId'];
+            }
+        });
+        await promptRound(p, sessionId, '/branch smoke-fork');
+        check('/branch 回报 newSessionId', !!forkedId, forkedId ?? '');
+        if (forkedId) {
+            await p.request('session/load', { sessionId: forkedId, cwd: vault, mcpServers: [] });
+            check('分叉会话 session/load 恢复', true);
+        }
     } catch (e) {
         check(`运行异常: ${e.message}`, false);
     } finally {

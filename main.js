@@ -212,6 +212,12 @@ var STRINGS = {
   "render.copyFailed": { zh: "\u590D\u5236\u5931\u8D25", en: "Copy failed" },
   "tabs.close": { zh: "\u5173\u95ED\u5BF9\u8BDD", en: "Close chat" },
   "tabs.rename": { zh: "\u91CD\u547D\u540D", en: "Rename" },
+  "tabs.fork": { zh: "\u5206\u53C9\u5F53\u524D\u4F1A\u8BDD", en: "Fork this chat" },
+  "tabs.forkPrefix": { zh: "\u5206\u53C9", en: "Fork" },
+  "tabs.forked": { zh: "\u5DF2\u5206\u53C9\uFF1A{title}", en: "Forked: {title}" },
+  "tabs.forkFailed": { zh: "\u5206\u53C9\u5931\u8D25", en: "Fork failed" },
+  "tabs.forkNeedMessage": { zh: "\u5148\u53D1\u9001\u4E00\u6761\u6D88\u606F\uFF0C\u624D\u80FD\u5206\u53C9", en: "Send a message first to fork" },
+  "tabs.forkStreaming": { zh: "\u6B63\u5728\u54CD\u5E94\u4E2D\uFF0C\u7A0D\u5019\u518D\u5206\u53C9", en: "Wait for the response to finish before forking" },
   "tabs.delete": { zh: "\u5220\u9664\u5BF9\u8BDD", en: "Delete chat" },
   "tabs.exportAsNote": { zh: "\u5BFC\u51FA\u4E3A\u7B14\u8BB0", en: "Export as note" },
   "tabs.nothingToExport": { zh: "\u6CA1\u6709\u53EF\u5BFC\u51FA\u7684\u5185\u5BB9", en: "Nothing to export" },
@@ -880,7 +886,7 @@ function pickOptionId(options, kindPrefix) {
 
 // src/providers/codebuddy/acp/session.ts
 var AcpSession = class {
-  // toolCallId → toolName（update 缺 _meta 时兜底）
+  // /branch 分叉后 CLI 经 session_info_update 回报的新会话 id
   constructor(key, client, lookup, config) {
     this.key = key;
     this.client = client;
@@ -895,6 +901,8 @@ var AcpSession = class {
     this.toolInputs = /* @__PURE__ */ new Map();
     // toolCallId → 最新 rawInput 快照（替换式，traffic 实证快照语义）
     this.toolNames = /* @__PURE__ */ new Map();
+    // toolCallId → toolName（update 缺 _meta 时兜底）
+    this.lastForkedSessionId = null;
   }
   /** 进程死亡后由 provider 标记：下次 ensureLoaded 重新 session/load（CLI 侧上下文不丢） */
   markStale() {
@@ -983,6 +991,13 @@ var AcpSession = class {
     var _a, _b, _c, _d;
     if (this.status === "loading" || isReplayUpdate(update))
       return;
+    if (update.sessionUpdate === "session_info_update") {
+      const meta = update._meta;
+      const forked = meta == null ? void 0 : meta["codebuddy.ai/newSessionId"];
+      if ((meta == null ? void 0 : meta["codebuddy.ai/sessionReset"]) && typeof forked === "string") {
+        this.lastForkedSessionId = forked;
+      }
+    }
     const handlers = this.handlers;
     if (!handlers)
       return;
@@ -1050,6 +1065,29 @@ var AcpSession = class {
     this.pendingPermissions.clear();
     if (this.status === "awaitingPermission")
       this.status = "prompting";
+  }
+  /** 会话级分叉：发 /branch prompt，从 session_info_update 捕获 newSessionId；fork 轮 chunk 全部丢弃 */
+  async fork(name) {
+    if (this.status !== "idle")
+      throw new Error("session busy");
+    if (!this.acpSessionId)
+      throw new Error("session not loaded");
+    this.lastForkedSessionId = null;
+    const sink = { onChunk: () => {
+    }, onError: () => {
+    } };
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("fork failed")), 6e4);
+    });
+    try {
+      await Promise.race([this.prompt(`/branch ${name}`, sink), timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!this.lastForkedSessionId)
+      throw new Error("fork failed");
+    return this.lastForkedSessionId;
   }
   async cancelTurn() {
     if (this.status !== "prompting" && this.status !== "awaitingPermission")
@@ -1193,6 +1231,17 @@ var CodebuddyProvider = class {
       if (!sessionId || s.key === sessionId)
         void s.cancelTurn();
     }
+  }
+  /** 会话级分叉：懒加载后走 /branch，返回 CLI 分配的新 acpSessionId（启动失败沿用分级文案） */
+  async forkSession(sessionKey, name, vaultPath) {
+    const session = this.registry.get(sessionKey);
+    try {
+      await this.client.ensureStarted();
+      await session.ensureLoaded(vaultPath);
+    } catch (e) {
+      throw new Error(this.startErrorMessage(e));
+    }
+    return session.fork(name);
   }
   /** 卸载：拒悬挂批准 → terminate 进程 */
   dispose() {
@@ -3044,6 +3093,30 @@ function beginRenameTab(view, tab, titleSpan, convId) {
     }
   });
 }
+async function forkChat(view, id) {
+  const conv = view.manager.getById(id);
+  if (!conv)
+    return;
+  if (!conv.sessionId) {
+    new import_obsidian6.Notice(t("tabs.forkNeedMessage"));
+    return;
+  }
+  if (view.isStreaming) {
+    new import_obsidian6.Notice(t("tabs.forkStreaming"));
+    return;
+  }
+  const title = `${t("tabs.forkPrefix")} - ${conv.title}`.slice(0, 40);
+  try {
+    const forkedAcpId = await view.api.forkSession(conv.sessionId, title, view.vaultPath);
+    const forked = view.manager.forkConversation(id, title, forkedAcpId);
+    if (!forked)
+      return;
+    new import_obsidian6.Notice(t("tabs.forked").replace("{title}", title));
+    await switchToChat(view, forked.id);
+  } catch (e) {
+    new import_obsidian6.Notice(`${t("tabs.forkFailed")}: ${getErrorMessage(e)}`);
+  }
+}
 function showTabContextMenu(view, e, convId, tab, titleSpan) {
   const conv = view.manager.getAll().find((c) => c.id === convId);
   if (!conv)
@@ -3052,6 +3125,11 @@ function showTabContextMenu(view, e, convId, tab, titleSpan) {
   menu.addItem(
     (item) => item.setTitle(t("tabs.rename")).setIcon("pencil").onClick(() => {
       beginRenameTab(view, tab, titleSpan, convId);
+    })
+  );
+  menu.addItem(
+    (item) => item.setTitle(t("tabs.fork")).setIcon("git-branch").onClick(() => {
+      void forkChat(view, convId);
     })
   );
   menu.addItem(
@@ -3506,6 +3584,19 @@ var ConversationManager = class {
     conv.updatedAt = Date.now();
     this.persist().catch((err) => this.handlePersistError(err));
     return userText;
+  }
+  /** 分叉会话：复制源会话消息（id 重生成）、写入 CLI 分配的分叉 acpSessionId；源不存在返回 null */
+  forkConversation(sourceId, title, acpSessionId) {
+    const src = this.conversations.get(sourceId);
+    if (!src)
+      return null;
+    const forked = this.createConversation(title);
+    forked.messages = src.messages.map((m) => ({ ...m, id: generateId() }));
+    forked.sessionId = "";
+    forked.acpSessionId = acpSessionId;
+    forked.updatedAt = Date.now();
+    this.persist().catch((err) => this.handlePersistError(err));
+    return forked;
   }
 };
 

@@ -178,6 +178,12 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
 
     'tabs.close': { zh: '关闭对话', en: 'Close chat' },
     'tabs.rename': { zh: '重命名', en: 'Rename' },
+    'tabs.fork': { zh: '分叉当前会话', en: 'Fork this chat' },
+    'tabs.forkPrefix': { zh: '分叉', en: 'Fork' },
+    'tabs.forked': { zh: '已分叉：{title}', en: 'Forked: {title}' },
+    'tabs.forkFailed': { zh: '分叉失败', en: 'Fork failed' },
+    'tabs.forkNeedMessage': { zh: '先发送一条消息，才能分叉', en: 'Send a message first to fork' },
+    'tabs.forkStreaming': { zh: '正在响应中，稍候再分叉', en: 'Wait for the response to finish before forking' },
     'tabs.delete': { zh: '删除对话', en: 'Delete chat' },
     'tabs.exportAsNote': { zh: '导出为笔记', en: 'Export as note' },
     'tabs.nothingToExport': { zh: '没有可导出的内容', en: 'Nothing to export' },

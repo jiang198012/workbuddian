@@ -159,6 +159,24 @@ export function beginRenameTab(view: WorkbuddianChatView, tab: HTMLElement, titl
     });
 }
 
+/** 分叉会话：CLI /branch 开出支线，复制消息历史到新会话并切换 */
+async function forkChat(view: WorkbuddianChatView, id: string) {
+    const conv = view.manager.getById(id);
+    if (!conv) return;
+    if (!conv.sessionId) { new Notice(t('tabs.forkNeedMessage')); return; }
+    if (view.isStreaming) { new Notice(t('tabs.forkStreaming')); return; }
+    const title = `${t('tabs.forkPrefix')} - ${conv.title}`.slice(0, 40);
+    try {
+        const forkedAcpId = await view.api.forkSession(conv.sessionId, title, view.vaultPath);
+        const forked = view.manager.forkConversation(id, title, forkedAcpId);
+        if (!forked) return;
+        new Notice(t('tabs.forked').replace('{title}', title));
+        await switchToChat(view, forked.id);
+    } catch (e) {
+        new Notice(`${t('tabs.forkFailed')}: ${getErrorMessage(e)}`);
+    }
+}
+
 export function showTabContextMenu(view: WorkbuddianChatView, e: MouseEvent, convId: string, tab: HTMLElement, titleSpan: HTMLElement) {
     const conv = view.manager.getAll().find(c => c.id === convId);
     if (!conv) return;
@@ -167,6 +185,12 @@ export function showTabContextMenu(view: WorkbuddianChatView, e: MouseEvent, con
     menu.addItem((item) =>
         item.setTitle(t('tabs.rename')).setIcon('pencil').onClick(() => {
             beginRenameTab(view, tab, titleSpan, convId);
+        })
+    );
+
+    menu.addItem((item) =>
+        item.setTitle(t('tabs.fork')).setIcon('git-branch').onClick(() => {
+            void forkChat(view, convId);
         })
     );
 
