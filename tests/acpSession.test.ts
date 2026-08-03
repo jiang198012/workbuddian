@@ -161,16 +161,41 @@ describe('AcpSession.prompt + updates', () => {
         expect(handlers.onConfigUpdate).toHaveBeenCalledWith({ mode: 'plan' });
     });
 
-    it('accumulates tool_call_update rawInput without emitting chunks', async () => {
+    it('replaces rawInput snapshot and emits streaming + completed chunks', async () => {
         const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const s = await loadedSession(client);
         const handlers = makeHandlers();
         const done = s.prompt('hi', handlers);
         s.handleUpdate({ sessionUpdate: 'tool_call', toolCallId: 'c1', title: 'Write', rawInput: {}, _meta: { 'codebuddy.ai/toolName': 'Write' } });
-        s.handleUpdate({ sessionUpdate: 'tool_call_update', toolCallId: 'c1', rawInput: { file_path: 'a.md' } });
+        s.handleUpdate({ sessionUpdate: 'tool_call_update', toolCallId: 'c1', rawInput: { file_path: 'a.md', content: 'l1' } });
+        // 快照语义：后到的更短快照直接替换，不做合并
+        s.handleUpdate({ sessionUpdate: 'tool_call_update', toolCallId: 'c1', rawInput: { file_path: 'a.md', content: '' } });
+        s.handleUpdate({
+            sessionUpdate: 'tool_call_update', toolCallId: 'c1', status: 'completed',
+            rawInput: { file_path: 'a.md', content: 'final' }, _meta: { 'codebuddy.ai/toolName': 'Write' },
+        });
         await done;
-        expect(handlers.onChunk).toHaveBeenCalledTimes(1);
-        expect(handlers.onChunk).toHaveBeenCalledWith({ type: 'tool', content: '', toolName: 'Write', toolDetail: '' });
+        const chunks = handlers.onChunk.mock.calls.map((c) => c[0]);
+        expect(chunks).toHaveLength(4); // tool_call + 2 流式 + 1 completed
+        expect(chunks[0]).toMatchObject({ type: 'tool', toolCallId: 'c1', toolName: 'Write' });
+        expect(chunks[1]).toMatchObject({ type: 'tool', toolCallId: 'c1', toolDetail: 'a.md' });
+        expect(chunks[3]).toMatchObject({
+            type: 'tool', toolCallId: 'c1', toolStatus: 'completed',
+            toolDetail: JSON.stringify({ file_path: 'a.md', content: 'final' }),
+        });
+    });
+
+    it('falls back to cached toolName when update lacks _meta', async () => {
+        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const s = await loadedSession(client);
+        const handlers = makeHandlers();
+        const done = s.prompt('hi', handlers);
+        s.handleUpdate({ sessionUpdate: 'tool_call', toolCallId: 'c1', title: 'Write', rawInput: {}, _meta: { 'codebuddy.ai/toolName': 'Write' } });
+        s.handleUpdate({ sessionUpdate: 'tool_call_update', toolCallId: 'c1', rawInput: { file_path: 'a.md' } }); // 无 _meta
+        await done;
+        expect(handlers.onChunk).toHaveBeenLastCalledWith(
+            expect.objectContaining({ toolCallId: 'c1', toolName: 'Write' }),
+        );
     });
 
     it('drops replay-flagged updates during prompting', async () => {

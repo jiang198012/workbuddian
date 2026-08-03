@@ -1,6 +1,6 @@
 import type { StreamChunk } from '../index';
 import {
-    mapSessionUpdate, mapUsageUpdate, mapConfigUpdate, mergeRawInput, isReplayUpdate, type AcpUpdate,
+    mapSessionUpdate, mapToolCallUpdate, mapUsageUpdate, mapConfigUpdate, isReplayUpdate, type AcpUpdate,
 } from './events';
 import {
     mapPermissionRequest, buildPermissionResult, pickOptionId, type PermissionCardData,
@@ -45,7 +45,8 @@ export class AcpSession {
     private needsReload = false;
     private handlers: TurnHandlers | null = null;
     private pendingPermissions = new Map<number, PermissionCardData>();
-    private toolInputs = new Map<string, unknown>();
+    private toolInputs = new Map<string, unknown>(); // toolCallId → 最新 rawInput 快照（替换式，traffic 实证快照语义）
+    private toolNames = new Map<string, string>(); // toolCallId → toolName（update 缺 _meta 时兜底）
 
     constructor(
         readonly key: string,
@@ -115,6 +116,7 @@ export class AcpSession {
         this.status = 'prompting';
         this.handlers = handlers;
         this.toolInputs.clear();
+        this.toolNames.clear();
         try {
             const result = await this.client.request<{ stopReason?: string }>('session/prompt', {
                 sessionId: this.acpSessionId,
@@ -134,8 +136,14 @@ export class AcpSession {
         if (!handlers) return;
         if (update.sessionUpdate === 'tool_call_update') {
             const id = typeof update.toolCallId === 'string' ? update.toolCallId : '';
-            if (id) this.toolInputs.set(id, mergeRawInput(this.toolInputs.get(id), update.rawInput));
-            return; // 增量渲染属第二步任务，这里只累积
+            if (!id) return;
+            this.toolInputs.set(id, update.rawInput); // 快照替换，非合并
+            const chunk = mapToolCallUpdate(update, update.rawInput);
+            if (chunk) {
+                if (!update._meta && this.toolNames.has(id)) chunk.toolName = this.toolNames.get(id)!;
+                handlers.onChunk(chunk);
+            }
+            return;
         }
         const usage = mapUsageUpdate(update);
         if (usage) {
@@ -151,6 +159,7 @@ export class AcpSession {
         const chunk = mapSessionUpdate(update);
         if (chunk) {
             if (chunk.type === 'tool' && typeof update.toolCallId === 'string') {
+                this.toolNames.set(update.toolCallId, chunk.toolName ?? 'tool');
                 this.toolInputs.set(update.toolCallId, update.rawInput ?? {});
             }
             handlers.onChunk(chunk);
