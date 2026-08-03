@@ -745,12 +745,6 @@ function summarizeRawInput(rawInput) {
     return "";
   }
 }
-function mergeRawInput(prev, increment) {
-  if (!increment || typeof increment !== "object" || Array.isArray(increment))
-    return increment != null ? increment : prev;
-  const base = prev && typeof prev === "object" && !Array.isArray(prev) ? prev : {};
-  return { ...base, ...increment };
-}
 function mapSessionUpdate(update) {
   switch (update.sessionUpdate) {
     case "agent_thought_chunk": {
@@ -763,11 +757,30 @@ function mapSessionUpdate(update) {
     }
     case "tool_call": {
       const toolName = extractToolName(update);
-      return { type: "tool", content: "", toolName, toolDetail: summarizeRawInput(update.rawInput) };
+      const toolCallId = typeof update.toolCallId === "string" ? update.toolCallId : void 0;
+      return { type: "tool", content: "", toolName, toolCallId, toolDetail: summarizeRawInput(update.rawInput) };
     }
     default:
       return null;
   }
+}
+function mapToolCallUpdate(update, snapshot) {
+  var _a;
+  if (update.sessionUpdate !== "tool_call_update")
+    return null;
+  const toolCallId = typeof update.toolCallId === "string" ? update.toolCallId : "";
+  if (!toolCallId)
+    return null;
+  const toolName = extractToolName(update);
+  if (update.status === "completed") {
+    let toolDetail = "";
+    try {
+      toolDetail = (_a = JSON.stringify(snapshot)) != null ? _a : "";
+    } catch (e) {
+    }
+    return { type: "tool", content: "", toolName, toolCallId, toolStatus: "completed", toolDetail };
+  }
+  return { type: "tool", content: "", toolName, toolCallId, toolDetail: summarizeRawInput(snapshot) };
 }
 function mapUsageUpdate(update) {
   if (update.sessionUpdate !== "usage_update")
@@ -867,6 +880,7 @@ function pickOptionId(options, kindPrefix) {
 
 // src/providers/codebuddy/acp/session.ts
 var AcpSession = class {
+  // toolCallId → toolName（update 缺 _meta 时兜底）
   constructor(key, client, lookup, config) {
     this.key = key;
     this.client = client;
@@ -879,6 +893,8 @@ var AcpSession = class {
     this.handlers = null;
     this.pendingPermissions = /* @__PURE__ */ new Map();
     this.toolInputs = /* @__PURE__ */ new Map();
+    // toolCallId → 最新 rawInput 快照（替换式，traffic 实证快照语义）
+    this.toolNames = /* @__PURE__ */ new Map();
   }
   /** 进程死亡后由 provider 标记：下次 ensureLoaded 重新 session/load（CLI 侧上下文不丢） */
   markStale() {
@@ -949,6 +965,7 @@ var AcpSession = class {
     this.status = "prompting";
     this.handlers = handlers;
     this.toolInputs.clear();
+    this.toolNames.clear();
     try {
       const result = await this.client.request("session/prompt", {
         sessionId: this.acpSessionId,
@@ -963,7 +980,7 @@ var AcpSession = class {
     }
   }
   handleUpdate(update) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     if (this.status === "loading" || isReplayUpdate(update))
       return;
     const handlers = this.handlers;
@@ -971,8 +988,15 @@ var AcpSession = class {
       return;
     if (update.sessionUpdate === "tool_call_update") {
       const id = typeof update.toolCallId === "string" ? update.toolCallId : "";
-      if (id)
-        this.toolInputs.set(id, mergeRawInput(this.toolInputs.get(id), update.rawInput));
+      if (!id)
+        return;
+      this.toolInputs.set(id, update.rawInput);
+      const chunk2 = mapToolCallUpdate(update, update.rawInput);
+      if (chunk2) {
+        if (!update._meta && this.toolNames.has(id))
+          chunk2.toolName = this.toolNames.get(id);
+        handlers.onChunk(chunk2);
+      }
       return;
     }
     const usage = mapUsageUpdate(update);
@@ -989,7 +1013,8 @@ var AcpSession = class {
     const chunk = mapSessionUpdate(update);
     if (chunk) {
       if (chunk.type === "tool" && typeof update.toolCallId === "string") {
-        this.toolInputs.set(update.toolCallId, (_c = update.rawInput) != null ? _c : {});
+        this.toolNames.set(update.toolCallId, (_c = chunk.toolName) != null ? _c : "tool");
+        this.toolInputs.set(update.toolCallId, (_d = update.rawInput) != null ? _d : {});
       }
       handlers.onChunk(chunk);
     }
@@ -1246,7 +1271,7 @@ var CodebuddyProvider = class {
       }
     }, (e) => {
       clearTimeout(timer);
-      push2({ error: e.message });
+      push2({ error: e.message === "session busy" ? t("provider.busy") : e.message });
     });
     while (true) {
       const item = await pull();
@@ -2410,6 +2435,7 @@ async function sendMessage(view) {
   await sendText(view, text);
 }
 async function sendText(view, text, permissionModeOverride) {
+  var _a, _b;
   let conv = view.getActiveConversation();
   if (!conv) {
     conv = view.manager.createConversation();
@@ -2437,6 +2463,7 @@ async function sendText(view, text, permissionModeOverride) {
   let textContent = "";
   let resultText = "";
   const chunkStats = {};
+  const toolRows = /* @__PURE__ */ new Map();
   try {
     let contextText;
     let addDirs = [];
@@ -2547,6 +2574,8 @@ async function sendText(view, text, permissionModeOverride) {
         if (list instanceof HTMLElement) {
           const toolName = chunk.toolName || "";
           const toolDetail = chunk.toolDetail || "";
+          const completedChange = chunk.toolStatus === "completed" ? parseFileChange(toolName, toolDetail) : null;
+          const rowText = chunk.toolStatus === "completed" ? `${toolName} ${(_a = completedChange == null ? void 0 : completedChange.path) != null ? _a : ""}`.trim() : `${toolName} ${toolDetail}`.trim();
           let iconName = "wrench";
           if (toolName.includes("read") || toolName.includes("\u67E5\u770B") || toolName.includes("\u8BFB\u53D6")) {
             iconName = "file-text";
@@ -2555,17 +2584,24 @@ async function sendText(view, text, permissionModeOverride) {
           } else if (toolName.includes("search") || toolName.includes("\u641C\u7D22") || toolName.includes("\u67E5\u627E")) {
             iconName = "search";
           }
-          const row = list.createDiv({ cls: "workbuddian-tool-call" });
-          const icon = row.createSpan({ cls: "workbuddian-tool-call-icon" });
-          (0, import_obsidian4.setIcon)(icon, iconName);
-          row.createSpan({
-            cls: "workbuddian-tool-call-text",
-            text: `${toolName} ${toolDetail}`.trim()
-          });
-          const change = parseFileChange(toolName, toolDetail);
-          if (change) {
+          let row;
+          if (chunk.toolCallId && toolRows.has(chunk.toolCallId)) {
+            row = toolRows.get(chunk.toolCallId);
+            (_b = row.querySelector(".workbuddian-tool-call-text")) == null ? void 0 : _b.setText(rowText);
+          } else {
+            row = list.createDiv({ cls: "workbuddian-tool-call" });
+            const icon = row.createSpan({ cls: "workbuddian-tool-call-icon" });
+            (0, import_obsidian4.setIcon)(icon, iconName);
+            row.createSpan({ cls: "workbuddian-tool-call-text", text: rowText });
+            if (chunk.toolCallId)
+              toolRows.set(chunk.toolCallId, row);
+          }
+          if (completedChange && row.dataset.diffRendered !== "1") {
+            row.dataset.diffRendered = "1";
+            const change = completedChange;
             const diffLines = change.kind === "write" ? lineDiff("", change.newText) : lineDiff(change.oldText, change.newText);
             const diffBlock = list.createDiv({ cls: "workbuddian-tool-diff" });
+            list.insertBefore(diffBlock, row.nextSibling);
             const diffHeader = diffBlock.createDiv({
               cls: "workbuddian-tool-diff-header",
               attr: { role: "button", tabindex: "0", "aria-expanded": "false", "aria-label": t("tool.diffToggle") }

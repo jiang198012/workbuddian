@@ -1,6 +1,6 @@
 # tool_call_update 增量渲染（乙方案）实现计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 让 ACP v2 的工具行恢复实时可见（参数流式增长、completed 出 diff 预览、Edit 撤销按钮复活）。
 
@@ -35,7 +35,7 @@
   - `mapToolCallUpdate(update: AcpUpdate, snapshot: unknown): StreamChunk | null` — 非 tool_call_update 或缺 toolCallId → null；`status==='completed'` → `{type:'tool', content:'', toolName, toolCallId, toolStatus:'completed', toolDetail: JSON 快照}`；否则 → `{type:'tool', content:'', toolName, toolCallId, toolDetail: 摘要}`
   - `mapSessionUpdate` 的 tool_call chunk 现在带 `toolCallId`
 
-- [ ] **Step 1: 写失败测试**（追加到 `tests/acpEvents.test.ts`；同时把 `mergeRawInput` 的 describe 整块删除——Task 2 将移除该函数，孤儿不留）
+- [x] **Step 1: 写失败测试**（追加到 `tests/acpEvents.test.ts`；同时把 `mergeRawInput` 的 describe 整块删除——Task 2 将移除该函数，孤儿不留）
 
 ```ts
 describe('mapToolCallUpdate', () => {
@@ -70,8 +70,8 @@ describe('mapToolCallUpdate', () => {
 
 （`mapToolCallUpdate` 的 import 加进文件头部的 import 列表。）
 
-- [ ] **Step 2: 跑测试确认失败** — `npx jest tests/acpEvents.test.ts`（mapToolCallUpdate 未定义）。
-- [ ] **Step 3: 实现**
+- [x] **Step 2: 跑测试确认失败** — `npx jest tests/acpEvents.test.ts`（mapToolCallUpdate 未定义）。
+- [x] **Step 3: 实现**
 
 `src/providers/codebuddy/index.ts` StreamChunk：
 
@@ -107,8 +107,8 @@ export function mapToolCallUpdate(update: AcpUpdate, snapshot: unknown): StreamC
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过** — `npx jest tests/acpEvents.test.ts` 全绿。
-- [ ] **Step 5: Commit** — `git commit -m "feat(acp): tool chunk 增量映射（toolCallId/completed 快照）"`
+- [x] **Step 4: 跑测试确认通过** — `npx jest tests/acpEvents.test.ts` 全绿。
+- [x] **Step 5: Commit** — `git commit -m "feat(acp): tool chunk 增量映射（toolCallId/completed 快照）"`
 
 ---
 
@@ -122,7 +122,7 @@ export function mapToolCallUpdate(update: AcpUpdate, snapshot: unknown): StreamC
 - Consumes: Task 1 的 `mapToolCallUpdate`。
 - Produces: `handleUpdate` 对 tool_call_update 的行为契约——快照替换后必发 chunk（流式摘要 / completed JSON）；toolName 以 update 的 `_meta` 为准、tool_call 时缓存的名字兜底。
 
-- [ ] **Step 1: 改写失败测试** — `tests/acpSession.test.ts` 里 "accumulates tool_call_update rawInput without emitting chunks" 整条替换为：
+- [x] **Step 1: 改写失败测试** — `tests/acpSession.test.ts` 里 "accumulates tool_call_update rawInput without emitting chunks" 整条替换为：
 
 ```ts
 it('replaces rawInput snapshot and emits streaming + completed chunks', async () => {
@@ -164,8 +164,8 @@ it('falls back to cached toolName when update lacks _meta', async () => {
 
 同时删除 `tests/acpSession.test.ts` 里对 `mergeRawInput` 语义有依赖的旧断言（若有），`tests/acpEvents.test.ts` 的 mergeRawInput describe 在 Task 1 已删。
 
-- [ ] **Step 2: 跑测试确认失败** — `npx jest tests/acpSession.test.ts`。
-- [ ] **Step 3: 实现** `session.ts`：
+- [x] **Step 2: 跑测试确认失败** — `npx jest tests/acpSession.test.ts`。
+- [x] **Step 3: 实现** `session.ts`：
 
 ```ts
 // 字段区：toolInputs 注释改快照语义；新增 toolNames 缓存
@@ -195,8 +195,8 @@ if (update.sessionUpdate === 'tool_call_update') {
 
 `events.ts`：删除 `mergeRawInput` 函数（孤儿）。
 
-- [ ] **Step 4: 跑测试确认通过** — `npx jest tests/acpSession.test.ts tests/acpEvents.test.ts` 全绿。
-- [ ] **Step 5: Commit** — `git commit -m "feat(acp): 会话层快照替换并发射工具增量/完成 chunk"`
+- [x] **Step 4: 跑测试确认通过** — `npx jest tests/acpSession.test.ts tests/acpEvents.test.ts` 全绿。
+- [x] **Step 5: Commit** — `git commit -m "feat(acp): 会话层快照替换并发射工具增量/完成 chunk"`
 
 ---
 
@@ -206,9 +206,9 @@ if (update.sessionUpdate === 'tool_call_update') {
 - Modify: `src/providers/codebuddy/index.ts`（sendMessage 的同步 throw 处）
 - Test: `tests/api.test.ts`（改现有 busy 用例断言）
 
-- [ ] **Step 1: 改测试断言** — "rejects a second send on the same session while busy" 用例的 `.rejects.toThrow('session busy')` 改为 `.rejects.toThrow(t('provider.busy'))`。
-- [ ] **Step 2: 跑测试确认失败** — `npx jest tests/api.test.ts -t busy`（现在抛的是英文原文）。
-- [ ] **Step 3: 实现** — sendMessage 里：
+- [x] **Step 1: 改测试断言** — "rejects a second send on the same session while busy" 用例的 `.rejects.toThrow('session busy')` 改为 `.rejects.toThrow(t('provider.busy'))`。
+- [x] **Step 2: 跑测试确认失败** — `npx jest tests/api.test.ts -t busy`（现在抛的是英文原文）。
+- [x] **Step 3: 实现** — sendMessage 里：
 
 ```ts
 try {
@@ -219,8 +219,8 @@ try {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过** — `npx jest tests/api.test.ts` 全绿。
-- [ ] **Step 5: Commit** — `git commit -m "fix(provider): 会话忙错误接入 provider.busy 文案"`
+- [x] **Step 4: 跑测试确认通过** — `npx jest tests/api.test.ts` 全绿。
+- [x] **Step 5: Commit** — `git commit -m "fix(provider): 会话忙错误接入 provider.busy 文案"`
 
 ---
 
@@ -232,13 +232,13 @@ try {
 **Interfaces:**
 - Consumes: Task 1 的 chunk 字段（`toolCallId/toolStatus`）；v1 既有 `parseFileChange/lineDiff/undoEdit` 路径（原样未动）。
 
-- [ ] **Step 1: sendText 局部加工具行登记表** — `const chunkStats` 声明附近加：
+- [x] **Step 1: sendText 局部加工具行登记表** — `const chunkStats` 声明附近加：
 
 ```ts
 const toolRows = new Map<string, HTMLElement>(); // toolCallId → 工具行（同 id 后续 chunk 就地更新）
 ```
 
-- [ ] **Step 2: tool 分支重构** — 保持 toolsBlock 创建逻辑不变，`if (list instanceof HTMLElement) {` 之后改为：
+- [x] **Step 2: tool 分支重构** — 保持 toolsBlock 创建逻辑不变，`if (list instanceof HTMLElement) {` 之后改为：
 
 ```ts
 const toolName = chunk.toolName || '';
@@ -274,21 +274,21 @@ if (chunk.toolStatus === 'completed' && completedChange && row.dataset.diffRende
 
 注：`insertAdjacentElement` 是原生 DOM API（Obsidian 元素即 HTMLElement），先用 `document.createElement('div')` 建 diffBlock 再插入；或保持 `list.createDiv` 再 `list.insertBefore(diffBlock, row.nextSibling)`——两者择一，实现时以不破坏既有 class 结构为准。
 
-- [ ] **Step 3: 验证** — `npm run build`（tsc 类型关）+ `npx jest` 全量绿（UI 无单测，靠类型与既有套件防回归）。
-- [ ] **Step 4: Commit** — `git commit -m "feat(chat): 工具行按 toolCallId 就地更新，completed 复活 diff 预览与撤销"`
+- [x] **Step 3: 验证** — `npm run build`（tsc 类型关）+ `npx jest` 全量绿（UI 无单测，靠类型与既有套件防回归）。
+- [x] **Step 4: Commit** — `git commit -m "feat(chat): 工具行按 toolCallId 就地更新，completed 复活 diff 预览与撤销"`
 
 ---
 
 ### Task 5: 全量验收
 
-- [ ] **Step 1:** `npx jest` 全绿（含 worktree 旧套件）、`npm run build` 过。
-- [ ] **Step 2:** demo-vault 手测清单（交用户执行）：
+- [x] **Step 1:** `npx jest` 全绿（含 worktree 旧套件）、`npm run build` 过。
+- [x] **Step 2:** demo-vault 手测清单（交用户执行）：
   1. 长 Write（如"写一篇 500 字笔记"）工具行文本**实时增长**；
   2. Edit 完成后该row下方出 diff 预览（可折叠）；
   3. vault 内 Edit 出「撤销此修改」按钮，点击后文件回滚、按钮变「已撤销」；
   4. 双面板同时流式，各自工具行不串；
   5. 批准卡流程不回归（default 模式弹卡、批准后落盘、diff 照常出现）。
-- [ ] **Step 3: Commit** — 如有修补随验收提交。
+- [x] **Step 3: Commit** — 如有修补随验收提交。
 
 ---
 
