@@ -398,3 +398,35 @@ describe('SessionRegistry', () => {
         expect(registry.all()).toEqual([a1]);
     });
 });
+
+describe('AcpSession.fork', () => {
+    it('sends /branch prompt and returns the captured newSessionId', async () => {
+        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
+        const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
+        await s.ensureLoaded('/v');
+        const forked = s.fork('分叉 - 测试');
+        // fork 轮期间到达的 newSessionId（handlers 丢弃 chunks，但 fork id 必须捕获）
+        s.handleUpdate({ sessionUpdate: 'session_info_update', _meta: { 'codebuddy.ai/sessionReset': true, 'codebuddy.ai/newSessionId': 'acp-forked-1' } });
+        // fork 轮的普通 chunk 不得外泄
+        s.handleUpdate({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'branch ok' } });
+        await expect(forked).resolves.toBe('acp-forked-1');
+        const promptCall = client.request.mock.calls.find((c) => c[0] === 'session/prompt');
+        expect(promptCall![1]).toMatchObject({ sessionId: 'acp-stored', prompt: [{ type: 'text', text: '/branch 分叉 - 测试' }] });
+        expect(s.status).toBe('idle');
+    });
+
+    it('rejects when not loaded', async () => {
+        const client = makeFakeClient();
+        const s = new AcpSession('k', client, makeLookup(), { model: '', mode: '' });
+        await expect(s.fork('x')).rejects.toThrow('session not loaded');
+    });
+
+    it('throws fork failed when no newSessionId arrives', async () => {
+        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
+        const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
+        await s.ensureLoaded('/v');
+        await expect(s.fork('x')).rejects.toThrow('fork failed');
+    });
+});

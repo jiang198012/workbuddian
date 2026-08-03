@@ -47,6 +47,7 @@ export class AcpSession {
     private pendingPermissions = new Map<number, PermissionCardData>();
     private toolInputs = new Map<string, unknown>(); // toolCallId → 最新 rawInput 快照（替换式，traffic 实证快照语义）
     private toolNames = new Map<string, string>(); // toolCallId → toolName（update 缺 _meta 时兜底）
+    private lastForkedSessionId: string | null = null; // /branch 分叉后 CLI 经 session_info_update 回报的新会话 id
 
     constructor(
         readonly key: string,
@@ -132,6 +133,14 @@ export class AcpSession {
 
     handleUpdate(update: AcpUpdate): void {
         if (this.status === 'loading' || isReplayUpdate(update)) return;
+        // 分叉回报须在 handlers 空检查之前捕获：fork 轮走丢弃 handlers，id 不能跟着被丢
+        if (update.sessionUpdate === 'session_info_update') {
+            const meta = update._meta as Record<string, unknown> | undefined;
+            const forked = meta?.['codebuddy.ai/newSessionId'];
+            if (meta?.['codebuddy.ai/sessionReset'] && typeof forked === 'string') {
+                this.lastForkedSessionId = forked;
+            }
+        }
         const handlers = this.handlers;
         if (!handlers) return;
         if (update.sessionUpdate === 'tool_call_update') {
@@ -194,6 +203,25 @@ export class AcpSession {
         }
         this.pendingPermissions.clear();
         if (this.status === 'awaitingPermission') this.status = 'prompting';
+    }
+
+    /** 会话级分叉：发 /branch prompt，从 session_info_update 捕获 newSessionId；fork 轮 chunk 全部丢弃 */
+    async fork(name: string): Promise<string> {
+        if (this.status !== 'idle') throw new Error('session busy');
+        if (!this.acpSessionId) throw new Error('session not loaded');
+        this.lastForkedSessionId = null;
+        const sink: TurnHandlers = { onChunk: () => {}, onError: () => {} };
+        let timer: ReturnType<typeof setTimeout>;
+        const timeout = new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error('fork failed')), 60_000);
+        });
+        try {
+            await Promise.race([this.prompt(`/branch ${name}`, sink), timeout]);
+        } finally {
+            clearTimeout(timer!);
+        }
+        if (!this.lastForkedSessionId) throw new Error('fork failed');
+        return this.lastForkedSessionId;
     }
 
     async cancelTurn(): Promise<void> {
