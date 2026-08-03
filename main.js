@@ -39,9 +39,6 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 var import_obsidian11 = require("obsidian");
 
-// src/providers/codebuddy/index.ts
-var import_child_process2 = require("child_process");
-
 // src/shared/cliOptions.ts
 var MODEL_OPTIONS = {
   hy3: "hy3",
@@ -84,6 +81,13 @@ var STRINGS = {
   "common.unknownError": { zh: "\u672A\u77E5\u9519\u8BEF", en: "Unknown error" },
   "provider.cliNotFound": { zh: "\u627E\u4E0D\u5230 codebuddy CLI\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 WorkBuddy \u684C\u9762\u7248\uFF0C\u6216\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u6307\u5B9A codebuddy \u8DEF\u5F84\u3002", en: "codebuddy CLI not found. Make sure WorkBuddy desktop is installed, or set the codebuddy path in the plugin settings." },
   "provider.nodeNotFound": { zh: "\u627E\u4E0D\u5230 Node.js \u6765\u8FD0\u884C codebuddy\uFF08\u8DEF\u5F84\uFF1A{path}\uFF09\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 Node.js\u3002", en: "Node.js not found to run codebuddy (path: {path}). Make sure Node.js is installed." },
+  "provider.acpUnsupported": { zh: "\u5F53\u524D codebuddy CLI \u7248\u672C\u8FC7\u65E7\uFF0C\u4E0D\u652F\u6301 ACP \u6301\u4E45\u4F1A\u8BDD\u3002\u8BF7\u5347\u7EA7 WorkBuddy \u684C\u9762\u7248\u3002", en: "Your codebuddy CLI is too old for ACP persistent sessions. Please upgrade WorkBuddy." },
+  "provider.notLoggedIn": { zh: "codebuddy CLI \u7591\u4F3C\u672A\u767B\u5F55\u3002\u8BF7\u5148\u5728 WorkBuddy \u684C\u9762\u7248\u4E2D\u767B\u5F55\u3002", en: "codebuddy CLI appears logged out. Please log in via WorkBuddy first." },
+  "provider.handshakeFailed": { zh: "codebuddy CLI \u63E1\u624B\u5931\u8D25\uFF1A{detail}", en: "codebuddy CLI handshake failed: {detail}" },
+  "provider.turnTimeout": { zh: "\u672C\u8F6E\u54CD\u5E94\u8D85\u65F6\uFF0C\u5DF2\u4E2D\u65AD", en: "Turn timed out and was interrupted" },
+  "provider.turnFailed": { zh: "\u672C\u8F6E\u4E2D\u65AD\uFF1A{reason}", en: "Turn interrupted: {reason}" },
+  "provider.processDied": { zh: "codebuddy \u8FDB\u7A0B\u610F\u5916\u9000\u51FA\uFF0C\u672C\u8F6E\u5DF2\u4E2D\u65AD\u3002\u91CD\u65B0\u53D1\u9001\u5C06\u81EA\u52A8\u6062\u590D\u4F1A\u8BDD\u3002", en: "codebuddy process exited unexpectedly. Resend to resume the session." },
+  "provider.busy": { zh: "\u8BE5\u4F1A\u8BDD\u6B63\u5728\u54CD\u5E94\u4E2D\uFF0C\u8BF7\u7A0D\u5019", en: "This conversation is still responding" },
   "export.roleUser": { zh: "**\u7528\u6237**", en: "**User**" },
   "export.roleAssistant": { zh: "**AI**", en: "**AI**" },
   "settings.conn": { zh: "CodeBuddy \u8FDE\u63A5", en: "CodeBuddy Connection" },
@@ -176,11 +180,18 @@ var STRINGS = {
   "tool.undoStale": { zh: "\u6587\u4EF6\u5DF2\u53D8\u5316\uFF0C\u672A\u6267\u884C\u64A4\u9500", en: "File has changed since; undo skipped" },
   "tool.undoAmbiguous": { zh: "\u6539\u52A8\u6587\u672C\u5728\u6587\u4EF6\u4E2D\u51FA\u73B0\u591A\u6B21\uFF0C\u4E3A\u907F\u514D\u8BEF\u6539\u5DF2\u8DF3\u8FC7\u64A4\u9500", en: "The changed text appears more than once in the file; undo was skipped to avoid a wrong edit." },
   "tool.undoFailed": { zh: "\u64A4\u9500\u5931\u8D25", en: "Undo failed" },
-  "plan.cardTitle": { zh: "\u6267\u884C\u8BA1\u5212", en: "Execution plan" },
-  "plan.execute": { zh: "\u6309\u6B64\u6267\u884C\uFF08\u91CD\u65B0\u53D1\u8D77\u4E00\u8F6E\uFF09", en: "Run this plan (new round)" },
-  "plan.dismiss": { zh: "\u5FFD\u7565", en: "Dismiss" },
-  "plan.note": { zh: "CLI \u5728\u975E\u4EA4\u4E92\u6A21\u5F0F\u4E0B\u65E0\u6CD5\u539F\u751F\u6279\u51C6\u8BA1\u5212\u3002\u300C\u6309\u6B64\u6267\u884C\u300D\u4F1A\u4EE5\u300C\u81EA\u52A8\u63A5\u53D7\u7F16\u8F91\u300D\u6743\u9650\u628A\u8BA1\u5212\u6B63\u6587\u91CD\u65B0\u53D1\u8D77\u4E00\u8F6E\u2014\u2014\u8BE5\u6743\u9650\u4EC5\u5BF9\u8FD9\u4E00\u6B21\u6267\u884C\u751F\u6548\uFF0C\u4F1A\u81EA\u52A8\u63A5\u53D7\u672C\u8F6E\u7684\u5168\u90E8\u7F16\u8F91\uFF0C\u4F60\u5F53\u524D\u7684\u6743\u9650\u8BBE\u7F6E\u4E0D\u53D7\u5F71\u54CD\u3002", en: 'The CLI cannot approve plans natively in non-interactive mode. "Run this plan" re-sends the plan text as a new round with accept-edits permission \u2014 applied to that single run only, auto-accepting every edit in it. Your current permission setting is untouched.' },
-  "plan.notApprovable": { zh: "\u8BA1\u5212\u6A21\u5F0F\u65E0\u6CD5\u5728\u975E\u4EA4\u4E92\u6A21\u5F0F\u4E0B\u539F\u751F\u6279\u51C6\u3002\u8BF7\u628A\u6743\u9650\u6A21\u5F0F\u5207\u6362\u4E3A\u300C\u9ED8\u8BA4\u300D\u6216\u300C\u5B8C\u5168\u8BBF\u95EE\u300D\u540E\u91CD\u65B0\u53D1\u9001\u4EE5\u76F4\u63A5\u6267\u884C\u3002", en: 'Plan mode cannot be approved natively in non-interactive mode. Switch the permission mode to "Default" or "Full access" and resend to run it directly.' },
+  "approval.title": { zh: "\u5DE5\u5177\u6279\u51C6", en: "Tool approval" },
+  "approval.allow": { zh: "\u5141\u8BB8", en: "Allow" },
+  "approval.alwaysAllow": { zh: "\u603B\u662F\u5141\u8BB8", en: "Always allow" },
+  "approval.reject": { zh: "\u62D2\u7EDD", en: "Reject" },
+  "approval.planReady": { zh: "\u8BA1\u5212\u5DF2\u5C31\u7EEA", en: "Plan ready" },
+  "approval.execute": { zh: "\u6309\u6B64\u6267\u884C", en: "Execute" },
+  "approval.alwaysExecute": { zh: "\u603B\u662F\u6267\u884C", en: "Always execute" },
+  "approval.cancel": { zh: "\u53D6\u6D88", en: "Cancel" },
+  "approval.writeLines": { zh: "\u5199\u5165 {path}\uFF08{count} \u884C\uFF09", en: "Write {path} ({count} lines)" },
+  "approval.resolvedAllow": { zh: "\u5DF2\u5141\u8BB8", en: "Allowed" },
+  "approval.resolvedAlways": { zh: "\u5DF2\u603B\u662F\u5141\u8BB8", en: "Always allowed" },
+  "approval.resolvedReject": { zh: "\u5DF2\u62D2\u7EDD", en: "Rejected" },
   "input.requestFailed": { zh: "\u8BF7\u6C42\u5931\u8D25", en: "Request failed" },
   "input.noResponse": { zh: "\uFF08\u65E0\u54CD\u5E94\uFF0C\u8BF7\u91CD\u8BD5\uFF09", en: "(No response, please retry)" },
   "input.thought": { zh: "\u5DF2\u601D\u8003", en: "Thought" },
@@ -255,106 +266,6 @@ function matchesAnyLang(value, key) {
   return !!entry && (value === entry.zh || value === entry.en);
 }
 
-// src/types/index.ts
-var CURRENT_SETTINGS_VERSION = 10;
-var DEFAULT_CONTEXT_WINDOW_SIZE = 2e5;
-var DEFAULT_PASTED_IMAGE_KEEP = 20;
-var MAX_PASTED_IMAGE_KEEP = 500;
-var DEFAULT_SETTINGS = {
-  codebuddyPath: "",
-  cliTimeoutMinutes: 5,
-  nodePath: "",
-  injectVaultContext: true,
-  injectCurrentNoteLink: false,
-  model: "auto",
-  primaryColor: "",
-  contextWindowSize: DEFAULT_CONTEXT_WINDOW_SIZE,
-  permissionMode: "default",
-  language: "auto",
-  customInstruction: "",
-  pastedImageKeep: DEFAULT_PASTED_IMAGE_KEEP,
-  version: CURRENT_SETTINGS_VERSION
-};
-function isObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function getString(data, key) {
-  const value = data[key];
-  return typeof value === "string" ? value : void 0;
-}
-function getNumber(data, key) {
-  const value = data[key];
-  return typeof value === "number" ? value : void 0;
-}
-function getBoolean(data, key) {
-  const value = data[key];
-  return typeof value === "boolean" ? value : void 0;
-}
-function getErrorMessage(error) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === "string") {
-    return error;
-  }
-  return t("common.unknownError");
-}
-function migrateSettings(stored) {
-  var _a, _b, _c, _d, _e;
-  if (!isObject(stored)) {
-    return { ...DEFAULT_SETTINGS };
-  }
-  const cliTimeoutMinutes = getNumber(stored, "cliTimeoutMinutes");
-  const injectVaultContext = getBoolean(stored, "injectVaultContext");
-  const injectCurrentNoteLink = getBoolean(stored, "injectCurrentNoteLink");
-  const contextWindowSize = getNumber(stored, "contextWindowSize");
-  const language = getString(stored, "language");
-  const pastedImageKeep = getNumber(stored, "pastedImageKeep");
-  return {
-    codebuddyPath: (_a = getString(stored, "codebuddyPath")) != null ? _a : DEFAULT_SETTINGS.codebuddyPath,
-    cliTimeoutMinutes: typeof cliTimeoutMinutes === "number" && cliTimeoutMinutes > 0 ? cliTimeoutMinutes : DEFAULT_SETTINGS.cliTimeoutMinutes,
-    nodePath: (_b = getString(stored, "nodePath")) != null ? _b : DEFAULT_SETTINGS.nodePath,
-    injectVaultContext: typeof injectVaultContext === "boolean" ? injectVaultContext : DEFAULT_SETTINGS.injectVaultContext,
-    injectCurrentNoteLink: typeof injectCurrentNoteLink === "boolean" ? injectCurrentNoteLink : DEFAULT_SETTINGS.injectCurrentNoteLink,
-    model: (_c = getString(stored, "model")) != null ? _c : DEFAULT_SETTINGS.model,
-    primaryColor: (_d = getString(stored, "primaryColor")) != null ? _d : DEFAULT_SETTINGS.primaryColor,
-    contextWindowSize: typeof contextWindowSize === "number" && contextWindowSize > 0 ? contextWindowSize : DEFAULT_SETTINGS.contextWindowSize,
-    permissionMode: isPermissionMode(stored.permissionMode) ? stored.permissionMode : DEFAULT_SETTINGS.permissionMode,
-    language: language === "zh" || language === "en" || language === "auto" ? language : DEFAULT_SETTINGS.language,
-    customInstruction: (_e = getString(stored, "customInstruction")) != null ? _e : DEFAULT_SETTINGS.customInstruction,
-    pastedImageKeep: typeof pastedImageKeep === "number" && Number.isInteger(pastedImageKeep) && pastedImageKeep >= 0 && pastedImageKeep <= MAX_PASTED_IMAGE_KEEP ? pastedImageKeep : DEFAULT_SETTINGS.pastedImageKeep,
-    version: CURRENT_SETTINGS_VERSION
-  };
-}
-function generateId() {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === "x" ? r : r & 3 | 8;
-    return v.toString(16);
-  });
-}
-function normalizePersistedData(raw) {
-  const result = {};
-  if (!isObject(raw)) {
-    return result;
-  }
-  if (Array.isArray(raw.conversations)) {
-    result.conversations = raw.conversations;
-  }
-  if (isObject(raw.settings)) {
-    result.settings = migrateSettings(raw.settings);
-  }
-  return result;
-}
-function exportSettings(settings) {
-  return JSON.stringify(settings, null, 2);
-}
-
-// src/utils/cliPath.ts
-var path = __toESM(require("path"));
-var fs = __toESM(require("fs"));
-var import_child_process = require("child_process");
-
 // src/shared/logBuffer.ts
 var MAX_ENTRIES = 300;
 var buffer = [];
@@ -391,7 +302,13 @@ function clearLogs() {
   buffer.length = 0;
 }
 
+// src/providers/codebuddy/acp/client.ts
+var import_child_process2 = require("child_process");
+
 // src/utils/cliPath.ts
+var path = __toESM(require("path"));
+var fs = __toESM(require("fs"));
+var import_child_process = require("child_process");
 var NODE_EXECUTABLE = process.platform === "win32" ? "node.exe" : "node";
 function findNodeExecutable() {
   const home = process.env.HOME || process.env.USERPROFILE || "";
@@ -552,169 +469,654 @@ function isBareFallback(scriptPath) {
 function needsWindowsShell(scriptPath) {
   return process.platform === "win32" && (scriptPath.endsWith(".cmd") || scriptPath.endsWith(".bat"));
 }
-function spawnCli(scriptPath, args, options, nodeBin) {
-  if (isWindowsWrapper(scriptPath) || isBareFallback(scriptPath)) {
-    return (0, import_child_process.spawn)(scriptPath, args, options);
-  }
-  const node = nodeBin || findNodeExecutable() || "node";
-  return (0, import_child_process.spawn)(node, [scriptPath, ...args], options);
-}
 
-// src/providers/codebuddy/index.ts
-var TIMEOUT = 3e5;
-function parseUsage(raw) {
-  if (!isObject(raw))
-    return void 0;
-  const usage = raw.usage;
-  if (!isObject(usage))
-    return void 0;
-  const inputTokens = getNumber(usage, "input_tokens");
-  if (typeof inputTokens !== "number")
-    return void 0;
-  return { inputTokens };
-}
-function parseMessageBlock(block) {
-  if (!isObject(block))
-    return null;
-  const type = getString(block, "type");
-  if (type !== "thinking" && type !== "text" && type !== "tool_call" && type !== "tool_use")
-    return null;
-  return {
-    type,
-    thinking: getString(block, "thinking"),
-    text: getString(block, "text"),
-    name: getString(block, "name"),
-    input: block.input
-  };
-}
-function blockToChunk(block) {
-  if (block.type === "thinking") {
-    return { type: "thinking", content: block.thinking || "" };
+// src/providers/codebuddy/acp/client.ts
+var AcpStartError = class extends Error {
+  constructor(tier, message) {
+    super(message);
+    this.tier = tier;
+    this.name = "AcpStartError";
   }
-  if (block.type === "text") {
-    return { type: "text", content: block.text || "" };
+};
+function buildSpawnCommand(scriptPath, nodePathOverride, args) {
+  if (isWindowsWrapper(scriptPath) || isBareFallback(scriptPath)) {
+    return { command: scriptPath, args, shell: needsWindowsShell(scriptPath) };
   }
-  const input = block.input;
-  return {
-    type: "tool",
-    content: "",
-    toolName: block.name || "unknown",
-    toolDetail: typeof input === "string" ? input : JSON.stringify(input != null ? input : {})
-  };
+  const node = nodePathOverride || findNodeExecutable() || "node";
+  return { command: node, args: [scriptPath, ...args], shell: false };
 }
-function parseStreamEvent(raw) {
-  if (!isObject(raw))
-    return null;
-  const event = isObject(raw.event) ? raw.event : raw;
-  if (!isObject(event))
-    return null;
-  return {
-    type: getString(event, "type") || "",
-    thinking: getString(event, "thinking"),
-    text: getString(event, "text"),
-    name: getString(event, "name"),
-    input: event.input,
-    result: getString(event, "result"),
-    error: getString(event, "error"),
-    message: getString(event, "message"),
-    content: getString(event, "content"),
-    usage: parseUsage(event)
-  };
+function classifyHandshakeFailure(stderr) {
+  return /unrecogni[sz]ed|unknown (option|command|flag)|invalid option|unknown argument/i.test(stderr) ? "acp-unsupported" : "handshake-failed";
 }
-function parseStreamLine(line, streaming = false) {
-  if (!line.trim())
-    return null;
-  try {
-    const raw = JSON.parse(line);
-    if (isObject(raw) && (raw.type === "assistant" || raw.type === "user")) {
-      const message = isObject(raw.message) ? raw.message : null;
-      const content = Array.isArray(message == null ? void 0 : message.content) ? message.content : [];
-      for (const item of content) {
-        const block = parseMessageBlock(item);
-        if (!block)
-          continue;
-        if (streaming && (block.type === "text" || block.type === "thinking"))
-          continue;
-        const chunk = blockToChunk(block);
-        if (chunk)
-          return chunk;
-      }
-      return null;
-    }
-    if (isObject(raw) && raw.type === "stream_event" && isObject(raw.event)) {
-      const ev = raw.event;
-      if (getString(ev, "type") === "content_block_delta" && isObject(ev.delta)) {
-        const delta = ev.delta;
-        const dtype = getString(delta, "type");
-        if (dtype === "text_delta") {
-          const text = getString(delta, "text");
-          return text ? { type: "text", content: text } : null;
-        }
-        if (dtype === "thinking_delta") {
-          const thinking = getString(delta, "thinking");
-          return thinking ? { type: "thinking", content: thinking } : null;
-        }
-      }
-      return null;
-    }
-    const event = parseStreamEvent(raw);
-    if (!event)
-      return null;
-    if (event.type === "thinking") {
-      return { type: "thinking", content: event.thinking || "" };
-    }
-    if (event.type === "message_delta") {
-      return { type: "text", content: event.text || "" };
-    }
-    if (event.type === "tool_call") {
-      const input = event.input;
-      return {
-        type: "tool",
-        content: "",
-        toolName: event.name || "unknown",
-        toolDetail: typeof input === "string" ? input : JSON.stringify(input != null ? input : {})
-      };
-    }
-    if (event.type === "result") {
-      return { type: "done", content: event.result || "", usage: event.usage };
-    }
-    if (event.type === "error") {
-      return { type: "error", content: event.error || event.message || t("common.unknownError") };
-    }
-    bbLog("[WB] unknown event:", line.substring(0, 200));
-    const fallbackText = event.text || event.content || event.message || "";
-    if (fallbackText) {
-      return { type: "text", content: fallbackText };
-    }
-    return null;
-  } catch (e) {
-    return { type: "text", content: line };
-  }
+function isAuthError(message) {
+  return /auth|logged|login|unauthorized|登录|未登录/i.test(message);
 }
-var CodebuddyProvider = class {
-  constructor(timeout = TIMEOUT) {
-    this.activeProc = null;
-    this.nodePathOverride = "";
-    this.model = "auto";
-    this.permissionMode = "default";
-    this.availableModels = Object.keys(FALLBACK_MODEL_OPTIONS);
-    this.timeout = timeout;
+var HANDSHAKE_TIMEOUT_MS = 1e4;
+var AcpClient = class {
+  constructor(events) {
+    this.events = events;
+    this.scriptPath = "";
+    this.nodePath = "";
+    this.proc = null;
+    this.nextId = 1;
+    this.pending = /* @__PURE__ */ new Map();
+    this.buffer = "";
+    this.stderrTail = "";
+    this.startPromise = null;
+    this.disposed = false;
+    this.handshakeDone = false;
     this.scriptPath = resolveCodebuddyPath("");
   }
   setCodebuddyPath(p) {
     this.scriptPath = resolveCodebuddyPath(p);
   }
+  setNodePath(p) {
+    this.nodePath = p;
+  }
+  getScriptPath() {
+    return this.scriptPath;
+  }
+  get running() {
+    return this.proc !== null;
+  }
+  ensureStarted() {
+    if (this.proc)
+      return Promise.resolve();
+    if (this.startPromise)
+      return this.startPromise;
+    this.disposed = false;
+    this.startPromise = this.spawnAndHandshake().then(
+      () => {
+        this.startPromise = null;
+      },
+      (e) => {
+        this.startPromise = null;
+        throw e;
+      }
+    );
+    return this.startPromise;
+  }
+  request(method, params) {
+    if (!this.proc)
+      return Promise.reject(new Error("acp client not started"));
+    const id = this.nextId++;
+    this.write({ jsonrpc: "2.0", id, method, params });
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
+    });
+  }
+  notify(method, params) {
+    if (!this.proc) {
+      bbLog("[WB] acp notify \u65F6\u8FDB\u7A0B\u4E0D\u5728:", method);
+      return;
+    }
+    this.write({ jsonrpc: "2.0", method, params });
+  }
+  respond(requestId, result) {
+    if (!this.proc) {
+      bbLog("[WB] acp respond \u65F6\u8FDB\u7A0B\u4E0D\u5728:", requestId);
+      return;
+    }
+    this.write({ jsonrpc: "2.0", id: requestId, result });
+  }
+  dispose() {
+    this.disposed = true;
+    const proc = this.proc;
+    this.proc = null;
+    this.startPromise = null;
+    this.failAllPending(new Error("acp client disposed"));
+    if (proc) {
+      try {
+        proc.kill();
+      } catch (e) {
+      }
+    }
+  }
+  // ---- 内部 ----
+  write(msg) {
+    var _a, _b;
+    (_b = (_a = this.proc) == null ? void 0 : _a.stdin) == null ? void 0 : _b.write(JSON.stringify(msg) + "\n");
+  }
+  failAllPending(err) {
+    for (const p of this.pending.values())
+      p.reject(err);
+    this.pending.clear();
+  }
+  handleLine(line) {
+    let msg;
+    try {
+      msg = JSON.parse(line);
+    } catch (e) {
+      bbLog("[WB] acp \u975E JSON \u884C:", line.slice(0, 200));
+      return;
+    }
+    if (typeof msg.method === "string" && msg.id !== void 0) {
+      if (msg.method === "session/request_permission" && typeof msg.id === "number") {
+        this.events.onPermissionRequest(msg.id, msg.params);
+      }
+      return;
+    }
+    if (typeof msg.method === "string") {
+      this.handleNotification(msg.method, msg.params);
+      return;
+    }
+    if (typeof msg.id === "number" && this.pending.has(msg.id)) {
+      const p = this.pending.get(msg.id);
+      this.pending.delete(msg.id);
+      if (msg.error) {
+        p.reject(new Error(msg.error.message || "acp rpc error"));
+        return;
+      }
+      this.reportModels(msg.result);
+      p.resolve(msg.result);
+    }
+  }
+  handleNotification(method, params) {
+    if (method === "session/update") {
+      const rec = params && typeof params === "object" ? params : {};
+      const sessionId = typeof rec.sessionId === "string" ? rec.sessionId : "";
+      const update = rec.update;
+      if (sessionId && update)
+        this.events.onSessionUpdate(sessionId, update);
+      return;
+    }
+    this.events.onAgentNotification(method, params);
+  }
+  reportModels(result) {
+    var _a;
+    const models = (_a = result == null ? void 0 : result.models) == null ? void 0 : _a.availableModels;
+    if (Array.isArray(models) && models.length) {
+      this.events.onModels(models.map((m) => String(m.modelId)).filter(Boolean));
+    }
+  }
+  spawnAndHandshake() {
+    return new Promise((resolve, reject) => {
+      const { command, args, shell } = buildSpawnCommand(this.scriptPath, this.nodePath, ["--acp"]);
+      let proc;
+      try {
+        proc = (0, import_child_process2.spawn)(command, args, { shell });
+      } catch (e) {
+        reject(new AcpStartError("cli-not-found", String(e)));
+        return;
+      }
+      this.proc = proc;
+      this.buffer = "";
+      this.stderrTail = "";
+      let settled = false;
+      const fail = (err) => {
+        if (settled)
+          return;
+        settled = true;
+        clearTimeout(timer);
+        this.proc = null;
+        try {
+          proc.kill();
+        } catch (e) {
+        }
+        reject(err);
+      };
+      const timer = setTimeout(() => {
+        fail(new AcpStartError("handshake-failed", `handshake timeout after ${HANDSHAKE_TIMEOUT_MS}ms`));
+      }, HANDSHAKE_TIMEOUT_MS);
+      proc.stdout.on("data", (data) => {
+        this.buffer += data.toString("utf8");
+        let idx;
+        while ((idx = this.buffer.indexOf("\n")) >= 0) {
+          const line = this.buffer.slice(0, idx).trim();
+          this.buffer = this.buffer.slice(idx + 1);
+          if (line)
+            this.handleLine(line);
+        }
+      });
+      proc.stderr.on("data", (data) => {
+        const text = data.toString("utf8");
+        bbLog("[WB] acp stderr:", text.trim());
+        this.stderrTail = (this.stderrTail + text).slice(-2e3);
+      });
+      proc.on("error", (e) => {
+        fail(new AcpStartError(e.message.includes("ENOENT") ? "cli-not-found" : "handshake-failed", e.message));
+      });
+      proc.on("close", (code, signal) => {
+        const wasStarting = !settled;
+        const wasDisposed = this.disposed;
+        const hadStarted = this.handshakeDone;
+        this.handshakeDone = false;
+        this.proc = null;
+        this.buffer = "";
+        this.failAllPending(new Error("acp process exited"));
+        if (wasStarting) {
+          fail(new AcpStartError(
+            classifyHandshakeFailure(this.stderrTail),
+            this.stderrTail.trim().slice(-300) || `process exited (${code}) before handshake`
+          ));
+          return;
+        }
+        if (!wasDisposed && hadStarted)
+          this.events.onExit(code, signal);
+      });
+      this.request("initialize", {
+        protocolVersion: 1,
+        clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }
+      }).then(() => {
+        if (settled)
+          return;
+        settled = true;
+        clearTimeout(timer);
+        this.handshakeDone = true;
+        resolve();
+      }, (e) => {
+        fail(new AcpStartError(isAuthError(e.message) ? "auth-required" : "handshake-failed", e.message));
+      });
+    });
+  }
+};
+
+// src/providers/codebuddy/acp/events.ts
+function textOf(update) {
+  const content = update.content;
+  if ((content == null ? void 0 : content.type) === "text" && typeof content.text === "string")
+    return content.text;
+  return null;
+}
+function extractToolName(toolCall) {
+  const meta = toolCall._meta;
+  const metaName = meta == null ? void 0 : meta["codebuddy.ai/toolName"];
+  if (typeof metaName === "string" && metaName)
+    return metaName;
+  if (typeof toolCall.title === "string" && toolCall.title)
+    return toolCall.title;
+  return "tool";
+}
+function summarizeRawInput(rawInput) {
+  if (!rawInput || typeof rawInput !== "object" || Array.isArray(rawInput))
+    return "";
+  const input = rawInput;
+  for (const key of ["file_path", "path", "command"]) {
+    const v = input[key];
+    if (typeof v === "string" && v)
+      return v;
+  }
+  if (!Object.keys(input).length)
+    return "";
+  try {
+    const s = JSON.stringify(input);
+    return s.length > 120 ? s.slice(0, 117) + "..." : s;
+  } catch (e) {
+    return "";
+  }
+}
+function mergeRawInput(prev, increment) {
+  if (!increment || typeof increment !== "object" || Array.isArray(increment))
+    return increment != null ? increment : prev;
+  const base = prev && typeof prev === "object" && !Array.isArray(prev) ? prev : {};
+  return { ...base, ...increment };
+}
+function mapSessionUpdate(update) {
+  switch (update.sessionUpdate) {
+    case "agent_thought_chunk": {
+      const text = textOf(update);
+      return text === null ? null : { type: "thinking", content: text };
+    }
+    case "agent_message_chunk": {
+      const text = textOf(update);
+      return text === null ? null : { type: "text", content: text };
+    }
+    case "tool_call": {
+      const toolName = extractToolName(update);
+      return { type: "tool", content: "", toolName, toolDetail: summarizeRawInput(update.rawInput) };
+    }
+    default:
+      return null;
+  }
+}
+function mapUsageUpdate(update) {
+  if (update.sessionUpdate !== "usage_update")
+    return null;
+  const { used, size } = update;
+  if (typeof used !== "number" || typeof size !== "number")
+    return null;
+  return { used, size };
+}
+function mapConfigUpdate(update) {
+  if (update.sessionUpdate === "current_mode_update") {
+    return typeof update.currentModeId === "string" ? { mode: update.currentModeId } : null;
+  }
+  if (update.sessionUpdate === "config_option_update") {
+    const out = {};
+    const options = Array.isArray(update.configOptions) ? update.configOptions : [];
+    for (const opt of options) {
+      if (opt.id === "mode" && typeof opt.currentValue === "string")
+        out.mode = opt.currentValue;
+      if (opt.id === "model" && typeof opt.currentValue === "string")
+        out.model = opt.currentValue;
+    }
+    return Object.keys(out).length ? out : null;
+  }
+  return null;
+}
+function isReplayUpdate(update) {
+  const meta = update._meta;
+  const cb = meta == null ? void 0 : meta["codebuddy.ai"];
+  return (cb == null ? void 0 : cb.mode) === "history";
+}
+
+// src/providers/codebuddy/acp/permission.ts
+function asRecord(v) {
+  return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+function summarize(rawInput) {
+  try {
+    const s = JSON.stringify(rawInput);
+    return s.length > 200 ? s.slice(0, 197) + "..." : s;
+  } catch (e) {
+    return "";
+  }
+}
+function buildDetail(toolName, rawInput, isPlan) {
+  if (isPlan)
+    return { kind: "plan" };
+  const path3 = typeof rawInput.file_path === "string" ? rawInput.file_path : typeof rawInput.path === "string" ? rawInput.path : "";
+  if (toolName === "Write" && typeof rawInput.content === "string") {
+    return { kind: "write", path: path3, lines: rawInput.content.split("\n").length };
+  }
+  if (toolName === "Edit" || toolName === "MultiEdit") {
+    return {
+      kind: "edit",
+      path: path3,
+      oldText: typeof rawInput.old_string === "string" ? rawInput.old_string : "",
+      newText: typeof rawInput.new_string === "string" ? rawInput.new_string : ""
+    };
+  }
+  if ((toolName === "Bash" || toolName === "Shell") && typeof rawInput.command === "string") {
+    return { kind: "bash", command: rawInput.command };
+  }
+  return { kind: "generic", summary: summarize(rawInput) };
+}
+function mapPermissionRequest(requestId, params) {
+  const p = asRecord(params);
+  const toolCall = asRecord(p.toolCall);
+  const meta = asRecord(toolCall._meta);
+  const rawInput = asRecord(toolCall.rawInput);
+  const metaName = meta["codebuddy.ai/toolName"];
+  const toolName = typeof metaName === "string" && metaName ? metaName : typeof rawInput.toolName === "string" ? rawInput.toolName : typeof toolCall.title === "string" ? toolCall.title : "tool";
+  const isPlan = toolName === "DeferExecuteTool" || rawInput.toolName === "ExitPlanMode";
+  const options = (Array.isArray(p.options) ? p.options : []).map((o) => {
+    const rec = asRecord(o);
+    return {
+      optionId: typeof rec.optionId === "string" ? rec.optionId : "",
+      kind: typeof rec.kind === "string" ? rec.kind : "",
+      label: typeof rec.name === "string" ? rec.name : ""
+    };
+  }).filter((o) => o.optionId);
+  return {
+    requestId,
+    sessionId: typeof p.sessionId === "string" ? p.sessionId : "",
+    toolName,
+    detail: buildDetail(toolName, rawInput, isPlan),
+    options,
+    isPlanApproval: isPlan
+  };
+}
+function buildPermissionResult(optionId) {
+  return { outcome: { outcome: "selected", optionId } };
+}
+function pickOptionId(options, kindPrefix) {
+  const hit = options.find((o) => kindPrefix === "allow_once" ? o.kind === "allow_once" : o.kind.startsWith(kindPrefix));
+  return hit == null ? void 0 : hit.optionId;
+}
+
+// src/providers/codebuddy/acp/session.ts
+var AcpSession = class {
+  constructor(key, client, lookup, config) {
+    this.key = key;
+    this.client = client;
+    this.lookup = lookup;
+    this.config = config;
+    this.acpSessionId = null;
+    this.status = "idle";
+    this.lastUsage = null;
+    this.needsReload = false;
+    this.handlers = null;
+    this.pendingPermissions = /* @__PURE__ */ new Map();
+    this.toolInputs = /* @__PURE__ */ new Map();
+  }
+  /** 进程死亡后由 provider 标记：下次 ensureLoaded 重新 session/load（CLI 侧上下文不丢） */
+  markStale() {
+    if (this.acpSessionId)
+      this.needsReload = true;
+  }
+  async ensureLoaded(vaultPath) {
+    var _a;
+    if (this.acpSessionId && !this.needsReload)
+      return;
+    this.status = "loading";
+    try {
+      if (!this.acpSessionId) {
+        const candidate = (_a = this.lookup.getAcpSessionId(this.key)) != null ? _a : this.key;
+        try {
+          await this.client.request("session/load", { sessionId: candidate, cwd: vaultPath != null ? vaultPath : "", mcpServers: [] });
+          this.acpSessionId = candidate;
+        } catch (e) {
+          const result = await this.client.request(
+            "session/new",
+            { cwd: vaultPath != null ? vaultPath : "", mcpServers: [] }
+          );
+          this.acpSessionId = result.sessionId;
+        }
+        this.lookup.setAcpSessionId(this.key, this.acpSessionId);
+      } else {
+        await this.client.request("session/load", { sessionId: this.acpSessionId, cwd: vaultPath != null ? vaultPath : "", mcpServers: [] });
+      }
+      this.needsReload = false;
+      await this.applyConfig();
+    } finally {
+      this.status = "idle";
+    }
+  }
+  /** provider setModel/setPermissionMode 时对已加载会话逐一应用（按会话设置，双面板泄漏在协议层绝迹） */
+  async applyRemoteConfig() {
+    if (this.acpSessionId)
+      await this.applyConfig();
+  }
+  async applyConfig() {
+    const sessionId = this.acpSessionId;
+    if (!sessionId)
+      return;
+    try {
+      if (this.config.model) {
+        await this.client.request("session/set_config_option", { sessionId, configId: "model", value: this.config.model });
+      }
+    } catch (e) {
+      bbLog("[WB] acp \u8BBE\u7F6E\u6A21\u578B\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
+    }
+    try {
+      if (this.config.mode) {
+        try {
+          await this.client.request("session/set_mode", { sessionId, modeId: this.config.mode });
+        } catch (e) {
+          await this.client.request("session/set_config_option", { sessionId, configId: "mode", value: this.config.mode });
+        }
+      }
+    } catch (e) {
+      bbLog("[WB] acp \u8BBE\u7F6E\u6743\u9650\u6A21\u5F0F\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
+    }
+  }
+  async prompt(text, handlers) {
+    if (this.status !== "idle")
+      throw new Error("session busy");
+    if (!this.acpSessionId)
+      throw new Error("session not loaded");
+    this.status = "prompting";
+    this.handlers = handlers;
+    this.toolInputs.clear();
+    try {
+      const result = await this.client.request("session/prompt", {
+        sessionId: this.acpSessionId,
+        prompt: [{ type: "text", text }]
+      });
+      return { stopReason: typeof result.stopReason === "string" ? result.stopReason : "end_turn" };
+    } finally {
+      if (this.pendingPermissions.size)
+        this.rejectPendingPermissions();
+      this.status = "idle";
+      this.handlers = null;
+    }
+  }
+  handleUpdate(update) {
+    var _a, _b, _c;
+    if (this.status === "loading" || isReplayUpdate(update))
+      return;
+    const handlers = this.handlers;
+    if (!handlers)
+      return;
+    if (update.sessionUpdate === "tool_call_update") {
+      const id = typeof update.toolCallId === "string" ? update.toolCallId : "";
+      if (id)
+        this.toolInputs.set(id, mergeRawInput(this.toolInputs.get(id), update.rawInput));
+      return;
+    }
+    const usage = mapUsageUpdate(update);
+    if (usage) {
+      this.lastUsage = usage;
+      (_a = handlers.onUsage) == null ? void 0 : _a.call(handlers, usage.used, usage.size);
+      return;
+    }
+    const config = mapConfigUpdate(update);
+    if (config) {
+      (_b = handlers.onConfigUpdate) == null ? void 0 : _b.call(handlers, config);
+      return;
+    }
+    const chunk = mapSessionUpdate(update);
+    if (chunk) {
+      if (chunk.type === "tool" && typeof update.toolCallId === "string") {
+        this.toolInputs.set(update.toolCallId, (_c = update.rawInput) != null ? _c : {});
+      }
+      handlers.onChunk(chunk);
+    }
+  }
+  handlePermissionRequest(requestId, params) {
+    var _a;
+    const data = mapPermissionRequest(requestId, params);
+    const handlers = this.handlers;
+    if (!(handlers == null ? void 0 : handlers.onPermissionRequest)) {
+      this.client.respond(requestId, buildPermissionResult((_a = pickOptionId(data.options, "reject")) != null ? _a : "reject"));
+      return;
+    }
+    this.pendingPermissions.set(requestId, data);
+    this.status = "awaitingPermission";
+    handlers.onPermissionRequest(data);
+  }
+  hasPendingPermission(requestId) {
+    return this.pendingPermissions.has(requestId);
+  }
+  respondPermission(requestId, optionId) {
+    if (!this.pendingPermissions.delete(requestId))
+      return false;
+    this.client.respond(requestId, buildPermissionResult(optionId));
+    if (this.status === "awaitingPermission")
+      this.status = "prompting";
+    return true;
+  }
+  rejectPendingPermissions() {
+    var _a;
+    for (const [requestId, data] of this.pendingPermissions) {
+      this.client.respond(requestId, buildPermissionResult((_a = pickOptionId(data.options, "reject")) != null ? _a : "reject"));
+    }
+    this.pendingPermissions.clear();
+    if (this.status === "awaitingPermission")
+      this.status = "prompting";
+  }
+  async cancelTurn() {
+    if (this.status !== "prompting" && this.status !== "awaitingPermission")
+      return;
+    this.rejectPendingPermissions();
+    if (this.acpSessionId)
+      this.client.notify("session/cancel", { sessionId: this.acpSessionId });
+  }
+  failTurn(message) {
+    var _a;
+    (_a = this.handlers) == null ? void 0 : _a.onError(message);
+  }
+};
+var SessionRegistry = class {
+  constructor(client, lookup, config) {
+    this.client = client;
+    this.lookup = lookup;
+    this.config = config;
+    this.sessions = /* @__PURE__ */ new Map();
+  }
+  get(key) {
+    let s = this.sessions.get(key);
+    if (!s) {
+      s = new AcpSession(key, this.client, this.lookup, this.config);
+      this.sessions.set(key, s);
+    }
+    return s;
+  }
+  find(key) {
+    return this.sessions.get(key);
+  }
+  byAcpId(acpSessionId) {
+    for (const s of this.sessions.values())
+      if (s.acpSessionId === acpSessionId)
+        return s;
+    return void 0;
+  }
+  all() {
+    return [...this.sessions.values()];
+  }
+};
+
+// src/providers/codebuddy/index.ts
+var TIMEOUT = 3e5;
+var NOOP_LOOKUP = { getAcpSessionId: () => void 0, setAcpSessionId: () => {
+} };
+var CodebuddyProvider = class {
+  constructor(timeout = TIMEOUT) {
+    this.config = { model: "auto", mode: "default" };
+    this.lookup = NOOP_LOOKUP;
+    this.availableModels = Object.keys(FALLBACK_MODEL_OPTIONS);
+    this.callbacks = /* @__PURE__ */ new Map();
+    this.timeout = timeout;
+    this.client = new AcpClient({
+      onSessionUpdate: (acpSessionId, update) => {
+        var _a;
+        return (_a = this.registry.byAcpId(acpSessionId)) == null ? void 0 : _a.handleUpdate(update);
+      },
+      onPermissionRequest: (requestId, params) => this.routePermissionRequest(requestId, params),
+      onAgentNotification: (method) => bbLog("[WB] acp \u901A\u77E5:", method),
+      onModels: (models) => {
+        this.availableModels = models;
+      },
+      onExit: (code, signal) => this.handleProcessExit(code, signal)
+    });
+    this.registry = new SessionRegistry(
+      this.client,
+      {
+        getAcpSessionId: (k) => this.lookup.getAcpSessionId(k),
+        setAcpSessionId: (k, id) => this.lookup.setAcpSessionId(k, id)
+      },
+      this.config
+    );
+  }
+  setCodebuddyPath(p) {
+    this.client.setCodebuddyPath(p);
+  }
   setTimeout(ms) {
     this.timeout = ms;
   }
   setNodePath(nodePath) {
-    this.nodePathOverride = nodePath;
+    this.client.setNodePath(nodePath);
   }
   setModel(model) {
-    this.model = model;
+    this.config.model = model;
+    for (const s of this.registry.all())
+      void s.applyRemoteConfig();
   }
   setPermissionMode(mode) {
-    this.permissionMode = mode;
+    this.config.mode = mode;
+    for (const s of this.registry.all())
+      void s.applyRemoteConfig();
   }
   setAvailableModels(models) {
     this.availableModels = models;
@@ -723,204 +1125,168 @@ var CodebuddyProvider = class {
     return [...this.availableModels];
   }
   getScriptPath() {
-    return this.scriptPath;
+    return this.client.getScriptPath();
+  }
+  /** main.ts 注入：Conversation.acpSessionId 的读写桥（懒加载与回写的唯一通道） */
+  setConversationLookup(lookup) {
+    this.lookup = lookup;
   }
   generateId() {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
       const r = Math.random() * 16 | 0;
-      const v = c === "x" ? r : r & 3 | 8;
-      return v.toString(16);
+      return (c === "x" ? r : r & 3 | 8).toString(16);
     });
   }
-  /**
-   * permissionModeOverride：仅供本次调用使用的权限模式覆盖值（例如计划卡片「按此执行」需要
-   * acceptEdits 才能落盘写操作），不传时沿用 this.permissionMode。不会修改 this.permissionMode
-   * 本身——view/settings 与 provider 在两个面板间共享同一实例，若在这里改全局字段，放宽状态会
-   * 泄漏到另一个面板正在发送的普通消息上（见 C1/I1/I2/I3）。
-   */
+  // ---- 旁路回调注册（view 在 sendText 时按会话 key 注册） ----
+  onPermissionRequest(sessionKey, cb) {
+    this.callbacks.set(sessionKey, { ...this.callbacks.get(sessionKey), onPermissionRequest: cb });
+  }
+  onUsage(sessionKey, cb) {
+    this.callbacks.set(sessionKey, { ...this.callbacks.get(sessionKey), onUsage: cb });
+  }
+  onConfigUpdate(sessionKey, cb) {
+    this.callbacks.set(sessionKey, { ...this.callbacks.get(sessionKey), onConfigUpdate: cb });
+  }
+  /** 批准卡按钮应答：requestId 归哪个会话由 pending 持有情况路由 */
+  respondPermission(requestId, optionId) {
+    for (const s of this.registry.all()) {
+      if (s.respondPermission(requestId, optionId))
+        return;
+    }
+    bbLog("[WB] respondPermission \u672A\u627E\u5230\u60AC\u6302\u8BF7\u6C42:", requestId);
+  }
+  /** 悬挂边界：关面板/切会话/卸载前把批准请求统一答 reject，不悬挂到 CLI 侧干等 */
+  rejectPendingPermissions(sessionKey) {
+    for (const s of this.registry.all()) {
+      if (!sessionKey || s.key === sessionKey)
+        s.rejectPendingPermissions();
+    }
+  }
+  /** 定向 cancel：有参只停该会话在飞轮次（双面板互不影响）；无参停全部（卸载兜底） */
+  cancel(sessionId) {
+    for (const s of this.registry.all()) {
+      if (!sessionId || s.key === sessionId)
+        void s.cancelTurn();
+    }
+  }
+  /** 卸载：拒悬挂批准 → terminate 进程 */
+  dispose() {
+    this.rejectPendingPermissions();
+    this.client.dispose();
+  }
   async *sendMessage(sessionId, text, vaultPath, addDirs = [], permissionModeOverride) {
     var _a;
-    const scriptPath = this.scriptPath;
-    const procOptions = {
-      timeout: this.timeout,
-      // stdin 打开为管道：prompt 通过 stdin 喂给 CLI，不走命令行参数
-      stdio: ["pipe", "pipe", "pipe"]
+    const session = this.registry.get(sessionId);
+    try {
+      await this.client.ensureStarted();
+      await session.ensureLoaded(vaultPath);
+    } catch (e) {
+      throw new Error(this.startErrorMessage(e));
+    }
+    const cbs = (_a = this.callbacks.get(sessionId)) != null ? _a : {};
+    const queue = [];
+    let waiter = null;
+    let settled = false;
+    const push2 = (item) => {
+      if (settled)
+        return;
+      if (item.end || item.error)
+        settled = true;
+      if (waiter) {
+        const w = waiter;
+        waiter = null;
+        w(item);
+      } else {
+        queue.push(item);
+      }
     };
-    if (vaultPath) {
-      procOptions.cwd = vaultPath;
+    const pull = () => queue.length ? Promise.resolve(queue.shift()) : new Promise((r) => {
+      waiter = r;
+    });
+    const handlers = {
+      onChunk: (chunk) => push2({ chunk }),
+      onError: (message) => push2({ error: message }),
+      // 未注册批准回调时保持 undefined，session 层自动统一拒绝
+      onPermissionRequest: cbs.onPermissionRequest ? (data) => cbs.onPermissionRequest(data) : void 0,
+      onUsage: (used, size) => {
+        var _a2;
+        return (_a2 = cbs.onUsage) == null ? void 0 : _a2.call(cbs, used, size);
+      },
+      onConfigUpdate: (cfg) => {
+        var _a2;
+        return (_a2 = cbs.onConfigUpdate) == null ? void 0 : _a2.call(cbs, cfg);
+      }
+    };
+    const timer = setTimeout(() => {
+      void session.cancelTurn();
+      push2({ error: t("provider.turnTimeout") });
+    }, this.timeout);
+    let promptPromise;
+    try {
+      promptPromise = session.prompt(text, handlers);
+    } catch (e) {
+      clearTimeout(timer);
+      throw e;
     }
-    const cliArgs = ["--print", "--output-format", "stream-json", "--include-partial-messages"];
-    if (addDirs.length) {
-      cliArgs.push("--add-dir", ...addDirs);
-      cliArgs.push("--allowedTools", ...addDirs.map((d) => `Read(${d.replace(/\\/g, "/")}/**)`));
-    }
-    cliArgs.push("--session-id", sessionId, "--model", this.model, "--permission-mode", permissionModeOverride != null ? permissionModeOverride : this.permissionMode);
-    if (needsWindowsShell(scriptPath)) {
-      procOptions.shell = true;
-    }
-    let proc;
-    if (isWindowsWrapper(scriptPath) || isBareFallback(scriptPath)) {
-      proc = (0, import_child_process2.spawn)(scriptPath, cliArgs, procOptions);
-    } else {
-      const nodeBin = this.nodePathOverride || findNodeExecutable() || "node";
-      proc = (0, import_child_process2.spawn)(nodeBin, [scriptPath, ...cliArgs], procOptions);
-    }
-    this.activeProc = proc;
-    const stdin = proc.stdin;
-    if (stdin) {
-      stdin.on("error", () => {
-      });
-      stdin.write(text);
-      stdin.end();
-    }
-    let buffer2 = "";
-    let errOut = "";
-    let hasOutput = false;
-    const chunkQueue = [];
-    let resolveQueue = null;
-    let closed = false;
-    proc.stdout.on("data", (d) => {
-      buffer2 += d.toString();
-      const lines = buffer2.split("\n");
-      buffer2 = lines.pop() || "";
-      for (const line of lines) {
-        const chunk = parseStreamLine(line, true);
-        if (chunk) {
-          hasOutput = true;
-          const preview = typeof chunk.content === "string" ? chunk.content.substring(0, 80) : JSON.stringify(chunk.content).substring(0, 80);
-          bbLog("[WB] chunk:", chunk.type, preview);
-          if (resolveQueue) {
-            resolveQueue({ value: chunk, done: false });
-            resolveQueue = null;
-          } else {
-            chunkQueue.push(chunk);
+    promptPromise.then(({ stopReason }) => {
+      clearTimeout(timer);
+      if (stopReason === "end_turn") {
+        push2({
+          chunk: {
+            type: "done",
+            content: "",
+            usage: session.lastUsage ? { inputTokens: session.lastUsage.used } : void 0
           }
-        }
+        });
+        push2({ end: true });
+      } else if (stopReason === "cancelled") {
+        push2({ end: true });
+      } else {
+        push2({ error: t("provider.turnFailed").replace("{reason}", stopReason) });
       }
-    });
-    proc.stderr.on("data", (d) => {
-      errOut += d.toString();
-      bbLog("[WB] stderr:", errOut);
-    });
-    proc.on("close", (code, signal) => {
-      bbLog("[WB] exit:", code, signal ? "signal:" + signal : "", "| err:", errOut.substring(0, 200));
-      closed = true;
-      if (this.activeProc === proc) {
-        this.activeProc = null;
-      }
-      if (resolveQueue) {
-        if (errOut && !hasOutput) {
-          resolveQueue({ value: { type: "error", content: errOut }, done: true });
-        } else {
-          resolveQueue({ value: { type: "done", content: "" }, done: true });
-        }
-        resolveQueue = null;
-      }
-    });
-    proc.on("error", (e) => {
-      if (this.activeProc === proc) {
-        this.activeProc = null;
-      }
-      bbLog("[WB] spawn err:", e.message, "| scriptPath:", scriptPath);
-      closed = true;
-      if (resolveQueue) {
-        let hint = e.message;
-        if (e.message.includes("ENOENT")) {
-          if (scriptPath === "codebuddy") {
-            hint = t("provider.cliNotFound");
-          } else if (!isWindowsWrapper(scriptPath) && !isBareFallback(scriptPath)) {
-            hint = t("provider.nodeNotFound").replace("{path}", scriptPath);
-          }
-        }
-        resolveQueue({ value: { type: "error", content: hint }, done: true });
-        resolveQueue = null;
-      }
+    }, (e) => {
+      clearTimeout(timer);
+      push2({ error: e.message });
     });
     while (true) {
-      if (chunkQueue.length > 0) {
-        const nextChunk = chunkQueue.shift();
-        if (nextChunk) {
-          yield nextChunk;
-          continue;
-        }
-      }
-      if (closed) {
-        if (buffer2.trim()) {
-          const chunk = parseStreamLine(buffer2, true);
-          if (chunk)
-            yield chunk;
-        }
-        break;
-      }
-      const next = await new Promise((r) => {
-        resolveQueue = r;
-      });
-      if (next.done) {
-        if (((_a = next.value) == null ? void 0 : _a.type) === "error")
-          throw new Error(next.value.content);
-        break;
-      }
-      yield next.value;
+      const item = await pull();
+      if (item.end)
+        return;
+      if (item.error)
+        throw new Error(item.error);
+      if (item.chunk)
+        yield item.chunk;
     }
   }
-  cancel() {
-    if (this.activeProc) {
-      this.activeProc.kill();
+  routePermissionRequest(requestId, params) {
+    const sessionId = params == null ? void 0 : params.sessionId;
+    const session = typeof sessionId === "string" ? this.registry.byAcpId(sessionId) : void 0;
+    if (session) {
+      session.handlePermissionRequest(requestId, params);
+    } else {
+      this.client.respond(requestId, { outcome: { outcome: "selected", optionId: "reject" } });
     }
+  }
+  handleProcessExit(code, signal) {
+    bbLog("[WB] acp \u8FDB\u7A0B\u9000\u51FA:", code, signal);
+    for (const s of this.registry.all()) {
+      s.markStale();
+      s.failTurn(t("provider.processDied"));
+    }
+  }
+  startErrorMessage(e) {
+    if (e instanceof AcpStartError) {
+      const byTier = {
+        "cli-not-found": t("provider.cliNotFound"),
+        "acp-unsupported": t("provider.acpUnsupported"),
+        "auth-required": t("provider.notLoggedIn"),
+        "handshake-failed": t("provider.handshakeFailed").replace("{detail}", e.message)
+      };
+      return byTier[e.tier];
+    }
+    return e instanceof Error ? e.message : String(e);
   }
 };
-
-// src/providers/codebuddy/models.ts
-function parseModelList(helpText) {
-  const match = helpText.match(/--model\s+<model>[^\n]*Currently supported:\s*\(([^)]+)\)/i);
-  if (!match)
-    return [];
-  return match[1].split(",").map((s) => s.trim()).filter((s) => s && s !== "auto");
-}
-async function fetchModels(scriptPath, nodePath, timeoutMs = 1e4) {
-  const fallback = {
-    models: Object.keys(FALLBACK_MODEL_OPTIONS),
-    source: "fallback"
-  };
-  return new Promise((resolve) => {
-    var _a, _b;
-    const procOptions = { stdio: ["ignore", "pipe", "pipe"] };
-    if (needsWindowsShell(scriptPath)) {
-      procOptions.shell = true;
-    }
-    const proc = spawnCli(scriptPath, ["--help"], procOptions, nodePath);
-    let stdout = "";
-    let stderr = "";
-    (_a = proc.stdout) == null ? void 0 : _a.on("data", (d) => {
-      stdout += d.toString();
-    });
-    (_b = proc.stderr) == null ? void 0 : _b.on("data", (d) => {
-      stderr += d.toString();
-    });
-    const timer = setTimeout(() => {
-      proc.kill();
-      resolve(fallback);
-    }, timeoutMs);
-    proc.on("error", () => {
-      clearTimeout(timer);
-      resolve(fallback);
-    });
-    proc.on("close", (code) => {
-      clearTimeout(timer);
-      if (code !== 0) {
-        resolve(fallback);
-        return;
-      }
-      const text = stdout || stderr;
-      const models = parseModelList(text);
-      if (models.length === 0) {
-        resolve(fallback);
-      } else {
-        resolve({ models, source: "cli" });
-      }
-    });
-  });
-}
 
 // src/features/chat/view.ts
 var import_obsidian7 = require("obsidian");
@@ -935,6 +1301,101 @@ function registerWorkbuddianIcon() {
 
 // src/features/chat/tabs.ts
 var import_obsidian6 = require("obsidian");
+
+// src/types/index.ts
+var CURRENT_SETTINGS_VERSION = 10;
+var DEFAULT_CONTEXT_WINDOW_SIZE = 2e5;
+var DEFAULT_PASTED_IMAGE_KEEP = 20;
+var MAX_PASTED_IMAGE_KEEP = 500;
+var DEFAULT_SETTINGS = {
+  codebuddyPath: "",
+  cliTimeoutMinutes: 5,
+  nodePath: "",
+  injectVaultContext: true,
+  injectCurrentNoteLink: false,
+  model: "auto",
+  primaryColor: "",
+  contextWindowSize: DEFAULT_CONTEXT_WINDOW_SIZE,
+  permissionMode: "default",
+  language: "auto",
+  customInstruction: "",
+  pastedImageKeep: DEFAULT_PASTED_IMAGE_KEEP,
+  version: CURRENT_SETTINGS_VERSION
+};
+function isObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function getString(data, key) {
+  const value = data[key];
+  return typeof value === "string" ? value : void 0;
+}
+function getNumber(data, key) {
+  const value = data[key];
+  return typeof value === "number" ? value : void 0;
+}
+function getBoolean(data, key) {
+  const value = data[key];
+  return typeof value === "boolean" ? value : void 0;
+}
+function getErrorMessage(error) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  return t("common.unknownError");
+}
+function migrateSettings(stored) {
+  var _a, _b, _c, _d, _e;
+  if (!isObject(stored)) {
+    return { ...DEFAULT_SETTINGS };
+  }
+  const cliTimeoutMinutes = getNumber(stored, "cliTimeoutMinutes");
+  const injectVaultContext = getBoolean(stored, "injectVaultContext");
+  const injectCurrentNoteLink = getBoolean(stored, "injectCurrentNoteLink");
+  const contextWindowSize = getNumber(stored, "contextWindowSize");
+  const language = getString(stored, "language");
+  const pastedImageKeep = getNumber(stored, "pastedImageKeep");
+  return {
+    codebuddyPath: (_a = getString(stored, "codebuddyPath")) != null ? _a : DEFAULT_SETTINGS.codebuddyPath,
+    cliTimeoutMinutes: typeof cliTimeoutMinutes === "number" && cliTimeoutMinutes > 0 ? cliTimeoutMinutes : DEFAULT_SETTINGS.cliTimeoutMinutes,
+    nodePath: (_b = getString(stored, "nodePath")) != null ? _b : DEFAULT_SETTINGS.nodePath,
+    injectVaultContext: typeof injectVaultContext === "boolean" ? injectVaultContext : DEFAULT_SETTINGS.injectVaultContext,
+    injectCurrentNoteLink: typeof injectCurrentNoteLink === "boolean" ? injectCurrentNoteLink : DEFAULT_SETTINGS.injectCurrentNoteLink,
+    model: (_c = getString(stored, "model")) != null ? _c : DEFAULT_SETTINGS.model,
+    primaryColor: (_d = getString(stored, "primaryColor")) != null ? _d : DEFAULT_SETTINGS.primaryColor,
+    contextWindowSize: typeof contextWindowSize === "number" && contextWindowSize > 0 ? contextWindowSize : DEFAULT_SETTINGS.contextWindowSize,
+    permissionMode: isPermissionMode(stored.permissionMode) ? stored.permissionMode : DEFAULT_SETTINGS.permissionMode,
+    language: language === "zh" || language === "en" || language === "auto" ? language : DEFAULT_SETTINGS.language,
+    customInstruction: (_e = getString(stored, "customInstruction")) != null ? _e : DEFAULT_SETTINGS.customInstruction,
+    pastedImageKeep: typeof pastedImageKeep === "number" && Number.isInteger(pastedImageKeep) && pastedImageKeep >= 0 && pastedImageKeep <= MAX_PASTED_IMAGE_KEEP ? pastedImageKeep : DEFAULT_SETTINGS.pastedImageKeep,
+    version: CURRENT_SETTINGS_VERSION
+  };
+}
+function generateId() {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === "x" ? r : r & 3 | 8;
+    return v.toString(16);
+  });
+}
+function normalizePersistedData(raw) {
+  const result = {};
+  if (!isObject(raw)) {
+    return result;
+  }
+  if (Array.isArray(raw.conversations)) {
+    result.conversations = raw.conversations;
+  }
+  if (isObject(raw.settings)) {
+    result.settings = migrateSettings(raw.settings);
+  }
+  return result;
+}
+function exportSettings(settings) {
+  return JSON.stringify(settings, null, 2);
+}
 
 // src/shared/export.ts
 function formatConversationAsMarkdown(conv) {
@@ -1146,10 +1607,6 @@ function parseFileChange(toolName, toolDetail) {
     return { kind: "write", path: path3, newText: content };
   }
   return null;
-}
-function isPlanFilePath(p) {
-  const norm = p.replace(/\\/g, "/");
-  return norm.includes("/.codebuddy/plans/") && norm.endsWith(".md");
 }
 
 // src/shared/lineDiff.ts
@@ -1579,25 +2036,89 @@ function undoEdit(change, btn) {
     new import_obsidian4.Notice(t("tool.undoFailed"));
   }
 }
-async function renderPlanCard(view, container, planText) {
-  const card = container.createDiv({ cls: "workbuddian-plan-card" });
-  card.createDiv({ cls: "workbuddian-plan-card-title", text: t("plan.cardTitle") });
-  const body = card.createDiv({ cls: "workbuddian-plan-card-body" });
-  await import_obsidian4.MarkdownRenderer.render(view.app, planText, body, "", view.markdownComponent);
-  const actions = card.createDiv({ cls: "workbuddian-plan-card-actions" });
-  const executeBtn = actions.createEl("button", { text: t("plan.execute") });
-  const dismissBtn = actions.createEl("button", { text: t("plan.dismiss") });
-  card.createDiv({ cls: "workbuddian-plan-card-note", text: t("plan.note") });
-  executeBtn.onclick = async () => {
-    if (executeBtn.disabled || view.isStreaming)
-      return;
-    executeBtn.disabled = true;
-    await sendText(view, planText, "acceptEdits");
-  };
-  dismissBtn.onclick = () => card.remove();
+async function renderApprovalCard(view, container, data) {
+  var _a;
+  const card = container.createDiv({ cls: "workbuddian-approval-card workbuddian-approval-card-pending" });
+  card.createDiv({
+    cls: "workbuddian-approval-card-title",
+    text: data.isPlanApproval ? t("approval.planReady") : `${t("approval.title")}: ${data.toolName}`
+  });
+  if (data.detail.kind !== "plan") {
+    renderApprovalDetail(card.createDiv({ cls: "workbuddian-approval-card-body" }), data.detail);
+  }
+  const actions = card.createDiv({ cls: "workbuddian-approval-card-actions" });
+  const rejectId = (_a = pickOptionId(data.options, "reject")) != null ? _a : "reject";
+  view.pendingApprovals.set(data.requestId, rejectId);
+  const defs = data.isPlanApproval ? [
+    { label: t("approval.execute"), kind: "allow_once", resolved: t("approval.resolvedAllow"), cta: true },
+    { label: t("approval.alwaysExecute"), kind: "allow_always", resolved: t("approval.resolvedAlways") },
+    { label: t("approval.cancel"), kind: "reject", resolved: t("approval.resolvedReject") }
+  ] : [
+    { label: t("approval.allow"), kind: "allow_once", resolved: t("approval.resolvedAllow"), cta: true },
+    { label: t("approval.alwaysAllow"), kind: "allow_always", resolved: t("approval.resolvedAlways") },
+    { label: t("approval.reject"), kind: "reject", resolved: t("approval.resolvedReject") }
+  ];
+  let responded = false;
+  for (const def of defs) {
+    const btn = actions.createEl("button", { text: def.label, cls: def.cta ? "mod-cta" : "" });
+    btn.onclick = () => {
+      if (responded)
+        return;
+      const optionId = pickOptionId(data.options, def.kind);
+      if (!optionId)
+        return;
+      responded = true;
+      view.pendingApprovals.delete(data.requestId);
+      view.api.respondPermission(data.requestId, optionId);
+      card.removeClass("workbuddian-approval-card-pending");
+      actions.empty();
+      card.createDiv({ cls: "workbuddian-approval-card-resolved", text: def.resolved });
+    };
+  }
 }
-function isDeferExecuteRejection(text) {
-  return text.includes("DeferExecuteTool") && text.includes("non-interactive");
+function renderApprovalDetail(body, detail) {
+  switch (detail.kind) {
+    case "write":
+      body.setText(t("approval.writeLines").replace("{path}", detail.path).replace("{count}", String(detail.lines)));
+      return;
+    case "edit": {
+      body.createDiv({ cls: "workbuddian-approval-card-path", text: detail.path });
+      const diffEl = body.createDiv({ cls: "workbuddian-tool-diff-body" });
+      for (const line of lineDiff(detail.oldText, detail.newText)) {
+        const prefix = line.type === "add" ? "+ " : line.type === "remove" ? "- " : "  ";
+        diffEl.createDiv({
+          cls: `workbuddian-diff-line workbuddian-diff-${line.type}`,
+          text: prefix + line.text
+        });
+      }
+      return;
+    }
+    case "bash":
+      body.createEl("pre", { cls: "workbuddian-approval-card-cmd", text: detail.command });
+      return;
+    case "generic":
+      body.setText(detail.summary);
+      return;
+    default:
+      return;
+  }
+}
+function applyToolbarConfig(view, cfg) {
+  var _a;
+  let changed = false;
+  if (cfg.mode && PERMISSION_MODE_CHOICES.includes(cfg.mode) && cfg.mode !== view.settings.permissionMode) {
+    view.settings.permissionMode = cfg.mode;
+    (0, import_obsidian4.setIcon)(view.permissionBtn, permissionIcon(view.settings.permissionMode));
+    view.permissionBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + view.settings.permissionMode)}`);
+    changed = true;
+  }
+  if (cfg.model && cfg.model !== view.settings.model) {
+    view.settings.model = cfg.model;
+    (_a = view.containerEl.querySelector(".workbuddian-model-btn")) == null ? void 0 : _a.setText(cfg.model);
+    changed = true;
+  }
+  if (changed)
+    void view.saveSettingsCallback();
 }
 function pastedDir(view) {
   return `${view.vaultPath}/${view.app.vault.configDir}/plugins/workbuddian/pasted`;
@@ -1634,8 +2155,8 @@ function announce(view, text) {
   view.liveRegionEl.setText("");
   window.setTimeout(() => view.liveRegionEl.setText(text), 50);
 }
-function renderContextUsage(view) {
-  var _a;
+function renderContextUsage(view, cliWindowSize) {
+  var _a, _b;
   const usage = (_a = view.getActiveConversation()) == null ? void 0 : _a.lastUsage;
   if (!usage) {
     view.usageEl.addClass("workbuddian-hidden");
@@ -1643,7 +2164,8 @@ function renderContextUsage(view) {
     view.usageEl.removeAttribute("aria-label");
     return;
   }
-  const windowSize = view.settings.contextWindowSize;
+  const userWindow = view.settings.contextWindowSize;
+  const windowSize = userWindow !== DEFAULT_CONTEXT_WINDOW_SIZE ? userWindow : (_b = cliWindowSize != null ? cliWindowSize : view.cliWindowSize) != null ? _b : userWindow;
   const percent = contextPercent(usage.inputTokens, windowSize);
   view.usageEl.removeClass("workbuddian-hidden");
   view.usageEl.style.setProperty("--workbuddian-usage-pct", String(percent));
@@ -1914,8 +2436,6 @@ async function sendText(view, text, permissionModeOverride) {
   let thinkingContent = "";
   let textContent = "";
   let resultText = "";
-  let planCardRendered = false;
-  let rejectionSwallowed = false;
   const chunkStats = {};
   try {
     let contextText;
@@ -1948,6 +2468,18 @@ async function sendText(view, text, permissionModeOverride) {
     if (!(streamingBubble instanceof HTMLElement)) {
       throw new Error(t("input.bubbleNotFound"));
     }
+    const sessionKey = conv.sessionId;
+    const msgEl = streamingBubble.closest(".workbuddian-message-assistant");
+    view.api.onPermissionRequest(sessionKey, (data) => {
+      if (msgEl instanceof HTMLElement)
+        void renderApprovalCard(view, msgEl, data);
+    });
+    view.api.onUsage(sessionKey, (used, size) => {
+      view.cliWindowSize = size;
+      view.manager.setUsage(convId, { inputTokens: used });
+      renderContextUsage(view, size);
+    });
+    view.api.onConfigUpdate(sessionKey, (cfg) => applyToolbarConfig(view, cfg));
     for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride)) {
       const bubble = streamingBubble;
       if (firstChunk) {
@@ -2031,10 +2563,7 @@ async function sendText(view, text, permissionModeOverride) {
             text: `${toolName} ${toolDetail}`.trim()
           });
           const change = parseFileChange(toolName, toolDetail);
-          if (change && change.kind === "write" && isPlanFilePath(change.path)) {
-            await renderPlanCard(view, bubble, change.newText);
-            planCardRendered = true;
-          } else if (change) {
+          if (change) {
             const diffLines = change.kind === "write" ? lineDiff("", change.newText) : lineDiff(change.oldText, change.newText);
             const diffBlock = list.createDiv({ cls: "workbuddian-tool-diff" });
             const diffHeader = diffBlock.createDiv({
@@ -2086,21 +2615,13 @@ async function sendText(view, text, permissionModeOverride) {
         view.manager.updateMessage(convId, aiMsg.id, textContent, true);
         await renderMarkdownContent(view, bubble, textContent);
       } else if (chunk.type === "error") {
-        if (isDeferExecuteRejection(chunk.content)) {
-          rejectionSwallowed = true;
-        } else {
-          view.manager.setError(convId, aiMsg.id, chunk.content);
-          new import_obsidian4.Notice(`${t("input.requestFailed")}: ${chunk.content}`);
-        }
+        view.manager.setError(convId, aiMsg.id, chunk.content);
+        new import_obsidian4.Notice(`${t("input.requestFailed")}: ${chunk.content}`);
       } else if (chunk.type === "done") {
         if (chunk.usage)
           view.manager.setUsage(convId, chunk.usage);
         if (chunk.content) {
-          if (isDeferExecuteRejection(chunk.content)) {
-            rejectionSwallowed = true;
-          } else {
-            resultText = chunk.content;
-          }
+          resultText = chunk.content;
         }
       }
     }
@@ -2109,7 +2630,7 @@ async function sendText(view, text, permissionModeOverride) {
     let displayContent = finalContent;
     if (!finalContent) {
       bbLog("[WB] empty response \u2014 chunks:", JSON.stringify(chunkStats), "| resultLen:", resultText.length);
-      displayContent = rejectionSwallowed && !planCardRendered ? t("plan.notApprovable") : t("input.noResponse");
+      displayContent = t("input.noResponse");
       view.manager.updateMessage(convId, aiMsg.id, displayContent);
     }
     if (!textContent) {
@@ -2356,6 +2877,7 @@ async function createNewChat(view) {
 async function switchToChat(view, id) {
   if (!view.manager.getById(id))
     return;
+  view.rejectPendingApprovals();
   view.activeConvId = id;
   renderTabs(view);
   await renderMessages(view);
@@ -2543,6 +3065,8 @@ var WorkbuddianChatView = class extends import_obsidian7.ItemView {
     super(leaf);
     this.isStreaming = false;
     this.streamingMsgId = null;
+    /** 本面板悬挂的批准卡：requestId → 兜底 reject optionId（关面板/切会话/卸载时统一答 reject） */
+    this.pendingApprovals = /* @__PURE__ */ new Map();
     this.activeRename = null;
     this.activeConvId = null;
     this.customCommands = [];
@@ -2691,8 +3215,9 @@ var WorkbuddianChatView = class extends import_obsidian7.ItemView {
     });
     (0, import_obsidian7.setIcon)(this.sendBtn, "send");
     this.sendBtn.onclick = () => {
+      var _a;
       if (this.isStreaming) {
-        this.api.cancel();
+        this.api.cancel((_a = this.getActiveConversation()) == null ? void 0 : _a.sessionId);
       } else {
         void sendMessage(this);
       }
@@ -2717,7 +3242,14 @@ var WorkbuddianChatView = class extends import_obsidian7.ItemView {
     this.instructionBtn.setAttribute("title", label);
     this.instructionBtn.setAttribute("aria-label", label);
   }
+  /** 面板关闭/切会话/卸载前，把本面板悬挂的批准卡统一答 reject（批准请求不设超时，不能悬挂到 CLI 侧干等） */
+  rejectPendingApprovals() {
+    for (const [requestId, rejectId] of this.pendingApprovals)
+      this.api.respondPermission(requestId, rejectId);
+    this.pendingApprovals.clear();
+  }
   async onClose() {
+    this.rejectPendingApprovals();
     this.markdownComponent.unload();
   }
   async loadConversations(conversations) {
@@ -2885,6 +3417,22 @@ var ConversationManager = class {
       return false;
     conv.sessionId = sessionId;
     return true;
+  }
+  /** 回写 CLI 分配的 ACP 会话 id；与 setSessionId 一样不单独触发持久化，靠同轮后续 persist/flush 顺带落盘 */
+  setAcpSessionId(convId, acpSessionId) {
+    const conv = this.conversations.get(convId);
+    if (!conv)
+      return false;
+    conv.acpSessionId = acpSessionId;
+    return true;
+  }
+  /** 按 v1 sessionId（provider 会话 key）反查会话，供 provider 的 ConversationLookup 注入用 */
+  findBySessionId(sessionId) {
+    for (const conv of this.conversations.values()) {
+      if (conv.sessionId === sessionId)
+        return conv;
+    }
+    return null;
   }
   /** 记录对话最近一轮的 token 用量（流式内更新，随后 flush 持久化） */
   setUsage(convId, usage) {
@@ -3235,12 +3783,22 @@ var WorkbuddianPlugin = class extends import_obsidian11.Plugin {
       applyPrimaryColor(this.settings.primaryColor);
       this.api = new CodebuddyProvider();
       this.applySettingsToApi();
-      void this.refreshAvailableModels();
       this.manager = new ConversationManager();
       this.manager.setPersistCallback(async (conversations) => {
         const data = normalizePersistedData(await this.loadData());
         data.conversations = conversations;
         await this.saveData(data);
+      });
+      this.api.setConversationLookup({
+        getAcpSessionId: (key) => {
+          var _a;
+          return (_a = this.manager.findBySessionId(key)) == null ? void 0 : _a.acpSessionId;
+        },
+        setAcpSessionId: (key, id) => {
+          const conv = this.manager.findBySessionId(key);
+          if (conv)
+            this.manager.setAcpSessionId(conv.id, id);
+        }
       });
       this.registerView(
         VIEW_TYPE_CHAT,
@@ -3287,7 +3845,7 @@ var WorkbuddianPlugin = class extends import_obsidian11.Plugin {
     }
   }
   onunload() {
-    this.api.cancel();
+    this.api.dispose();
     applyPrimaryColor("");
   }
   /** 语言切换后就地刷新所有已打开的聊天面板，无需重开面板或 Cmd+R */
@@ -3305,16 +3863,6 @@ var WorkbuddianPlugin = class extends import_obsidian11.Plugin {
     this.api.setNodePath(this.settings.nodePath);
     this.api.setModel(this.settings.model);
     this.api.setPermissionMode(this.settings.permissionMode);
-  }
-  async refreshAvailableModels() {
-    try {
-      const result = await fetchModels(this.api.getScriptPath(), this.settings.nodePath);
-      if (result.source === "cli") {
-        this.api.setAvailableModels(result.models);
-      }
-    } catch (e) {
-      bbError("[WB] \u62C9\u53D6\u6A21\u578B\u5217\u8868\u5931\u8D25:", e);
-    }
   }
   async activateView() {
     try {
