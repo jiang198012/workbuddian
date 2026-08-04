@@ -42,10 +42,14 @@ export interface WorkbuddianSettings {
     language: 'auto' | 'zh' | 'en';
     customInstruction: string;
     pastedImageKeep: number;
+    /** MCP 服务器数组 JSON（stdio：[{name,command,args?,env?}]），空串=不注入 */
+    mcpServersJson: string;
+    /** 子代理定义 JSON（{名:{description,prompt}}，对应 CLI --agents），空串=不传 */
+    customAgentsJson: string;
     version: number;
 }
 
-const CURRENT_SETTINGS_VERSION = 10;
+const CURRENT_SETTINGS_VERSION = 11;
 export const DEFAULT_CONTEXT_WINDOW_SIZE = 200000;
 const DEFAULT_PASTED_IMAGE_KEEP = 20;
 /** 粘贴图保留数量上限；0 表示不限制 */
@@ -64,6 +68,8 @@ export const DEFAULT_SETTINGS: WorkbuddianSettings = {
     language: 'auto',
     customInstruction: '',
     pastedImageKeep: DEFAULT_PASTED_IMAGE_KEEP,
+    mcpServersJson: '',
+    customAgentsJson: '',
     version: CURRENT_SETTINGS_VERSION
 };
 
@@ -144,6 +150,8 @@ export function migrateSettings(stored: unknown): WorkbuddianSettings {
             && pastedImageKeep <= MAX_PASTED_IMAGE_KEEP
             ? pastedImageKeep
             : DEFAULT_SETTINGS.pastedImageKeep,
+        mcpServersJson: getString(stored, 'mcpServersJson') ?? DEFAULT_SETTINGS.mcpServersJson,
+        customAgentsJson: getString(stored, 'customAgentsJson') ?? DEFAULT_SETTINGS.customAgentsJson,
         version: CURRENT_SETTINGS_VERSION
     };
 }
