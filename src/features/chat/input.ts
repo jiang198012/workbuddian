@@ -749,15 +749,34 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
     try {
         let contextText: string;
         let addDirs: string[] = [];
+        // vault 内图片附件 → ACP 原生图片块（图片在前文本在后）；vault 外/读失败的退回路径注入
+        const images: Array<{ data: string; mimeType: string }> = [];
         if (slash) {
             // 斜杠命令：原样透传，不注入 vault 前缀 / 笔记链接 / @引用
             contextText = text;
         } else {
             const referenceBlock = await buildReferenceBlock(view, text);
-            const attachmentBlock = buildAttachmentBlock(view.attachments);
+            const pathAttachments: string[] = [];
+            for (const attachPath of view.attachments) {
+                if (isImagePath(attachPath) && view.vaultPath && attachPath.startsWith(view.vaultPath)) {
+                    try {
+                        const rel = attachPath.slice(view.vaultPath.length).replace(/^[\\/]/, '');
+                        const buf = await view.app.vault.adapter.readBinary(rel);
+                        images.push({
+                            data: Buffer.from(buf).toString('base64'),
+                            mimeType: mimeForExt(attachPath.slice(attachPath.lastIndexOf('.'))),
+                        });
+                        continue;
+                    } catch (e) {
+                        bbLog('[WB] 图片读取失败，退回路径注入:', attachPath, e);
+                    }
+                }
+                pathAttachments.push(attachPath);
+            }
+            const attachmentBlock = buildAttachmentBlock(pathAttachments);
             // v1 用这些目录拼 --add-dir 放开读取权限；v2（ACP）起 provider 忽略 addDirs（占位兼容），
             // vault 外文件 Read 改由 CLI 在 default 模式弹批准卡
-            addDirs = attachmentDirs(view.attachments);
+            addDirs = attachmentDirs(pathAttachments);
             const selectionBlock = view.selection ? buildSelectionBlock(view.selection.text, view.selection.note) : '';
             const extraBlock = [referenceBlock, attachmentBlock, selectionBlock].filter(Boolean).join('\n\n---\n\n');
             const currentNoteLink = view.settings.injectCurrentNoteLink ? buildCurrentNoteLink(view) : '';
@@ -791,7 +810,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         });
         view.api.onConfigUpdate(sessionKey, (cfg) => applyToolbarConfig(view, cfg));
 
-        for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride)) {
+        for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride, images)) {
             const bubble = streamingBubble;
 
             if (firstChunk) {

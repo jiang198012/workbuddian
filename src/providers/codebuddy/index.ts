@@ -189,6 +189,7 @@ export class CodebuddyProvider {
         vaultPath?: string,
         addDirs: string[] = [],
         permissionModeOverride?: PermissionMode,
+        images?: Array<{ data: string; mimeType: string }>,
     ): AsyncGenerator<StreamChunk> {
         // v2 退役项：addDirs（--add-dir 预授权 hack）与 permissionModeOverride（计划卡重发 workaround）
         // 仅保留签名兼容，不再消费；vault 外文件 Read 由 CLI 在 default 模式弹批准卡
@@ -238,7 +239,7 @@ export class CodebuddyProvider {
 
         let promptPromise: Promise<{ stopReason: string }>;
         try {
-            promptPromise = session.prompt(text, handlers);
+            promptPromise = session.prompt(text, handlers, images);
         } catch (e) {
             clearTimeout(timer);
             throw e;

@@ -448,3 +448,27 @@ describe('AcpSession mcpServers injection', () => {
         expect(client.request).toHaveBeenCalledWith('session/new', expect.objectContaining({ mcpServers: [] }));
     });
 });
+
+describe('AcpSession.prompt images', () => {
+    it('prepends image blocks before the text block', async () => {
+        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
+        const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
+        await s.ensureLoaded('/v');
+        await s.prompt('看图说话', { onChunk: jest.fn(), onError: jest.fn() }, [{ data: 'YmFzZTY0', mimeType: 'image/png' }]);
+        const call = client.request.mock.calls.find((c) => c[0] === 'session/prompt');
+        expect(call![1].prompt).toEqual([
+            { type: 'image', data: 'YmFzZTY0', mimeType: 'image/png' },
+            { type: 'text', text: '看图说话' },
+        ]);
+    });
+    it('omits image blocks when no images given', async () => {
+        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
+        const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
+        await s.ensureLoaded('/v');
+        await s.prompt('纯文本', { onChunk: jest.fn(), onError: jest.fn() });
+        const call = client.request.mock.calls.find((c) => c[0] === 'session/prompt');
+        expect(call![1].prompt).toEqual([{ type: 'text', text: '纯文本' }]);
+    });
+});

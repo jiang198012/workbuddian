@@ -116,7 +116,7 @@ export class AcpSession {
         } catch (e) { bbLog('[WB] acp 设置思考力度失败（忽略）:', e); }
     }
 
-    async prompt(text: string, handlers: TurnHandlers): Promise<{ stopReason: string }> {
+    async prompt(text: string, handlers: TurnHandlers, images?: Array<{ data: string; mimeType: string }>): Promise<{ stopReason: string }> {
         if (this.status !== 'idle') throw new Error('session busy');
         if (!this.acpSessionId) throw new Error('session not loaded');
         this.status = 'prompting';
@@ -124,9 +124,12 @@ export class AcpSession {
         this.toolInputs.clear();
         this.toolNames.clear();
         try {
+            const prompt: Array<Record<string, unknown>> = images?.length
+                ? [...images.map((i) => ({ type: 'image', data: i.data, mimeType: i.mimeType })), { type: 'text', text }]
+                : [{ type: 'text', text }];
             const result = await this.client.request<{ stopReason?: string }>('session/prompt', {
                 sessionId: this.acpSessionId,
-                prompt: [{ type: 'text', text }],
+                prompt,
             });
             return { stopReason: typeof result.stopReason === 'string' ? result.stopReason : 'end_turn' };
         } finally {

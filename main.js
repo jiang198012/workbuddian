@@ -1007,7 +1007,7 @@ var AcpSession = class {
       bbLog("[WB] acp \u8BBE\u7F6E\u601D\u8003\u529B\u5EA6\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
     }
   }
-  async prompt(text, handlers) {
+  async prompt(text, handlers, images) {
     if (this.status !== "idle")
       throw new Error("session busy");
     if (!this.acpSessionId)
@@ -1017,9 +1017,10 @@ var AcpSession = class {
     this.toolInputs.clear();
     this.toolNames.clear();
     try {
+      const prompt = (images == null ? void 0 : images.length) ? [...images.map((i) => ({ type: "image", data: i.data, mimeType: i.mimeType })), { type: "text", text }] : [{ type: "text", text }];
       const result = await this.client.request("session/prompt", {
         sessionId: this.acpSessionId,
-        prompt: [{ type: "text", text }]
+        prompt
       });
       return { stopReason: typeof result.stopReason === "string" ? result.stopReason : "end_turn" };
     } finally {
@@ -1327,7 +1328,7 @@ var CodebuddyProvider = class {
     this.rejectPendingPermissions();
     this.client.dispose();
   }
-  async *sendMessage(sessionId, text, vaultPath, addDirs = [], permissionModeOverride) {
+  async *sendMessage(sessionId, text, vaultPath, addDirs = [], permissionModeOverride, images) {
     var _a;
     const session = this.registry.get(sessionId);
     try {
@@ -1376,7 +1377,7 @@ var CodebuddyProvider = class {
     }, this.timeout);
     let promptPromise;
     try {
-      promptPromise = session.prompt(text, handlers);
+      promptPromise = session.prompt(text, handlers, images);
     } catch (e) {
       clearTimeout(timer);
       throw e;
@@ -2660,12 +2661,30 @@ async function sendText(view, text, permissionModeOverride) {
   try {
     let contextText;
     let addDirs = [];
+    const images = [];
     if (slash) {
       contextText = text;
     } else {
       const referenceBlock = await buildReferenceBlock(view, text);
-      const attachmentBlock = buildAttachmentBlock(view.attachments);
-      addDirs = attachmentDirs(view.attachments);
+      const pathAttachments = [];
+      for (const attachPath of view.attachments) {
+        if (isImagePath(attachPath) && view.vaultPath && attachPath.startsWith(view.vaultPath)) {
+          try {
+            const rel = attachPath.slice(view.vaultPath.length).replace(/^[\\/]/, "");
+            const buf = await view.app.vault.adapter.readBinary(rel);
+            images.push({
+              data: Buffer.from(buf).toString("base64"),
+              mimeType: mimeForExt(attachPath.slice(attachPath.lastIndexOf(".")))
+            });
+            continue;
+          } catch (e) {
+            bbLog("[WB] \u56FE\u7247\u8BFB\u53D6\u5931\u8D25\uFF0C\u9000\u56DE\u8DEF\u5F84\u6CE8\u5165:", attachPath, e);
+          }
+        }
+        pathAttachments.push(attachPath);
+      }
+      const attachmentBlock = buildAttachmentBlock(pathAttachments);
+      addDirs = attachmentDirs(pathAttachments);
       const selectionBlock = view.selection ? buildSelectionBlock(view.selection.text, view.selection.note) : "";
       const extraBlock = [referenceBlock, attachmentBlock, selectionBlock].filter(Boolean).join("\n\n---\n\n");
       const currentNoteLink = view.settings.injectCurrentNoteLink ? buildCurrentNoteLink(view) : "";
@@ -2700,7 +2719,7 @@ async function sendText(view, text, permissionModeOverride) {
       renderContextUsage(view, size);
     });
     view.api.onConfigUpdate(sessionKey, (cfg) => applyToolbarConfig(view, cfg));
-    for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride)) {
+    for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride, images)) {
       const bubble = streamingBubble;
       if (firstChunk) {
         firstChunk = false;

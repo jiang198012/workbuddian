@@ -410,3 +410,16 @@ describe('CodebuddyProvider forkSession', () => {
         expect(branchCall).toBeDefined();
     });
 });
+
+describe('CodebuddyProvider sendMessage images', () => {
+    it('passes images through to session/prompt content blocks', async () => {
+        const { fake } = makeFakeClient(MockAcpClient);
+        const api = new CodebuddyProvider();
+        await consume(api.sendMessage('s1', '看图', '/v', [], undefined, [{ data: 'YmFzZTY0', mimeType: 'image/png' }]));
+        const promptCall = fake.request.mock.calls.find((c) => c[0] === 'session/prompt');
+        expect(promptCall![1].prompt).toEqual([
+            { type: 'image', data: 'YmFzZTY0', mimeType: 'image/png' },
+            { type: 'text', text: '看图' },
+        ]);
+    });
+});
