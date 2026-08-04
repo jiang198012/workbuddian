@@ -1,6 +1,7 @@
 import { Menu, Notice, setIcon, setTooltip, TFile } from 'obsidian';
 import { getErrorMessage, DEFAULT_CONTEXT_WINDOW_SIZE } from '../../types';
 import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shared/atReferences';
+import { parseAgentNames, parseMcpServerNames } from '../../shared/mentionSources';
 import { shouldSendMessage, isActivationKey, nextSuggestIndex } from '../../shared/inputKeys';
 import { assembleContextText } from '../../core/context/assembleContext';
 import type { WorkbuddianChatView } from './view';
@@ -59,23 +60,55 @@ export function updateAtSuggest(view: WorkbuddianChatView) {
     }
 
     const query = state.query.toLowerCase();
+    // 四源聚合：子代理 / MCP 服务器（均读设置 JSON）→ vault 文件；统一渲染保证键盘高亮索引不错位
+    const entries: Array<{ label: string; pick: () => void }> = [];
+    for (const name of parseAgentNames(view.settings.customAgentsJson).filter(n => n.toLowerCase().includes(query))) {
+        entries.push({ label: `@Agents/${name}`, pick: () => insertTextMention(view, name) });
+    }
+    for (const name of parseMcpServerNames(view.settings.mcpServersJson).filter(n => n.toLowerCase().includes(query))) {
+        entries.push({ label: `@mcp/${name}`, pick: () => insertTextMention(view, name) });
+    }
     const files = view.app.vault.getFiles()
         .filter(f => f.name.toLowerCase().includes(query))
         .slice(0, 8);
+    for (const file of files) {
+        entries.push({ label: file.name, pick: () => insertAtReference(view, file) });
+    }
 
     view.atSuggestEl.empty();
-    if (files.length === 0) {
+    if (entries.length === 0) {
         view.atSuggestEl.addClass('workbuddian-hidden');
         return;
     }
     view.atSuggestEl.removeClass('workbuddian-hidden');
-    files.forEach((file, i) => {
-        const item = view.atSuggestEl.createDiv({ cls: 'workbuddian-at-suggest-item', text: file.name });
-        item.onclick = () => insertAtReference(view, file);
+    entries.forEach((entry, i) => {
+        const item = view.atSuggestEl.createDiv({ cls: 'workbuddian-at-suggest-item', text: entry.label });
+        item.onclick = entry.pick;
         // 鼠标移入即同步键盘高亮到该项，避免 hover 与 active 各自为政导致回车插错项（见 I5）
         item.onmouseenter = () => highlightSuggest(view, i);
     });
     highlightSuggest(view, 0); // 默认高亮首项，回车即可选中
+}
+
+/** 插入子代理/MCP 提及：纯文本 @name（CLI 侧经提示词识别；外部目录维持附件+批准卡方案） */
+function insertTextMention(view: WorkbuddianChatView, name: string) {
+    const cursorPos = view.inputEl.selectionStart ?? view.inputEl.value.length;
+    const state = extractAtQuery(view.inputEl.value, cursorPos);
+    if (state) {
+        const { start } = state;
+        const value = view.inputEl.value;
+        let end = start + 1;
+        while (end < value.length && !/[\s\]]/.test(value[end])) {
+            end++;
+        }
+        const insertion = `@${name} `;
+        view.inputEl.value = value.slice(0, start) + insertion + value.slice(end);
+        const newCursorPos = start + insertion.length;
+        view.inputEl.setSelectionRange(newCursorPos, newCursorPos);
+        view.inputEl.focus();
+    }
+    closeSuggest(view);
+    adjustTextareaHeight(view);
 }
 
 export function insertAtReference(view: WorkbuddianChatView, file: TFile) {

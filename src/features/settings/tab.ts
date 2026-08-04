@@ -1,9 +1,11 @@
-import { App, Notice, PluginSettingTab, Setting, type TextComponent } from 'obsidian';
+import { App, Notice, PluginSettingTab, Setting, type TextAreaComponent, type TextComponent } from 'obsidian';
 import type WorkbuddianPlugin from '../../main';
 import { DEFAULT_SETTINGS, migrateSettings, exportSettings, MAX_PASTED_IMAGE_KEEP } from '../../types';
 import { applyLang, t } from '../../i18n';
 import { resolveCodebuddyPath } from '../../utils/cliPath';
 import { LogModal } from './logModal';
+import { McpServerModal } from './mcpModal';
+import { parseMcpServers, serializeMcpServers, parseClipboardServers, type McpServerEntry } from '../../shared/mcpServers';
 
 export class WorkbuddianSettingTab extends PluginSettingTab {
     plugin: WorkbuddianPlugin;
@@ -96,10 +98,61 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
+        // MCP 可视化列表（单一真相仍是 mcpServersJson；下方 textarea 为原始编辑器）
+        let mcpTextarea: TextAreaComponent | null = null;
+        const mcpListEl = containerEl.createDiv({ cls: 'workbuddian-mcp-list' });
+        const persistMcp = async (servers: McpServerEntry[]) => {
+            this.plugin.settings.mcpServersJson = servers.length ? serializeMcpServers(servers) : '';
+            this.plugin.api.setMcpServersJson(this.plugin.settings.mcpServersJson);
+            await this.plugin.saveSettings();
+            mcpTextarea?.setValue(this.plugin.settings.mcpServersJson);
+            renderMcpList();
+        };
+        const renderMcpList = () => {
+            mcpListEl.empty();
+            const servers = parseMcpServers(this.plugin.settings.mcpServersJson);
+            for (const server of servers) {
+                new Setting(mcpListEl)
+                    .setName(server.name + (server.disabled ? ` (${t('mcp.fieldEnabled')}✕)` : ''))
+                    .setDesc([server.command, ...server.args].join(' '))
+                    .addToggle(tg => tg.setValue(!server.disabled).onChange(async () => {
+                        server.disabled = server.disabled ? undefined : true;
+                        await persistMcp(servers);
+                    }))
+                    .addExtraButton(btn => btn.setIcon('pencil').onClick(() => {
+                        new McpServerModal(this.app, server, t('mcp.modalTitleEdit'), (updated) => {
+                            Object.assign(server, updated);
+                            void persistMcp(servers);
+                        }).open();
+                    }))
+                    .addExtraButton(btn => btn.setIcon('trash-2').onClick(() => {
+                        void persistMcp(servers.filter((s) => s !== server));
+                    }));
+            }
+        };
+        renderMcpList();
+        new Setting(containerEl)
+            .addButton(btn => btn.setButtonText(t('mcp.addServer')).onClick(() => {
+                new McpServerModal(this.app, null, t('mcp.modalTitleAdd'), (entry) => {
+                    void persistMcp([...parseMcpServers(this.plugin.settings.mcpServersJson), entry]);
+                }).open();
+            }))
+            .addButton(btn => btn.setButtonText(t('mcp.importClipboard')).onClick(async () => {
+                const text = await navigator.clipboard.readText();
+                const imported = parseClipboardServers(text);
+                if (!imported.length) {
+                    new Notice(t('mcp.importBad'));
+                    return;
+                }
+                const existing = parseMcpServers(this.plugin.settings.mcpServersJson);
+                const fresh = imported.filter((i) => !existing.some((e) => e.name === i.name));
+                await persistMcp([...existing, ...fresh]);
+            }));
+
         new Setting(containerEl)
             .setName(t('settings.mcpServers'))
             .setDesc(t('settings.mcpServersDesc'))
-            .addTextArea(text => text
+            .addTextArea(text => { mcpTextarea = text; text
                 .setPlaceholder('[{"name":"x","command":"npx","args":["-y","pkg"]}]')
                 .setValue(this.plugin.settings.mcpServersJson)
                 .onChange(async (value) => {
@@ -115,7 +168,7 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                     this.plugin.settings.mcpServersJson = trimmed;
                     this.plugin.api.setMcpServersJson(trimmed);
                     await this.plugin.saveSettings();
-                }));
+                })});
 
         new Setting(containerEl)
             .setName(t('settings.customAgents'))

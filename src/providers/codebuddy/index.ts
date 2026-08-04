@@ -7,6 +7,7 @@ import {
     SessionRegistry, type ConversationLookup, type SessionConfig, type TurnHandlers,
 } from './acp/session';
 import type { PermissionCardData } from './acp/permission';
+import { activeMcpServers, parseMcpServers } from '../../shared/mcpServers';
 
 // 供测试与外部消费方沿用 v1 的 re-export 路径
 export { isWindowsWrapper, isBareFallback, needsWindowsShell } from '../../utils/cliPath';
@@ -101,9 +102,8 @@ export class CodebuddyProvider {
         const trimmed = json.trim();
         if (!trimmed) { this.config.mcpServers = []; return; }
         try {
-            const parsed: unknown = JSON.parse(trimmed);
-            if (!Array.isArray(parsed)) throw new Error('mcpServers 必须是数组');
-            this.config.mcpServers = parsed;
+            JSON.parse(trimmed); // 先验 JSON 合法
+            this.config.mcpServers = activeMcpServers(parseMcpServers(trimmed));
         } catch (e) {
             bbLog('[WB] mcpServersJson 解析失败，保留旧值:', e);
         }

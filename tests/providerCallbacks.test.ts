@@ -246,7 +246,7 @@ describe('MCP/agents settings plumbing', () => {
         api.setMcpServersJson('[{"name":"fake","command":"node"}]');
         await consume(api.sendMessage('s1', 'x', '/v'));
         expect(kit.fake.request).toHaveBeenCalledWith('session/new',
-            expect.objectContaining({ mcpServers: [{ name: 'fake', command: 'node' }] }));
+            expect.objectContaining({ mcpServers: [{ name: 'fake', command: 'node', args: [], env: [] }] }));
     });
 
     it('invalid mcpServersJson keeps previous value', async () => {
@@ -256,7 +256,7 @@ describe('MCP/agents settings plumbing', () => {
         api.setMcpServersJson('{bad json');
         await consume(api.sendMessage('s1', 'x', '/v'));
         expect(kit.fake.request).toHaveBeenCalledWith('session/new',
-            expect.objectContaining({ mcpServers: [{ name: 'fake' }] }));
+            expect.objectContaining({ mcpServers: [{ name: 'fake', command: '', args: [], env: [] }] }));
     });
 
     it('setCustomAgentsJson forwards --agents extra args; invalid JSON ignored', async () => {
