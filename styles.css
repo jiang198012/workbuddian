@@ -1010,6 +1010,10 @@
 .workbuddian-tool-diff .workbuddian-diff-remove { background: rgba(200, 40, 40, 0.15); }
 .workbuddian-tool-diff .workbuddian-diff-equal { opacity: 0.65; }
 .workbuddian-diff-add .workbuddian-diff-hl { background: rgba(0, 160, 60, 0.35); border-radius: 2px; }
+
+/* Bash 终端输出块 */
+.workbuddian-bash-block { margin: 2px 0 4px; }
+.workbuddian-bash-body pre { font-family: var(--font-monospace); font-size: 12px; white-space: pre-wrap; word-break: break-all; margin: 4px 0; padding: 6px 8px; background: var(--background-secondary); border-radius: 4px; max-height: 240px; overflow-y: auto; }
 .workbuddian-diff-remove .workbuddian-diff-hl { background: rgba(200, 40, 40, 0.35); border-radius: 2px; }
 
 /* 批准卡（ACP 权限请求） */

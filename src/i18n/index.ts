@@ -147,6 +147,8 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'tool.undoStale': { zh: '文件已变化，未执行撤销', en: 'File has changed since; undo skipped' },
     'tool.undoAmbiguous': { zh: '改动文本在文件中出现多次，为避免误改已跳过撤销', en: 'The changed text appears more than once in the file; undo was skipped to avoid a wrong edit.' },
     'tool.undoFailed': { zh: '撤销失败', en: 'Undo failed' },
+    'tool.output': { zh: '输出', en: 'Output' },
+    'tool.outputToggle': { zh: '展开或折叠命令输出', en: 'Expand or collapse command output' },
     'approval.title': { zh: '工具批准', en: 'Tool approval' },
     'approval.allow': { zh: '允许', en: 'Allow' },
     'approval.alwaysAllow': { zh: '总是允许', en: 'Always allow' },

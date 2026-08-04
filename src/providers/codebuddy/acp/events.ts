@@ -74,7 +74,12 @@ export function mapToolCallUpdate(update: AcpUpdate, snapshot: unknown): StreamC
         } catch {
             // 循环引用等异常情况：留空，UI 只更新行文本
         }
-        return { type: 'tool', content: '', toolName, toolCallId, toolStatus: 'completed', toolDetail };
+        const chunk: StreamChunk = { type: 'tool', content: '', toolName, toolCallId, toolStatus: 'completed', toolDetail };
+        const rawOutput = update.rawOutput as { type?: unknown; text?: unknown } | undefined;
+        if (rawOutput?.type === 'text' && typeof rawOutput.text === 'string') {
+            chunk.toolOutput = rawOutput.text;
+        }
+        return chunk;
     }
     return { type: 'tool', content: '', toolName, toolCallId, toolDetail: summarizeRawInput(snapshot) };
 }

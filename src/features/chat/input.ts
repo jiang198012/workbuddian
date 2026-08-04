@@ -943,6 +943,35 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                             }
                         });
                     }
+
+                    // Bash/Shell 终态：终端输出块（与 diff 互斥——Bash 本无 parseFileChange）
+                    if (chunk.toolStatus === 'completed' && chunk.toolOutput
+                        && (toolName === 'Bash' || toolName === 'Shell') && row.dataset.bashRendered !== '1') {
+                        row.dataset.bashRendered = '1';
+                        const bashBlock = list.createDiv({ cls: 'workbuddian-bash-block' });
+                        const bashHeader = bashBlock.createDiv({
+                            cls: 'workbuddian-tool-diff-header',
+                            attr: { role: 'button', tabindex: '0', 'aria-expanded': 'false', 'aria-label': t('tool.outputToggle') }
+                        });
+                        bashHeader.createSpan({ text: t('tool.output') });
+                        const bashChevron = bashHeader.createSpan({ text: '▾' });
+                        const bashBody = bashBlock.createDiv({ cls: 'workbuddian-bash-body workbuddian-hidden' });
+                        bashBody.createEl('pre', { text: chunk.toolOutput });
+                        const toggleBash = () => {
+                            const hidden = bashBody.hasClass('workbuddian-hidden');
+                            bashBody.toggleClass('workbuddian-hidden', !hidden);
+                            bashChevron.textContent = hidden ? '▾' : '▸';
+                            bashHeader.setAttribute('aria-expanded', hidden ? 'true' : 'false');
+                        };
+                        bashHeader.addEventListener('click', toggleBash);
+                        bashHeader.addEventListener('keydown', (e: KeyboardEvent) => {
+                            if (isActivationKey(e.key)) {
+                                e.preventDefault();
+                                toggleBash();
+                            }
+                        });
+                        list.insertBefore(bashBlock, row.nextSibling);
+                    }
                 }
             } else if (chunk.type === 'text') {
                 textContent += chunk.content;

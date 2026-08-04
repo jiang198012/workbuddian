@@ -185,6 +185,8 @@ var STRINGS = {
   "tool.undoStale": { zh: "\u6587\u4EF6\u5DF2\u53D8\u5316\uFF0C\u672A\u6267\u884C\u64A4\u9500", en: "File has changed since; undo skipped" },
   "tool.undoAmbiguous": { zh: "\u6539\u52A8\u6587\u672C\u5728\u6587\u4EF6\u4E2D\u51FA\u73B0\u591A\u6B21\uFF0C\u4E3A\u907F\u514D\u8BEF\u6539\u5DF2\u8DF3\u8FC7\u64A4\u9500", en: "The changed text appears more than once in the file; undo was skipped to avoid a wrong edit." },
   "tool.undoFailed": { zh: "\u64A4\u9500\u5931\u8D25", en: "Undo failed" },
+  "tool.output": { zh: "\u8F93\u51FA", en: "Output" },
+  "tool.outputToggle": { zh: "\u5C55\u5F00\u6216\u6298\u53E0\u547D\u4EE4\u8F93\u51FA", en: "Expand or collapse command output" },
   "approval.title": { zh: "\u5DE5\u5177\u6279\u51C6", en: "Tool approval" },
   "approval.allow": { zh: "\u5141\u8BB8", en: "Allow" },
   "approval.alwaysAllow": { zh: "\u603B\u662F\u5141\u8BB8", en: "Always allow" },
@@ -807,7 +809,12 @@ function mapToolCallUpdate(update, snapshot) {
       toolDetail = (_a = JSON.stringify(snapshot)) != null ? _a : "";
     } catch (e) {
     }
-    return { type: "tool", content: "", toolName, toolCallId, toolStatus: "completed", toolDetail };
+    const chunk = { type: "tool", content: "", toolName, toolCallId, toolStatus: "completed", toolDetail };
+    const rawOutput = update.rawOutput;
+    if ((rawOutput == null ? void 0 : rawOutput.type) === "text" && typeof rawOutput.text === "string") {
+      chunk.toolOutput = rawOutput.text;
+    }
+    return chunk;
   }
   return { type: "tool", content: "", toolName, toolCallId, toolDetail: summarizeRawInput(snapshot) };
 }
@@ -2802,6 +2809,32 @@ async function sendText(view, text, permissionModeOverride) {
                 toggleDiff();
               }
             });
+          }
+          if (chunk.toolStatus === "completed" && chunk.toolOutput && (toolName === "Bash" || toolName === "Shell") && row.dataset.bashRendered !== "1") {
+            row.dataset.bashRendered = "1";
+            const bashBlock = list.createDiv({ cls: "workbuddian-bash-block" });
+            const bashHeader = bashBlock.createDiv({
+              cls: "workbuddian-tool-diff-header",
+              attr: { role: "button", tabindex: "0", "aria-expanded": "false", "aria-label": t("tool.outputToggle") }
+            });
+            bashHeader.createSpan({ text: t("tool.output") });
+            const bashChevron = bashHeader.createSpan({ text: "\u25BE" });
+            const bashBody = bashBlock.createDiv({ cls: "workbuddian-bash-body workbuddian-hidden" });
+            bashBody.createEl("pre", { text: chunk.toolOutput });
+            const toggleBash = () => {
+              const hidden = bashBody.hasClass("workbuddian-hidden");
+              bashBody.toggleClass("workbuddian-hidden", !hidden);
+              bashChevron.textContent = hidden ? "\u25BE" : "\u25B8";
+              bashHeader.setAttribute("aria-expanded", hidden ? "true" : "false");
+            };
+            bashHeader.addEventListener("click", toggleBash);
+            bashHeader.addEventListener("keydown", (e) => {
+              if (isActivationKey(e.key)) {
+                e.preventDefault();
+                toggleBash();
+              }
+            });
+            list.insertBefore(bashBlock, row.nextSibling);
           }
         }
       } else if (chunk.type === "text") {

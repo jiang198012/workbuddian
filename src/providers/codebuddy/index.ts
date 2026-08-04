@@ -22,6 +22,8 @@ export interface StreamChunk {
     toolCallId?: string;
     /** 工具终态信号：仅 completed 时出现，携带 JSON 快照 detail 供 diff/撤销 */
     toolStatus?: 'in_progress' | 'completed';
+    /** completed 工具的原始输出（rawOutput.text），目前用于 Bash 终端块 */
+    toolOutput?: string;
     usage?: UsageInfo;
 }
 
