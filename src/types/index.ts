@@ -48,6 +48,8 @@ export interface WorkbuddianSettings {
     customAgentsJson: string;
     /** 思考力度（CLI thought_level 七档：enabled/minimal/low/medium/high/xhigh/max） */
     thoughtLevel: string;
+    /** 首轮回复后由 AI 自动生成会话标题（用户手动改名后不覆盖） */
+    autoTitle: boolean;
     version: number;
 }
 
@@ -73,6 +75,7 @@ export const DEFAULT_SETTINGS: WorkbuddianSettings = {
     mcpServersJson: '',
     customAgentsJson: '',
     thoughtLevel: 'enabled',
+    autoTitle: true,
     version: CURRENT_SETTINGS_VERSION
 };
 
@@ -156,6 +159,7 @@ export function migrateSettings(stored: unknown): WorkbuddianSettings {
         mcpServersJson: getString(stored, 'mcpServersJson') ?? DEFAULT_SETTINGS.mcpServersJson,
         customAgentsJson: getString(stored, 'customAgentsJson') ?? DEFAULT_SETTINGS.customAgentsJson,
         thoughtLevel: getString(stored, 'thoughtLevel') ?? DEFAULT_SETTINGS.thoughtLevel,
+        autoTitle: typeof stored.autoTitle === 'boolean' ? stored.autoTitle : DEFAULT_SETTINGS.autoTitle,
         version: CURRENT_SETTINGS_VERSION
     };
 }

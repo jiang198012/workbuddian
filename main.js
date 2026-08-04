@@ -78,6 +78,7 @@ var STRINGS = {
   "chat.send": { zh: "\u53D1\u9001", en: "Send" },
   "chat.stop": { zh: "\u505C\u6B62", en: "Stop" },
   "chat.newConversation": { zh: "\u65B0\u5BF9\u8BDD", en: "New chat" },
+  "chat.autoTitlePrompt": { zh: "\u8BF7\u4E3A\u4EE5\u4E0B\u5185\u5BB9\u751F\u6210\u4E00\u4E2A\u4E0D\u8D85\u8FC7 20 \u5B57\u7684\u4F1A\u8BDD\u6807\u9898\uFF0C\u53EA\u8F93\u51FA\u6807\u9898\u672C\u8EAB\uFF0C\u4E0D\u8981\u6807\u70B9\u7ED3\u5C3E\uFF1A\n\n", en: "Generate a chat title (max 20 chars) for the content below. Output only the title, no trailing punctuation:\n\n" },
   "common.unknownError": { zh: "\u672A\u77E5\u9519\u8BEF", en: "Unknown error" },
   "provider.cliNotFound": { zh: "\u627E\u4E0D\u5230 codebuddy CLI\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 WorkBuddy \u684C\u9762\u7248\uFF0C\u6216\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u6307\u5B9A codebuddy \u8DEF\u5F84\u3002", en: "codebuddy CLI not found. Make sure WorkBuddy desktop is installed, or set the codebuddy path in the plugin settings." },
   "provider.nodeNotFound": { zh: "\u627E\u4E0D\u5230 Node.js \u6765\u8FD0\u884C codebuddy\uFF08\u8DEF\u5F84\uFF1A{path}\uFF09\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 Node.js\u3002", en: "Node.js not found to run codebuddy (path: {path}). Make sure Node.js is installed." },
@@ -103,10 +104,12 @@ var STRINGS = {
   "settings.mcpServers": { zh: "MCP \u670D\u52A1\u5668\uFF08JSON\uFF09", en: "MCP servers (JSON)" },
   "settings.mcpServersDesc": { zh: 'stdio \u4F20\u8F93\u7684 MCP \u670D\u52A1\u5668\u6570\u7EC4\uFF0C\u5982 [{"name":"x","command":"npx","args":["-y","pkg"]}]\u3002\u7559\u7A7A\u4E0D\u6CE8\u5165\uFF1B\u5BF9\u65B0\u5EFA/\u6062\u590D\u7684\u4F1A\u8BDD\u751F\u6548\u3002', en: 'Array of stdio MCP servers, e.g. [{"name":"x","command":"npx","args":["-y","pkg"]}]. Empty = none; applies to newly created/restored sessions.' },
   "settings.customAgents": { zh: "\u5B50\u4EE3\u7406\uFF08JSON\uFF09", en: "Custom agents (JSON)" },
-  "settings.customAgentsDesc": { zh: '\u5B50\u4EE3\u7406\u5B9A\u4E49\u5BF9\u8C61\uFF0C\u5982 {"reviewer":{"description":"\u5BA1\u67E5\u4EE3\u7801","prompt":"\u4F60\u662F\u4EE3\u7801\u5BA1\u67E5\u5458"}}\uFF0C\u5BF9\u5E94 CLI --agents\u3002\u6539\u52A8\u540E CLI \u8FDB\u7A0B\u81EA\u52A8\u91CD\u542F\u751F\u6548\u3002', en: 'Custom agent definitions, e.g. {"reviewer":{"description":"Reviews code","prompt":"You review code"}} (CLI --agents). The CLI process restarts automatically on change.' },
+  "settings.customAgentsDesc": { zh: '\u5B50\u4EE3\u7406\u5B9A\u4E49\u5BF9\u8C61\uFF0C\u5982 {"reviewer":{"description":"\u5BA1\u67E5\u4EE3\u7801","prompt":"\u4F60\u662F\u4EE3\u7801\u5BA1\u67E5\u5458"}}\uFF0C\u5BF9\u5E94 CLI --agents\uFF1B\u652F\u6301 tools\uFF08\u5DE5\u5177\u767D\u540D\u5355\uFF09\u4E0E model \u952E\uFF082026-08-03 \u63A2\u9488\u5B9E\u6D4B CLI \u63A5\u53D7\uFF09\u3002\u6539\u52A8\u540E CLI \u8FDB\u7A0B\u81EA\u52A8\u91CD\u542F\u751F\u6548\u3002', en: 'Custom agent definitions, e.g. {"reviewer":{"description":"Reviews code","prompt":"You review code"}} (CLI --agents); tools (allowlist) and model keys are accepted (probed 2026-08-03). The CLI process restarts automatically on change.' },
   "settings.invalidJson": { zh: "{field}\uFF1AJSON \u65E0\u6CD5\u89E3\u6790\uFF0C\u672A\u751F\u6548", en: "{field}: invalid JSON, not applied" },
   "settings.thoughtLevel": { zh: "\u601D\u8003\u529B\u5EA6", en: "Thinking effort" },
   "settings.thoughtLevelDesc": { zh: "\u5BF9\u5E94 CLI thought_level\uFF08\u6309\u4F1A\u8BDD\u751F\u6548\uFF09\uFF1BCLI \u4FA7\u7528 /effort \u6539\u52A8\u4F1A\u540C\u6B65\u56DE\u8FD9\u91CC\u3002", en: "Maps to CLI thought_level (per session). Changes via the /effort command sync back here." },
+  "settings.autoTitle": { zh: "\u81EA\u52A8\u751F\u6210\u4F1A\u8BDD\u6807\u9898", en: "Auto-generate chat titles" },
+  "settings.autoTitleDesc": { zh: "\u9996\u8F6E\u56DE\u590D\u540E\u7531 AI \u547D\u540D\u65B0\u4F1A\u8BDD\uFF1B\u4F60\u624B\u52A8\u6539\u8FC7\u540D\u7684\u4F1A\u8BDD\u4E0D\u4F1A\u88AB\u8986\u76D6\u3002", en: "AI names new chats after the first reply; chats you renamed manually are left alone." },
   "settings.timeout": { zh: "CLI \u8D85\u65F6\u65F6\u957F\uFF08\u5206\u949F\uFF09", en: "CLI timeout (minutes)" },
   "settings.timeoutDesc": { zh: "CodeBuddy CLI \u5355\u6B21\u54CD\u5E94\u6700\u957F\u7B49\u5F85\u65F6\u95F4\uFF0C\u8D85\u8FC7\u4F1A\u5F3A\u5236\u4E2D\u65AD", en: "Max wait per CodeBuddy CLI response; exceeding it aborts the call." },
   "settings.model": { zh: "\u6A21\u578B", en: "Model" },
@@ -1477,6 +1480,7 @@ var DEFAULT_SETTINGS = {
   mcpServersJson: "",
   customAgentsJson: "",
   thoughtLevel: "enabled",
+  autoTitle: true,
   version: CURRENT_SETTINGS_VERSION
 };
 function isObject(value) {
@@ -1530,6 +1534,7 @@ function migrateSettings(stored) {
     mcpServersJson: (_f = getString(stored, "mcpServersJson")) != null ? _f : DEFAULT_SETTINGS.mcpServersJson,
     customAgentsJson: (_g = getString(stored, "customAgentsJson")) != null ? _g : DEFAULT_SETTINGS.customAgentsJson,
     thoughtLevel: (_h = getString(stored, "thoughtLevel")) != null ? _h : DEFAULT_SETTINGS.thoughtLevel,
+    autoTitle: typeof stored.autoTitle === "boolean" ? stored.autoTitle : DEFAULT_SETTINGS.autoTitle,
     version: CURRENT_SETTINGS_VERSION
   };
 }
@@ -2056,6 +2061,20 @@ function buildSelectionBlock(selectedText, noteName) {
 // src/shared/responseFinalize.ts
 function pickFinalContent(text, thinking, result) {
   return text || thinking || result;
+}
+
+// src/shared/autoTitle.ts
+function fallbackTitle(content) {
+  return content.substring(0, 30) + (content.length > 30 ? "..." : "");
+}
+function sanitizeTitle(raw) {
+  var _a;
+  const firstLine = ((_a = raw.split("\n")[0]) != null ? _a : "").trim();
+  const stripped = firstLine.replace(/^["'「『《<]+|["'」』》>。.!?！？]+$/g, "").trim();
+  return stripped.slice(0, 20);
+}
+function shouldApplyAutoTitle(currentTitle, userText) {
+  return currentTitle === fallbackTitle(userText);
 }
 
 // src/shared/contextUsage.ts
@@ -2641,6 +2660,7 @@ async function sendText(view, text, permissionModeOverride) {
   if (!conv.sessionId) {
     conv.sessionId = view.api.generateId();
   }
+  const isFirstExchange = conv.messages.length === 0;
   const convId = conv.id;
   view.manager.addMessage(convId, "user", text, [...view.attachments]);
   await renderMessages(view);
@@ -2709,6 +2729,46 @@ async function sendText(view, text, permissionModeOverride) {
     if (!(streamingBubble instanceof HTMLElement)) {
       throw new Error(t("input.bubbleNotFound"));
     }
+    let lastDomRender = 0;
+    let renderTimer = null;
+    let rendering = false;
+    let renderDirty = false;
+    const pumpTextRender = async () => {
+      if (rendering) {
+        renderDirty = true;
+        return;
+      }
+      rendering = true;
+      do {
+        renderDirty = false;
+        lastDomRender = Date.now();
+        await renderMarkdownContent(view, streamingBubble, textContent);
+      } while (renderDirty);
+      rendering = false;
+    };
+    const scheduleTextRender = () => {
+      const wait = 150 - (Date.now() - lastDomRender);
+      if (wait <= 0 && !rendering) {
+        void pumpTextRender();
+        return;
+      }
+      if (renderTimer === null) {
+        renderTimer = window.setTimeout(() => {
+          renderTimer = null;
+          void pumpTextRender();
+        }, Math.max(wait, 0));
+      }
+    };
+    const flushTextRender = async () => {
+      if (renderTimer !== null) {
+        window.clearTimeout(renderTimer);
+        renderTimer = null;
+      }
+      renderDirty = true;
+      while (rendering)
+        await new Promise((r) => window.setTimeout(r, 16));
+      await pumpTextRender();
+    };
     const sessionKey = conv.sessionId;
     const msgEl = streamingBubble.closest(".workbuddian-message-assistant");
     view.api.onPermissionRequest(sessionKey, (data) => {
@@ -2883,7 +2943,7 @@ async function sendText(view, text, permissionModeOverride) {
       } else if (chunk.type === "text") {
         textContent += chunk.content;
         view.manager.updateMessage(convId, aiMsg.id, textContent, true);
-        await renderMarkdownContent(view, bubble, textContent);
+        scheduleTextRender();
       } else if (chunk.type === "error") {
         view.manager.setError(convId, aiMsg.id, chunk.content);
         new import_obsidian4.Notice(`${t("input.requestFailed")}: ${chunk.content}`);
@@ -2895,6 +2955,7 @@ async function sendText(view, text, permissionModeOverride) {
         }
       }
     }
+    await flushTextRender();
     const finalContent = pickFinalContent(textContent, thinkingContent, resultText);
     view.manager.updateMessage(convId, aiMsg.id, finalContent);
     let displayContent = finalContent;
@@ -2918,6 +2979,8 @@ async function sendText(view, text, permissionModeOverride) {
     scrollToBottom(view);
     announce(view, `${t("a11y.newReply")}${displayContent}`);
     await view.manager.flush();
+    if (isFirstExchange && view.settings.autoTitle)
+      void maybeAutoTitle(view, convId, text);
   } catch (error) {
     const message = getErrorMessage(error);
     view.manager.setError(convId, aiMsg.id, message);
@@ -2930,6 +2993,23 @@ async function sendText(view, text, permissionModeOverride) {
     (0, import_obsidian4.setIcon)(view.sendBtn, "send");
     view.sendBtn.setAttribute("aria-label", t("input.send"));
     view.sendBtn.setAttribute("title", t("input.send"));
+  }
+}
+async function maybeAutoTitle(view, convId, userText) {
+  try {
+    let out = "";
+    for await (const chunk of view.api.sendMessage(view.api.generateId(), t("chat.autoTitlePrompt") + userText, view.vaultPath)) {
+      if (chunk.type === "text")
+        out += chunk.content;
+    }
+    const title = sanitizeTitle(out);
+    const conv = view.manager.getById(convId);
+    if (title && conv && shouldApplyAutoTitle(conv.title, userText)) {
+      view.manager.renameConversation(convId, title);
+      renderTabs(view);
+    }
+  } catch (e) {
+    bbLog("[WB] \u81EA\u52A8\u6807\u9898\u751F\u6210\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
   }
 }
 async function retryLastMessage(view) {
@@ -3689,7 +3769,7 @@ var ConversationManager = class {
     conv.messages.push(msg);
     conv.updatedAt = Date.now();
     if (matchesAnyLang(conv.title, "chat.newConversation") && role === "user" && content.trim()) {
-      conv.title = content.substring(0, 30) + (content.length > 30 ? "..." : "");
+      conv.title = fallbackTitle(content);
     }
     this.persist().catch((err) => this.handlePersistError(err));
     return msg;
@@ -3917,6 +3997,10 @@ var WorkbuddianSettingTab = class extends import_obsidian9.PluginSettingTab {
     }));
     new import_obsidian9.Setting(containerEl).setName(t("settings.injectNote")).setDesc(t("settings.injectNoteDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectCurrentNoteLink).onChange(async (value) => {
       this.plugin.settings.injectCurrentNoteLink = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian9.Setting(containerEl).setName(t("settings.autoTitle")).setDesc(t("settings.autoTitleDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.autoTitle).onChange(async (value) => {
+      this.plugin.settings.autoTitle = value;
       await this.plugin.saveSettings();
     }));
     new import_obsidian9.Setting(containerEl).setName(t("settings.pastedKeep")).setDesc(t("settings.pastedKeepDesc")).addText((text) => text.setPlaceholder("20").setValue(String(this.plugin.settings.pastedImageKeep)).onChange(async (value) => {

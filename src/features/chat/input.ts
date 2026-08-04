@@ -18,6 +18,7 @@ import { openInstructionModal } from './instructionModal';
 import { openResumeModal } from './resumeModal';
 import { buildSelectionBlock } from '../../shared/selection';
 import { pickFinalContent } from '../../shared/responseFinalize';
+import { sanitizeTitle, shouldApplyAutoTitle } from '../../shared/autoTitle';
 import { PERMISSION_MODE_CHOICES, type PermissionMode } from '../../shared/cliOptions';
 import { contextPercent, usageTooltip, isUsageWarning } from '../../shared/contextUsage';
 import { t } from '../../i18n';
@@ -687,6 +688,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         conv.sessionId = view.api.generateId();
     }
 
+    const isFirstExchange = conv.messages.length === 0;
     // 添加用户消息
     const convId = conv.id;
     // 存绝对路径（而非文件名），渲染层据此出缩略图；旧消息存的是文件名，由 isAbsolutePath 区分
@@ -762,6 +764,35 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         if (!(streamingBubble instanceof HTMLElement)) {
             throw new Error(t('input.bubbleNotFound'));
         }
+
+        // 流式渲染节流：text chunk 只更新数据；DOM 渲染合并到 ≥150ms 节奏，流末强制 flush
+        let lastDomRender = 0;
+        let renderTimer: number | null = null;
+        let rendering = false;
+        let renderDirty = false;
+        const pumpTextRender = async () => {
+            if (rendering) { renderDirty = true; return; }
+            rendering = true;
+            do {
+                renderDirty = false;
+                lastDomRender = Date.now();
+                await renderMarkdownContent(view, streamingBubble, textContent);
+            } while (renderDirty);
+            rendering = false;
+        };
+        const scheduleTextRender = () => {
+            const wait = 150 - (Date.now() - lastDomRender);
+            if (wait <= 0 && !rendering) { void pumpTextRender(); return; }
+            if (renderTimer === null) {
+                renderTimer = window.setTimeout(() => { renderTimer = null; void pumpTextRender(); }, Math.max(wait, 0));
+            }
+        };
+        const flushTextRender = async () => {
+            if (renderTimer !== null) { window.clearTimeout(renderTimer); renderTimer = null; }
+            renderDirty = true;
+            while (rendering) await new Promise((r) => window.setTimeout(r, 16));
+            await pumpTextRender();
+        };
 
         // ACP 旁路注册：批准卡渲染进当前 assistant 气泡区；用量/配置回流按会话 key 路由到本面板
         const sessionKey = conv.sessionId;
@@ -965,7 +996,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
             } else if (chunk.type === 'text') {
                 textContent += chunk.content;
                 view.manager.updateMessage(convId, aiMsg.id, textContent, true);
-                await renderMarkdownContent(view, bubble, textContent);
+                scheduleTextRender();
             } else if (chunk.type === 'error') {
                 view.manager.setError(convId, aiMsg.id, chunk.content);
                 new Notice(`${t('input.requestFailed')}: ${chunk.content}`);
@@ -979,6 +1010,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
             }
         }
 
+        await flushTextRender(); // 流末兜底：确保 bubble 与 textContent 一致再进收尾
         const finalContent = pickFinalContent(textContent, thinkingContent, resultText);
         view.manager.updateMessage(convId, aiMsg.id, finalContent);
 
@@ -1013,6 +1045,8 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         scrollToBottom(view);
         announce(view, `${t('a11y.newReply')}${displayContent}`);
         await view.manager.flush();
+        // 自动标题：首轮且开关开 → 一次性辅助会话生成；用户已改名则不覆盖
+        if (isFirstExchange && view.settings.autoTitle) void maybeAutoTitle(view, convId, text);
     } catch (error: unknown) {
         const message = getErrorMessage(error);
         view.manager.setError(convId, aiMsg.id, message);
@@ -1025,6 +1059,24 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         setIcon(view.sendBtn, 'send');
         view.sendBtn.setAttribute('aria-label', t('input.send'));
         view.sendBtn.setAttribute('title', t('input.send'));
+    }
+}
+
+/** 首轮结束后生成 AI 标题（一次性辅助会话）；失败静默保留 fallback，用户已改名不覆盖 */
+async function maybeAutoTitle(view: WorkbuddianChatView, convId: string, userText: string) {
+    try {
+        let out = '';
+        for await (const chunk of view.api.sendMessage(view.api.generateId(), t('chat.autoTitlePrompt') + userText, view.vaultPath)) {
+            if (chunk.type === 'text') out += chunk.content;
+        }
+        const title = sanitizeTitle(out);
+        const conv = view.manager.getById(convId);
+        if (title && conv && shouldApplyAutoTitle(conv.title, userText)) {
+            view.manager.renameConversation(convId, title);
+            renderTabs(view);
+        }
+    } catch (e) {
+        bbLog('[WB] 自动标题生成失败（忽略）:', e);
     }
 }
 

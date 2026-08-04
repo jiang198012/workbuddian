@@ -1,5 +1,6 @@
 import type { Conversation, ChatMessage, UsageInfo } from '../../types';
 import { generateId, getErrorMessage } from '../../types';
+import { fallbackTitle } from '../../shared/autoTitle';
 import { t, matchesAnyLang } from '../../i18n';
 import { bbError } from '../../shared/logBuffer';
 
@@ -141,7 +142,7 @@ export class ConversationManager {
 
         // 首条用户消息自动生成标题（跨语言识别默认标题，兼容切换语言前后的旧数据）
         if (matchesAnyLang(conv.title, 'chat.newConversation') && role === 'user' && content.trim()) {
-            conv.title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
+            conv.title = fallbackTitle(content);
         }
 
         this.persist().catch((err) => this.handlePersistError(err));

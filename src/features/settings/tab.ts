@@ -163,6 +163,16 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
+            .setName(t('settings.autoTitle'))
+            .setDesc(t('settings.autoTitleDesc'))
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.autoTitle)
+                .onChange(async (value) => {
+                    this.plugin.settings.autoTitle = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
             .setName(t('settings.pastedKeep'))
             .setDesc(t('settings.pastedKeepDesc'))
             .addText(text => text
