@@ -8,8 +8,8 @@ import type { WorkbuddianChatView } from './view';
 import { renderMessages, renderMarkdownContent, scrollToBottom } from './render';
 import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
-import { fileBasename, buildAttachmentBlock, attachmentDirs } from '../../shared/attachments';
-import { parseFileChange, type FileEdit } from '../../shared/toolDetail';
+import { fileBasename, buildAttachmentBlock, attachmentDirs, isAbsolutePath } from '../../shared/attachments';
+import { parseFileChange, type FileEdit, type FileWrite } from '../../shared/toolDetail';
 import { lineDiff, type DiffLine } from '../../shared/lineDiff';
 import { renderDiffRows } from '../../shared/diffRows';
 import { pickOptionId, type PermissionCardData, type PermissionDetail } from '../../providers/codebuddy/acp/permission';
@@ -18,12 +18,14 @@ import { parseInstructionInput } from '../../shared/instruction';
 import { openInstructionModal } from './instructionModal';
 import { openResumeModal } from './resumeModal';
 import { buildSelectionBlock } from '../../shared/selection';
-import { pickFinalContent } from '../../shared/responseFinalize';
+import { pickFinalContent, appendTextChunk } from '../../shared/responseFinalize';
+import { confirmExternalAccess } from './externalAccessModal';
 import { sanitizeTitle, shouldApplyAutoTitle } from '../../shared/autoTitle';
-import { PERMISSION_MODE_CHOICES, type PermissionMode } from '../../shared/cliOptions';
+import { PERMISSION_MODE_CHOICES, isThoughtLevel, type PermissionMode } from '../../shared/cliOptions';
 import { contextPercent, usageTooltip, isUsageWarning } from '../../shared/contextUsage';
+import { emitConfigChanged } from '../../shared/configEvents';
 import { t } from '../../i18n';
-import { bbLog } from '../../shared/logBuffer';
+import { bbLog, bbError } from '../../shared/logBuffer';
 
 /** 补全下拉当前的条目列表（@ 与斜杠命令共用同一个下拉容器） */
 function suggestItems(view: WorkbuddianChatView): HTMLElement[] {
@@ -273,7 +275,12 @@ function undoEdit(change: FileEdit, btn: HTMLButtonElement) {
  * Bash→命令全文；DeferExecuteTool 特化为「计划已就绪」。点击即 respondPermission 应答 CLI；
  * 卡片应答后留存供回看（批准历史），悬挂卡在面板关闭/切会话/卸载时由 view 统一答 reject。
  */
-async function renderApprovalCard(view: WorkbuddianChatView, container: HTMLElement, data: PermissionCardData): Promise<void> {
+async function renderApprovalCard(
+    view: WorkbuddianChatView,
+    container: HTMLElement,
+    data: PermissionCardData,
+    onResolved?: (kind: 'allow_once' | 'allow_always' | 'reject') => void,
+): Promise<void> {
     const card = container.createDiv({ cls: 'workbuddian-approval-card workbuddian-approval-card-pending' });
     card.createDiv({
         cls: 'workbuddian-approval-card-title',
@@ -308,6 +315,7 @@ async function renderApprovalCard(view: WorkbuddianChatView, container: HTMLElem
             responded = true;
             view.pendingApprovals.delete(data.requestId);
             view.api.respondPermission(data.requestId, optionId);
+            onResolved?.(def.kind);
             card.removeClass('workbuddian-approval-card-pending');
             actions.empty();
             card.createDiv({ cls: 'workbuddian-approval-card-resolved', text: def.resolved });
@@ -355,7 +363,10 @@ function applyToolbarConfig(view: WorkbuddianChatView, cfg: { mode?: string; mod
         view.settings.thoughtLevel = cfg.thoughtLevel;
         changed = true;
     }
-    if (changed) void view.saveSettingsCallback();
+    if (changed) {
+        void view.saveSettingsCallback();
+        emitConfigChanged(view.app); // 已打开的设置页就地刷新对应控件（WB-007）
+    }
 }
 
 /** 粘贴图存储目录：<vault>/.obsidian/plugins/workbuddian/pasted */
@@ -462,22 +473,85 @@ export function openAttachmentPicker(view: WorkbuddianChatView) {
     input.click();
 }
 
+/** 把剪贴板图片字节落盘并加入附件；tiff 先转 PNG（Chromium 不认 tiff，且扩展名须与真实字节一致） */
+async function savePastedImage(view: WorkbuddianChatView, file: File, mime: string): Promise<void> {
+    let bytes = new Uint8Array(await file.arrayBuffer());
+    let ext = extForMime(mime);
+    if (mime === 'image/tiff') {
+        try {
+            // 与 attachmentPath 同款内联结构类型：electron 无类型声明，不进依赖
+            const { nativeImage } = require('electron') as {
+                nativeImage: { createFromBuffer(b: Buffer): { toPNG(): Buffer } };
+            };
+            bytes = new Uint8Array(nativeImage.createFromBuffer(Buffer.from(bytes)).toPNG());
+            ext = '.png';
+        } catch {
+            // 转换失败保留原始字节，扩展名仍按 MIME 兜底（.png），发送侧按扩展名报 MIME
+        }
+    }
+    const seq = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    const p = writeImageFile(pastedDir(view), bytes, pastedImageName(seq, ext));
+    if (!view.attachments.includes(p)) view.attachments.push(p);
+}
+
+/**
+ * Electron 原生剪贴板兜底（WB-008）：Finder 复制文件 / 部分原生图像不会桥接成
+ * paste 事件的 DataTransferItem，Web 标准通道一个 image item 都拿不到，只能走原生 API。
+ * 返回 true 表示已消费（须 preventDefault 阻止文本粘贴）。
+ */
+function pasteNativeClipboardImage(view: WorkbuddianChatView): boolean {
+    try {
+        // 与 attachmentPath 同款内联结构类型：electron 无类型声明，不进依赖
+        const electron = require('electron') as {
+            clipboard?: {
+                readImage(): { isEmpty(): boolean; toPNG(): Buffer };
+                read(format: string): string;
+            };
+        };
+        const clip = electron.clipboard;
+        if (!clip) return false;
+        // 1) 原生图像（截图等）：直接落成 PNG
+        const img = clip.readImage();
+        if (!img.isEmpty()) {
+            const seq = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+            const p = writeImageFile(pastedDir(view), new Uint8Array(img.toPNG()), pastedImageName(seq, '.png'));
+            if (!view.attachments.includes(p)) view.attachments.push(p);
+            pruneImages(pastedDir(view), view.settings.pastedImageKeep);
+            renderAttachmentChips(view);
+            return true;
+        }
+        // 2) Finder 复制的图片文件：按 handleDrop 语义以原路径入附件
+        const fileUrl = clip.read('public.file-url');
+        if (fileUrl) {
+            const p = decodeURIComponent(fileUrl.replace(/^file:\/\//, ''));
+            if (isImagePath(p)) {
+                if (!view.attachments.includes(p)) view.attachments.push(p);
+                renderAttachmentChips(view);
+                return true;
+            }
+        }
+    } catch (e) {
+        bbLog('[WB] 原生剪贴板读取失败（忽略）:', e);
+    }
+    return false;
+}
+
 /** 粘贴：剪贴板里的图片落盘成文件加入附件；纯文本粘贴不拦截 */
 export async function handlePaste(view: WorkbuddianChatView, e: ClipboardEvent) {
     const items = Array.from(e.clipboardData?.items ?? []);
     const images = items.filter(it => it.kind === 'file' && it.type.startsWith('image/'));
-    if (images.length === 0) return; // 让默认文本粘贴发生
+    if (images.length === 0) {
+        // Web 通道无图像：原生剪贴板兜底；也无命中则不拦截，让默认文本粘贴发生
+        if (pasteNativeClipboardImage(view)) e.preventDefault();
+        return;
+    }
     e.preventDefault();
     const dir = pastedDir(view);
     for (const it of images) {
         const file = it.getAsFile();
         if (!file) continue;
         try {
-            const bytes = new Uint8Array(await file.arrayBuffer());
-            const seq = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-            const name = pastedImageName(seq, extForMime(it.type));
-            const p = writeImageFile(dir, bytes, name);
-            if (!view.attachments.includes(p)) view.attachments.push(p);
+            await savePastedImage(view, file, it.type);
         } catch {
             new Notice(t('input.imageSaveFailed'));
         }
@@ -533,7 +607,7 @@ export function openPermissionMenu(view: WorkbuddianChatView, btn: HTMLElement, 
 /** 弹出模型选择菜单（供悬停/点击触发），选中后写设置 + 灌 CLI + 更新按钮文字 + 持久化 */
 export function openModelMenu(view: WorkbuddianChatView, btn: HTMLElement) {
     const menu = new Menu();
-    const models = ['auto', ...view.api.getAvailableModels()];
+    const models = [...new Set(['auto', ...view.api.getAvailableModels()])]; // CLI 列表自带 auto，去重防双 auto（与 WorkBuddy 列表保持一致）
     for (const id of models) {
         menu.addItem(item => item
             .setTitle(id)
@@ -708,6 +782,8 @@ export async function sendMessage(view: WorkbuddianChatView) {
 }
 
 export async function sendText(view: WorkbuddianChatView, text: string, permissionModeOverride?: PermissionMode) {
+    // 在飞的自动标题是可丢弃后台任务：用户消息优先，取消它让出串行队列（否则用户要等标题轮 10-15s 才开始吐字）
+    if (view.titleSessionKey) view.api.cancel(view.titleSessionKey);
     // 确保有活跃对话
     let conv = view.getActiveConversation();
     if (!conv) {
@@ -719,6 +795,27 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
     // 首次对话自动生成 sessionId，后续多轮对话保持上下文连贯
     if (!conv.sessionId) {
         conv.sessionId = view.api.generateId();
+    }
+
+    // vault 外附件授权闸（WB-002）：CLI default 模式对 Read 一律自动放行（含 cwd 之外，实测），
+    // 因此"读 vault 外附件必须先授权"由插件侧把关；取消则整条消息不发送（内容根本到不了模型）
+    const vp = view.vaultPath;
+    if (vp && view.attachments.length) {
+        const allowed = new Set(view.settings.allowedExternalPaths);
+        const pendingExternal = view.attachments.filter((p) => isAbsolutePath(p) && !p.startsWith(vp) && !allowed.has(p));
+        if (pendingExternal.length) {
+            const decision = await confirmExternalAccess(view.app, pendingExternal);
+            if (decision === 'cancel') {
+                view.inputEl.value = text; // 恢复未发送的正文，附件 chips 保持不动
+                adjustTextareaHeight(view);
+                renderReferenceChips(view); // @[[引用]] 的可视镜像一并恢复
+                return;
+            }
+            if (decision === 'always') {
+                view.settings.allowedExternalPaths = [...allowed, ...pendingExternal];
+                await view.saveSettingsCallback();
+            }
+        }
     }
 
     const isFirstExchange = conv.messages.length === 0;
@@ -747,6 +844,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
     let resultText = '';
     const chunkStats: Record<string, number> = {};
     const toolRows = new Map<string, HTMLElement>(); // toolCallId → 工具行（同 id 后续 chunk 就地更新）
+    let turnRejected = false; // 本轮有批准卡被拒绝：收尾无正文时写本地化终态，不让 thinking 顶包（WB-009）
     try {
         let contextText: string;
         let addDirs: string[] = [];
@@ -776,7 +874,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
             }
             const attachmentBlock = buildAttachmentBlock(pathAttachments);
             // v1 用这些目录拼 --add-dir 放开读取权限；v2（ACP）起 provider 忽略 addDirs（占位兼容），
-            // vault 外文件 Read 改由 CLI 在 default 模式弹批准卡
+            // vault 外附件的读取授权由 sendText 入口的插件侧确认弹窗把关（WB-002；CLI default 模式对 Read 不弹卡）
             addDirs = attachmentDirs(pathAttachments);
             const selectionBlock = view.selection ? buildSelectionBlock(view.selection.text, view.selection.note) : '';
             const extraBlock = [referenceBlock, attachmentBlock, selectionBlock].filter(Boolean).join('\n\n---\n\n');
@@ -831,7 +929,9 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         const sessionKey = conv.sessionId;
         const msgEl = streamingBubble.closest('.workbuddian-message-assistant');
         view.api.onPermissionRequest(sessionKey, (data) => {
-            if (msgEl instanceof HTMLElement) void renderApprovalCard(view, msgEl as HTMLElement, data);
+            if (msgEl instanceof HTMLElement) {
+                void renderApprovalCard(view, msgEl as HTMLElement, data, (kind) => { if (kind === 'reject') turnRejected = true; });
+            }
         });
         view.api.onUsage(sessionKey, (used, size) => {
             view.cliWindowSize = size;
@@ -915,9 +1015,13 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                     const toolDetail = chunk.toolDetail || '';
                     // completed chunk 的 toolDetail 是 JSON 快照：行文本只留路径，JSON 仅供 parseFileChange
                     const completedChange = chunk.toolStatus === 'completed' ? parseFileChange(toolName, toolDetail) : null;
-                    const rowText = chunk.toolStatus === 'completed'
+                    let rowText = chunk.toolStatus === 'completed'
                         ? `${toolName} ${completedChange?.path ?? ''}`.trim()
                         : `${toolName} ${toolDetail}`.trim();
+                    // completed 没解析出路径时保留流式阶段已有的行文本（可能已带路径），不反向覆盖成裸工具名（WB-003）
+                    if (chunk.toolStatus === 'completed' && !completedChange?.path && chunk.toolCallId && toolRows.has(chunk.toolCallId)) {
+                        rowText = toolRows.get(chunk.toolCallId)!.querySelector('.workbuddian-tool-call-text')?.textContent || rowText;
+                    }
                     let iconName = 'wrench';
                     if (toolName.includes('read') || toolName.includes('查看') || toolName.includes('读取')) {
                         iconName = 'file-text';
@@ -943,7 +1047,11 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                     // 终态：diff 预览 + 撤销按钮（v1 原路径复活）；dataset 幂等防重复 completed
                     if (completedChange && row.dataset.diffRendered !== '1') {
                         row.dataset.diffRendered = '1';
-                        const change = completedChange;
+                        // 路径规范化：CLI 可能回相对路径，统一转成绝对路径，
+                        // 否则 vault 内判定（撤销按钮）与 undoEdit 的 fs 读写都会落空（WB-003）
+                        const change: FileEdit | FileWrite = view.vaultPath && !isAbsolutePath(completedChange.path)
+                            ? { ...completedChange, path: `${view.vaultPath.replace(/[\\/]$/, '')}/${completedChange.path}` }
+                            : completedChange;
                         const diffLines = change.kind === 'write'
                             ? lineDiff('', change.newText)
                             : lineDiff(change.oldText, change.newText);
@@ -997,16 +1105,17 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                         });
                     }
 
-                    // Bash/Shell 终态：终端输出块（与 diff 互斥——Bash 本无 parseFileChange）
+                    // Bash/Shell 终态：终端输出块；Agent 终态：子代理中继输出块（与 diff 互斥——这两类本无 parseFileChange）
+                    const outputTitle = toolName === 'Agent' ? t('tool.agentOutput') : t('tool.output');
                     if (chunk.toolStatus === 'completed' && chunk.toolOutput
-                        && (toolName === 'Bash' || toolName === 'Shell') && row.dataset.bashRendered !== '1') {
+                        && (toolName === 'Bash' || toolName === 'Shell' || toolName === 'Agent') && row.dataset.bashRendered !== '1') {
                         row.dataset.bashRendered = '1';
                         const bashBlock = list.createDiv({ cls: 'workbuddian-bash-block' });
                         const bashHeader = bashBlock.createDiv({
                             cls: 'workbuddian-tool-diff-header',
                             attr: { role: 'button', tabindex: '0', 'aria-expanded': 'false', 'aria-label': t('tool.outputToggle') }
                         });
-                        bashHeader.createSpan({ text: t('tool.output') });
+                        bashHeader.createSpan({ text: outputTitle });
                         const bashChevron = bashHeader.createSpan({ text: '▾' });
                         const bashBody = bashBlock.createDiv({ cls: 'workbuddian-bash-body workbuddian-hidden' });
                         bashBody.createEl('pre', { text: chunk.toolOutput });
@@ -1027,7 +1136,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                     }
                 }
             } else if (chunk.type === 'text') {
-                textContent += chunk.content;
+                textContent = appendTextChunk(textContent, chunk.content); // 重叠感知拼接（WB-010）
                 view.manager.updateMessage(convId, aiMsg.id, textContent, true);
                 scheduleTextRender();
             } else if (chunk.type === 'error') {
@@ -1044,21 +1153,27 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         }
 
         await flushTextRender(); // 流末兜底：确保 bubble 与 textContent 一致再进收尾
-        const finalContent = pickFinalContent(textContent, thinkingContent, resultText);
+        let finalContent = pickFinalContent(textContent, resultText);
+        if (!finalContent && turnRejected) finalContent = t('input.rejectedTurn');
         view.manager.updateMessage(convId, aiMsg.id, finalContent);
 
         let displayContent = finalContent;
         if (!finalContent) {
             // 诊断：本轮各类 chunk 计数 + result 文本长度，便于判断是纯工具轮/超时/真空回复
-            bbLog('[WB] empty response — chunks:', JSON.stringify(chunkStats), '| resultLen:', resultText.length);
+            // 零 chunk（路由被丢 / 并发被吞没的特征签名）升级为错误日志（WB-001）
+            if (Object.keys(chunkStats).length === 0) {
+                bbError('[WB] empty response — 零 chunk（路由丢失或并发吞没嫌疑）');
+            } else {
+                bbLog('[WB] empty response — chunks:', JSON.stringify(chunkStats), '| resultLen:', resultText.length);
+            }
             displayContent = t('input.noResponse');
             view.manager.updateMessage(convId, aiMsg.id, displayContent);
         }
 
         // C1：这里不再整体 renderMessages——它会连带销毁本轮刚建好的工具行/diff/批准卡，
         // 且发生在 view.isStreaming 置假之前，批准卡按钮会因此等不到可用窗口。
-        // text chunk 已经在流式过程中增量渲染进 bubble；只有最终内容退回到了 thinking/result
-        // 兜底或上面的空态兜底文案时，bubble 里还没有对应内容，才需要在这里补渲染一次。
+        // text chunk 已经在流式过程中增量渲染进 bubble；只有最终内容退回到了 result
+        // 兜底、拒绝终态或上面的空态兜底文案时，bubble 里还没有对应内容，才需要在这里补渲染一次。
         if (!textContent) {
             await renderMarkdownContent(view, streamingBubble, displayContent);
         }
@@ -1080,6 +1195,18 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         await view.manager.flush();
         // 自动标题：首轮且开关开 → 一次性辅助会话生成；用户已改名则不覆盖
         if (isFirstExchange && view.settings.autoTitle) void maybeAutoTitle(view, convId, text);
+        // /effort <level> 是 CLI 侧配置变更，但 CLI 不会回流 config_option_update（smoke 探针实测）：
+        // 本轮无错完成后按用户输入乐观同步（WB-007）。必须同时进 provider config——
+        // 否则 CLI 重启后 applyConfig 会把旧的 provider 值重新灌回并回流覆盖设置（WB-RT-006）
+        if (slash?.name === 'effort') {
+            const level = slash.rest.trim().split(/\s+/)[0] ?? '';
+            if (isThoughtLevel(level) && level !== view.settings.thoughtLevel) {
+                view.settings.thoughtLevel = level;
+                view.api.setThoughtLevel(level);
+                await view.saveSettingsCallback();
+                emitConfigChanged(view.app);
+            }
+        }
     } catch (error: unknown) {
         const message = getErrorMessage(error);
         view.manager.setError(convId, aiMsg.id, message);
@@ -1097,9 +1224,11 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
 
 /** 首轮结束后生成 AI 标题（一次性辅助会话）；失败静默保留 fallback，用户已改名不覆盖 */
 async function maybeAutoTitle(view: WorkbuddianChatView, convId: string, userText: string) {
+    const titleKey = view.api.generateId();
+    view.titleSessionKey = titleKey;
     try {
         let out = '';
-        for await (const chunk of view.api.sendMessage(view.api.generateId(), t('chat.autoTitlePrompt') + userText, view.vaultPath)) {
+        for await (const chunk of view.api.sendMessage(titleKey, t('chat.autoTitlePrompt') + userText, view.vaultPath)) {
             if (chunk.type === 'text') out += chunk.content;
         }
         const title = sanitizeTitle(out);
@@ -1110,6 +1239,8 @@ async function maybeAutoTitle(view: WorkbuddianChatView, convId: string, userTex
         }
     } catch (e) {
         bbLog('[WB] 自动标题生成失败（忽略）:', e);
+    } finally {
+        if (view.titleSessionKey === titleKey) view.titleSessionKey = null;
     }
 }
 

@@ -50,10 +50,12 @@ export interface WorkbuddianSettings {
     thoughtLevel: string;
     /** 首轮回复后由 AI 自动生成会话标题（用户手动改名后不覆盖） */
     autoTitle: boolean;
+    /** 已授权"总是允许读取"的 vault 外附件绝对路径（WB-002；逐项精确匹配） */
+    allowedExternalPaths: string[];
     version: number;
 }
 
-const CURRENT_SETTINGS_VERSION = 11;
+const CURRENT_SETTINGS_VERSION = 12;
 export const DEFAULT_CONTEXT_WINDOW_SIZE = 200000;
 const DEFAULT_PASTED_IMAGE_KEEP = 20;
 /** 粘贴图保留数量上限；0 表示不限制 */
@@ -76,6 +78,7 @@ export const DEFAULT_SETTINGS: WorkbuddianSettings = {
     customAgentsJson: '',
     thoughtLevel: 'enabled',
     autoTitle: true,
+    allowedExternalPaths: [],
     version: CURRENT_SETTINGS_VERSION
 };
 
@@ -160,6 +163,9 @@ export function migrateSettings(stored: unknown): WorkbuddianSettings {
         customAgentsJson: getString(stored, 'customAgentsJson') ?? DEFAULT_SETTINGS.customAgentsJson,
         thoughtLevel: getString(stored, 'thoughtLevel') ?? DEFAULT_SETTINGS.thoughtLevel,
         autoTitle: typeof stored.autoTitle === 'boolean' ? stored.autoTitle : DEFAULT_SETTINGS.autoTitle,
+        allowedExternalPaths: Array.isArray(stored.allowedExternalPaths)
+            ? stored.allowedExternalPaths.filter((p): p is string => typeof p === 'string')
+            : DEFAULT_SETTINGS.allowedExternalPaths,
         version: CURRENT_SETTINGS_VERSION
     };
 }

@@ -12,6 +12,7 @@ export interface FakeClientKit {
     fake: {
         setCodebuddyPath: jest.Mock; setNodePath: jest.Mock; getScriptPath: jest.Mock;
         running: boolean; ensureStarted: jest.Mock; request: FakeRequest;
+        enqueuePrompt: jest.Mock; rawRequest: jest.Mock;
         notify: jest.Mock; respond: jest.Mock; dispose: jest.Mock; setExtraArgs: jest.Mock;
     };
     events: () => AcpClientEvents;
@@ -34,10 +35,14 @@ export function makeFakeClient(MockAcpClient: jest.MockedClass<typeof AcpClient>
             if (method === 'session/prompt') return { stopReason: 'end_turn' };
             return {};
         }) as FakeRequest,
+        // 串行队列的测试替身：立即执行（不经队列），rawRequest 转发到 request mock 以套用同一套 stub
+        enqueuePrompt: jest.fn(async (fn: () => Promise<unknown>) => fn()),
+        rawRequest: jest.fn(),
         notify: jest.fn(),
         respond: jest.fn(),
         dispose: jest.fn(),
     };
+    (fake.rawRequest as jest.Mock).mockImplementation((method: string, params: Record<string, unknown>) => fake.request(method, params));
     MockAcpClient.mockImplementation((events: AcpClientEvents) => {
         captured = events;
         return fake as unknown as AcpClient;

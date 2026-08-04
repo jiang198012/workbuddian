@@ -31,8 +31,8 @@ describe('DEFAULT_SETTINGS', () => {
     it('should default language to auto', () => {
         expect(DEFAULT_SETTINGS.language).toBe('auto');
     });
-    it('should have settings version 11', () => {
-        expect(DEFAULT_SETTINGS.version).toBe(11);
+    it('should have settings version 12', () => {
+        expect(DEFAULT_SETTINGS.version).toBe(12);
     });
     it('should default customInstruction to empty string', () => {
         expect(DEFAULT_SETTINGS.customInstruction).toBe('');
@@ -140,8 +140,8 @@ describe('migrateSettings', () => {
         expect(migrateSettings({ language: 'fr' }).language).toBe('auto');
         expect(migrateSettings({ language: 5 }).language).toBe('auto');
     });
-    it('should migrate an older stored version up to 11', () => {
-        expect(migrateSettings({ version: 4 }).version).toBe(11);
+    it('should migrate an older stored version up to 12', () => {
+        expect(migrateSettings({ version: 4 }).version).toBe(12);
     });
     it('should default customInstruction to empty when missing', () => {
         expect(migrateSettings({}).customInstruction).toBe('');
@@ -263,12 +263,16 @@ describe('type helpers', () => {
     });
 });
 
-describe('v11 MCP/agents settings', () => {
+describe('v11+ MCP/agents settings', () => {
     it('defaults new JSON settings to empty string', () => {
         const s = migrateSettings({});
         expect(s.mcpServersJson).toBe('');
         expect(s.customAgentsJson).toBe('');
-        expect(s.version).toBe(11);
+        expect(s.version).toBe(12);
+    });
+    it('defaults allowedExternalPaths to empty and filters non-strings (WB-002)', () => {
+        expect(migrateSettings({}).allowedExternalPaths).toEqual([]);
+        expect(migrateSettings({ allowedExternalPaths: ['/a', 1, '/b'] }).allowedExternalPaths).toEqual(['/a', '/b']);
     });
     it('keeps stored JSON strings, falls back on non-string', () => {
         expect(migrateSettings({ mcpServersJson: '[{"name":"x"}]' }).mcpServersJson).toBe('[{"name":"x"}]');

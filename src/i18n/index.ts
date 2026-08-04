@@ -165,6 +165,7 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'tool.undoAmbiguous': { zh: '改动文本在文件中出现多次，为避免误改已跳过撤销', en: 'The changed text appears more than once in the file; undo was skipped to avoid a wrong edit.' },
     'tool.undoFailed': { zh: '撤销失败', en: 'Undo failed' },
     'tool.output': { zh: '输出', en: 'Output' },
+    'tool.agentOutput': { zh: '子代理输出', en: 'Subagent output' },
     'tool.outputToggle': { zh: '展开或折叠命令输出', en: 'Expand or collapse command output' },
     'approval.title': { zh: '工具批准', en: 'Tool approval' },
     'approval.allow': { zh: '允许', en: 'Allow' },
@@ -180,8 +181,13 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'approval.resolvedReject': { zh: '已拒绝', en: 'Rejected' },
     'input.requestFailed': { zh: '请求失败', en: 'Request failed' },
     'input.noResponse': { zh: '（无响应，请重试）', en: '(No response, please retry)' },
+    'input.rejectedTurn': { zh: '该操作已被拒绝。', en: 'The operation was rejected.' },
     'input.thought': { zh: '已思考', en: 'Thought' },
     'input.send': { zh: '发送', en: 'Send' },
+
+    'external.title': { zh: '读取 Vault 外文件', en: 'Read files outside the vault' },
+    'external.desc': { zh: '以下附件位于 Vault 之外，发送后 CodeBuddy 会读取其内容；取消则不发送本条消息。', en: 'These attachments are outside the vault; sending lets CodeBuddy read their contents. Cancel aborts this message.' },
+    'external.allowOnce': { zh: '允许一次', en: 'Allow once' },
 
     'view.displayText': { zh: 'Workbuddian 聊天', en: 'Workbuddian Chat' },
     'view.newChat': { zh: '新建对话', en: 'New chat' },

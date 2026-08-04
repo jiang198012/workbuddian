@@ -5,11 +5,16 @@ import {
 import {
     mapPermissionRequest, buildPermissionResult, pickOptionId, type PermissionCardData,
 } from './permission';
+import { appendTextChunk } from '../../../shared/responseFinalize';
 import { bbLog } from '../../../shared/logBuffer';
 
 /** session 层对传输层的最小依赖（AcpClient 天然满足；测试用 fake） */
 export interface AcpClientFacade {
     request<T = unknown>(method: string, params: Record<string, unknown>): Promise<T>;
+    /** 把"再激活 load + prompt"原子排入串行队列；fn 内发 prompt 本体须用 rawRequest 防自排队死锁 */
+    enqueuePrompt<T = unknown>(fn: () => Promise<T>): Promise<T>;
+    /** 绕过串行队列直接发请求：仅供 enqueuePrompt 的 fn 内部使用 */
+    rawRequest<T = unknown>(method: string, params: Record<string, unknown>): Promise<T>;
     notify(method: string, params: Record<string, unknown>): void;
     respond(requestId: number, result: unknown): void;
 }
@@ -42,19 +47,30 @@ export class AcpSession {
     acpSessionId: string | null = null;
     status: SessionStatus = 'idle';
     lastUsage: { used: number; size: number } | null = null;
+    /** fork 轮进行中标记：fork 回报（session_info_update）可能挂在新会话 id 下，provider 据此把事件归给本会话（WB-004） */
+    forkPending = false;
     private needsReload = false;
     private handlers: TurnHandlers | null = null;
     private pendingPermissions = new Map<number, PermissionCardData>();
     private toolInputs = new Map<string, unknown>(); // toolCallId → 最新 rawInput 快照（替换式，traffic 实证快照语义）
     private toolNames = new Map<string, string>(); // toolCallId → toolName（update 缺 _meta 时兜底）
     private lastForkedSessionId: string | null = null; // /branch 分叉后 CLI 经 session_info_update 回报的新会话 id
+    private lastVaultPath: string | undefined; // ensureLoaded 记录，prompt 前再激活重放用
+    private agentInFlight = new Set<string>(); // 在飞 Agent 工具调用（窗口内文本=子代理中继，WB-RT-007）
+    private agentRelay = ''; // Agent 窗口内累积的中继文本，完成时挂为该行输出块
+    private cancelPending = false; // 排队/在飞轮次被取消：到队首直接作废，不再占用 CLI
 
     constructor(
         readonly key: string,
         private readonly client: AcpClientFacade,
         private readonly lookup: ConversationLookup,
         private readonly config: SessionConfig,
+        // 全 registry 共享：CLI 当前活动会话（最近 new/load 者）。直构造函数（测试）时各持一份，不产生串扰
+        private readonly activation: { current: string | null } = { current: null },
     ) {}
+
+    /** 是否处于轮次内（有活跃 handlers）：轮外的 config 更新由 provider 旁路直推，不经本对象（WB-007） */
+    get inTurn(): boolean { return this.handlers !== null; }
 
     /** 进程死亡后由 provider 标记：下次 ensureLoaded 重新 session/load（CLI 侧上下文不丢） */
     markStale(): void {
@@ -64,6 +80,7 @@ export class AcpSession {
     async ensureLoaded(vaultPath?: string): Promise<void> {
         if (this.acpSessionId && !this.needsReload) return;
         this.status = 'loading';
+        this.lastVaultPath = vaultPath;
         try {
             if (!this.acpSessionId) {
                 // 懒加载链：插件存的 acpSessionId → 先试 v1 uuid（--session-id 时代 CLI 侧可能真存着）→ session/new 回写
@@ -80,6 +97,7 @@ export class AcpSession {
             } else {
                 await this.client.request('session/load', { sessionId: this.acpSessionId, cwd: vaultPath ?? '', mcpServers: this.config.mcpServers ?? [] });
             }
+            this.activation.current = this.acpSessionId; // new/load 都会把 CLI 的活动会话切到本会话
             this.needsReload = false;
             await this.applyConfig();
         } finally {
@@ -89,7 +107,16 @@ export class AcpSession {
 
     /** provider setModel/setPermissionMode 时对已加载会话逐一应用（按会话设置，双面板泄漏在协议层绝迹） */
     async applyRemoteConfig(): Promise<void> {
-        if (this.acpSessionId) await this.applyConfig();
+        if (!this.acpSessionId) return;
+        // set_mode/set_config_option 可能同样跟随 CLI 活动会话指针（与 prompt 同病）：
+        // 目标会话不是活动会话时先重发 load 激活，再灌配置（WB-RT-006/F3 完全访问仍弹卡的嫌疑路径）
+        if (this.activation.current !== this.acpSessionId) {
+            await this.client.request('session/load', {
+                sessionId: this.acpSessionId, cwd: this.lastVaultPath ?? '', mcpServers: this.config.mcpServers ?? [],
+            });
+            this.activation.current = this.acpSessionId;
+        }
+        await this.applyConfig();
     }
 
     private async applyConfig(): Promise<void> {
@@ -119,23 +146,49 @@ export class AcpSession {
     async prompt(text: string, handlers: TurnHandlers, images?: Array<{ data: string; mimeType: string }>): Promise<{ stopReason: string }> {
         if (this.status !== 'idle') throw new Error('session busy');
         if (!this.acpSessionId) throw new Error('session not loaded');
+        const acpId = this.acpSessionId;
+        // status 从调用时起占住（busy 护栏）；handlers 与再激活到队首才生效——
+        // 排队期间到达的事件不属于本轮，不该进这一轮的 handlers
         this.status = 'prompting';
-        this.handlers = handlers;
-        this.toolInputs.clear();
-        this.toolNames.clear();
         try {
             const prompt: Array<Record<string, unknown>> = images?.length
                 ? [...images.map((i) => ({ type: 'image', data: i.data, mimeType: i.mimeType })), { type: 'text', text }]
                 : [{ type: 'text', text }];
-            const result = await this.client.request<{ stopReason?: string }>('session/prompt', {
-                sessionId: this.acpSessionId,
-                prompt,
+            const result = await this.client.enqueuePrompt(async () => {
+                // 排队期间被取消（如标题轮被用户消息抢占）：到队首直接作废，不占 CLI（吐字响应优先）
+                if (this.cancelPending) return { stopReason: 'cancelled' };
+                this.handlers = handlers;
+                this.toolInputs.clear();
+                this.toolNames.clear();
+                this.agentInFlight.clear();
+                this.agentRelay = '';
+                // CLI 的流式事件与模型上下文跟随"最近 new/load 的会话"而非 prompt 的 sessionId
+                //（acp-probe reactivate2/titlefix 实证）：到队首才再激活，排队期间指针不会被抢走。
+                // 不激活则本轮事件被打到别的会话名下、模型用错上下文（WB-RT-001/005）
+                if (this.activation.current !== acpId) {
+                    bbLog('[WB] prompt 前重新激活会话:', acpId);
+                    this.status = 'loading'; // 回放事件经 handleUpdate 的 loading 守卫丢弃
+                    try {
+                        await this.client.request('session/load', {
+                            sessionId: acpId, cwd: this.lastVaultPath ?? '', mcpServers: this.config.mcpServers ?? [],
+                        });
+                        this.activation.current = acpId;
+                    } finally {
+                        this.status = 'prompting';
+                    }
+                }
+                // 必须走 rawRequest：request('session/prompt') 会再排队，造成自等待死锁
+                return this.client.rawRequest<{ stopReason?: string }>('session/prompt', {
+                    sessionId: acpId,
+                    prompt,
+                });
             });
             return { stopReason: typeof result.stopReason === 'string' ? result.stopReason : 'end_turn' };
         } finally {
             if (this.pendingPermissions.size) this.rejectPendingPermissions();
             this.status = 'idle';
             this.handlers = null;
+            this.cancelPending = false;
         }
     }
 
@@ -154,10 +207,21 @@ export class AcpSession {
         if (update.sessionUpdate === 'tool_call_update') {
             const id = typeof update.toolCallId === 'string' ? update.toolCallId : '';
             if (!id) return;
-            this.toolInputs.set(id, update.rawInput); // 快照替换，非合并
-            const chunk = mapToolCallUpdate(update, update.rawInput);
+            // 只在事件自带 rawInput 时更新快照：不带 rawInput 的更新（常见于 completed）不能冲掉已累积的数据，
+            // 否则完成态丢失路径/diff 数据源（WB-003）
+            if (update.rawInput !== undefined) this.toolInputs.set(id, update.rawInput); // 快照替换，非合并
+            const chunk = mapToolCallUpdate(update, this.toolInputs.get(id));
             if (chunk) {
                 if (!update._meta && this.toolNames.has(id)) chunk.toolName = this.toolNames.get(id)!;
+                if (update.status === 'completed') {
+                    // 诊断：完成态是否有 diff 数据源（WB-RT-003/004 若再失败先看这行）
+                    bbLog('[WB] 工具完成:', chunk.toolName ?? '?', '| 快照:', this.toolInputs.has(id) ? '有' : '无');
+                    if (this.agentInFlight.delete(id) && this.agentRelay) {
+                        // Agent 完成：窗口内累积的子代理中继挂为该行输出块，正文由主代理总结承担（WB-RT-007）
+                        chunk.toolOutput = this.agentRelay;
+                        this.agentRelay = '';
+                    }
+                }
                 handlers.onChunk(chunk);
             }
             return;
@@ -178,6 +242,13 @@ export class AcpSession {
             if (chunk.type === 'tool' && typeof update.toolCallId === 'string') {
                 this.toolNames.set(update.toolCallId, chunk.toolName ?? 'tool');
                 this.toolInputs.set(update.toolCallId, update.rawInput ?? {});
+                if (chunk.toolName === 'Agent') this.agentInFlight.add(update.toolCallId);
+            }
+            if (chunk.type === 'text' && this.agentInFlight.size > 0) {
+                // Agent 调用窗口内的文本是子代理中继：不入正文主流（主代理完成后会自行总结，两遍都进正文即 WB-RT-007 的重复），
+                // 累积后挂为 Agent 行的输出块
+                this.agentRelay = appendTextChunk(this.agentRelay, chunk.content);
+                return;
             }
             handlers.onChunk(chunk);
         }
@@ -185,6 +256,16 @@ export class AcpSession {
 
     handlePermissionRequest(requestId: number, params: unknown): void {
         const data = mapPermissionRequest(requestId, params);
+        // 批准卡是 default 模式下 rawInput 最可靠的来源：按 toolCallId 水合快照与工具名，
+        // completed 事件（常不带 rawInput）据此出 diff/撤销（WB-003）
+        const toolCall = (params as { toolCall?: unknown } | undefined)?.toolCall;
+        const tc = toolCall && typeof toolCall === 'object' && !Array.isArray(toolCall)
+            ? toolCall as Record<string, unknown> : {};
+        const toolCallId = typeof tc.toolCallId === 'string' ? tc.toolCallId : '';
+        if (toolCallId) {
+            if (tc.rawInput !== undefined) this.toolInputs.set(toolCallId, tc.rawInput);
+            this.toolNames.set(toolCallId, data.toolName);
+        }
         const handlers = this.handlers;
         if (!handlers?.onPermissionRequest) {
             // 未注册批准回调（含 sendText 之外的调用方）：安全兜底统一拒绝，不悬挂
@@ -221,20 +302,32 @@ export class AcpSession {
         const sink: TurnHandlers = { onChunk: () => {}, onError: () => {} };
         let timer: ReturnType<typeof setTimeout>;
         const timeout = new Promise<never>((_, reject) => {
-            timer = setTimeout(() => reject(new Error('fork failed')), 60_000);
+            timer = setTimeout(() => reject(new Error('fork timeout (60s)')), 60_000);
         });
+        this.forkPending = true; // 回报事件可能挂在新会话 id 下，provider 据此归给本会话
+        bbLog('[WB] fork 开始:', this.acpSessionId, name);
         try {
             await Promise.race([this.prompt(`/branch ${name}`, sink), timeout]);
+        } catch (e) {
+            // 保留底层原因（超时 / prompt 自身报错），不再压成无差别的 fork failed
+            bbLog('[WB] fork 失败:', e);
+            throw new Error(`fork failed: ${e instanceof Error ? e.message : String(e)}`);
         } finally {
+            this.forkPending = false;
             clearTimeout(timer!);
         }
-        if (!this.lastForkedSessionId) throw new Error('fork failed');
+        if (!this.lastForkedSessionId) {
+            bbLog('[WB] fork 失败: prompt 完成但未收到 session_info_update 回报');
+            throw new Error('fork failed: no session_info_update');
+        }
+        bbLog('[WB] fork 成功:', this.acpSessionId, '→', this.lastForkedSessionId);
         return this.lastForkedSessionId;
     }
 
     async cancelTurn(): Promise<void> {
         if (this.status !== 'prompting' && this.status !== 'awaitingPermission') return;
         this.rejectPendingPermissions();
+        this.cancelPending = true; // 还在排队的轮次到队首直接作废（prompt 的 finally 统一清旗标）
         if (this.acpSessionId) this.client.notify('session/cancel', { sessionId: this.acpSessionId });
         // status 归 idle 由 prompt() 的 finally 在 cancelled 响应落账时完成——这里不抢跑（spike 瑕疵⑤）
     }
@@ -246,6 +339,8 @@ export class AcpSession {
 
 export class SessionRegistry {
     private sessions = new Map<string, AcpSession>();
+    /** 全注册表共享的"CLI 当前活动会话"指针：任何 new/load 都会切换它（探针实证） */
+    private readonly activation = { current: null as string | null };
 
     constructor(
         private readonly client: AcpClientFacade,
@@ -256,7 +351,7 @@ export class SessionRegistry {
     get(key: string): AcpSession {
         let s = this.sessions.get(key);
         if (!s) {
-            s = new AcpSession(key, this.client, this.lookup, this.config);
+            s = new AcpSession(key, this.client, this.lookup, this.config, this.activation);
             this.sessions.set(key, s);
         }
         return s;

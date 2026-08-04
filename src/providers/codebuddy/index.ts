@@ -1,11 +1,12 @@
 import { FALLBACK_MODEL_OPTIONS, type PermissionMode } from '../../shared/cliOptions';
 import { t } from '../../i18n';
-import { bbLog } from '../../shared/logBuffer';
+import { bbLog, bbError } from '../../shared/logBuffer';
 import type { UsageInfo } from '../../types';
 import { AcpClient, AcpStartError, type AcpStartTier } from './acp/client';
 import {
     SessionRegistry, type ConversationLookup, type SessionConfig, type TurnHandlers,
 } from './acp/session';
+import { mapConfigUpdate, isReplayUpdate, type AcpUpdate } from './acp/events';
 import type { PermissionCardData } from './acp/permission';
 import { activeMcpServers, parseMcpServers } from '../../shared/mcpServers';
 
@@ -31,7 +32,7 @@ export interface StreamChunk {
 interface SessionCallbacks {
     onPermissionRequest?: (data: PermissionCardData) => void;
     onUsage?: (used: number, size: number) => void;
-    onConfigUpdate?: (cfg: { mode?: string; model?: string }) => void;
+    onConfigUpdate?: (cfg: { mode?: string; model?: string; thoughtLevel?: string }) => void;
 
 }
 
@@ -53,9 +54,8 @@ export class CodebuddyProvider {
     private callbacks = new Map<string, SessionCallbacks>();
 
     constructor(timeout: number = TIMEOUT) {
-        this.timeout = timeout;
         this.client = new AcpClient({
-            onSessionUpdate: (acpSessionId, update) => this.registry.byAcpId(acpSessionId)?.handleUpdate(update),
+            onSessionUpdate: (acpSessionId, update) => this.routeSessionUpdate(acpSessionId, update),
             onPermissionRequest: (requestId, params) => this.routePermissionRequest(requestId, params),
             onAgentNotification: (method) => bbLog('[WB] acp 通知:', method),
             onModels: (models) => { this.availableModels = models; },
@@ -69,10 +69,15 @@ export class CodebuddyProvider {
             },
             this.config,
         );
+        this.setTimeout(timeout);
     }
 
     setCodebuddyPath(p: string): void { this.client.setCodebuddyPath(p); }
-    setTimeout(ms: number): void { this.timeout = ms; }
+    setTimeout(ms: number): void {
+        this.timeout = ms;
+        // 轮级超时到点会 cancel；CLI 连 cancel 都不应答的挂死由 client 侧兜底断链（宽限 60s）
+        this.client.promptTimeoutMs = ms + 60_000;
+    }
     setNodePath(nodePath: string): void { this.client.setNodePath(nodePath); }
 
     setModel(model: string): void {
@@ -192,7 +197,7 @@ export class CodebuddyProvider {
         images?: Array<{ data: string; mimeType: string }>,
     ): AsyncGenerator<StreamChunk> {
         // v2 退役项：addDirs（--add-dir 预授权 hack）与 permissionModeOverride（计划卡重发 workaround）
-        // 仅保留签名兼容，不再消费；vault 外文件 Read 由 CLI 在 default 模式弹批准卡
+        // 仅保留签名兼容，不再消费；vault 外附件的读取授权由插件侧确认弹窗把关（WB-002）
         void addDirs; void permissionModeOverride;
 
         const session = this.registry.get(sessionId);
@@ -208,6 +213,7 @@ export class CodebuddyProvider {
         const queue: QueueItem[] = [];
         let waiter: ((item: QueueItem) => void) | null = null;
         let settled = false;
+        let chunkCount = 0; // 本轮实际到达的 chunk 数：零 chunk 落账是 CLI 状态机卡死的特征
         const push = (item: QueueItem) => {
             if (settled) return;
             if (item.end || item.error) settled = true;
@@ -223,7 +229,7 @@ export class CodebuddyProvider {
             queue.length ? Promise.resolve(queue.shift()!) : new Promise((r) => { waiter = r; });
 
         const handlers: TurnHandlers = {
-            onChunk: (chunk) => push({ chunk }),
+            onChunk: (chunk) => { chunkCount++; push({ chunk }); },
             onError: (message) => push({ error: message }),
             // 未注册批准回调时保持 undefined，session 层自动统一拒绝
             onPermissionRequest: cbs.onPermissionRequest ? (data) => cbs.onPermissionRequest!(data) : undefined,
@@ -232,6 +238,7 @@ export class CodebuddyProvider {
         };
 
         // 单轮总超时照常计时（批准请求悬挂期间也在计）；到点 cancel + 错误卡，进程保活
+        const startedAt = Date.now();
         const timer = setTimeout(() => {
             void session.cancelTurn();
             push({ error: t('provider.turnTimeout') });
@@ -247,6 +254,7 @@ export class CodebuddyProvider {
         promptPromise.then(({ stopReason }) => {
             clearTimeout(timer);
             if (stopReason === 'end_turn') {
+                if (chunkCount === 0) this.restartAfterDeadTurn(sessionId);
                 push({
                     chunk: {
                         type: 'done', content: '',
@@ -255,6 +263,8 @@ export class CodebuddyProvider {
                 });
                 push({ end: true });
             } else if (stopReason === 'cancelled') {
+                // 零 chunk 且拖了 >15s 才被取消 = 卡死后被中止（用户秒取消的正常停止不触发重启）
+                if (chunkCount === 0 && Date.now() - startedAt > 15_000) this.restartAfterDeadTurn(sessionId);
                 push({ end: true }); // 现有停止路径：静默结束（对齐 v1）
             } else {
                 push({ error: t('provider.turnFailed').replace('{reason}', stopReason) });
@@ -271,6 +281,62 @@ export class CodebuddyProvider {
             if (item.error) throw new Error(item.error);
             if (item.chunk) yield item.chunk;
         }
+    }
+
+    /** session/update 路由：按 acpSessionId 归会话；fork 回报可能挂在新 id 下，归给正在 fork 的会话；无归属记日志不再静默丢 */
+    private routeSessionUpdate(acpSessionId: string, update: AcpUpdate): void {
+        const target = this.registry.byAcpId(acpSessionId);
+        if (target?.inTurn) {
+            target.handleUpdate(update);
+            return;
+        }
+        if (update.sessionUpdate === 'session_info_update') {
+            const forking = this.registry.all().find((s) => s.forkPending);
+            if (forking) {
+                forking.handleUpdate(update);
+                return;
+            }
+        }
+        // CLI 会把流式事件打到"活动会话"名下而非 prompt 的 sessionId（acp-probe reactivate2 实证）：
+        // tagged 会话不在轮次内时，文本/工具负载归给唯一在飞会话（prompt 已串行，至多一个），
+        // 否则目标会话 handlers 为空、事件被丢，用户看到"无响应"（WB-RT-001/005 的兜底纠偏）
+        const kind = update.sessionUpdate;
+        const isStreamPayload = kind === 'agent_message_chunk' || kind === 'agent_thought_chunk'
+            || kind === 'tool_call' || kind === 'tool_call_update';
+        if (isStreamPayload) {
+            const inFlight = this.registry.all().filter((s) => s.inTurn);
+            if (inFlight.length === 1 && inFlight[0] !== target) {
+                bbLog('[WB] 事件误标纠偏:', kind, acpSessionId, '→', inFlight[0].acpSessionId ?? '?');
+                inFlight[0].handleUpdate(update);
+                return;
+            }
+        }
+        if (target) {
+            // 轮外（无轮次 handlers）的 config 更新会在 session 层被丢弃：provider 旁路直推给注册方，
+            // /effort 之类的 CLI 侧变更才能回流到设置（WB-007）；回放事件不直推（与 session 层口径一致）
+            if (!isReplayUpdate(update)) {
+                const cfg = mapConfigUpdate(update);
+                if (cfg) this.callbacks.get(target.key)?.onConfigUpdate?.(cfg);
+            }
+            target.handleUpdate(update);
+            return;
+        }
+        // load 回放事件到达时 acpSessionId 可能尚未回写，属预期，不算无归属（WB-RT-008 噪音）
+        if (!isReplayUpdate(update)) {
+            bbLog('[WB] acp update 无归属会话，已丢弃:', acpSessionId, update.sessionUpdate ?? '(unknown)');
+        }
+    }
+
+    /**
+     * 零 chunk 落账（end_turn/cancelled 但全程无任何事件到达）是 CLI 会话状态机卡死的特征
+     *（GUI 日志实锤：AGENT_ENDED/RUN_PREPARING 被 ignored invalid transition，cancelling 卡死，
+     * 后续 prompt 全部进门即丢，进程内无自愈路径）。标记全部会话待重载并重启进程，
+     * 下一条消息经 session/load 恢复上下文（CLI 会话持久化在盘上）。
+     */
+    private restartAfterDeadTurn(sessionKey: string): void {
+        bbError('[WB] 零 chunk 落账，CLI 状态机疑似卡死，重启进程自愈:', sessionKey);
+        for (const s of this.registry.all()) s.markStale();
+        this.client.dispose();
     }
 
     private routePermissionRequest(requestId: number, params: unknown): void {

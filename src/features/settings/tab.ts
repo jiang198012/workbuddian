@@ -1,7 +1,8 @@
-import { App, Notice, PluginSettingTab, Setting, type TextAreaComponent, type TextComponent } from 'obsidian';
+import { App, Notice, PluginSettingTab, Setting, type DropdownComponent, type TextAreaComponent, type TextComponent } from 'obsidian';
 import type WorkbuddianPlugin from '../../main';
 import { DEFAULT_SETTINGS, migrateSettings, exportSettings, MAX_PASTED_IMAGE_KEEP } from '../../types';
 import { applyLang, t } from '../../i18n';
+import { onConfigChanged } from '../../shared/configEvents';
 import { resolveCodebuddyPath } from '../../utils/cliPath';
 import { LogModal } from './logModal';
 import { McpServerModal } from './mcpModal';
@@ -9,10 +10,18 @@ import { parseMcpServers, serializeMcpServers, parseClipboardServers, type McpSe
 
 export class WorkbuddianSettingTab extends PluginSettingTab {
     plugin: WorkbuddianPlugin;
+    private thoughtDropdown: DropdownComponent | null = null;
 
     constructor(app: App, plugin: WorkbuddianPlugin) {
         super(app, plugin);
         this.plugin = plugin;
+        // /effort 等 CLI 侧改动经 config 回流更新 settings 后，本页（若已打开）就地刷新下拉（WB-007）
+        this.plugin.registerEvent(onConfigChanged(this.app, () => {
+            // 只在外部变更（值确实不同）时刷新，避免打扰正在本页操作的用户
+            if (this.thoughtDropdown && this.thoughtDropdown.getValue() !== this.plugin.settings.thoughtLevel) {
+                this.thoughtDropdown.setValue(this.plugin.settings.thoughtLevel);
+            }
+        }));
     }
 
     display(): void {
@@ -86,17 +95,20 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName(t('settings.thoughtLevel'))
             .setDesc(t('settings.thoughtLevelDesc'))
-            .addDropdown(dropdown => dropdown
-                .addOptions({
-                    enabled: 'enabled', minimal: 'minimal', low: 'low', medium: 'medium',
-                    high: 'high', xhigh: 'xhigh', max: 'max',
-                })
-                .setValue(this.plugin.settings.thoughtLevel)
-                .onChange(async (value) => {
-                    this.plugin.settings.thoughtLevel = value;
-                    this.plugin.api.setThoughtLevel(value);
-                    await this.plugin.saveSettings();
-                }));
+            .addDropdown(dropdown => {
+                this.thoughtDropdown = dropdown;
+                dropdown
+                    .addOptions({
+                        enabled: 'enabled', minimal: 'minimal', low: 'low', medium: 'medium',
+                        high: 'high', xhigh: 'xhigh', max: 'max',
+                    })
+                    .setValue(this.plugin.settings.thoughtLevel)
+                    .onChange(async (value) => {
+                        this.plugin.settings.thoughtLevel = value;
+                        this.plugin.api.setThoughtLevel(value);
+                        await this.plugin.saveSettings();
+                    });
+            });
 
         // MCP 可视化列表（单一真相仍是 mcpServersJson；下方 textarea 为原始编辑器）
         let mcpTextarea: TextAreaComponent | null = null;
@@ -168,6 +180,7 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                     this.plugin.settings.mcpServersJson = trimmed;
                     this.plugin.api.setMcpServersJson(trimmed);
                     await this.plugin.saveSettings();
+                    renderMcpList(); // JSON 直编成功后立即重建列表，不再等重开设置页（WB-011）
                 })});
 
         new Setting(containerEl)

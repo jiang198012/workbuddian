@@ -42,7 +42,11 @@ class DiffModal extends Modal {
             .addButton(b => b.setButtonText(t('inline.accept')).setCta().onClick(() => { this.close(); this.onAccept(); }))
             .addButton(b => b.setButtonText(t('inline.reject')).onClick(() => this.close()));
     }
-    onClose() { this.contentEl.empty(); }
+    onClose() {
+        this.contentEl.empty();
+        // 保险：close 后若容器仍挂在 DOM 上（关闭动画被打断等）主动摘除，防"幽灵弹窗"遮挡后续操作（WB-006）
+        window.setTimeout(() => { if (this.containerEl.isConnected) this.containerEl.detach(); }, 300);
+    }
 }
 
 export function runInlineEdit(app: App, api: CodebuddyProvider, editor: Editor, vaultPath?: string) {

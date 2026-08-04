@@ -4,7 +4,9 @@ import {
 } from '../src/providers/codebuddy/acp/session';
 import type { PermissionCardData } from '../src/providers/codebuddy/acp/permission';
 
-type FakeClient = AcpClientFacade & { request: jest.Mock; notify: jest.Mock; respond: jest.Mock };
+type FakeClient = AcpClientFacade & {
+    request: jest.Mock; notify: jest.Mock; respond: jest.Mock; enqueuePrompt: jest.Mock; rawRequest: jest.Mock;
+};
 
 function deferred<T>() {
     let resolve!: (v: T) => void;
@@ -14,7 +16,7 @@ function deferred<T>() {
 }
 
 function makeFakeClient(overrides?: (method: string, params: Record<string, unknown>) => unknown): FakeClient {
-    return {
+    const fake = {
         request: jest.fn(async (method: string, params: Record<string, unknown>) => {
             if (overrides) {
                 const r = overrides(method, params);
@@ -24,9 +26,14 @@ function makeFakeClient(overrides?: (method: string, params: Record<string, unkn
             if (method === 'session/load') throw new Error('session not found');
             return {};
         }),
+        // 串行队列的测试替身：立即执行（不经队列），rawRequest 转发到 request mock 以套用同一套 stub
+        enqueuePrompt: jest.fn(async (fn: () => Promise<unknown>) => fn()),
+        rawRequest: jest.fn(),
         notify: jest.fn(),
         respond: jest.fn(),
-    } as FakeClient;
+    };
+    fake.rawRequest.mockImplementation((method: string, params: Record<string, unknown>) => fake.request(method, params));
+    return fake as unknown as FakeClient;
 }
 
 function makeLookup(): ConversationLookup & { getAcpSessionId: jest.Mock; setAcpSessionId: jest.Mock } {
@@ -198,6 +205,97 @@ describe('AcpSession.prompt + updates', () => {
         );
     });
 
+    it('keeps the accumulated rawInput snapshot when a later update carries none (WB-003)', async () => {
+        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const s = await loadedSession(client);
+        const handlers = makeHandlers();
+        const done = s.prompt('hi', handlers);
+        s.handleUpdate({ sessionUpdate: 'tool_call', toolCallId: 'c1', title: 'Write', rawInput: { file_path: 'a.md', content: 'l1' }, _meta: { 'codebuddy.ai/toolName': 'Write' } });
+        // completed 不带 rawInput（CLI 常见形态）：不得冲掉快照，完成态仍要有 diff 数据源
+        s.handleUpdate({ sessionUpdate: 'tool_call_update', toolCallId: 'c1', status: 'completed', _meta: { 'codebuddy.ai/toolName': 'Write' } });
+        await done;
+        expect(handlers.onChunk).toHaveBeenLastCalledWith(expect.objectContaining({
+            toolCallId: 'c1', toolStatus: 'completed',
+            toolDetail: JSON.stringify({ file_path: 'a.md', content: 'l1' }),
+        }));
+    });
+
+    it('hydrates rawInput from the permission request so a rawInput-less completed still diffs (WB-003)', async () => {
+        const gate = deferred<{ stopReason: string }>();
+        const client = makeFakeClient((m) => {
+            if (m === 'session/load') return {};
+            if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
+            return undefined;
+        });
+        const s = await loadedSession(client);
+        const handlers = makeHandlers();
+        const done = s.prompt('write a file', handlers);
+        // default 模式下批准卡是 rawInput 唯一可靠来源：水合进快照
+        s.handlePermissionRequest(0, PERMISSION_PARAMS);
+        s.respondPermission(0, 'allow');
+        s.handleUpdate({ sessionUpdate: 'tool_call_update', toolCallId: 'c1', status: 'completed' }); // 无 rawInput、无 _meta
+        gate.resolve({ stopReason: 'end_turn' });
+        await done;
+        expect(handlers.onChunk).toHaveBeenCalledWith(expect.objectContaining({
+            toolCallId: 'c1', toolName: 'Write', toolStatus: 'completed',
+            toolDetail: JSON.stringify({ file_path: 'a.md', content: 'x' }),
+        }));
+    });
+
+    it('handles the exact CLI Write event sequence (in_progress→pending→perm→completed) with full diff data', async () => {
+        // acp-probe write-perm 实测序列：两个 tool_call（空→全量）+ 批准 + 无 rawInput 的 completed
+        const gate = deferred<{ stopReason: string }>();
+        const client = makeFakeClient((m) => {
+            if (m === 'session/load') return {};
+            if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
+            return undefined;
+        });
+        const s = await loadedSession(client);
+        const handlers = makeHandlers();
+        const done = s.prompt('write', handlers);
+        const full = { content: 'ok\n', file_path: '/v/probe-write.md' };
+        s.handleUpdate({ sessionUpdate: 'tool_call', toolCallId: 'call_1', status: 'in_progress', rawInput: {}, _meta: { 'codebuddy.ai/toolName': 'Write' } });
+        s.handleUpdate({ sessionUpdate: 'tool_call', toolCallId: 'call_1', status: 'pending', rawInput: full, _meta: { 'codebuddy.ai/toolName': 'Write' } });
+        s.handlePermissionRequest(0, {
+            sessionId: 'acp-stored', options: [{ kind: 'allow_once', name: 'Allow', optionId: 'allow' }],
+            toolCall: { toolCallId: 'call_1', rawInput: full, _meta: { 'codebuddy.ai/toolName': 'Write' } },
+        });
+        s.respondPermission(0, 'allow');
+        s.handleUpdate({ sessionUpdate: 'tool_call_update', toolCallId: 'call_1', status: 'completed' });
+        gate.resolve({ stopReason: 'end_turn' });
+        await done;
+        const chunks = handlers.onChunk.mock.calls.map((c) => c[0]);
+        const completed = chunks.find((c) => c.toolStatus === 'completed');
+        expect(completed).toMatchObject({ toolName: 'Write', toolDetail: JSON.stringify(full) });
+    });
+
+    it('routes text chunks during an Agent call window into the row output, not the main stream (WB-RT-007)', async () => {
+        const gate = deferred<{ stopReason: string }>();
+        const client = makeFakeClient((m) => {
+            if (m === 'session/load') return {};
+            if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
+            return undefined;
+        });
+        const s = await loadedSession(client);
+        const handlers = makeHandlers();
+        const done = s.prompt('use reviewer', handlers);
+        s.handleUpdate({ sessionUpdate: 'tool_call', toolCallId: 'a1', title: 'Agent', rawInput: {}, _meta: { 'codebuddy.ai/toolName': 'Agent' } });
+        // 窗口内：子代理中继增量 + 全量重复（后者应被 appendTextChunk 去重）
+        s.handleUpdate({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: '审查结论：这段代码存在三个需要修复的问题，分别是空指针、越界与资源泄漏。' } });
+        s.handleUpdate({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: '审查结论：这段代码存在三个需要修复的问题，分别是空指针、越界与资源泄漏。' } });
+        s.handleUpdate({ sessionUpdate: 'tool_call_update', toolCallId: 'a1', status: 'completed' });
+        // 窗口外：主代理总结正常进正文
+        s.handleUpdate({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'reviewer 的审查结果：…' } });
+        gate.resolve({ stopReason: 'end_turn' });
+        await done;
+        const chunks = handlers.onChunk.mock.calls.map((c) => c[0]);
+        const textChunks = chunks.filter((c) => c.type === 'text');
+        expect(textChunks).toHaveLength(1); // 中继两口都没进正文
+        expect(textChunks[0].content).toBe('reviewer 的审查结果：…');
+        const completed = chunks.find((c) => c.toolStatus === 'completed');
+        expect(completed.toolOutput).toBe('审查结论：这段代码存在三个需要修复的问题，分别是空指针、越界与资源泄漏。');
+    });
+
     it('drops replay-flagged updates during prompting', async () => {
         const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const s = await loadedSession(client);
@@ -224,6 +322,39 @@ describe('AcpSession.prompt + updates', () => {
         await expect(s.prompt('again', handlers)).rejects.toThrow('session busy');
         gate.resolve({ stopReason: 'end_turn' });
         await first;
+    });
+
+    it('re-activates via session/load before prompt when another session was loaded since (WB-RT-001/005)', async () => {
+        let newCount = 0;
+        const client = makeFakeClient((m, params) => {
+            if (m === 'session/new') return { sessionId: `acp-${++newCount}` };
+            // 幽灵 uuid 首次 load 失败走 new；已分配 id 的再激活 load 成功
+            if (m === 'session/load' && String(params.sessionId).startsWith('acp-')) return {};
+            if (m === 'session/load') throw new Error('not found');
+            if (m === 'session/prompt') return { stopReason: 'end_turn' };
+            return undefined;
+        });
+        const registry = new SessionRegistry(client, makeLookup(), { model: '', mode: '' });
+        const a = registry.get('a');
+        const b = registry.get('b');
+        await a.ensureLoaded('/v'); // acp-1，activation=acp-1
+        await b.ensureLoaded('/v'); // acp-2，activation=acp-2（CLI 活动会话切走）
+        await a.prompt('hi', makeHandlers()); // 活动会话不是 a：须先重发 session/load(acp-1)
+        const calls = () => client.request.mock.calls.map((c) => `${c[0]}:${String((c[1] as { sessionId?: unknown }).sessionId)}`);
+        const reactivateIdx = calls().lastIndexOf('session/load:acp-1');
+        const promptIdx = calls().findIndex((c) => c === 'session/prompt:acp-1');
+        expect(reactivateIdx).toBeGreaterThan(-1);
+        expect(reactivateIdx).toBeLessThan(promptIdx);
+        await b.prompt('hi', makeHandlers()); // 又切回 b
+        expect(calls().lastIndexOf('session/load:acp-2')).toBeGreaterThan(calls().findIndex((c) => c === 'session/prompt:acp-1'));
+    });
+
+    it('does not re-load when the session is still the active one', async () => {
+        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const s = await loadedSession(client);
+        await s.prompt('one', makeHandlers());
+        await s.prompt('two', makeHandlers());
+        expect(client.request.mock.calls.filter((c) => c[0] === 'session/load')).toHaveLength(1); // 仅 ensureLoaded 那次
     });
 });
 
@@ -363,6 +494,28 @@ describe('AcpSession cancel & failure', () => {
         await turn;
     });
 
+    it('skips a prompt cancelled while still queued, freeing the slot immediately (标题轮被用户消息抢占)', async () => {
+        const client = makeFakeClient((m) => m === 'session/load' ? {} : undefined);
+        // enqueuePrompt 挂起闭包，模拟"还在排队"
+        let release!: () => void;
+        const hold = new Promise<void>((r) => { release = r; });
+        client.enqueuePrompt.mockImplementation(async (fn: () => Promise<unknown>) => { await hold; return fn(); });
+        const lookup = makeLookup();
+        lookup.getAcpSessionId.mockReturnValue('acp-stored');
+        const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
+        await s.ensureLoaded('/v');
+        const turn = s.prompt('title task', makeHandlers());
+        await s.cancelTurn();
+        expect(client.notify).toHaveBeenCalledWith('session/cancel', { sessionId: 'acp-stored' });
+        release();
+        await expect(turn).resolves.toEqual({ stopReason: 'cancelled' });
+        expect(client.rawRequest).not.toHaveBeenCalled(); // 到队首直接作废，未占 CLI
+        expect(s.status).toBe('idle');
+        // 旗标已在 finally 清除：下一轮正常执行
+        await s.prompt('next', makeHandlers());
+        expect(client.rawRequest).toHaveBeenCalledWith('session/prompt', expect.objectContaining({ sessionId: 'acp-stored' }));
+    });
+
     it('failTurn pushes error to the active turn', async () => {
         const gate = deferred<{ stopReason: string }>();
         const client = makeFakeClient((m) => {
@@ -427,7 +580,31 @@ describe('AcpSession.fork', () => {
         const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
         const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
         await s.ensureLoaded('/v');
-        await expect(s.fork('x')).rejects.toThrow('fork failed');
+        await expect(s.fork('x')).rejects.toThrow('fork failed: no session_info_update');
+    });
+
+    it('distinguishes timeout from missing report and resets forkPending (WB-004)', async () => {
+        jest.useFakeTimers();
+        try {
+            const gate = deferred<{ stopReason: string }>();
+            const client = makeFakeClient((m) => {
+                if (m === 'session/load') return {};
+                if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
+                return undefined;
+            });
+            const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
+            const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
+            await s.ensureLoaded('/v');
+            const forked = s.fork('x');
+            expect(s.forkPending).toBe(true);
+            const assertion = expect(forked).rejects.toThrow('fork failed: fork timeout');
+            await jest.advanceTimersByTimeAsync(60_000);
+            await assertion;
+            expect(s.forkPending).toBe(false);
+            gate.resolve({ stopReason: 'end_turn' }); // 收尾，防悬挂 promise 告警
+        } finally {
+            jest.useRealTimers();
+        }
     });
 });
 

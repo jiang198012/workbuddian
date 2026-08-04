@@ -14,7 +14,7 @@ export function fileDir(p: string): string {
 
 /** 附件绝对路径 → 去重后的父目录列表。
  *  v1 用于 --add-dir 放开读取权限；v2（ACP）起该 hack 退役，provider 保留形参占位但不再消费，
- *  vault 外文件 Read 由 CLI 在 default 模式弹批准卡 */
+ *  vault 外附件由插件侧确认弹窗把关（WB-002；CLI default 模式对 Read 不弹批准卡） */
 export function attachmentDirs(paths: string[]): string[] {
     return [...new Set(paths.map(fileDir))];
 }

@@ -47,6 +47,8 @@ export class WorkbuddianChatView extends ItemView {
     suggestIndex: number = -1; // 补全下拉当前高亮项，-1 = 无
     selection: { text: string; note: string } | null = null;
     lastMarkdownView: MarkdownView | null = null;
+    /** 在飞的自动标题会话 key（可丢弃后台任务）：用户发送新消息时立即取消它，让出串行队列 */
+    titleSessionKey: string | null = null;
 
     get vaultPath(): string | undefined {
         const adapter = this.app.vault.adapter as { basePath?: string };

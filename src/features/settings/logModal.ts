@@ -2,8 +2,10 @@ import { App, Modal, Notice } from 'obsidian';
 import { getLogs, clearLogs } from '../../shared/logBuffer';
 import { t } from '../../i18n';
 
-/** 展示内存里的 [WB] 运行日志，支持复制全部与清空 */
+/** 展示内存里的 [WB] 运行日志，支持复制全部与清空；打开期间每秒自动刷新（WB-RT-008 静态快照看不到新日志） */
 export class LogModal extends Modal {
+    private refreshTimer: number | null = null;
+
     constructor(app: App) {
         super(app);
     }
@@ -20,6 +22,7 @@ export class LogModal extends Modal {
             pre.setText(logs.length ? logs.join('\n') : t('log.empty'));
         };
         render();
+        this.refreshTimer = window.setInterval(render, 1000);
 
         const actions = contentEl.createDiv({ cls: 'workbuddian-log-actions' });
         const copyBtn = actions.createEl('button', { text: t('log.copy') });
@@ -36,6 +39,10 @@ export class LogModal extends Modal {
     }
 
     onClose() {
+        if (this.refreshTimer !== null) {
+            window.clearInterval(this.refreshTimer);
+            this.refreshTimer = null;
+        }
         this.contentEl.empty();
     }
 }

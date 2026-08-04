@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
 import {
     findNodeExecutable, isBareFallback, isWindowsWrapper, needsWindowsShell, resolveCodebuddyPath,
 } from '../../../utils/cliPath';
-import { bbLog } from '../../../shared/logBuffer';
+import { bbLog, bbError } from '../../../shared/logBuffer';
 import type { AcpUpdate } from './events';
 
 export type AcpStartTier = 'cli-not-found' | 'acp-unsupported' | 'auth-required' | 'handshake-failed';
@@ -43,10 +43,30 @@ export function isAuthError(message: string): boolean {
 }
 
 const HANDSHAKE_TIMEOUT_MS = 10_000;
+/** 普通 RPC 的兜底超时：请求发出后无人应答不能永久悬挂（WB-005 的"会话正在响应中"即悬挂后遗症） */
+const DEFAULT_REQUEST_TIMEOUT_MS = 90_000;
+
+/** RPC 出站日志的参数摘要：prompt 只留块数与文本总长，避免把用户正文灌进 300 条环形日志 */
+function summarizeRpcParams(method: string, params: Record<string, unknown>): string {
+    try {
+        let p = params;
+        if (method === 'session/prompt' && Array.isArray(params.prompt)) {
+            const blocks = params.prompt as Array<{ type?: unknown; text?: unknown }>;
+            const textLen = blocks.reduce((n, b) => n + (typeof b?.text === 'string' ? b.text.length : 0), 0);
+            p = { ...params, prompt: `<${blocks.length} blocks, ${textLen} chars>` };
+        }
+        const s = JSON.stringify(p);
+        return s.length > 300 ? s.slice(0, 297) + '...' : s;
+    } catch {
+        return '';
+    }
+}
 
 /**
  * ACP 传输层：单进程 `codebuddy --acp`，stdio ndjson JSON-RPC。
  * 懒启动（首次 ensureStarted 才 spawn+握手）；请求表 id 递增；通知与 agent 请求按 events 回调分发。
+ * session/prompt 串行化：单 CLI 进程对并发 prompt 不可靠（丢 chunk / 不应答，见 WB-001/WB-005），
+ * 自动标题、分叉、双面板的 prompt 一律排队，同一时刻只跑一个。
  */
 export class AcpClient {
     private scriptPath = '';
@@ -60,6 +80,10 @@ export class AcpClient {
     private startPromise: Promise<void> | null = null;
     private disposed = false;
     private handshakeDone = false;
+    private promptChain: Promise<void> = Promise.resolve(); // session/prompt 串行队列
+    private promptQueued = 0; // 队列中未落账的 prompt 数（>0 时后续 prompt 记排队日志）
+    /** prompt 挂死兜底（provider 轮级超时 + 宽限）：CLI 连 cancel 都不应答时由此断链，队列才能放行后续 prompt */
+    promptTimeoutMs = 6 * 60_000;
 
     constructor(private readonly events: AcpClientEvents) {
         this.scriptPath = resolveCodebuddyPath('');
@@ -96,22 +120,70 @@ export class AcpClient {
     }
 
     request<T = unknown>(method: string, params: Record<string, unknown>): Promise<T> {
+        if (method === 'session/prompt') {
+            // 串行队列：等前一个 prompt 落账（含失败）再发；挂死由 promptTimeoutMs 断链
+            return this.enqueuePrompt(() => this.doRequest<T>(method, params, this.promptTimeoutMs));
+        }
+        return this.doRequest<T>(method, params, DEFAULT_REQUEST_TIMEOUT_MS);
+    }
+
+    /**
+     * 把一组操作作为原子单元排进 prompt 串行队列（session 层用来把"再激活 load + prompt"绑在一起：
+     * 排队期间别的会话不会把 CLI 的活动会话指针抢走）。fn 内发 prompt 本体必须走 rawRequest，否则自排队死锁。
+     */
+    enqueuePrompt<T>(fn: () => Promise<T>): Promise<T> {
+        if (this.promptQueued > 0) bbLog('[WB] prompt 排队等待（前面有未落账轮次）');
+        this.promptQueued++;
+        const run = this.promptChain.then(async () => {
+            try {
+                return await fn();
+            } finally {
+                this.promptQueued--;
+            }
+        });
+        this.promptChain = run.then(() => undefined, () => undefined);
+        return run;
+    }
+
+    /** 绕过串行队列直接发请求：仅供 enqueuePrompt 的 fn 内部使用（prompt 超时仍按 promptTimeoutMs） */
+    rawRequest<T = unknown>(method: string, params: Record<string, unknown>): Promise<T> {
+        const timeout = method === 'session/prompt' ? this.promptTimeoutMs : DEFAULT_REQUEST_TIMEOUT_MS;
+        return this.doRequest<T>(method, params, timeout);
+    }
+
+    private doRequest<T = unknown>(method: string, params: Record<string, unknown>, timeoutMs: number): Promise<T> {
         if (!this.proc) return Promise.reject(new Error('acp client not started'));
         const id = this.nextId++;
         this.write({ jsonrpc: '2.0', id, method, params });
+        bbLog('[WB] acp 请求:', method, summarizeRpcParams(method, params));
         return new Promise<T>((resolve, reject) => {
-            this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
+            const timer = setTimeout(() => {
+                this.pending.delete(id);
+                bbError('[WB] acp 请求超时:', method);
+                reject(new Error(`acp request timeout: ${method}`));
+            }, timeoutMs);
+            this.pending.set(id, {
+                resolve: (v) => { clearTimeout(timer); resolve(v as T); },
+                reject: (e) => { clearTimeout(timer); reject(e); },
+            });
         });
     }
 
     notify(method: string, params: Record<string, unknown>): void {
         if (!this.proc) { bbLog('[WB] acp notify 时进程不在:', method); return; }
         this.write({ jsonrpc: '2.0', method, params });
+        bbLog('[WB] acp 通知出站:', method);
     }
 
     respond(requestId: number, result: unknown): void {
         if (!this.proc) { bbLog('[WB] acp respond 时进程不在:', requestId); return; }
         this.write({ jsonrpc: '2.0', id: requestId, result });
+    }
+
+    /** 对 agent→client 请求的错误应答（未支持的方法）：防止 CLI 干等响应把 prompt 挂死 */
+    respondError(requestId: number, message: string): void {
+        if (!this.proc) return;
+        this.write({ jsonrpc: '2.0', id: requestId, error: { code: -32601, message } });
     }
 
     dispose(): void {
@@ -143,9 +215,14 @@ export class AcpClient {
             return;
         }
         if (typeof msg.method === 'string' && msg.id !== undefined) {
-            // agent → client 请求（目前只见 session/request_permission，其余静默忽略）
+            // agent → client 请求（目前只见 session/request_permission）
             if (msg.method === 'session/request_permission' && typeof msg.id === 'number') {
                 this.events.onPermissionRequest(msg.id, msg.params);
+            } else if (typeof msg.id === 'number') {
+                // 未实现的 agent 请求必须回错误应答：JSON-RPC 请求没有响应，CLI 会一直等，
+                // 表现为 prompt 挂死（附件触发的 fs/read_text_file 即嫌疑路径）
+                bbLog('[WB] 未支持的 agent 请求，回 method not found:', msg.method);
+                this.respondError(msg.id, `client does not support ${msg.method}`);
             }
             return;
         }
@@ -204,6 +281,7 @@ export class AcpClient {
                 clearTimeout(timer);
                 this.proc = null;
                 try { proc.kill(); } catch { /* noop */ }
+                this.failAllPending(err); // 握手期的 initialize 请求也要落账，否则其超时计时器悬挂（jest 实测泄漏）
                 reject(err);
             };
             const timer = setTimeout(() => {

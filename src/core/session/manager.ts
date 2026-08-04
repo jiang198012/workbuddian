@@ -6,6 +6,8 @@ import { bbError } from '../../shared/logBuffer';
 
 export class ConversationManager {
     private conversations: Map<string, Conversation> = new Map();
+    // 仅作"初始绑定"提示（view 打开/加载历史时读一次）：运行期的活跃对话指针是每个 view 自己的
+    // activeConvId（view.ts），这里不再是插件级唯一选中态，切标签不写回此处（WB-005）
     private activeId: string | null = null;
     private persistCallback: ((convs: Conversation[]) => Promise<void>) | null = null;
 

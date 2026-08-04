@@ -892,6 +892,10 @@
 .workbuddian-diff-line { padding: 1px 6px; border-radius: 2px; }
 .workbuddian-diff-add { background: var(--background-modifier-success); }
 .workbuddian-diff-remove { background: var(--background-modifier-error); }
+/* DiffModal 内改用与工具 diff 相同的浅色行底：主题变量底色过饱和，0.35 alpha 的
+   词级高亮（.workbuddian-diff-hl）叠上去几乎不可见，整行看着同色（WB-006） */
+.workbuddian-diff-box .workbuddian-diff-add { background: rgba(0, 160, 60, 0.15); }
+.workbuddian-diff-box .workbuddian-diff-remove { background: rgba(200, 40, 40, 0.15); }
 
 /* 日志查看 Modal */
 .workbuddian-log-body {

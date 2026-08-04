@@ -30,7 +30,7 @@ describe('CodebuddyProvider v2 sendMessage', () => {
 
     it('streams chunks and ends with a done chunk carrying usage', async () => {
         const { fake, events } = makeFakeClient(MockAcpClient);
-        fake.request.mockImplementation(async (method: string) => {
+        fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
             if (method === 'session/prompt') {
                 events().onSessionUpdate('acp-1', { sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: 'hmm' } });
                 events().onSessionUpdate('acp-1', { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'world' } });
@@ -38,7 +38,10 @@ describe('CodebuddyProvider v2 sendMessage', () => {
                 return { stopReason: 'end_turn' };
             }
             if (method === 'session/new') return { sessionId: 'acp-1' };
-            if (method === 'session/load') throw new Error('not found');
+            if (method === 'session/load') {
+                if (String(params.sessionId).startsWith('acp-')) return {}; // 已分配会话的再激活 load（WB-RT-001）放行
+                throw new Error('not found');
+            }
             return {};
         });
         const api = new CodebuddyProvider();
@@ -56,10 +59,13 @@ describe('CodebuddyProvider v2 sendMessage', () => {
     it('cancel(sessionId) sends session/cancel and ends generator silently without killing the process', async () => {
         const { fake } = makeFakeClient(MockAcpClient);
         const promptGate = deferred<{ stopReason: string }>();
-        fake.request.mockImplementation(async (method: string) => {
+        fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
             if (method === 'session/prompt') return promptGate.promise;
             if (method === 'session/new') return { sessionId: 'acp-1' };
-            if (method === 'session/load') throw new Error('not found');
+            if (method === 'session/load') {
+                if (String(params.sessionId).startsWith('acp-')) return {}; // 已分配会话的再激活 load（WB-RT-001）放行
+                throw new Error('not found');
+            }
             return {};
         });
         const api = new CodebuddyProvider();
@@ -85,7 +91,10 @@ describe('CodebuddyProvider v2 sendMessage', () => {
                 return d.promise;
             }
             if (method === 'session/new') return { sessionId: `acp-${++newCount}` };
-            if (method === 'session/load') throw new Error('not found');
+            if (method === 'session/load') {
+                if (String(params.sessionId).startsWith('acp-')) return {}; // 已分配会话的再激活 load（WB-RT-001）放行
+                throw new Error('not found');
+            }
             return {};
         });
         const api = new CodebuddyProvider();
@@ -114,7 +123,10 @@ describe('CodebuddyProvider v2 sendMessage', () => {
                 return d.promise;
             }
             if (method === 'session/new') return { sessionId: `acp-${++newCount}` };
-            if (method === 'session/load') throw new Error('not found');
+            if (method === 'session/load') {
+                if (String(params.sessionId).startsWith('acp-')) return {}; // 已分配会话的再激活 load（WB-RT-001）放行
+                throw new Error('not found');
+            }
             return {};
         });
         const api = new CodebuddyProvider();
@@ -138,10 +150,13 @@ describe('CodebuddyProvider v2 sendMessage', () => {
 
     it('times out a turn with session/cancel + turnTimeout error, process stays alive', async () => {
         const { fake } = makeFakeClient(MockAcpClient);
-        fake.request.mockImplementation(async (method: string) => {
+        fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
             if (method === 'session/prompt') return new Promise(() => { /* 永不落账 */ });
             if (method === 'session/new') return { sessionId: 'acp-1' };
-            if (method === 'session/load') throw new Error('not found');
+            if (method === 'session/load') {
+                if (String(params.sessionId).startsWith('acp-')) return {}; // 已分配会话的再激活 load（WB-RT-001）放行
+                throw new Error('not found');
+            }
             return {};
         });
         const api = new CodebuddyProvider();
@@ -169,7 +184,7 @@ describe('CodebuddyProvider v2 sendMessage', () => {
         const { fake, events } = makeFakeClient(MockAcpClient);
         const promptGate = deferred<{ stopReason: string }>();
         let loadShouldFail = true;
-        fake.request.mockImplementation(async (method: string) => {
+        fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
             if (method === 'session/prompt') return promptGate.promise;
             if (method === 'session/new') return { sessionId: 'acp-1' };
             if (method === 'session/load') {
@@ -188,7 +203,7 @@ describe('CodebuddyProvider v2 sendMessage', () => {
 
         // 第二轮：进程已重启（ensureStarted 再 resolve），受影响会话 session/load 恢复
         loadShouldFail = false;
-        fake.request.mockImplementation(async (method: string) => {
+        fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
             if (method === 'session/prompt') {
                 events().onSessionUpdate('acp-1', { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'back' } });
                 return { stopReason: 'end_turn' };
@@ -204,10 +219,13 @@ describe('CodebuddyProvider v2 sendMessage', () => {
     it('rejects a second send on the same session while busy', async () => {
         const { fake } = makeFakeClient(MockAcpClient);
         const promptGate = deferred<{ stopReason: string }>();
-        fake.request.mockImplementation(async (method: string) => {
+        fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
             if (method === 'session/prompt') return promptGate.promise;
             if (method === 'session/new') return { sessionId: 'acp-1' };
-            if (method === 'session/load') throw new Error('not found');
+            if (method === 'session/load') {
+                if (String(params.sessionId).startsWith('acp-')) return {}; // 已分配会话的再激活 load（WB-RT-001）放行
+                throw new Error('not found');
+            }
             return {};
         });
         const api = new CodebuddyProvider();
@@ -399,7 +417,10 @@ describe('CodebuddyProvider forkSession', () => {
                 return { stopReason: 'end_turn' };
             }
             if (method === 'session/new') return { sessionId: 'acp-1' };
-            if (method === 'session/load') throw new Error('not found');
+            if (method === 'session/load') {
+                if (String(params.sessionId).startsWith('acp-')) return {}; // 已分配会话的再激活 load（WB-RT-001）放行
+                throw new Error('not found');
+            }
             return {};
         });
         const api = new CodebuddyProvider();

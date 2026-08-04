@@ -183,6 +183,82 @@ describe('AcpClient codec & dispatch', () => {
         emit('stdout', 'data', Buffer.from('not json at all\n'));
         expect(client.running).toBe(true);
     });
+
+    it('serializes session/prompt: a second prompt is not written until the first settles (WB-001)', async () => {
+        const { proc, emitJson, stdinWrites } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client } = makeClient();
+        await startClient(client, emitJson);
+        const tick = () => new Promise((r) => setTimeout(r, 0));
+        const promptWrites = () => stdinWrites.filter((w) => w.includes('"session/prompt"'));
+
+        const r1 = client.request('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: '1' }] });
+        const r2 = client.request('session/prompt', { sessionId: 's2', prompt: [{ type: 'text', text: '2' }] });
+        await tick(); // 让第一个 prompt 经队列微任务出站
+        expect(promptWrites()).toHaveLength(1); // 第二个 prompt 还在队列里，未出站
+
+        emitJson({ jsonrpc: '2.0', id: 2, result: { stopReason: 'end_turn' } });
+        await r1;
+        await tick(); // 队列推进，第二个 prompt 出站
+        expect(promptWrites()).toHaveLength(2);
+        emitJson({ jsonrpc: '2.0', id: 3, result: { stopReason: 'end_turn' } });
+        await expect(r2).resolves.toEqual({ stopReason: 'end_turn' });
+    });
+
+    it('does not serialize non-prompt requests behind a prompt', async () => {
+        const { proc, emitJson, stdinWrites } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client } = makeClient();
+        await startClient(client, emitJson);
+        const byMethod = (m: string) => stdinWrites.map((w) => JSON.parse(w)).find((msg) => msg.method === m);
+        const prompt = client.request('session/prompt', { sessionId: 's1', prompt: [] }); // 挂起不应答
+        const other = client.request('session/new', { cwd: '/v', mcpServers: [] }); // 立即出站
+        emitJson({ jsonrpc: '2.0', id: byMethod('session/new').id, result: { sessionId: 's9' } });
+        await expect(other).resolves.toEqual({ sessionId: 's9' }); // 不被挂起的 prompt 阻塞
+        emitJson({ jsonrpc: '2.0', id: byMethod('session/prompt').id, result: { stopReason: 'end_turn' } });
+        await prompt;
+    });
+
+    it('rejects a never-answered request after the default timeout (WB-005 悬挂兜底)', async () => {
+        jest.useFakeTimers();
+        try {
+            const { proc, emitJson } = createFakeProc();
+            mockedSpawn.mockReturnValue(proc as any);
+            const { client } = makeClient();
+            const started = client.ensureStarted();
+            emitJson({ jsonrpc: '2.0', id: 1, result: { protocolVersion: 1, agentCapabilities: {} } });
+            await started;
+            const req = client.request('session/new', { cwd: '/v', mcpServers: [] });
+            const assertion = expect(req).rejects.toThrow('acp request timeout: session/new');
+            await jest.advanceTimersByTimeAsync(90_000);
+            await assertion;
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('prompt requests are bounded by promptTimeoutMs, not the 90s default (长轮次不被误杀)', async () => {
+        jest.useFakeTimers();
+        try {
+            const { proc, emitJson } = createFakeProc();
+            mockedSpawn.mockReturnValue(proc as any);
+            const { client } = makeClient();
+            const started = client.ensureStarted();
+            emitJson({ jsonrpc: '2.0', id: 1, result: { protocolVersion: 1, agentCapabilities: {} } });
+            await started;
+            client.promptTimeoutMs = 300_000;
+            const req = client.request('session/prompt', { sessionId: 's1', prompt: [] });
+            let settled = false;
+            void req.then(() => { settled = true; }, () => { settled = true; });
+            await jest.advanceTimersByTimeAsync(91_000); // 超过默认 90s 仍未断
+            expect(settled).toBe(false);
+            const assertion = expect(req).rejects.toThrow('acp request timeout: session/prompt');
+            await jest.advanceTimersByTimeAsync(300_000); // 超过兜底断链
+            await assertion;
+        } finally {
+            jest.useRealTimers();
+        }
+    });
 });
 
 describe('buildSpawnCommand / classifyHandshakeFailure / isAuthError', () => {
@@ -263,6 +339,7 @@ describe('AcpClient lifecycle', () => {
         const { client, events } = makeClient();
         await startClient(client, emitJson);
         const req = client.request('session/prompt', { sessionId: 's1', prompt: [] });
+        await new Promise((r) => setTimeout(r, 0)); // prompt 经串行队列微任务出站，先让请求落进 pending
         const assertion = expect(req).rejects.toThrow('acp process exited');
         emit('', 'close', 1, null);
         await assertion;
@@ -307,6 +384,7 @@ describe('AcpClient lifecycle', () => {
         const { client, events } = makeClient();
         await startClient(client, emitJson);
         const req = client.request('session/prompt', { sessionId: 's1', prompt: [] });
+        await new Promise((r) => setTimeout(r, 0)); // prompt 经串行队列微任务出站，先让请求落进 pending
         const assertion = expect(req).rejects.toThrow('acp client disposed');
         client.dispose();
         emit('', 'close', null, 'SIGTERM');
