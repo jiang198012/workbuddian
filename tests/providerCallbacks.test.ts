@@ -270,3 +270,21 @@ describe('MCP/agents settings plumbing', () => {
         expect(kit.fake.setExtraArgs).toHaveBeenCalledWith([]);
     });
 });
+
+describe('thoughtLevel plumbing', () => {
+    it('setThoughtLevel applies set_config_option on loaded sessions', async () => {
+        const kit = makeFakeClient(MockAcpClient);
+        kit.fake.request.mockImplementation(async (method: string) => {
+            if (method === 'session/prompt') return { stopReason: 'end_turn' };
+            if (method === 'session/new') return { sessionId: 'acp-1' };
+            if (method === 'session/load') throw new Error('not found');
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        await consume(api.sendMessage('s1', 'x', '/v'));
+        api.setThoughtLevel('high');
+        await flush();
+        expect(kit.fake.request).toHaveBeenCalledWith('session/set_config_option',
+            expect.objectContaining({ sessionId: 'acp-1', configId: 'thought_level', value: 'high' }));
+    });
+});

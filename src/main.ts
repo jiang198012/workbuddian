@@ -122,6 +122,7 @@ export default class WorkbuddianPlugin extends Plugin {
         this.api.setPermissionMode(this.settings.permissionMode);
         this.api.setMcpServersJson(this.settings.mcpServersJson);
         this.api.setCustomAgentsJson(this.settings.customAgentsJson);
+        this.api.setThoughtLevel(this.settings.thoughtLevel);
     }
 
     async activateView() {

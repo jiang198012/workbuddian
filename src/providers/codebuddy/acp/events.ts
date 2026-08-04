@@ -91,16 +91,17 @@ export function mapUsageUpdate(update: AcpUpdate): { used: number; size: number 
     return { used, size };
 }
 
-export function mapConfigUpdate(update: AcpUpdate): { mode?: string; model?: string } | null {
+export function mapConfigUpdate(update: AcpUpdate): { mode?: string; model?: string; thoughtLevel?: string } | null {
     if (update.sessionUpdate === 'current_mode_update') {
         return typeof update.currentModeId === 'string' ? { mode: update.currentModeId } : null;
     }
     if (update.sessionUpdate === 'config_option_update') {
-        const out: { mode?: string; model?: string } = {};
+        const out: { mode?: string; model?: string; thoughtLevel?: string } = {};
         const options = Array.isArray(update.configOptions) ? update.configOptions : [];
         for (const opt of options as Array<{ id?: unknown; currentValue?: unknown }>) {
             if (opt.id === 'mode' && typeof opt.currentValue === 'string') out.mode = opt.currentValue;
             if (opt.id === 'model' && typeof opt.currentValue === 'string') out.model = opt.currentValue;
+            if (opt.id === 'thought_level' && typeof opt.currentValue === 'string') out.thoughtLevel = opt.currentValue;
         }
         return Object.keys(out).length ? out : null;
     }

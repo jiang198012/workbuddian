@@ -82,6 +82,21 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
         // 模型 / 授权已移到聊天工具栏前台，设置页不再重复
 
         new Setting(containerEl)
+            .setName(t('settings.thoughtLevel'))
+            .setDesc(t('settings.thoughtLevelDesc'))
+            .addDropdown(dropdown => dropdown
+                .addOptions({
+                    enabled: 'enabled', minimal: 'minimal', low: 'low', medium: 'medium',
+                    high: 'high', xhigh: 'xhigh', max: 'max',
+                })
+                .setValue(this.plugin.settings.thoughtLevel)
+                .onChange(async (value) => {
+                    this.plugin.settings.thoughtLevel = value;
+                    this.plugin.api.setThoughtLevel(value);
+                    await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
             .setName(t('settings.mcpServers'))
             .setDesc(t('settings.mcpServersDesc'))
             .addTextArea(text => text

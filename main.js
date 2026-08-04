@@ -105,6 +105,8 @@ var STRINGS = {
   "settings.customAgents": { zh: "\u5B50\u4EE3\u7406\uFF08JSON\uFF09", en: "Custom agents (JSON)" },
   "settings.customAgentsDesc": { zh: '\u5B50\u4EE3\u7406\u5B9A\u4E49\u5BF9\u8C61\uFF0C\u5982 {"reviewer":{"description":"\u5BA1\u67E5\u4EE3\u7801","prompt":"\u4F60\u662F\u4EE3\u7801\u5BA1\u67E5\u5458"}}\uFF0C\u5BF9\u5E94 CLI --agents\u3002\u6539\u52A8\u540E CLI \u8FDB\u7A0B\u81EA\u52A8\u91CD\u542F\u751F\u6548\u3002', en: 'Custom agent definitions, e.g. {"reviewer":{"description":"Reviews code","prompt":"You review code"}} (CLI --agents). The CLI process restarts automatically on change.' },
   "settings.invalidJson": { zh: "{field}\uFF1AJSON \u65E0\u6CD5\u89E3\u6790\uFF0C\u672A\u751F\u6548", en: "{field}: invalid JSON, not applied" },
+  "settings.thoughtLevel": { zh: "\u601D\u8003\u529B\u5EA6", en: "Thinking effort" },
+  "settings.thoughtLevelDesc": { zh: "\u5BF9\u5E94 CLI thought_level\uFF08\u6309\u4F1A\u8BDD\u751F\u6548\uFF09\uFF1BCLI \u4FA7\u7528 /effort \u6539\u52A8\u4F1A\u540C\u6B65\u56DE\u8FD9\u91CC\u3002", en: "Maps to CLI thought_level (per session). Changes via the /effort command sync back here." },
   "settings.timeout": { zh: "CLI \u8D85\u65F6\u65F6\u957F\uFF08\u5206\u949F\uFF09", en: "CLI timeout (minutes)" },
   "settings.timeoutDesc": { zh: "CodeBuddy CLI \u5355\u6B21\u54CD\u5E94\u6700\u957F\u7B49\u5F85\u65F6\u95F4\uFF0C\u8D85\u8FC7\u4F1A\u5F3A\u5236\u4E2D\u65AD", en: "Max wait per CodeBuddy CLI response; exceeding it aborts the call." },
   "settings.model": { zh: "\u6A21\u578B", en: "Model" },
@@ -838,6 +840,8 @@ function mapConfigUpdate(update) {
         out.mode = opt.currentValue;
       if (opt.id === "model" && typeof opt.currentValue === "string")
         out.model = opt.currentValue;
+      if (opt.id === "thought_level" && typeof opt.currentValue === "string")
+        out.thoughtLevel = opt.currentValue;
     }
     return Object.keys(out).length ? out : null;
   }
@@ -994,6 +998,13 @@ var AcpSession = class {
       }
     } catch (e) {
       bbLog("[WB] acp \u8BBE\u7F6E\u6743\u9650\u6A21\u5F0F\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
+    }
+    try {
+      if (this.config.thoughtLevel) {
+        await this.client.request("session/set_config_option", { sessionId, configId: "thought_level", value: this.config.thoughtLevel });
+      }
+    } catch (e) {
+      bbLog("[WB] acp \u8BBE\u7F6E\u601D\u8003\u529B\u5EA6\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
     }
   }
   async prompt(text, handlers) {
@@ -1209,6 +1220,11 @@ var CodebuddyProvider = class {
   }
   setPermissionMode(mode) {
     this.config.mode = mode;
+    for (const s of this.registry.all())
+      void s.applyRemoteConfig();
+  }
+  setThoughtLevel(level) {
+    this.config.thoughtLevel = level;
     for (const s of this.registry.all())
       void s.applyRemoteConfig();
   }
@@ -1459,6 +1475,7 @@ var DEFAULT_SETTINGS = {
   pastedImageKeep: DEFAULT_PASTED_IMAGE_KEEP,
   mcpServersJson: "",
   customAgentsJson: "",
+  thoughtLevel: "enabled",
   version: CURRENT_SETTINGS_VERSION
 };
 function isObject(value) {
@@ -1486,7 +1503,7 @@ function getErrorMessage(error) {
   return t("common.unknownError");
 }
 function migrateSettings(stored) {
-  var _a, _b, _c, _d, _e, _f, _g;
+  var _a, _b, _c, _d, _e, _f, _g, _h;
   if (!isObject(stored)) {
     return { ...DEFAULT_SETTINGS };
   }
@@ -1511,6 +1528,7 @@ function migrateSettings(stored) {
     pastedImageKeep: typeof pastedImageKeep === "number" && Number.isInteger(pastedImageKeep) && pastedImageKeep >= 0 && pastedImageKeep <= MAX_PASTED_IMAGE_KEEP ? pastedImageKeep : DEFAULT_SETTINGS.pastedImageKeep,
     mcpServersJson: (_f = getString(stored, "mcpServersJson")) != null ? _f : DEFAULT_SETTINGS.mcpServersJson,
     customAgentsJson: (_g = getString(stored, "customAgentsJson")) != null ? _g : DEFAULT_SETTINGS.customAgentsJson,
+    thoughtLevel: (_h = getString(stored, "thoughtLevel")) != null ? _h : DEFAULT_SETTINGS.thoughtLevel,
     version: CURRENT_SETTINGS_VERSION
   };
 }
@@ -2311,6 +2329,10 @@ function applyToolbarConfig(view, cfg) {
   if (cfg.model && cfg.model !== view.settings.model) {
     view.settings.model = cfg.model;
     (_a = view.containerEl.querySelector(".workbuddian-model-btn")) == null ? void 0 : _a.setText(cfg.model);
+    changed = true;
+  }
+  if (cfg.thoughtLevel && cfg.thoughtLevel !== view.settings.thoughtLevel) {
+    view.settings.thoughtLevel = cfg.thoughtLevel;
     changed = true;
   }
   if (changed)
@@ -3823,6 +3845,19 @@ var WorkbuddianSettingTab = class extends import_obsidian9.PluginSettingTab {
         await this.plugin.saveSettings();
       }
     }));
+    new import_obsidian9.Setting(containerEl).setName(t("settings.thoughtLevel")).setDesc(t("settings.thoughtLevelDesc")).addDropdown((dropdown) => dropdown.addOptions({
+      enabled: "enabled",
+      minimal: "minimal",
+      low: "low",
+      medium: "medium",
+      high: "high",
+      xhigh: "xhigh",
+      max: "max"
+    }).setValue(this.plugin.settings.thoughtLevel).onChange(async (value) => {
+      this.plugin.settings.thoughtLevel = value;
+      this.plugin.api.setThoughtLevel(value);
+      await this.plugin.saveSettings();
+    }));
     new import_obsidian9.Setting(containerEl).setName(t("settings.mcpServers")).setDesc(t("settings.mcpServersDesc")).addTextArea((text) => text.setPlaceholder('[{"name":"x","command":"npx","args":["-y","pkg"]}]').setValue(this.plugin.settings.mcpServersJson).onChange(async (value) => {
       const trimmed = value.trim();
       if (trimmed) {
@@ -4165,6 +4200,7 @@ var WorkbuddianPlugin = class extends import_obsidian11.Plugin {
     this.api.setPermissionMode(this.settings.permissionMode);
     this.api.setMcpServersJson(this.settings.mcpServersJson);
     this.api.setCustomAgentsJson(this.settings.customAgentsJson);
+    this.api.setThoughtLevel(this.settings.thoughtLevel);
   }
   async activateView() {
     try {

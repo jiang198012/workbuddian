@@ -94,3 +94,33 @@ describe('mapToolCallUpdate', () => {
         });
     });
 });
+
+describe('mapToolCallUpdate toolOutput', () => {
+    it('carries rawOutput text on completed chunks', () => {
+        const chunk = mapToolCallUpdate(
+            {
+                sessionUpdate: 'tool_call_update', toolCallId: 'c1', status: 'completed',
+                _meta: { 'codebuddy.ai/toolName': 'Bash' },
+                rawOutput: { type: 'text', text: 'Command: ls\nStdout: ok\nExit Code: 0' },
+            },
+            { command: 'ls' },
+        );
+        expect(chunk?.toolOutput).toBe('Command: ls\nStdout: ok\nExit Code: 0');
+    });
+    it('omits toolOutput when rawOutput missing or non-text', () => {
+        const chunk = mapToolCallUpdate(
+            { sessionUpdate: 'tool_call_update', toolCallId: 'c1', status: 'completed', _meta: { 'codebuddy.ai/toolName': 'Bash' } },
+            { command: 'ls' },
+        );
+        expect(chunk?.toolOutput).toBeUndefined();
+    });
+});
+
+describe('mapConfigUpdate thought_level', () => {
+    it('extracts thoughtLevel from config_option_update', () => {
+        expect(mapConfigUpdate({
+            sessionUpdate: 'config_option_update',
+            configOptions: [{ id: 'thought_level', currentValue: 'high' }],
+        })).toEqual({ thoughtLevel: 'high' });
+    });
+});

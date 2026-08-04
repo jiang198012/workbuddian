@@ -65,6 +65,8 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'settings.customAgents': { zh: '子代理（JSON）', en: 'Custom agents (JSON)' },
     'settings.customAgentsDesc': { zh: '子代理定义对象，如 {"reviewer":{"description":"审查代码","prompt":"你是代码审查员"}}，对应 CLI --agents。改动后 CLI 进程自动重启生效。', en: 'Custom agent definitions, e.g. {"reviewer":{"description":"Reviews code","prompt":"You review code"}} (CLI --agents). The CLI process restarts automatically on change.' },
     'settings.invalidJson': { zh: '{field}：JSON 无法解析，未生效', en: '{field}: invalid JSON, not applied' },
+    'settings.thoughtLevel': { zh: '思考力度', en: 'Thinking effort' },
+    'settings.thoughtLevelDesc': { zh: '对应 CLI thought_level（按会话生效）；CLI 侧用 /effort 改动会同步回这里。', en: 'Maps to CLI thought_level (per session). Changes via the /effort command sync back here.' },
     'settings.timeout': { zh: 'CLI 超时时长（分钟）', en: 'CLI timeout (minutes)' },
     'settings.timeoutDesc': { zh: 'CodeBuddy CLI 单次响应最长等待时间，超过会强制中断', en: 'Max wait per CodeBuddy CLI response; exceeding it aborts the call.' },
     'settings.model': { zh: '模型', en: 'Model' },

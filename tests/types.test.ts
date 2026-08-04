@@ -276,3 +276,11 @@ describe('v11 MCP/agents settings', () => {
         expect(migrateSettings({ customAgentsJson: '{"a":{}}' }).customAgentsJson).toBe('{"a":{}}');
     });
 });
+
+describe('thoughtLevel setting', () => {
+    it('defaults to enabled and tolerates junk', () => {
+        expect(migrateSettings({}).thoughtLevel).toBe('enabled');
+        expect(migrateSettings({ thoughtLevel: 42 }).thoughtLevel).toBe('enabled');
+        expect(migrateSettings({ thoughtLevel: 'high' }).thoughtLevel).toBe('high');
+    });
+});

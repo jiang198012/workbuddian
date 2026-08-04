@@ -25,13 +25,13 @@ export interface TurnHandlers {
     onError(message: string): void;
     onPermissionRequest?(data: PermissionCardData): void;
     onUsage?(used: number, size: number): void;
-    onConfigUpdate?(cfg: { mode?: string; model?: string }): void;
+    onConfigUpdate?(cfg: { mode?: string; model?: string; thoughtLevel?: string }): void;
 }
 
 export type SessionStatus = 'idle' | 'loading' | 'prompting' | 'awaitingPermission';
 
 /** provider 级当前配置；对象引用在 provider/registry/各 session 间共享，改字段即对新会话生效 */
-export interface SessionConfig { model: string; mode: string; mcpServers?: unknown[] }
+export interface SessionConfig { model: string; mode: string; mcpServers?: unknown[]; thoughtLevel?: string }
 
 /**
  * 单会话状态机：idle → loading → idle（懒加载）；
@@ -109,6 +109,11 @@ export class AcpSession {
                 }
             }
         } catch (e) { bbLog('[WB] acp 设置权限模式失败（忽略）:', e); }
+        try {
+            if (this.config.thoughtLevel) {
+                await this.client.request('session/set_config_option', { sessionId, configId: 'thought_level', value: this.config.thoughtLevel });
+            }
+        } catch (e) { bbLog('[WB] acp 设置思考力度失败（忽略）:', e); }
     }
 
     async prompt(text: string, handlers: TurnHandlers): Promise<{ stopReason: string }> {

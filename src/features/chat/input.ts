@@ -338,7 +338,7 @@ function renderApprovalDetail(body: HTMLElement, detail: PermissionDetail): void
 }
 
 /** CLI 为真相源：config_option_update 回流时同步工具栏与 settings（不回调 api.set*，避免回环） */
-function applyToolbarConfig(view: WorkbuddianChatView, cfg: { mode?: string; model?: string }): void {
+function applyToolbarConfig(view: WorkbuddianChatView, cfg: { mode?: string; model?: string; thoughtLevel?: string }): void {
     let changed = false;
     if (cfg.mode && (PERMISSION_MODE_CHOICES as readonly string[]).includes(cfg.mode) && cfg.mode !== view.settings.permissionMode) {
         view.settings.permissionMode = cfg.mode as PermissionMode;
@@ -349,6 +349,10 @@ function applyToolbarConfig(view: WorkbuddianChatView, cfg: { mode?: string; mod
     if (cfg.model && cfg.model !== view.settings.model) {
         view.settings.model = cfg.model;
         view.containerEl.querySelector('.workbuddian-model-btn')?.setText(cfg.model);
+        changed = true;
+    }
+    if (cfg.thoughtLevel && cfg.thoughtLevel !== view.settings.thoughtLevel) {
+        view.settings.thoughtLevel = cfg.thoughtLevel;
         changed = true;
     }
     if (changed) void view.saveSettingsCallback();

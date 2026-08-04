@@ -84,6 +84,11 @@ export class CodebuddyProvider {
         for (const s of this.registry.all()) void s.applyRemoteConfig();
     }
 
+    setThoughtLevel(level: string): void {
+        this.config.thoughtLevel = level;
+        for (const s of this.registry.all()) void s.applyRemoteConfig();
+    }
+
     setAvailableModels(models: string[]): void { this.availableModels = models; }
     getAvailableModels(): string[] { return [...this.availableModels]; }
     getScriptPath(): string { return this.client.getScriptPath(); }

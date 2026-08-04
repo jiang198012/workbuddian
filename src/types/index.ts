@@ -46,6 +46,8 @@ export interface WorkbuddianSettings {
     mcpServersJson: string;
     /** 子代理定义 JSON（{名:{description,prompt}}，对应 CLI --agents），空串=不传 */
     customAgentsJson: string;
+    /** 思考力度（CLI thought_level 七档：enabled/minimal/low/medium/high/xhigh/max） */
+    thoughtLevel: string;
     version: number;
 }
 
@@ -70,6 +72,7 @@ export const DEFAULT_SETTINGS: WorkbuddianSettings = {
     pastedImageKeep: DEFAULT_PASTED_IMAGE_KEEP,
     mcpServersJson: '',
     customAgentsJson: '',
+    thoughtLevel: 'enabled',
     version: CURRENT_SETTINGS_VERSION
 };
 
@@ -152,6 +155,7 @@ export function migrateSettings(stored: unknown): WorkbuddianSettings {
             : DEFAULT_SETTINGS.pastedImageKeep,
         mcpServersJson: getString(stored, 'mcpServersJson') ?? DEFAULT_SETTINGS.mcpServersJson,
         customAgentsJson: getString(stored, 'customAgentsJson') ?? DEFAULT_SETTINGS.customAgentsJson,
+        thoughtLevel: getString(stored, 'thoughtLevel') ?? DEFAULT_SETTINGS.thoughtLevel,
         version: CURRENT_SETTINGS_VERSION
     };
 }
