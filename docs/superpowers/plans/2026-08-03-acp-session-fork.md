@@ -1,6 +1,6 @@
 # 会话分叉（fork）UI 实现计划——任务 A
 
-> **For agentic workers:** Steps use checkbox (`- [ ]`) syntax for tracking. inline 执行。
+> **For agentic workers:** Steps use checkbox (`- [x]`) syntax for tracking. inline 执行。
 
 **Goal:** 会话右键菜单「分叉当前会话」，经 ACP `/branch` 开出支线会话并切换过去。
 
@@ -24,7 +24,7 @@
 **Interfaces:**
 - Produces: `fork(name: string): Promise<string>`（返回 newSessionId；busy/未加载抛 `'session busy'`/`'session not loaded'`；60s 超时或未捕获 id 抛 `'fork failed'`）；私有字段 `lastForkedSessionId: string | null`。
 
-- [ ] **Step 1: 写失败测试**（追加 `tests/acpSession.test.ts`）
+- [x] **Step 1: 写失败测试**（追加 `tests/acpSession.test.ts`）
 
 ```ts
 describe('AcpSession.fork', () => {
@@ -58,8 +58,8 @@ describe('AcpSession.fork', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败** — `npx jest tests/acpSession.test.ts -t fork`。
-- [ ] **Step 3: 实现**
+- [x] **Step 2: 跑测试确认失败** — `npx jest tests/acpSession.test.ts -t fork`。
+- [x] **Step 3: 实现**
 
 ```ts
 // 字段区加：
@@ -91,8 +91,8 @@ async fork(name: string): Promise<string> {
 
 注意 `prompt()` 会走 session/prompt 并等 stopReason；fork 轮 stopReason end_turn → resolve。`session busy` 复用 prompt 的状态机守卫——fork 自己先检一遍再调 prompt（prompt 内还有一道）。
 
-- [ ] **Step 4: 跑测试确认通过** — `npx jest tests/acpSession.test.ts` 全绿。
-- [ ] **Step 5: Commit** — `feat(acp): 会话分叉 fork()（/branch + newSessionId 捕获）`
+- [x] **Step 4: 跑测试确认通过** — `npx jest tests/acpSession.test.ts` 全绿。
+- [x] **Step 5: Commit** — `feat(acp): 会话分叉 fork()（/branch + newSessionId 捕获）`
 
 ---
 
@@ -103,7 +103,7 @@ async fork(name: string): Promise<string> {
 **Interfaces:**
 - Produces: `forkSession(sessionKey: string, name: string): Promise<string>`；`ConversationManager.forkConversation(sourceId: string, title: string, acpSessionId: string): Conversation | null`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `tests/manager.test.ts` 追加：
 
@@ -152,8 +152,8 @@ it('forkSession loads the session then returns the forked acpSessionId', async (
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败** — `npx jest tests/manager.test.ts tests/api.test.ts`。
-- [ ] **Step 3: 实现**
+- [x] **Step 2: 跑测试确认失败** — `npx jest tests/manager.test.ts tests/api.test.ts`。
+- [x] **Step 3: 实现**
 
 `index.ts`（cancel 方法附近加）：
 
@@ -190,8 +190,8 @@ forkConversation(sourceId: string, title: string, acpSessionId: string): Convers
 
 （`generateId` 已在 manager.ts import。）
 
-- [ ] **Step 4: 跑测试确认通过** — `npx jest tests/manager.test.ts tests/api.test.ts` 全绿。
-- [ ] **Step 5: Commit** — `feat: provider.forkSession + manager.forkConversation`
+- [x] **Step 4: 跑测试确认通过** — `npx jest tests/manager.test.ts tests/api.test.ts` 全绿。
+- [x] **Step 5: Commit** — `feat: provider.forkSession + manager.forkConversation`
 
 ---
 
@@ -199,7 +199,7 @@ forkConversation(sourceId: string, title: string, acpSessionId: string): Convers
 
 **Files:** Modify `src/i18n/index.ts`、`src/features/chat/tabs.ts`、`scripts/acp-smoke.mjs`
 
-- [ ] **Step 1: i18n 新增**（tabs 组附近）：
+- [x] **Step 1: i18n 新增**（tabs 组附近）：
 
 ```ts
 'tabs.fork': { zh: '分叉当前会话', en: 'Fork this chat' },
@@ -209,7 +209,7 @@ forkConversation(sourceId: string, title: string, acpSessionId: string): Convers
 'tabs.forkStreaming': { zh: '正在响应中，稍候再分叉', en: 'Wait for the response to finish before forking' },
 ```
 
-- [ ] **Step 2: tabs.ts 菜单项**——先读现有右键菜单构建段（导出/复制菜单处），加「分叉当前会话」项，handler：
+- [x] **Step 2: tabs.ts 菜单项**——先读现有右键菜单构建段（导出/复制菜单处），加「分叉当前会话」项，handler：
 
 ```ts
 async function forkChat(view: WorkbuddianChatView, id: string) {
@@ -234,7 +234,7 @@ async function forkChat(view: WorkbuddianChatView, id: string) {
 
 `getErrorMessage` 从 types import；`Notice` obsidian import（tabs.ts 已有 obsidian import 则复用）。实现时先读 tabs.ts 菜单段校准锚点。
 
-- [ ] **Step 3: smoke 第 10 步**（scripts/acp-smoke.mjs plan 步之后）：
+- [x] **Step 3: smoke 第 10 步**（scripts/acp-smoke.mjs plan 步之后）：
 
 ```js
 // 9. fork：/branch → newSessionId → load 验证
@@ -253,17 +253,17 @@ if (forkedId) {
 }
 ```
 
-- [ ] **Step 4: 验证** — `npm run build` + `npx jest` 全量绿 + `node scripts/acp-smoke.mjs`（真 CLI，含 fork 步）。
-- [ ] **Step 5: Commit** — `feat(chat): 会话右键分叉入口 + i18n；test(scripts): smoke 增补 fork 回归`
+- [x] **Step 4: 验证** — `npm run build` + `npx jest` 全量绿 + `node scripts/acp-smoke.mjs`（真 CLI，含 fork 步）。
+- [x] **Step 5: Commit** — `feat(chat): 会话右键分叉入口 + i18n；test(scripts): smoke 增补 fork 回归`
 
 ---
 
 ### Task 4: 全量验收 + 手测清单增补
 
-- [ ] **Step 1:** `npx jest` 全绿、`npm run build` 过、smoke 输出存档核对。
-- [ ] **Step 2:** `docs/manual-test-2026-08-03-acp-v2.md` 增补 A8 用例：
+- [x] **Step 1:** `npx jest` 全绿、`npm run build` 过、smoke 输出存档核对。
+- [x] **Step 2:** `docs/manual-test-2026-08-03-acp-v2.md` 增补 A8 用例：
   - A8 会话分叉：任一会话发过消息后，右键标签 →「分叉当前会话」→ 新会话标题「分叉 - …」且含全部历史消息 → 新会话续聊上下文保持（问「前面聊了什么」）→ 切回原会话继续对话，记录其行为（CLI 对原 session 的后续处理未实测，如实记录）。
-- [ ] **Step 3: Commit** — `docs: 手测清单增补 fork 用例`。
+- [x] **Step 3: Commit** — `docs: 手测清单增补 fork 用例`。
 
 ## Self-Review
 

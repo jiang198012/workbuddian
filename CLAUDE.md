@@ -40,11 +40,11 @@ Layered, single-responsibility modules under `src/`. The flow of a message: `fea
 
 - **`features/chat/` — the Obsidian view layer.** `view.ts` (`WorkbuddianChatView extends ItemView`, `VIEW_TYPE_CHAT = "workbuddian-panel"`) builds the DOM; `input.ts` owns `sendMessage()` (the streaming loop that mutates the assistant bubble live and calls `manager.updateMessage(..., skipSave=true)` during the stream, then `manager.flush()` once at the end); `render.ts` renders messages via Obsidian's `MarkdownRenderer`; `tabs.ts` handles tab bar, rename, delete, search, and the export context menu.
 
-- **`shared/` — pure helpers.** `atReferences.ts` parses `@[[note]]` references; `export.ts` formats a conversation as Markdown.
+- **`shared/` — pure helpers.** `atReferences.ts` parses `@[[note]]` references; `export.ts` formats a conversation as Markdown; `wordDiff.ts` does minimal inline (prefix/suffix-trim) diffs for the word-level highlighting in tool diff blocks and approval-card edit previews.
 
 - **`types/index.ts` — shared types + safety + migration.** Type guards (`isObject`/`getString`/`getNumber`/`getBoolean`), `generateId`, and the **settings migration pipeline**: `normalizePersistedData()` (splits `{ conversations, settings }`) and `migrateSettings()` (upgrades to `CURRENT_SETTINGS_VERSION`, currently 4, filling defaults for missing/invalid fields). Always route persisted data through these — raw `loadData()` output is untrusted.
 
-- **`features/settings/tab.ts`** — settings UI; selectable models come from the ACP handshake (`session/new` result), with `FALLBACK_MODEL_OPTIONS` (`shared/cliOptions.ts`) as the pre-handshake fallback.
+- **`features/settings/tab.ts`** — settings UI; selectable models come from the ACP handshake (`session/new` result), with `FALLBACK_MODEL_OPTIONS` (`shared/cliOptions.ts`) as the pre-handshake fallback. Also hosts the MCP servers / custom agents JSON settings (injected into `session/new|load` and the CLI's `--agents` spawn flag respectively) and the `thoughtLevel` dropdown (per-session `session/set_config_option`). Chat extras on top of the v2 base: conversation forking via the tab context menu (`/branch` + `newSessionId` capture), native image content blocks for in-vault image attachments (base64 `{type:'image'}` prompt blocks instead of path injection), and Bash terminal output blocks from completed `rawOutput`.
 
 Empty `.gitkeep`-only dirs (`core/providers`, `core/runtime`, `core/security`, `features/inline-edit`, `i18n`, `style`) are placeholders for the roadmap (`ROADMAP.md`), not live code.
 
