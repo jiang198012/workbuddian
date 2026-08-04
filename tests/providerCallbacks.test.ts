@@ -238,3 +238,35 @@ describe('models & config sync', () => {
             expect.objectContaining({ configId: 'model', value: 'glm-5.2' }));
     });
 });
+
+describe('MCP/agents settings plumbing', () => {
+    it('setMcpServersJson propagates parsed servers into session/new params', async () => {
+        const kit = makeFakeClient(MockAcpClient);
+        const api = new CodebuddyProvider();
+        api.setMcpServersJson('[{"name":"fake","command":"node"}]');
+        await consume(api.sendMessage('s1', 'x', '/v'));
+        expect(kit.fake.request).toHaveBeenCalledWith('session/new',
+            expect.objectContaining({ mcpServers: [{ name: 'fake', command: 'node' }] }));
+    });
+
+    it('invalid mcpServersJson keeps previous value', async () => {
+        const kit = makeFakeClient(MockAcpClient);
+        const api = new CodebuddyProvider();
+        api.setMcpServersJson('[{"name":"fake"}]');
+        api.setMcpServersJson('{bad json');
+        await consume(api.sendMessage('s1', 'x', '/v'));
+        expect(kit.fake.request).toHaveBeenCalledWith('session/new',
+            expect.objectContaining({ mcpServers: [{ name: 'fake' }] }));
+    });
+
+    it('setCustomAgentsJson forwards --agents extra args; invalid JSON ignored', async () => {
+        const kit = makeFakeClient(MockAcpClient);
+        const api = new CodebuddyProvider();
+        api.setCustomAgentsJson('{"reviewer":{"description":"d","prompt":"p"}}');
+        expect(kit.fake.setExtraArgs).toHaveBeenCalledWith(['--agents', '{"reviewer":{"description":"d","prompt":"p"}}']);
+        api.setCustomAgentsJson('{bad');
+        expect(kit.fake.setExtraArgs).toHaveBeenCalledTimes(1);
+        api.setCustomAgentsJson('');
+        expect(kit.fake.setExtraArgs).toHaveBeenCalledWith([]);
+    });
+});

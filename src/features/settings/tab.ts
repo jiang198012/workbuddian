@@ -81,6 +81,49 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
 
         // 模型 / 授权已移到聊天工具栏前台，设置页不再重复
 
+        new Setting(containerEl)
+            .setName(t('settings.mcpServers'))
+            .setDesc(t('settings.mcpServersDesc'))
+            .addTextArea(text => text
+                .setPlaceholder('[{"name":"x","command":"npx","args":["-y","pkg"]}]')
+                .setValue(this.plugin.settings.mcpServersJson)
+                .onChange(async (value) => {
+                    const trimmed = value.trim();
+                    if (trimmed) {
+                        try {
+                            if (!Array.isArray(JSON.parse(trimmed))) throw new Error('not array');
+                        } catch {
+                            new Notice(t('settings.invalidJson').replace('{field}', t('settings.mcpServers')));
+                            return;
+                        }
+                    }
+                    this.plugin.settings.mcpServersJson = trimmed;
+                    this.plugin.api.setMcpServersJson(trimmed);
+                    await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+            .setName(t('settings.customAgents'))
+            .setDesc(t('settings.customAgentsDesc'))
+            .addTextArea(text => text
+                .setPlaceholder('{"reviewer":{"description":"...","prompt":"..."}}')
+                .setValue(this.plugin.settings.customAgentsJson)
+                .onChange(async (value) => {
+                    const trimmed = value.trim();
+                    if (trimmed) {
+                        try {
+                            const parsed: unknown = JSON.parse(trimmed);
+                            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not object');
+                        } catch {
+                            new Notice(t('settings.invalidJson').replace('{field}', t('settings.customAgents')));
+                            return;
+                        }
+                    }
+                    this.plugin.settings.customAgentsJson = trimmed;
+                    this.plugin.api.setCustomAgentsJson(trimmed);
+                    await this.plugin.saveSettings();
+                }));
+
         // ===== 上下文注入 =====
         new Setting(containerEl).setName(t('settings.inject')).setHeading();
 

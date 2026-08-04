@@ -12,7 +12,7 @@ export interface FakeClientKit {
     fake: {
         setCodebuddyPath: jest.Mock; setNodePath: jest.Mock; getScriptPath: jest.Mock;
         running: boolean; ensureStarted: jest.Mock; request: FakeRequest;
-        notify: jest.Mock; respond: jest.Mock; dispose: jest.Mock;
+        notify: jest.Mock; respond: jest.Mock; dispose: jest.Mock; setExtraArgs: jest.Mock;
     };
     events: () => AcpClientEvents;
     newSessionCount: () => number;
@@ -24,6 +24,7 @@ export function makeFakeClient(MockAcpClient: jest.MockedClass<typeof AcpClient>
     const fake = {
         setCodebuddyPath: jest.fn(),
         setNodePath: jest.fn(),
+        setExtraArgs: jest.fn(),
         getScriptPath: jest.fn(() => '/fake/codebuddy'),
         running: true,
         ensureStarted: jest.fn(async () => {}),

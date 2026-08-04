@@ -44,7 +44,7 @@ export class CodebuddyProvider {
     private timeout: number;
     private readonly client: AcpClient;
     private readonly registry: SessionRegistry;
-    private readonly config: SessionConfig = { model: 'auto', mode: 'default' };
+    private readonly config: SessionConfig = { model: 'auto', mode: 'default', mcpServers: [] };
     private lookup: ConversationLookup = NOOP_LOOKUP;
     private availableModels: string[] = Object.keys(FALLBACK_MODEL_OPTIONS);
     private callbacks = new Map<string, SessionCallbacks>();
@@ -88,6 +88,32 @@ export class CodebuddyProvider {
 
     /** main.ts 注入：Conversation.acpSessionId 的读写桥（懒加载与回写的唯一通道） */
     setConversationLookup(lookup: ConversationLookup): void { this.lookup = lookup; }
+
+    /** MCP 服务器 JSON（数组）：解析失败保留旧值并记日志；空串清空 */
+    setMcpServersJson(json: string): void {
+        const trimmed = json.trim();
+        if (!trimmed) { this.config.mcpServers = []; return; }
+        try {
+            const parsed: unknown = JSON.parse(trimmed);
+            if (!Array.isArray(parsed)) throw new Error('mcpServers 必须是数组');
+            this.config.mcpServers = parsed;
+        } catch (e) {
+            bbLog('[WB] mcpServersJson 解析失败，保留旧值:', e);
+        }
+    }
+
+    /** 子代理 JSON（对象）：转为 CLI --agents 启动旗标；解析失败保留旧值；空串清空 */
+    setCustomAgentsJson(json: string): void {
+        const trimmed = json.trim();
+        if (!trimmed) { this.client.setExtraArgs([]); return; }
+        try {
+            const parsed: unknown = JSON.parse(trimmed);
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('agents 必须是对象');
+            this.client.setExtraArgs(['--agents', trimmed]);
+        } catch (e) {
+            bbLog('[WB] customAgentsJson 解析失败，保留旧值:', e);
+        }
+    }
 
     generateId(): string {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {

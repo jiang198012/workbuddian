@@ -100,6 +100,11 @@ var STRINGS = {
   "settings.node": { zh: "\u624B\u52A8\u6307\u5B9A Node.js \u8DEF\u5F84", en: "Node.js path (manual)" },
   "settings.nodeDesc": { zh: "\u7559\u7A7A\u5219\u81EA\u52A8\u63A2\u6D4B\u3002\u5982\u679C\u81EA\u52A8\u63A2\u6D4B\u5931\u8D25\uFF08\u4F8B\u5982\u975E\u6807\u51C6\u5B89\u88C5\u8DEF\u5F84\uFF09\uFF0C\u53EF\u4EE5\u5728\u8FD9\u91CC\u624B\u52A8\u6307\u5B9A node \u53EF\u6267\u884C\u6587\u4EF6\u7684\u5B8C\u6574\u8DEF\u5F84", en: "Leave empty to auto-detect. If detection fails (e.g. non-standard install), set the full path to the node executable here." },
   "settings.nodePlaceholder": { zh: "\u7559\u7A7A = \u81EA\u52A8\u63A2\u6D4B", en: "Empty = auto-detect" },
+  "settings.mcpServers": { zh: "MCP \u670D\u52A1\u5668\uFF08JSON\uFF09", en: "MCP servers (JSON)" },
+  "settings.mcpServersDesc": { zh: 'stdio \u4F20\u8F93\u7684 MCP \u670D\u52A1\u5668\u6570\u7EC4\uFF0C\u5982 [{"name":"x","command":"npx","args":["-y","pkg"]}]\u3002\u7559\u7A7A\u4E0D\u6CE8\u5165\uFF1B\u5BF9\u65B0\u5EFA/\u6062\u590D\u7684\u4F1A\u8BDD\u751F\u6548\u3002', en: 'Array of stdio MCP servers, e.g. [{"name":"x","command":"npx","args":["-y","pkg"]}]. Empty = none; applies to newly created/restored sessions.' },
+  "settings.customAgents": { zh: "\u5B50\u4EE3\u7406\uFF08JSON\uFF09", en: "Custom agents (JSON)" },
+  "settings.customAgentsDesc": { zh: '\u5B50\u4EE3\u7406\u5B9A\u4E49\u5BF9\u8C61\uFF0C\u5982 {"reviewer":{"description":"\u5BA1\u67E5\u4EE3\u7801","prompt":"\u4F60\u662F\u4EE3\u7801\u5BA1\u67E5\u5458"}}\uFF0C\u5BF9\u5E94 CLI --agents\u3002\u6539\u52A8\u540E CLI \u8FDB\u7A0B\u81EA\u52A8\u91CD\u542F\u751F\u6548\u3002', en: 'Custom agent definitions, e.g. {"reviewer":{"description":"Reviews code","prompt":"You review code"}} (CLI --agents). The CLI process restarts automatically on change.' },
+  "settings.invalidJson": { zh: "{field}\uFF1AJSON \u65E0\u6CD5\u89E3\u6790\uFF0C\u672A\u751F\u6548", en: "{field}: invalid JSON, not applied" },
   "settings.timeout": { zh: "CLI \u8D85\u65F6\u65F6\u957F\uFF08\u5206\u949F\uFF09", en: "CLI timeout (minutes)" },
   "settings.timeoutDesc": { zh: "CodeBuddy CLI \u5355\u6B21\u54CD\u5E94\u6700\u957F\u7B49\u5F85\u65F6\u95F4\uFF0C\u8D85\u8FC7\u4F1A\u5F3A\u5236\u4E2D\u65AD", en: "Max wait per CodeBuddy CLI response; exceeding it aborts the call." },
   "settings.model": { zh: "\u6A21\u578B", en: "Model" },
@@ -503,6 +508,8 @@ var AcpClient = class {
     this.events = events;
     this.scriptPath = "";
     this.nodePath = "";
+    this.extraArgs = [];
+    // 追加在 --acp 之后的 CLI 旗标（如 --agents）
     this.proc = null;
     this.nextId = 1;
     this.pending = /* @__PURE__ */ new Map();
@@ -514,10 +521,26 @@ var AcpClient = class {
     this.scriptPath = resolveCodebuddyPath("");
   }
   setCodebuddyPath(p) {
-    this.scriptPath = resolveCodebuddyPath(p);
+    const next = resolveCodebuddyPath(p);
+    if (next === this.scriptPath)
+      return;
+    this.scriptPath = next;
+    if (this.proc)
+      this.dispose();
   }
   setNodePath(p) {
+    if (p === this.nodePath)
+      return;
     this.nodePath = p;
+    if (this.proc)
+      this.dispose();
+  }
+  setExtraArgs(args) {
+    if (args.join("\n") === this.extraArgs.join("\n"))
+      return;
+    this.extraArgs = args;
+    if (this.proc)
+      this.dispose();
   }
   getScriptPath() {
     return this.scriptPath;
@@ -637,7 +660,7 @@ var AcpClient = class {
   }
   spawnAndHandshake() {
     return new Promise((resolve, reject) => {
-      const { command, args, shell } = buildSpawnCommand(this.scriptPath, this.nodePath, ["--acp"]);
+      const { command, args, shell } = buildSpawnCommand(this.scriptPath, this.nodePath, ["--acp", ...this.extraArgs]);
       let proc;
       try {
         proc = (0, import_child_process2.spawn)(command, args, { shell });
@@ -857,8 +880,9 @@ function mapPermissionRequest(requestId, params) {
   const meta = asRecord(toolCall._meta);
   const rawInput = asRecord(toolCall.rawInput);
   const metaName = meta["codebuddy.ai/toolName"];
-  const toolName = typeof metaName === "string" && metaName ? metaName : typeof rawInput.toolName === "string" ? rawInput.toolName : typeof toolCall.title === "string" ? toolCall.title : "tool";
-  const isPlan = toolName === "DeferExecuteTool" || rawInput.toolName === "ExitPlanMode";
+  const rawToolName = typeof rawInput.toolName === "string" ? rawInput.toolName : "";
+  const toolName = typeof metaName === "string" && metaName ? metaName === "DeferExecuteTool" && rawToolName ? rawToolName : metaName : rawToolName || (typeof toolCall.title === "string" ? toolCall.title : "tool");
+  const isPlan = rawToolName === "ExitPlanMode";
   const options = (Array.isArray(p.options) ? p.options : []).map((o) => {
     const rec = asRecord(o);
     return {
@@ -910,7 +934,7 @@ var AcpSession = class {
       this.needsReload = true;
   }
   async ensureLoaded(vaultPath) {
-    var _a;
+    var _a, _b, _c, _d;
     if (this.acpSessionId && !this.needsReload)
       return;
     this.status = "loading";
@@ -918,18 +942,18 @@ var AcpSession = class {
       if (!this.acpSessionId) {
         const candidate = (_a = this.lookup.getAcpSessionId(this.key)) != null ? _a : this.key;
         try {
-          await this.client.request("session/load", { sessionId: candidate, cwd: vaultPath != null ? vaultPath : "", mcpServers: [] });
+          await this.client.request("session/load", { sessionId: candidate, cwd: vaultPath != null ? vaultPath : "", mcpServers: (_b = this.config.mcpServers) != null ? _b : [] });
           this.acpSessionId = candidate;
         } catch (e) {
           const result = await this.client.request(
             "session/new",
-            { cwd: vaultPath != null ? vaultPath : "", mcpServers: [] }
+            { cwd: vaultPath != null ? vaultPath : "", mcpServers: (_c = this.config.mcpServers) != null ? _c : [] }
           );
           this.acpSessionId = result.sessionId;
         }
         this.lookup.setAcpSessionId(this.key, this.acpSessionId);
       } else {
-        await this.client.request("session/load", { sessionId: this.acpSessionId, cwd: vaultPath != null ? vaultPath : "", mcpServers: [] });
+        await this.client.request("session/load", { sessionId: this.acpSessionId, cwd: vaultPath != null ? vaultPath : "", mcpServers: (_d = this.config.mcpServers) != null ? _d : [] });
       }
       this.needsReload = false;
       await this.applyConfig();
@@ -1136,7 +1160,7 @@ var NOOP_LOOKUP = { getAcpSessionId: () => void 0, setAcpSessionId: () => {
 } };
 var CodebuddyProvider = class {
   constructor(timeout = TIMEOUT) {
-    this.config = { model: "auto", mode: "default" };
+    this.config = { model: "auto", mode: "default", mcpServers: [] };
     this.lookup = NOOP_LOOKUP;
     this.availableModels = Object.keys(FALLBACK_MODEL_OPTIONS);
     this.callbacks = /* @__PURE__ */ new Map();
@@ -1193,6 +1217,38 @@ var CodebuddyProvider = class {
   /** main.ts 注入：Conversation.acpSessionId 的读写桥（懒加载与回写的唯一通道） */
   setConversationLookup(lookup) {
     this.lookup = lookup;
+  }
+  /** MCP 服务器 JSON（数组）：解析失败保留旧值并记日志；空串清空 */
+  setMcpServersJson(json) {
+    const trimmed = json.trim();
+    if (!trimmed) {
+      this.config.mcpServers = [];
+      return;
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!Array.isArray(parsed))
+        throw new Error("mcpServers \u5FC5\u987B\u662F\u6570\u7EC4");
+      this.config.mcpServers = parsed;
+    } catch (e) {
+      bbLog("[WB] mcpServersJson \u89E3\u6790\u5931\u8D25\uFF0C\u4FDD\u7559\u65E7\u503C:", e);
+    }
+  }
+  /** 子代理 JSON（对象）：转为 CLI --agents 启动旗标；解析失败保留旧值；空串清空 */
+  setCustomAgentsJson(json) {
+    const trimmed = json.trim();
+    if (!trimmed) {
+      this.client.setExtraArgs([]);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        throw new Error("agents \u5FC5\u987B\u662F\u5BF9\u8C61");
+      this.client.setExtraArgs(["--agents", trimmed]);
+    } catch (e) {
+      bbLog("[WB] customAgentsJson \u89E3\u6790\u5931\u8D25\uFF0C\u4FDD\u7559\u65E7\u503C:", e);
+    }
   }
   generateId() {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -1377,7 +1433,7 @@ function registerWorkbuddianIcon() {
 var import_obsidian6 = require("obsidian");
 
 // src/types/index.ts
-var CURRENT_SETTINGS_VERSION = 10;
+var CURRENT_SETTINGS_VERSION = 11;
 var DEFAULT_CONTEXT_WINDOW_SIZE = 2e5;
 var DEFAULT_PASTED_IMAGE_KEEP = 20;
 var MAX_PASTED_IMAGE_KEEP = 500;
@@ -1394,6 +1450,8 @@ var DEFAULT_SETTINGS = {
   language: "auto",
   customInstruction: "",
   pastedImageKeep: DEFAULT_PASTED_IMAGE_KEEP,
+  mcpServersJson: "",
+  customAgentsJson: "",
   version: CURRENT_SETTINGS_VERSION
 };
 function isObject(value) {
@@ -1421,7 +1479,7 @@ function getErrorMessage(error) {
   return t("common.unknownError");
 }
 function migrateSettings(stored) {
-  var _a, _b, _c, _d, _e;
+  var _a, _b, _c, _d, _e, _f, _g;
   if (!isObject(stored)) {
     return { ...DEFAULT_SETTINGS };
   }
@@ -1444,6 +1502,8 @@ function migrateSettings(stored) {
     language: language === "zh" || language === "en" || language === "auto" ? language : DEFAULT_SETTINGS.language,
     customInstruction: (_e = getString(stored, "customInstruction")) != null ? _e : DEFAULT_SETTINGS.customInstruction,
     pastedImageKeep: typeof pastedImageKeep === "number" && Number.isInteger(pastedImageKeep) && pastedImageKeep >= 0 && pastedImageKeep <= MAX_PASTED_IMAGE_KEEP ? pastedImageKeep : DEFAULT_SETTINGS.pastedImageKeep,
+    mcpServersJson: (_f = getString(stored, "mcpServersJson")) != null ? _f : DEFAULT_SETTINGS.mcpServersJson,
+    customAgentsJson: (_g = getString(stored, "customAgentsJson")) != null ? _g : DEFAULT_SETTINGS.customAgentsJson,
     version: CURRENT_SETTINGS_VERSION
   };
 }
@@ -3681,6 +3741,37 @@ var WorkbuddianSettingTab = class extends import_obsidian9.PluginSettingTab {
         await this.plugin.saveSettings();
       }
     }));
+    new import_obsidian9.Setting(containerEl).setName(t("settings.mcpServers")).setDesc(t("settings.mcpServersDesc")).addTextArea((text) => text.setPlaceholder('[{"name":"x","command":"npx","args":["-y","pkg"]}]').setValue(this.plugin.settings.mcpServersJson).onChange(async (value) => {
+      const trimmed = value.trim();
+      if (trimmed) {
+        try {
+          if (!Array.isArray(JSON.parse(trimmed)))
+            throw new Error("not array");
+        } catch (e) {
+          new import_obsidian9.Notice(t("settings.invalidJson").replace("{field}", t("settings.mcpServers")));
+          return;
+        }
+      }
+      this.plugin.settings.mcpServersJson = trimmed;
+      this.plugin.api.setMcpServersJson(trimmed);
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian9.Setting(containerEl).setName(t("settings.customAgents")).setDesc(t("settings.customAgentsDesc")).addTextArea((text) => text.setPlaceholder('{"reviewer":{"description":"...","prompt":"..."}}').setValue(this.plugin.settings.customAgentsJson).onChange(async (value) => {
+      const trimmed = value.trim();
+      if (trimmed) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+            throw new Error("not object");
+        } catch (e) {
+          new import_obsidian9.Notice(t("settings.invalidJson").replace("{field}", t("settings.customAgents")));
+          return;
+        }
+      }
+      this.plugin.settings.customAgentsJson = trimmed;
+      this.plugin.api.setCustomAgentsJson(trimmed);
+      await this.plugin.saveSettings();
+    }));
     new import_obsidian9.Setting(containerEl).setName(t("settings.inject")).setHeading();
     new import_obsidian9.Setting(containerEl).setName(t("settings.injectVault")).setDesc(t("settings.injectVaultDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectVaultContext).onChange(async (value) => {
       this.plugin.settings.injectVaultContext = value;
@@ -3990,6 +4081,8 @@ var WorkbuddianPlugin = class extends import_obsidian11.Plugin {
     this.api.setNodePath(this.settings.nodePath);
     this.api.setModel(this.settings.model);
     this.api.setPermissionMode(this.settings.permissionMode);
+    this.api.setMcpServersJson(this.settings.mcpServersJson);
+    this.api.setCustomAgentsJson(this.settings.customAgentsJson);
   }
   async activateView() {
     try {
