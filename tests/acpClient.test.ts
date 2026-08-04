@@ -316,3 +316,35 @@ describe('AcpClient lifecycle', () => {
         expect(client.running).toBe(false);
     });
 });
+
+describe('AcpClient extraArgs & dispose-on-change', () => {
+    it('appends extraArgs after --acp', async () => {
+        const { proc, emitJson, stdinWrites } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client } = makeClient();
+        client.setExtraArgs(['--agents', '{"reviewer":{}}']);
+        await startClient(client, emitJson);
+        expect(mockedSpawn.mock.calls[0][1]).toEqual(['--acp', '--agents', '{"reviewer":{}}']);
+        expect(stdinWrites.length).toBeGreaterThan(0);
+    });
+    it('disposes a running process when extraArgs change, keeps it when unchanged', async () => {
+        const { proc, emitJson } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client } = makeClient();
+        await startClient(client, emitJson);
+        client.setExtraArgs(['--agents', '{}']);
+        expect(proc.kill).toHaveBeenCalled();
+        expect(client.running).toBe(false);
+
+        const second = createFakeProc();
+        mockedSpawn.mockReturnValueOnce(second.proc as any);
+        const restarted = client.ensureStarted();
+        const initReq = JSON.parse(second.stdinWrites[0]);
+        second.emitJson({ jsonrpc: '2.0', id: initReq.id, result: { protocolVersion: 1 } });
+        await restarted;
+        second.proc.kill.mockClear();
+        client.setExtraArgs(['--agents', '{}']); // 同值不变 → 不重启
+        expect(second.proc.kill).not.toHaveBeenCalled();
+        expect(client.running).toBe(true);
+    });
+});

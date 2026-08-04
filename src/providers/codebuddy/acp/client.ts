@@ -51,6 +51,7 @@ const HANDSHAKE_TIMEOUT_MS = 10_000;
 export class AcpClient {
     private scriptPath = '';
     private nodePath = '';
+    private extraArgs: string[] = []; // 追加在 --acp 之后的 CLI 旗标（如 --agents）
     private proc: ReturnType<typeof spawn> | null = null;
     private nextId = 1;
     private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
@@ -64,8 +65,22 @@ export class AcpClient {
         this.scriptPath = resolveCodebuddyPath('');
     }
 
-    setCodebuddyPath(p: string): void { this.scriptPath = resolveCodebuddyPath(p); }
-    setNodePath(p: string): void { this.nodePath = p; }
+    setCodebuddyPath(p: string): void {
+        const next = resolveCodebuddyPath(p);
+        if (next === this.scriptPath) return;
+        this.scriptPath = next;
+        if (this.proc) this.dispose(); // 变更即重启：下次 ensureStarted 用新路径，会话经 load 恢复
+    }
+    setNodePath(p: string): void {
+        if (p === this.nodePath) return;
+        this.nodePath = p;
+        if (this.proc) this.dispose();
+    }
+    setExtraArgs(args: string[]): void {
+        if (args.join('\n') === this.extraArgs.join('\n')) return;
+        this.extraArgs = args;
+        if (this.proc) this.dispose();
+    }
     getScriptPath(): string { return this.scriptPath; }
     get running(): boolean { return this.proc !== null; }
 
@@ -171,7 +186,7 @@ export class AcpClient {
 
     private spawnAndHandshake(): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            const { command, args, shell } = buildSpawnCommand(this.scriptPath, this.nodePath, ['--acp']);
+            const { command, args, shell } = buildSpawnCommand(this.scriptPath, this.nodePath, ['--acp', ...this.extraArgs]);
             let proc: ReturnType<typeof spawn>;
             try {
                 proc = spawn(command, args, { shell });

@@ -430,3 +430,21 @@ describe('AcpSession.fork', () => {
         await expect(s.fork('x')).rejects.toThrow('fork failed');
     });
 });
+
+describe('AcpSession mcpServers injection', () => {
+    it('passes config.mcpServers to session/new and session/load', async () => {
+        const servers = [{ name: 'fake', command: 'node', args: ['s.mjs'] }];
+        const client = makeFakeClient();
+        const lookup = makeLookup();
+        const s = new AcpSession('k', client, lookup, { model: '', mode: '', mcpServers: servers });
+        await s.ensureLoaded('/vault');
+        expect(client.request).toHaveBeenCalledWith('session/load', expect.objectContaining({ mcpServers: servers }));
+        expect(client.request).toHaveBeenCalledWith('session/new', expect.objectContaining({ mcpServers: servers }));
+    });
+    it('defaults to empty array when config omits mcpServers', async () => {
+        const client = makeFakeClient();
+        const s = new AcpSession('k', client, makeLookup(), { model: '', mode: '' });
+        await s.ensureLoaded('/vault');
+        expect(client.request).toHaveBeenCalledWith('session/new', expect.objectContaining({ mcpServers: [] }));
+    });
+});

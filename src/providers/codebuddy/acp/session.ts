@@ -31,7 +31,7 @@ export interface TurnHandlers {
 export type SessionStatus = 'idle' | 'loading' | 'prompting' | 'awaitingPermission';
 
 /** provider 级当前配置；对象引用在 provider/registry/各 session 间共享，改字段即对新会话生效 */
-export interface SessionConfig { model: string; mode: string }
+export interface SessionConfig { model: string; mode: string; mcpServers?: unknown[] }
 
 /**
  * 单会话状态机：idle → loading → idle（懒加载）；
@@ -69,16 +69,16 @@ export class AcpSession {
                 // 懒加载链：插件存的 acpSessionId → 先试 v1 uuid（--session-id 时代 CLI 侧可能真存着）→ session/new 回写
                 const candidate = this.lookup.getAcpSessionId(this.key) ?? this.key;
                 try {
-                    await this.client.request('session/load', { sessionId: candidate, cwd: vaultPath ?? '', mcpServers: [] });
+                    await this.client.request('session/load', { sessionId: candidate, cwd: vaultPath ?? '', mcpServers: this.config.mcpServers ?? [] });
                     this.acpSessionId = candidate;
                 } catch {
                     const result = await this.client.request<{ sessionId: string }>(
-                        'session/new', { cwd: vaultPath ?? '', mcpServers: [] });
+                        'session/new', { cwd: vaultPath ?? '', mcpServers: this.config.mcpServers ?? [] });
                     this.acpSessionId = result.sessionId;
                 }
                 this.lookup.setAcpSessionId(this.key, this.acpSessionId);
             } else {
-                await this.client.request('session/load', { sessionId: this.acpSessionId, cwd: vaultPath ?? '', mcpServers: [] });
+                await this.client.request('session/load', { sessionId: this.acpSessionId, cwd: vaultPath ?? '', mcpServers: this.config.mcpServers ?? [] });
             }
             this.needsReload = false;
             await this.applyConfig();
