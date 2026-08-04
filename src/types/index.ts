@@ -2,6 +2,8 @@ import { type PermissionMode, isPermissionMode } from '../shared/cliOptions';
 import { t } from '../i18n';
 
 // ==================== 聊天类型 ====================
+
+/** 单条聊天消息（用户或 AI）；attachments 为附件绝对路径（旧数据可能是纯文件名） */
 export interface ChatMessage {
     id: string;
     role: 'user' | 'assistant';
@@ -28,7 +30,47 @@ export interface Conversation {
     lastUsage?: UsageInfo;
 }
 
+// ==================== 窄化读取辅助 ====================
+
+export function isObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** 按守卫函数从对象上取一个字段；类型不符一律 undefined（迁移与导入共用的安全读取） */
+function pick<T>(data: Record<string, unknown>, key: string, guard: (v: unknown) => v is T): T | undefined {
+    const value = data[key];
+    return guard(value) ? value : undefined;
+}
+
+const isString = (v: unknown): v is string => typeof v === 'string';
+const isNum = (v: unknown): v is number => typeof v === 'number';
+const isBool = (v: unknown): v is boolean => typeof v === 'boolean';
+
+export function getString(data: Record<string, unknown>, key: string): string | undefined {
+    return pick(data, key, isString);
+}
+
+export function getNumber(data: Record<string, unknown>, key: string): number | undefined {
+    return pick(data, key, isNum);
+}
+
+export function getBoolean(data: Record<string, unknown>, key: string): boolean | undefined {
+    return pick(data, key, isBool);
+}
+
+export function getErrorMessage(error: unknown): string {
+    switch (typeof error) {
+        case 'string':
+            return error;
+        case 'object':
+            if (error instanceof Error) return error.message;
+            break;
+    }
+    return t('common.unknownError');
+}
+
 // ==================== 设置类型 ====================
+
 export interface WorkbuddianSettings {
     codebuddyPath: string;
     cliTimeoutMinutes: number;
@@ -50,7 +92,7 @@ export interface WorkbuddianSettings {
     thoughtLevel: string;
     /** 首轮回复后由 AI 自动生成会话标题（用户手动改名后不覆盖） */
     autoTitle: boolean;
-    /** 已授权"总是允许读取"的 vault 外附件绝对路径（WB-002；逐项精确匹配） */
+    /** 已授权"总是允许读取"的 vault 外附件绝对路径（逐项精确匹配） */
     allowedExternalPaths: string[];
     version: number;
 }
@@ -82,124 +124,94 @@ export const DEFAULT_SETTINGS: WorkbuddianSettings = {
     version: CURRENT_SETTINGS_VERSION
 };
 
-// ==================== 通用类型安全辅助函数 ====================
+// ==================== 设置迁移（描述表驱动） ====================
 
-export function isObject(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+type FieldRule = {
+    key: keyof WorkbuddianSettings;
+    /** 从旧数据取出的原始值 → 合法返回值；不合法返回 undefined 走默认 */
+    read: (stored: Record<string, unknown>) => unknown;
+};
 
-export function getString(data: Record<string, unknown>, key: string): string | undefined {
-    const value = data[key];
-    return typeof value === 'string' ? value : undefined;
-}
+/** 每行一个字段：怎么读、什么算合法；表里没有的键（如 version）在迁移末尾统一盖上 */
+const FIELD_RULES: FieldRule[] = [
+    { key: 'codebuddyPath', read: (s) => getString(s, 'codebuddyPath') },
+    { key: 'cliTimeoutMinutes', read: (s) => { const v = getNumber(s, 'cliTimeoutMinutes'); return v !== undefined && v > 0 ? v : undefined; } },
+    { key: 'nodePath', read: (s) => getString(s, 'nodePath') },
+    { key: 'injectVaultContext', read: (s) => getBoolean(s, 'injectVaultContext') },
+    { key: 'injectCurrentNoteLink', read: (s) => getBoolean(s, 'injectCurrentNoteLink') },
+    { key: 'model', read: (s) => getString(s, 'model') },
+    { key: 'primaryColor', read: (s) => getString(s, 'primaryColor') },
+    { key: 'contextWindowSize', read: (s) => { const v = getNumber(s, 'contextWindowSize'); return v !== undefined && v > 0 ? v : undefined; } },
+    { key: 'permissionMode', read: (s) => isPermissionMode(s.permissionMode) ? s.permissionMode : undefined },
+    { key: 'language', read: (s) => { const v = getString(s, 'language'); return v === 'zh' || v === 'en' || v === 'auto' ? v : undefined; } },
+    { key: 'customInstruction', read: (s) => getString(s, 'customInstruction') },
+    {
+        key: 'pastedImageKeep',
+        read: (s) => {
+            const v = getNumber(s, 'pastedImageKeep');
+            return v !== undefined && Number.isInteger(v) && v >= 0 && v <= MAX_PASTED_IMAGE_KEEP ? v : undefined;
+        },
+    },
+    { key: 'mcpServersJson', read: (s) => getString(s, 'mcpServersJson') },
+    { key: 'customAgentsJson', read: (s) => getString(s, 'customAgentsJson') },
+    { key: 'thoughtLevel', read: (s) => getString(s, 'thoughtLevel') },
+    { key: 'autoTitle', read: (s) => getBoolean(s, 'autoTitle') },
+    {
+        key: 'allowedExternalPaths',
+        read: (s) => Array.isArray(s.allowedExternalPaths)
+            ? s.allowedExternalPaths.filter((p): p is string => typeof p === 'string')
+            : undefined,
+    },
+];
 
-export function getNumber(data: Record<string, unknown>, key: string): number | undefined {
-    const value = data[key];
-    return typeof value === 'number' ? value : undefined;
-}
-
-export function getBoolean(data: Record<string, unknown>, key: string): boolean | undefined {
-    const value = data[key];
-    return typeof value === 'boolean' ? value : undefined;
-}
-
-export function getErrorMessage(error: unknown): string {
-    if (error instanceof Error) {
-        return error.message;
-    }
-    if (typeof error === 'string') {
-        return error;
-    }
-    return t('common.unknownError');
-}
-
-/**
- * 迁移设置到最新版本。
- * 参考 Claudian 的 normalize+migrate 模式。
- */
+/** 任意形态的旧数据 → 当前版本设置：非对象直接给默认；逐字段按规则表读取，缺省回落默认值 */
 export function migrateSettings(stored: unknown): WorkbuddianSettings {
-    if (!isObject(stored)) {
-        return { ...DEFAULT_SETTINGS };
+    const base = { ...DEFAULT_SETTINGS, allowedExternalPaths: [...DEFAULT_SETTINGS.allowedExternalPaths] };
+    if (!isObject(stored)) return base;
+    const out = base as Record<string, unknown>;
+    for (const rule of FIELD_RULES) {
+        const value = rule.read(stored);
+        if (value !== undefined) out[rule.key] = value;
     }
-
-    const cliTimeoutMinutes = getNumber(stored, 'cliTimeoutMinutes');
-    const injectVaultContext = getBoolean(stored, 'injectVaultContext');
-    const injectCurrentNoteLink = getBoolean(stored, 'injectCurrentNoteLink');
-    const contextWindowSize = getNumber(stored, 'contextWindowSize');
-    const language = getString(stored, 'language');
-    const pastedImageKeep = getNumber(stored, 'pastedImageKeep');
-
-    return {
-        codebuddyPath: getString(stored, 'codebuddyPath') ?? DEFAULT_SETTINGS.codebuddyPath,
-        cliTimeoutMinutes: typeof cliTimeoutMinutes === 'number' && cliTimeoutMinutes > 0
-            ? cliTimeoutMinutes
-            : DEFAULT_SETTINGS.cliTimeoutMinutes,
-        nodePath: getString(stored, 'nodePath') ?? DEFAULT_SETTINGS.nodePath,
-        injectVaultContext: typeof injectVaultContext === 'boolean'
-            ? injectVaultContext
-            : DEFAULT_SETTINGS.injectVaultContext,
-        injectCurrentNoteLink: typeof injectCurrentNoteLink === 'boolean'
-            ? injectCurrentNoteLink
-            : DEFAULT_SETTINGS.injectCurrentNoteLink,
-        model: getString(stored, 'model') ?? DEFAULT_SETTINGS.model,
-        primaryColor: getString(stored, 'primaryColor') ?? DEFAULT_SETTINGS.primaryColor,
-        contextWindowSize: typeof contextWindowSize === 'number' && contextWindowSize > 0
-            ? contextWindowSize
-            : DEFAULT_SETTINGS.contextWindowSize,
-        permissionMode: isPermissionMode(stored.permissionMode)
-            ? stored.permissionMode
-            : DEFAULT_SETTINGS.permissionMode,
-        language: language === 'zh' || language === 'en' || language === 'auto'
-            ? language
-            : DEFAULT_SETTINGS.language,
-        customInstruction: getString(stored, 'customInstruction') ?? DEFAULT_SETTINGS.customInstruction,
-        pastedImageKeep: typeof pastedImageKeep === 'number'
-            && Number.isInteger(pastedImageKeep)
-            && pastedImageKeep >= 0
-            && pastedImageKeep <= MAX_PASTED_IMAGE_KEEP
-            ? pastedImageKeep
-            : DEFAULT_SETTINGS.pastedImageKeep,
-        mcpServersJson: getString(stored, 'mcpServersJson') ?? DEFAULT_SETTINGS.mcpServersJson,
-        customAgentsJson: getString(stored, 'customAgentsJson') ?? DEFAULT_SETTINGS.customAgentsJson,
-        thoughtLevel: getString(stored, 'thoughtLevel') ?? DEFAULT_SETTINGS.thoughtLevel,
-        autoTitle: typeof stored.autoTitle === 'boolean' ? stored.autoTitle : DEFAULT_SETTINGS.autoTitle,
-        allowedExternalPaths: Array.isArray(stored.allowedExternalPaths)
-            ? stored.allowedExternalPaths.filter((p): p is string => typeof p === 'string')
-            : DEFAULT_SETTINGS.allowedExternalPaths,
-        version: CURRENT_SETTINGS_VERSION
-    };
+    out.version = CURRENT_SETTINGS_VERSION;
+    return out as unknown as WorkbuddianSettings;
 }
 
 // ==================== 工具函数 ====================
 
+/** RFC4122 v4 uuid：优先加密随机源，退回 Math.random（测试锁定 8-4-4-4-12 与版本位） */
 export function generateId(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
+    const bytes = new Uint8Array(16);
+    const csp = (globalThis as { crypto?: { getRandomValues?: (b: Uint8Array) => void } }).crypto;
+    if (csp?.getRandomValues) {
+        csp.getRandomValues(bytes);
+    } else {
+        for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+    }
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10xx
+    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 // ==================== 持久化数据类型 ====================
+
 export interface PersistedData {
     conversations?: Conversation[];
     settings?: Partial<WorkbuddianSettings>;
 }
 
+/** 落盘 JSON → 内存态：会话数组原样采信，设置一律过迁移 */
 export function normalizePersistedData(raw: unknown): PersistedData {
-    const result: PersistedData = {};
-    if (!isObject(raw)) {
-        return result;
-    }
-
-    if (Array.isArray(raw.conversations)) {
-        result.conversations = raw.conversations as Conversation[];
-    }
-    if (isObject(raw.settings)) {
-        result.settings = migrateSettings(raw.settings);
-    }
-
-    return result;
+    if (!isObject(raw)) return {};
+    const conversations = Array.isArray(raw.conversations)
+        ? (raw.conversations as Conversation[])
+        : undefined;
+    const settings = isObject(raw.settings) ? migrateSettings(raw.settings) : undefined;
+    return {
+        ...(conversations ? { conversations } : {}),
+        ...(settings ? { settings } : {}),
+    };
 }
 
 /** 把设置序列化为可导出的 JSON 字符串 */

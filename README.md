@@ -245,9 +245,9 @@ npm test       # 运行测试
 
 ## Credits / 致谢
 
-Independent rework (derivative) of [BuddyBridge](https://github.com/ben4202121/buddybridge) (MIT); some code derives from it and stays MIT-licensed. UI references Claudian (MIT) for design patterns only. See `LICENSE` / `NOTICE`. Maintained independently; not affiliated with either.
+UI references Claudian (MIT) for design patterns only — no code copied. See `LICENSE` / `NOTICE`. Maintained independently.
 
-基于 [BuddyBridge](https://github.com/ben4202121/buddybridge)（MIT）的独立重构（衍生作品），部分代码源自它并保留 MIT；UI 参考 Claudian（MIT，仅设计）。见 `LICENSE` / `NOTICE`。独立维护，不隶属于二者。
+UI 参考 Claudian（MIT，仅设计模式，无代码拷贝）。见 `LICENSE` / `NOTICE`。独立维护。
 
 ## License
 

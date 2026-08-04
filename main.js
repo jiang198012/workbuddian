@@ -349,165 +349,151 @@ var import_child_process2 = require("child_process");
 var path = __toESM(require("path"));
 var fs = __toESM(require("fs"));
 var import_child_process = require("child_process");
-var NODE_EXECUTABLE = process.platform === "win32" ? "node.exe" : "node";
-function findNodeExecutable() {
-  const home = process.env.HOME || process.env.USERPROFILE || "";
-  const nodeDirs = [];
-  if (process.platform === "win32") {
-    nodeDirs.push(path.dirname(process.execPath));
-    const appData = process.env.APPDATA || "";
-    if (appData) {
-      nodeDirs.push(appData);
-      nodeDirs.push(path.join(appData, "npm"));
-    }
-    const programFiles = process.env.ProgramFiles || "C:\\Program Files";
-    const programFilesX86 = process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
-    const localAppData = process.env.LOCALAPPDATA || "";
-    nodeDirs.push(
-      path.join(programFiles, "nodejs"),
-      path.join(programFilesX86, "nodejs")
-    );
-    if (localAppData) {
-      nodeDirs.push(path.join(localAppData, "Programs", "nodejs"));
-    }
-    const nvmSymlink = process.env.NVM_SYMLINK;
-    if (nvmSymlink) {
-      nodeDirs.push(nvmSymlink);
-    }
-    if (home) {
-      const wbNodeVersionsDir = path.join(home, ".workbuddy", "binaries", "node", "versions");
-      try {
-        const versions = fs.readdirSync(wbNodeVersionsDir);
-        for (const v of versions) {
-          nodeDirs.push(path.join(wbNodeVersionsDir, v));
-        }
-      } catch (e) {
-      }
-    }
-    for (const drive of ["C:", "D:", "E:"]) {
-      if (drive + "\\" !== path.parse(programFiles).root.toUpperCase()) {
-        nodeDirs.push(path.join(drive + "\\Program Files", "nodejs"));
-      }
-    }
-  } else {
-    nodeDirs.push(
-      path.join(home, ".local", "bin"),
-      path.join(home, ".npm-global", "bin"),
-      path.join(home, ".volta", "bin"),
-      path.join(home, "bin"),
-      "/usr/local/bin",
-      "/opt/homebrew/bin"
-    );
-    const nvmBin = process.env.NVM_BIN;
-    if (nvmBin) {
-      nodeDirs.push(nvmBin);
-    }
+var isWin = () => process.platform === "win32";
+var home = () => process.env.HOME || process.env.USERPROFILE || "";
+var nodeBinName = () => isWin() ? "node.exe" : "node";
+function env(name) {
+  return process.env[name] || "";
+}
+function isFile(p) {
+  try {
+    return fs.statSync(p).isFile();
+  } catch (e) {
+    return false;
   }
-  for (const dir of nodeDirs) {
+}
+function firstHit(candidates) {
+  for (const p of candidates) {
+    if (p && fs.existsSync(p))
+      return p;
+  }
+  return null;
+}
+function findOnPath(names) {
+  const sep = isWin() ? ";" : ":";
+  for (const dir of env("PATH").split(sep)) {
     if (!dir)
       continue;
+    for (const name of names) {
+      const p = path.join(dir, name);
+      if (isFile(p))
+        return p;
+    }
+  }
+  return null;
+}
+function nodeCandidates() {
+  if (!isWin()) {
+    return [
+      path.join(home(), ".local", "bin"),
+      path.join(home(), ".npm-global", "bin"),
+      path.join(home(), ".volta", "bin"),
+      path.join(home(), "bin"),
+      "/usr/local/bin",
+      "/opt/homebrew/bin",
+      env("NVM_BIN")
+    ].map((dir) => dir && path.join(dir, nodeBinName()));
+  }
+  const dirs = [path.dirname(process.execPath)];
+  const appData = env("APPDATA");
+  if (appData)
+    dirs.push(appData, path.join(appData, "npm"));
+  const pf = env("ProgramFiles") || "C:\\Program Files";
+  const pf86 = env("ProgramFiles(x86)") || "C:\\Program Files (x86)";
+  dirs.push(path.join(pf, "nodejs"), path.join(pf86, "nodejs"));
+  const lad = env("LOCALAPPDATA");
+  if (lad)
+    dirs.push(path.join(lad, "Programs", "nodejs"));
+  if (env("NVM_SYMLINK"))
+    dirs.push(env("NVM_SYMLINK"));
+  if (home()) {
+    const versionsDir = path.join(home(), ".workbuddy", "binaries", "node", "versions");
     try {
-      const nodePath = path.join(dir, NODE_EXECUTABLE);
-      if (fs.existsSync(nodePath) && fs.statSync(nodePath).isFile()) {
-        bbLog("[WB] found node at:", nodePath);
-        return nodePath;
-      }
+      for (const v of fs.readdirSync(versionsDir))
+        dirs.push(path.join(versionsDir, v));
     } catch (e) {
     }
+  }
+  for (const drive of ["C:", "D:", "E:"]) {
+    if (`${drive}\\` !== path.parse(pf).root.toUpperCase()) {
+      dirs.push(path.join(`${drive}\\Program Files`, "nodejs"));
+    }
+  }
+  return dirs.map((dir) => dir && path.join(dir, nodeBinName()));
+}
+function findNodeExecutable() {
+  const hit = firstHit(nodeCandidates().filter(isFile));
+  if (hit) {
+    bbLog("[WB] found node at:", hit);
+    return hit;
   }
   bbLog("[WB] WARNING: node not found in any search path, falling back to 'node'");
   return "node";
 }
-function resolveCodebuddyPath(customPath) {
-  if (customPath && fs.existsSync(customPath)) {
-    return customPath;
-  }
-  if (process.env.CODEBUDDY_PATH && fs.existsSync(process.env.CODEBUDDY_PATH)) {
-    return process.env.CODEBUDDY_PATH;
-  }
-  const home = process.env.HOME || process.env.USERPROFILE || "";
-  const localAppData = process.env.LOCALAPPDATA || "";
-  const appData = process.env.APPDATA || "";
-  const programFiles = process.env.ProgramFiles || "C:\\Program Files";
-  const programFilesX86 = process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
-  const candidates = [];
-  if (process.platform === "win32") {
-    candidates.push(
-      path.join(localAppData, "Programs", "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy.exe"),
-      path.join(localAppData, "Programs", "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy.cmd"),
-      path.join(localAppData, "Programs", "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy")
-    );
-    if (appData) {
-      candidates.push(path.join(appData, "npm", "codebuddy.cmd"));
-      candidates.push(path.join(appData, "npm", "codebuddy"));
-    }
-    candidates.push(
-      path.join(programFiles, "nodejs", "codebuddy.cmd"),
-      path.join(programFiles, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
-      path.join(programFilesX86, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
-      path.join(programFiles, "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy.exe"),
-      path.join(programFiles, "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy.cmd"),
-      path.join(programFiles, "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy"),
-      path.join(programFilesX86, "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy.exe"),
-      path.join(programFilesX86, "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy.cmd"),
-      path.join(programFilesX86, "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy")
-    );
-    for (const drive of ["C:", "D:", "E:"]) {
-      candidates.push(
-        path.join(drive + "\\Program Files", "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy.exe"),
-        path.join(drive + "\\Program Files", "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy.cmd"),
-        path.join(drive + "\\Program Files", "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy")
-      );
-    }
-  } else {
-    candidates.push(
+var WB_CLI_REL = ["Resources", "app.asar.unpacked", "cli", "bin"];
+function codebuddyCandidates() {
+  if (!isWin()) {
+    return [
       "/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy",
-      path.join(home, "Applications", "WorkBuddy.app", "Contents", "Resources", "app.asar.unpacked", "cli", "bin", "codebuddy"),
-      path.join(home, ".local", "bin", "codebuddy"),
-      path.join(home, ".npm-global", "bin", "codebuddy"),
-      path.join(home, ".volta", "bin", "codebuddy"),
-      path.join(home, "bin", "codebuddy"),
+      path.join(home(), "Applications", "WorkBuddy.app", "Contents", ...WB_CLI_REL, "codebuddy"),
+      path.join(home(), ".local", "bin", "codebuddy"),
+      path.join(home(), ".npm-global", "bin", "codebuddy"),
+      path.join(home(), ".volta", "bin", "codebuddy"),
+      path.join(home(), "bin", "codebuddy"),
       "/usr/local/bin/codebuddy",
       "/opt/homebrew/bin/codebuddy"
-    );
+    ];
   }
-  const nvmBin = process.env.NVM_BIN;
-  if (nvmBin)
-    candidates.push(path.join(nvmBin, "codebuddy"));
-  const npmPrefix = process.env.npm_config_prefix;
-  if (npmPrefix)
-    candidates.push(path.join(npmPrefix, "bin", "codebuddy"));
-  for (const p of candidates) {
-    if (fs.existsSync(p)) {
-      bbLog("[WB] resolved codebuddy path:", p);
-      return p;
-    }
+  const lad = env("LOCALAPPDATA");
+  const appData = env("APPDATA");
+  const pf = env("ProgramFiles") || "C:\\Program Files";
+  const pf86 = env("ProgramFiles(x86)") || "C:\\Program Files (x86)";
+  const list = [];
+  const wbExe = (root, names) => names.map((n) => path.join(root, ...WB_CLI_REL, n));
+  if (lad)
+    list.push(...wbExe(path.join(lad, "Programs", "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
+  if (appData)
+    list.push(path.join(appData, "npm", "codebuddy.cmd"), path.join(appData, "npm", "codebuddy"));
+  list.push(
+    path.join(pf, "nodejs", "codebuddy.cmd"),
+    path.join(pf, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
+    path.join(pf86, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
+    ...wbExe(path.join(pf, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]),
+    ...wbExe(path.join(pf86, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"])
+  );
+  for (const drive of ["C:", "D:", "E:"]) {
+    list.push(...wbExe(path.join(`${drive}\\Program Files`, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
   }
-  const envPath = process.env.PATH || "";
-  const pathSep = process.platform === "win32" ? ";" : ":";
-  const exeNames = process.platform === "win32" ? ["codebuddy.exe", "codebuddy.cmd", "codebuddy"] : ["codebuddy"];
-  for (const dir of envPath.split(pathSep)) {
-    if (!dir)
-      continue;
-    for (const name of exeNames) {
-      try {
-        const p = path.join(dir, name);
-        if (fs.existsSync(p))
-          return p;
-      } catch (e) {
-      }
-    }
-  }
-  return "codebuddy";
+  return list;
 }
+function resolveCodebuddyPath(customPath) {
+  if (customPath && fs.existsSync(customPath))
+    return customPath;
+  const fromEnv = env("CODEBUDDY_PATH");
+  if (fromEnv && fs.existsSync(fromEnv))
+    return fromEnv;
+  const extra = [
+    env("NVM_BIN") && path.join(env("NVM_BIN"), "codebuddy"),
+    env("npm_config_prefix") && path.join(env("npm_config_prefix"), "bin", "codebuddy")
+  ];
+  const hit = firstHit([...codebuddyCandidates(), ...extra]);
+  if (hit) {
+    bbLog("[WB] resolved codebuddy path:", hit);
+    return hit;
+  }
+  const onPath = findOnPath(isWin() ? ["codebuddy.exe", "codebuddy.cmd", "codebuddy"] : ["codebuddy"]);
+  return onPath != null ? onPath : "codebuddy";
+}
+var WRAPPER_EXTS = /* @__PURE__ */ new Set([".cmd", ".exe", ".bat"]);
 function isWindowsWrapper(scriptPath) {
-  return scriptPath.endsWith(".cmd") || scriptPath.endsWith(".exe") || scriptPath.endsWith(".bat");
+  return WRAPPER_EXTS.has(path.extname(scriptPath).toLowerCase());
 }
 function isBareFallback(scriptPath) {
   return scriptPath === "codebuddy" || !path.isAbsolute(scriptPath);
 }
 function needsWindowsShell(scriptPath) {
-  return process.platform === "win32" && (scriptPath.endsWith(".cmd") || scriptPath.endsWith(".bat"));
+  const ext = path.extname(scriptPath).toLowerCase();
+  return isWin() && (ext === ".cmd" || ext === ".bat");
 }
 
 // src/providers/codebuddy/acp/client.ts
@@ -1400,15 +1386,15 @@ function parseMcpServers(json) {
   }
   return out;
 }
-function normalizeEnv(env) {
-  if (Array.isArray(env)) {
-    return env.filter((e) => !!e && typeof e === "object").map((e) => {
+function normalizeEnv(env2) {
+  if (Array.isArray(env2)) {
+    return env2.filter((e) => !!e && typeof e === "object").map((e) => {
       var _a, _b;
       return { name: String((_a = e.name) != null ? _a : ""), value: String((_b = e.value) != null ? _b : "") };
     }).filter((e) => e.name.length > 0);
   }
-  if (env && typeof env === "object") {
-    return Object.entries(env).map(([name, value]) => ({ name, value: String(value) }));
+  if (env2 && typeof env2 === "object") {
+    return Object.entries(env2).map(([name, value]) => ({ name, value: String(value) }));
   }
   return [];
 }
@@ -1788,6 +1774,36 @@ function registerWorkbuddianIcon() {
 var import_obsidian7 = require("obsidian");
 
 // src/types/index.ts
+function isObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function pick(data, key, guard) {
+  const value = data[key];
+  return guard(value) ? value : void 0;
+}
+var isString = (v) => typeof v === "string";
+var isNum = (v) => typeof v === "number";
+var isBool = (v) => typeof v === "boolean";
+function getString(data, key) {
+  return pick(data, key, isString);
+}
+function getNumber(data, key) {
+  return pick(data, key, isNum);
+}
+function getBoolean(data, key) {
+  return pick(data, key, isBool);
+}
+function getErrorMessage(error) {
+  switch (typeof error) {
+    case "string":
+      return error;
+    case "object":
+      if (error instanceof Error)
+        return error.message;
+      break;
+  }
+  return t("common.unknownError");
+}
 var CURRENT_SETTINGS_VERSION = 12;
 var DEFAULT_CONTEXT_WINDOW_SIZE = 2e5;
 var DEFAULT_PASTED_IMAGE_KEEP = 20;
@@ -1812,81 +1828,79 @@ var DEFAULT_SETTINGS = {
   allowedExternalPaths: [],
   version: CURRENT_SETTINGS_VERSION
 };
-function isObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function getString(data, key) {
-  const value = data[key];
-  return typeof value === "string" ? value : void 0;
-}
-function getNumber(data, key) {
-  const value = data[key];
-  return typeof value === "number" ? value : void 0;
-}
-function getBoolean(data, key) {
-  const value = data[key];
-  return typeof value === "boolean" ? value : void 0;
-}
-function getErrorMessage(error) {
-  if (error instanceof Error) {
-    return error.message;
+var FIELD_RULES = [
+  { key: "codebuddyPath", read: (s) => getString(s, "codebuddyPath") },
+  { key: "cliTimeoutMinutes", read: (s) => {
+    const v = getNumber(s, "cliTimeoutMinutes");
+    return v !== void 0 && v > 0 ? v : void 0;
+  } },
+  { key: "nodePath", read: (s) => getString(s, "nodePath") },
+  { key: "injectVaultContext", read: (s) => getBoolean(s, "injectVaultContext") },
+  { key: "injectCurrentNoteLink", read: (s) => getBoolean(s, "injectCurrentNoteLink") },
+  { key: "model", read: (s) => getString(s, "model") },
+  { key: "primaryColor", read: (s) => getString(s, "primaryColor") },
+  { key: "contextWindowSize", read: (s) => {
+    const v = getNumber(s, "contextWindowSize");
+    return v !== void 0 && v > 0 ? v : void 0;
+  } },
+  { key: "permissionMode", read: (s) => isPermissionMode(s.permissionMode) ? s.permissionMode : void 0 },
+  { key: "language", read: (s) => {
+    const v = getString(s, "language");
+    return v === "zh" || v === "en" || v === "auto" ? v : void 0;
+  } },
+  { key: "customInstruction", read: (s) => getString(s, "customInstruction") },
+  {
+    key: "pastedImageKeep",
+    read: (s) => {
+      const v = getNumber(s, "pastedImageKeep");
+      return v !== void 0 && Number.isInteger(v) && v >= 0 && v <= MAX_PASTED_IMAGE_KEEP ? v : void 0;
+    }
+  },
+  { key: "mcpServersJson", read: (s) => getString(s, "mcpServersJson") },
+  { key: "customAgentsJson", read: (s) => getString(s, "customAgentsJson") },
+  { key: "thoughtLevel", read: (s) => getString(s, "thoughtLevel") },
+  { key: "autoTitle", read: (s) => getBoolean(s, "autoTitle") },
+  {
+    key: "allowedExternalPaths",
+    read: (s) => Array.isArray(s.allowedExternalPaths) ? s.allowedExternalPaths.filter((p) => typeof p === "string") : void 0
   }
-  if (typeof error === "string") {
-    return error;
-  }
-  return t("common.unknownError");
-}
+];
 function migrateSettings(stored) {
-  var _a, _b, _c, _d, _e, _f, _g, _h;
-  if (!isObject(stored)) {
-    return { ...DEFAULT_SETTINGS };
+  const base = { ...DEFAULT_SETTINGS, allowedExternalPaths: [...DEFAULT_SETTINGS.allowedExternalPaths] };
+  if (!isObject(stored))
+    return base;
+  const out = base;
+  for (const rule of FIELD_RULES) {
+    const value = rule.read(stored);
+    if (value !== void 0)
+      out[rule.key] = value;
   }
-  const cliTimeoutMinutes = getNumber(stored, "cliTimeoutMinutes");
-  const injectVaultContext = getBoolean(stored, "injectVaultContext");
-  const injectCurrentNoteLink = getBoolean(stored, "injectCurrentNoteLink");
-  const contextWindowSize = getNumber(stored, "contextWindowSize");
-  const language = getString(stored, "language");
-  const pastedImageKeep = getNumber(stored, "pastedImageKeep");
-  return {
-    codebuddyPath: (_a = getString(stored, "codebuddyPath")) != null ? _a : DEFAULT_SETTINGS.codebuddyPath,
-    cliTimeoutMinutes: typeof cliTimeoutMinutes === "number" && cliTimeoutMinutes > 0 ? cliTimeoutMinutes : DEFAULT_SETTINGS.cliTimeoutMinutes,
-    nodePath: (_b = getString(stored, "nodePath")) != null ? _b : DEFAULT_SETTINGS.nodePath,
-    injectVaultContext: typeof injectVaultContext === "boolean" ? injectVaultContext : DEFAULT_SETTINGS.injectVaultContext,
-    injectCurrentNoteLink: typeof injectCurrentNoteLink === "boolean" ? injectCurrentNoteLink : DEFAULT_SETTINGS.injectCurrentNoteLink,
-    model: (_c = getString(stored, "model")) != null ? _c : DEFAULT_SETTINGS.model,
-    primaryColor: (_d = getString(stored, "primaryColor")) != null ? _d : DEFAULT_SETTINGS.primaryColor,
-    contextWindowSize: typeof contextWindowSize === "number" && contextWindowSize > 0 ? contextWindowSize : DEFAULT_SETTINGS.contextWindowSize,
-    permissionMode: isPermissionMode(stored.permissionMode) ? stored.permissionMode : DEFAULT_SETTINGS.permissionMode,
-    language: language === "zh" || language === "en" || language === "auto" ? language : DEFAULT_SETTINGS.language,
-    customInstruction: (_e = getString(stored, "customInstruction")) != null ? _e : DEFAULT_SETTINGS.customInstruction,
-    pastedImageKeep: typeof pastedImageKeep === "number" && Number.isInteger(pastedImageKeep) && pastedImageKeep >= 0 && pastedImageKeep <= MAX_PASTED_IMAGE_KEEP ? pastedImageKeep : DEFAULT_SETTINGS.pastedImageKeep,
-    mcpServersJson: (_f = getString(stored, "mcpServersJson")) != null ? _f : DEFAULT_SETTINGS.mcpServersJson,
-    customAgentsJson: (_g = getString(stored, "customAgentsJson")) != null ? _g : DEFAULT_SETTINGS.customAgentsJson,
-    thoughtLevel: (_h = getString(stored, "thoughtLevel")) != null ? _h : DEFAULT_SETTINGS.thoughtLevel,
-    autoTitle: typeof stored.autoTitle === "boolean" ? stored.autoTitle : DEFAULT_SETTINGS.autoTitle,
-    allowedExternalPaths: Array.isArray(stored.allowedExternalPaths) ? stored.allowedExternalPaths.filter((p) => typeof p === "string") : DEFAULT_SETTINGS.allowedExternalPaths,
-    version: CURRENT_SETTINGS_VERSION
-  };
+  out.version = CURRENT_SETTINGS_VERSION;
+  return out;
 }
 function generateId() {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === "x" ? r : r & 3 | 8;
-    return v.toString(16);
-  });
+  const bytes = new Uint8Array(16);
+  const csp = globalThis.crypto;
+  if (csp == null ? void 0 : csp.getRandomValues) {
+    csp.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 16; i++)
+      bytes[i] = Math.floor(Math.random() * 256);
+  }
+  bytes[6] = bytes[6] & 15 | 64;
+  bytes[8] = bytes[8] & 63 | 128;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 function normalizePersistedData(raw) {
-  const result = {};
-  if (!isObject(raw)) {
-    return result;
-  }
-  if (Array.isArray(raw.conversations)) {
-    result.conversations = raw.conversations;
-  }
-  if (isObject(raw.settings)) {
-    result.settings = migrateSettings(raw.settings);
-  }
-  return result;
+  if (!isObject(raw))
+    return {};
+  const conversations = Array.isArray(raw.conversations) ? raw.conversations : void 0;
+  const settings = isObject(raw.settings) ? migrateSettings(raw.settings) : void 0;
+  return {
+    ...conversations ? { conversations } : {},
+    ...settings ? { settings } : {}
+  };
 }
 function exportSettings(settings) {
   return JSON.stringify(settings, null, 2);
@@ -4174,216 +4188,32 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
 };
 
 // src/core/session/manager.ts
+function newConversation(title) {
+  const now = Date.now();
+  return {
+    id: generateId(),
+    title: (title == null ? void 0 : title.trim()) ? title.trim() : t("chat.newConversation"),
+    sessionId: "",
+    // 首次发送消息时分配
+    messages: [],
+    createdAt: now,
+    updatedAt: now
+  };
+}
 var ConversationManager = class {
   constructor() {
     this.conversations = /* @__PURE__ */ new Map();
-    // 仅作"初始绑定"提示（view 打开/加载历史时读一次）：运行期的活跃对话指针是每个 view 自己的
-    // activeConvId（view.ts），这里不再是插件级唯一选中态，切标签不写回此处（WB-005）
     this.activeId = null;
     this.persistCallback = null;
   }
-  setPersistCallback(callback) {
-    this.persistCallback = callback;
-  }
-  /** 判断是否已经加载过对话数据（用于避免多个同时打开的视图重复 load() 时用旧快照互相覆盖） */
-  hasConversations() {
-    return this.conversations.size > 0;
-  }
-  async persist() {
-    if (this.persistCallback) {
-      await this.persistCallback(this.getAll());
-    }
-  }
-  handlePersistError(error) {
-    bbError("[WB] persist failed:", getErrorMessage(error));
-  }
-  /** 显式触发持久化（流式结束后调用） */
-  async flush() {
-    await this.persist();
-  }
-  /** 从持久化数据加载对话 */
-  load(conversations) {
-    if (!conversations || conversations.length === 0) {
-      this.createConversation();
-      return;
-    }
-    for (const conv of conversations) {
-      this.conversations.set(conv.id, { ...conv });
-    }
-    this.activeId = conversations[0].id;
-  }
-  /** 创建新对话 */
+  // ---- 工厂 ----
+  /** 创建新对话（写入即激活初始指针并持久化） */
   createConversation(title) {
-    const id = generateId();
-    const conv = {
-      id,
-      title: title || t("chat.newConversation"),
-      sessionId: "",
-      // 首次发送消息时由 Gateway 分配
-      messages: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    this.conversations.set(id, conv);
-    this.activeId = id;
-    this.persist().catch((err) => this.handlePersistError(err));
+    const conv = newConversation(title);
+    this.conversations.set(conv.id, conv);
+    this.activeId = conv.id;
+    this.commit();
     return conv;
-  }
-  /** 删除对话 */
-  deleteConversation(id) {
-    if (!this.conversations.has(id))
-      return false;
-    this.conversations.delete(id);
-    if (this.activeId === id) {
-      const remaining = this.getAll();
-      this.activeId = remaining.length > 0 ? remaining[0].id : null;
-    }
-    this.persist().catch((err) => this.handlePersistError(err));
-    return true;
-  }
-  /** 切换到指定对话 */
-  switchTo(id) {
-    const conv = this.conversations.get(id);
-    if (!conv)
-      return null;
-    this.activeId = id;
-    return conv;
-  }
-  /** 重命名对话 */
-  renameConversation(id, newTitle) {
-    const trimmed = newTitle.trim();
-    if (!trimmed)
-      return false;
-    const conv = this.conversations.get(id);
-    if (!conv)
-      return false;
-    conv.title = trimmed;
-    conv.updatedAt = Date.now();
-    this.persist().catch((err) => this.handlePersistError(err));
-    return true;
-  }
-  /** 获取当前活跃对话 */
-  getActive() {
-    if (!this.activeId)
-      return null;
-    return this.conversations.get(this.activeId) || null;
-  }
-  /** 按 id 精确查找对话，不依赖也不影响内部 activeId —— 供各视图维护各自独立的活跃对话指针 */
-  getById(id) {
-    return this.conversations.get(id) || null;
-  }
-  /** 获取所有对话（按更新时间倒序） */
-  getAll() {
-    return Array.from(this.conversations.values()).sort((a, b) => b.updatedAt - a.updatedAt);
-  }
-  /** 按标题和消息正文做本地大小写不敏感的包含匹配 */
-  search(query) {
-    const trimmed = query.trim().toLowerCase();
-    if (!trimmed)
-      return this.getAll();
-    return this.getAll().filter((conv) => {
-      if (conv.title.toLowerCase().includes(trimmed))
-        return true;
-      return conv.messages.some((msg) => msg.content.toLowerCase().includes(trimmed));
-    });
-  }
-  /** 添加消息到当前活跃对话 */
-  addMessage(convId, role, content, attachments) {
-    const conv = this.conversations.get(convId);
-    if (!conv)
-      return null;
-    const msg = {
-      id: generateId(),
-      role,
-      content,
-      timestamp: Date.now()
-    };
-    if (attachments && attachments.length > 0) {
-      msg.attachments = attachments;
-    }
-    conv.messages.push(msg);
-    conv.updatedAt = Date.now();
-    if (matchesAnyLang(conv.title, "chat.newConversation") && role === "user" && content.trim()) {
-      conv.title = fallbackTitle(content);
-    }
-    this.persist().catch((err) => this.handlePersistError(err));
-    return msg;
-  }
-  /** 更新指定消息内容（用于流式追加） */
-  updateMessage(convId, msgId, content, skipSave = false) {
-    const conv = this.conversations.get(convId);
-    if (!conv)
-      return false;
-    const msg = conv.messages.find((m) => m.id === msgId);
-    if (!msg)
-      return false;
-    msg.content = content;
-    conv.updatedAt = Date.now();
-    if (!skipSave) {
-      this.persist().catch((err) => this.handlePersistError(err));
-    }
-    return true;
-  }
-  /** 设置对话的 Gateway sessionId */
-  setSessionId(convId, sessionId) {
-    const conv = this.conversations.get(convId);
-    if (!conv)
-      return false;
-    conv.sessionId = sessionId;
-    return true;
-  }
-  /** 回写 CLI 分配的 ACP 会话 id；与 setSessionId 一样不单独触发持久化，靠同轮后续 persist/flush 顺带落盘 */
-  setAcpSessionId(convId, acpSessionId) {
-    const conv = this.conversations.get(convId);
-    if (!conv)
-      return false;
-    conv.acpSessionId = acpSessionId;
-    return true;
-  }
-  /** 按 v1 sessionId（provider 会话 key）反查会话，供 provider 的 ConversationLookup 注入用 */
-  findBySessionId(sessionId) {
-    for (const conv of this.conversations.values()) {
-      if (conv.sessionId === sessionId)
-        return conv;
-    }
-    return null;
-  }
-  /** 记录对话最近一轮的 token 用量（流式内更新，随后 flush 持久化） */
-  setUsage(convId, usage) {
-    const conv = this.conversations.get(convId);
-    if (!conv)
-      return false;
-    conv.lastUsage = usage;
-    return true;
-  }
-  /** 把某条消息标记为错误并设置文案 */
-  setError(convId, msgId, content) {
-    const conv = this.conversations.get(convId);
-    if (!conv)
-      return false;
-    const msg = conv.messages.find((m) => m.id === msgId);
-    if (!msg)
-      return false;
-    msg.content = content;
-    msg.isError = true;
-    conv.updatedAt = Date.now();
-    this.persist().catch((err) => this.handlePersistError(err));
-    return true;
-  }
-  /** 删除最后一对 user+assistant 消息，返回该 user 文本（供重试重发）；不满足返回 null */
-  deleteLastExchange(convId) {
-    const conv = this.conversations.get(convId);
-    if (!conv || conv.messages.length < 2)
-      return null;
-    const last = conv.messages[conv.messages.length - 1];
-    const prev = conv.messages[conv.messages.length - 2];
-    if (last.role !== "assistant" || prev.role !== "user")
-      return null;
-    const userText = prev.content;
-    conv.messages.splice(conv.messages.length - 2, 2);
-    conv.updatedAt = Date.now();
-    this.persist().catch((err) => this.handlePersistError(err));
-    return userText;
   }
   /** 分叉会话：复制源会话消息（id 重生成）、写入 CLI 分配的分叉 acpSessionId；源不存在返回 null */
   forkConversation(sourceId, title, acpSessionId) {
@@ -4395,8 +4225,181 @@ var ConversationManager = class {
     forked.sessionId = "";
     forked.acpSessionId = acpSessionId;
     forked.updatedAt = Date.now();
-    this.persist().catch((err) => this.handlePersistError(err));
+    this.commit();
     return forked;
+  }
+  // ---- 查询 ----
+  /** 按 id 精确查找，不依赖也不影响初始指针 —— 供各视图维护各自独立的活跃对话指针 */
+  getById(id) {
+    return this.conversations.get(id) || null;
+  }
+  /** 初始指针指向的对话 */
+  getActive() {
+    return this.activeId && this.conversations.get(this.activeId) || null;
+  }
+  /** 全部对话，按更新时间倒序 */
+  getAll() {
+    return [...this.conversations.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+  /** 按标题和消息正文做本地大小写不敏感的包含匹配；空串返回全部 */
+  search(query) {
+    const needle = query.trim().toLowerCase();
+    const all = this.getAll();
+    if (!needle)
+      return all;
+    return all.filter((conv) => conv.title.toLowerCase().includes(needle) || conv.messages.some((msg) => msg.content.toLowerCase().includes(needle)));
+  }
+  /** 按 v1 sessionId 反查会话，供 provider 的 ConversationLookup 注入用 */
+  findBySessionId(sessionId) {
+    for (const conv of this.conversations.values()) {
+      if (conv.sessionId === sessionId)
+        return conv;
+    }
+    return null;
+  }
+  /** 是否已加载过对话数据（避免多面板重复 load() 时用旧快照互相覆盖） */
+  hasConversations() {
+    return this.conversations.size > 0;
+  }
+  // ---- 变更 ----
+  /** 追加消息；首条用户消息触发截断标题（跨语言识别默认标题，兼容切换语言前后的旧数据） */
+  addMessage(convId, role, content, attachments) {
+    const conv = this.conversations.get(convId);
+    if (!conv)
+      return null;
+    const msg = { id: generateId(), role, content, timestamp: Date.now() };
+    if (attachments == null ? void 0 : attachments.length)
+      msg.attachments = attachments;
+    conv.messages.push(msg);
+    conv.updatedAt = Date.now();
+    if (matchesAnyLang(conv.title, "chat.newConversation") && role === "user" && content.trim()) {
+      conv.title = fallbackTitle(content);
+    }
+    this.commit();
+    return msg;
+  }
+  /** 更新指定消息内容（用于流式追加）；skipSave 跳过持久化（流式中高频调用，末尾 flush 兜底） */
+  updateMessage(convId, msgId, content, skipSave = false) {
+    var _a;
+    const msg = (_a = this.conversations.get(convId)) == null ? void 0 : _a.messages.find((m) => m.id === msgId);
+    if (!msg)
+      return false;
+    msg.content = content;
+    const conv = this.conversations.get(convId);
+    conv.updatedAt = Date.now();
+    if (!skipSave)
+      this.commit();
+    return true;
+  }
+  /** 记录对话最近一轮的 token 用量（流式内更新，随后 flush 持久化） */
+  setUsage(convId, usage) {
+    const conv = this.conversations.get(convId);
+    if (!conv)
+      return false;
+    conv.lastUsage = usage;
+    return true;
+  }
+  /** 把某条消息标记为错误并设置文案 */
+  setError(convId, msgId, content) {
+    var _a;
+    const msg = (_a = this.conversations.get(convId)) == null ? void 0 : _a.messages.find((m) => m.id === msgId);
+    if (!msg)
+      return false;
+    msg.content = content;
+    msg.isError = true;
+    this.conversations.get(convId).updatedAt = Date.now();
+    this.commit();
+    return true;
+  }
+  /** 回写 v1 sessionId（provider 会话 key）；不单独持久化，靠同轮后续 commit/flush 顺带落盘 */
+  setSessionId(convId, sessionId) {
+    const conv = this.conversations.get(convId);
+    if (!conv)
+      return false;
+    conv.sessionId = sessionId;
+    return true;
+  }
+  /** 回写 CLI 分配的 ACP 会话 id；持久化时机同 setSessionId */
+  setAcpSessionId(convId, acpSessionId) {
+    const conv = this.conversations.get(convId);
+    if (!conv)
+      return false;
+    conv.acpSessionId = acpSessionId;
+    return true;
+  }
+  /** 重命名对话（空名拒绝） */
+  renameConversation(id, newTitle) {
+    const trimmed = newTitle.trim();
+    if (!trimmed)
+      return false;
+    const conv = this.conversations.get(id);
+    if (!conv)
+      return false;
+    conv.title = trimmed;
+    conv.updatedAt = Date.now();
+    this.commit();
+    return true;
+  }
+  /** 切换到指定对话（仅移动初始指针） */
+  switchTo(id) {
+    const conv = this.conversations.get(id);
+    if (!conv)
+      return null;
+    this.activeId = id;
+    return conv;
+  }
+  /** 删除对话；被删的是初始指针指向的对话时改指到最新一个 */
+  deleteConversation(id) {
+    var _a, _b;
+    const existed = this.conversations.delete(id);
+    if (!existed)
+      return false;
+    if (this.activeId === id) {
+      this.activeId = (_b = (_a = this.getAll()[0]) == null ? void 0 : _a.id) != null ? _b : null;
+    }
+    this.commit();
+    return true;
+  }
+  /** 删除最后一对 user+assistant 消息，返回该 user 文本（供重试重发）；结构不满足返回 null */
+  deleteLastExchange(convId) {
+    const conv = this.conversations.get(convId);
+    const messages = conv == null ? void 0 : conv.messages;
+    if (!conv || !messages || messages.length < 2)
+      return null;
+    const last = messages[messages.length - 1];
+    const prev = messages[messages.length - 2];
+    if (last.role !== "assistant" || prev.role !== "user")
+      return null;
+    messages.length -= 2;
+    conv.updatedAt = Date.now();
+    this.commit();
+    return prev.content;
+  }
+  // ---- 持久化 ----
+  setPersistCallback(callback) {
+    this.persistCallback = callback;
+  }
+  /** 变更统一出口：写操作调用它把当前全量交给持久化回调 */
+  commit() {
+    if (!this.persistCallback)
+      return;
+    void Promise.resolve(this.persistCallback(this.getAll())).catch((err) => {
+      bbError("[WB] persist failed:", getErrorMessage(err));
+    });
+  }
+  /** 显式触发持久化（流式结束后调用） */
+  async flush() {
+    if (this.persistCallback)
+      await this.persistCallback(this.getAll());
+  }
+  /** 从持久化数据加载对话；空数据补一个默认新对话 */
+  load(conversations) {
+    if (!(conversations == null ? void 0 : conversations.length)) {
+      this.createConversation();
+      return;
+    }
+    conversations.forEach((conv) => this.conversations.set(conv.id, { ...conv }));
+    this.activeId = conversations[0].id;
   }
 };
 
@@ -4877,11 +4880,7 @@ var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
       this.api = new CodebuddyProvider();
       this.applySettingsToApi();
       this.manager = new ConversationManager();
-      this.manager.setPersistCallback(async (conversations) => {
-        const data = normalizePersistedData(await this.loadData());
-        data.conversations = conversations;
-        await this.saveData(data);
-      });
+      this.manager.setPersistCallback((conversations) => this.persistConversations(conversations));
       this.api.setConversationLookup({
         getAcpSessionId: (key) => {
           var _a;
@@ -4893,44 +4892,9 @@ var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
             this.manager.setAcpSessionId(conv.id, id);
         }
       });
-      this.registerView(
-        VIEW_TYPE_CHAT,
-        (leaf) => {
-          const view = new WorkbuddianChatView(leaf, this.api, this.manager, this.settings, async () => {
-            const data = normalizePersistedData(await this.loadData());
-            return data.conversations || [];
-          }, async () => {
-            await this.saveSettings();
-          });
-          this.chatView = view;
-          return view;
-        }
-      );
-      this.addRibbonIcon(WORKBUDDIAN_ICON_ID, t("cmd.ribbonTooltip"), async () => {
-        await this.activateView();
-      });
-      this.addCommand({
-        id: "open-chat",
-        name: t("cmd.openChat"),
-        callback: async () => {
-          await this.activateView();
-        }
-      });
-      this.addCommand({
-        id: "open-chat-main-pane",
-        name: t("cmd.openChatMainPane"),
-        callback: async () => {
-          await this.activateMainPaneView();
-        }
-      });
-      this.addCommand({
-        id: "inline-edit",
-        name: t("cmd.inlineEdit"),
-        editorCallback: (editor) => {
-          const basePath = this.app.vault.adapter.basePath;
-          runInlineEdit(this.app, this.api, editor, basePath);
-        }
-      });
+      this.registerView(VIEW_TYPE_CHAT, (leaf) => this.buildChatView(leaf));
+      this.addRibbonIcon(WORKBUDDIAN_ICON_ID, t("cmd.ribbonTooltip"), () => void this.activateView());
+      this.registerCommands();
       this.addSettingTab(new WorkbuddianSettingTab(this.app, this));
     } catch (e) {
       bbError("[WB] \u63D2\u4EF6\u52A0\u8F7D\u5931\u8D25:", e);
@@ -4940,6 +4904,38 @@ var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
   onunload() {
     this.api.dispose();
     applyPrimaryColor("");
+  }
+  /** 视图工厂：每个 leaf 一个 view，共享 api/manager/settings 与两个数据回调 */
+  buildChatView(leaf) {
+    const view = new WorkbuddianChatView(leaf, this.api, this.manager, this.settings, async () => {
+      const data = normalizePersistedData(await this.loadData());
+      return data.conversations || [];
+    }, async () => {
+      await this.saveSettings();
+    });
+    this.chatView = view;
+    return view;
+  }
+  registerCommands() {
+    this.addCommand({ id: "open-chat", name: t("cmd.openChat"), callback: () => void this.activateView() });
+    this.addCommand({
+      id: "open-chat-main-pane",
+      name: t("cmd.openChatMainPane"),
+      callback: () => void this.activateMainPaneView()
+    });
+    this.addCommand({
+      id: "inline-edit",
+      name: t("cmd.inlineEdit"),
+      editorCallback: (editor) => {
+        const basePath = this.app.vault.adapter.basePath;
+        runInlineEdit(this.app, this.api, editor, basePath);
+      }
+    });
+  }
+  /** 会话持久化单点：读出旧数据、换掉会话段、整体写回（管理器回调唯一入口） */
+  async persistConversations(conversations) {
+    const data = normalizePersistedData(await this.loadData());
+    await this.saveData({ ...data, conversations });
   }
   /** 语言切换后就地刷新所有已打开的聊天面板，无需重开面板或 Cmd+R */
   refreshOpenViews() {
@@ -4960,18 +4956,15 @@ var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
     this.api.setCustomAgentsJson(this.settings.customAgentsJson);
     this.api.setThoughtLevel(this.settings.thoughtLevel);
   }
-  async activateView() {
+  /** 复用已有 leaf 或新建右侧 leaf，然后 reveal + focus；失败给分级 Notice */
+  async openPanel(createLeaf, errNotice) {
     try {
       const { workspace } = this.app;
       let leaf = workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
       if (!leaf) {
-        leaf = workspace.getRightLeaf(false);
-        if (!leaf) {
-          leaf = workspace.getLeaf(true);
-        }
-        if (leaf) {
+        leaf = createLeaf();
+        if (leaf)
           await leaf.setViewState({ type: VIEW_TYPE_CHAT, active: true });
-        }
       }
       if (leaf) {
         await workspace.revealLeaf(leaf);
@@ -4981,34 +4974,34 @@ var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
       }
     } catch (e) {
       bbError("[WB] \u6253\u5F00\u804A\u5929\u9762\u677F\u5931\u8D25:", e);
-      new import_obsidian13.Notice(t("cmd.openPanelFailed"));
+      new import_obsidian13.Notice(errNotice);
     }
+  }
+  async activateView() {
+    await this.openPanel(() => {
+      var _a;
+      const { workspace } = this.app;
+      return (_a = workspace.getRightLeaf(false)) != null ? _a : workspace.getLeaf(true);
+    }, t("cmd.openPanelFailed"));
   }
   async activateMainPaneView() {
-    try {
-      const { workspace } = this.app;
-      const leaf = workspace.getLeaf("tab");
-      await leaf.setViewState({ type: VIEW_TYPE_CHAT, active: true });
-      await workspace.revealLeaf(leaf);
-      workspace.setActiveLeaf(leaf, { focus: true });
-    } catch (e) {
-      bbError("[WB] \u6253\u5F00\u4E3B\u7F16\u8F91\u533A\u9762\u677F\u5931\u8D25:", e);
-      new import_obsidian13.Notice(t("cmd.openMainPaneFailed"));
-    }
+    await this.openPanel(() => this.app.workspace.getLeaf("tab"), t("cmd.openMainPaneFailed"));
   }
   async loadPersistedConversations() {
-    const data = normalizePersistedData(await this.loadData());
-    if (this.chatView) {
-      await this.chatView.loadConversations(data.conversations || []);
-    }
+    if (!this.chatView)
+      return;
+    const { conversations = [] } = normalizePersistedData(await this.loadData());
+    await this.chatView.loadConversations(conversations);
   }
   async loadSettings() {
     const data = normalizePersistedData(await this.loadData());
     this.settings = migrateSettings(data.settings);
   }
   async saveSettings() {
-    const existingData = normalizePersistedData(await this.loadData());
-    const merged = { ...existingData, settings: this.settings };
+    const merged = {
+      ...normalizePersistedData(await this.loadData()),
+      settings: this.settings
+    };
     await this.saveData(merged);
     this.api.setCodebuddyPath(this.settings.codebuddyPath);
     applyPrimaryColor(this.settings.primaryColor);

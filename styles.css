@@ -1,51 +1,70 @@
+/* Workbuddian 样式表（设计令牌 → 骨架 → 组件 → 无障碍）*/
+
+/* ==================== 设计令牌 ==================== */
 .workbuddian-chat-container {
-    --workbuddian-gap-xs: 4px;
-    --workbuddian-gap-sm: 6px;
-    --workbuddian-gap-md: 8px;
-    --workbuddian-gap-lg: 12px;
-    --workbuddian-radius-sm: 4px;
-    --workbuddian-radius-md: 6px;
-    --workbuddian-radius-lg: 8px;
-    --workbuddian-radius-xl: 14px;
+    --workbuddian-gap-xs: 5px;
+    --workbuddian-gap-sm: 7px;
+    --workbuddian-gap-md: 10px;
+    --workbuddian-gap-lg: 14px;
+    --workbuddian-radius-sm: 3px;
+    --workbuddian-radius-md: 7px;
+    --workbuddian-radius-lg: 10px;
+    --workbuddian-radius-xl: 16px;
+    --workbuddian-accent: var(--workbuddian-primary, #C8B487);
 }
 
-/* ==================== 聊天容器 ==================== */
+/* ==================== 布局骨架 ==================== */
 .workbuddian-chat-container {
+    height: 100%;
     display: flex;
     flex-direction: column;
-    height: 100%;
     overflow: hidden;
 }
 
+.workbuddian-messages {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    padding: var(--workbuddian-gap-lg);
+    overflow-y: auto;
+}
+
+.workbuddian-messages::-webkit-scrollbar { width: 6px; }
+.workbuddian-messages::-webkit-scrollbar-thumb {
+    background: var(--background-modifier-border);
+    border-radius: 4px;
+}
+
+.workbuddian-chat-container .workbuddian-hidden { display: none; }
+
 /* ==================== 标签栏 ==================== */
 .workbuddian-tab-bar {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: var(--workbuddian-gap-xs);
     padding: var(--workbuddian-gap-md) var(--workbuddian-gap-lg);
     border-bottom: 1px solid var(--background-modifier-border);
     overflow-x: auto;
-    flex-shrink: 0;
 }
 
-.workbuddian-tab-bar::-webkit-scrollbar {
-    display: none;
-}
+.workbuddian-tab-bar::-webkit-scrollbar { display: none; }
 
 .workbuddian-tab {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: var(--workbuddian-gap-sm);
-    padding: var(--workbuddian-gap-sm) 10px;
+    max-width: 150px;
+    padding: var(--workbuddian-gap-sm) 11px;
     border-radius: var(--workbuddian-radius-md);
-    font-size: var(--font-ui-smaller);
-    cursor: pointer;
     background: var(--background-secondary);
     color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
     white-space: nowrap;
-    flex-shrink: 0;
-    max-width: 140px;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    cursor: pointer;
+    transition: background-color 0.18s ease, color 0.18s ease;
 }
 
 .workbuddian-tab:hover {
@@ -54,7 +73,7 @@
 }
 
 .workbuddian-tab-active {
-    background: var(--workbuddian-primary, #C8B487);
+    background: var(--workbuddian-accent);
     color: #000;
 }
 
@@ -64,28 +83,28 @@
 }
 
 .workbuddian-tab-rename-input {
-    font-size: var(--font-ui-smaller);
+    max-width: 130px;
+    padding: 2px 5px;
+    border: 1px solid var(--workbuddian-accent);
+    border-radius: var(--workbuddian-radius-sm);
+    outline: none;
     background: var(--background-primary);
     color: var(--text-normal);
-    border: 1px solid var(--workbuddian-primary, #C8B487);
-    border-radius: var(--workbuddian-radius-sm);
-    padding: 1px 4px;
-    max-width: 120px;
-    outline: none;
+    font-size: var(--font-ui-smaller);
 }
 
 .workbuddian-tab-close {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
+    width: 17px;
+    height: 17px;
     border-radius: var(--workbuddian-radius-sm);
     font-size: 14px;
     font-weight: bold;
     opacity: 0.5;
-    flex-shrink: 0;
-    transition: opacity 0.15s ease, background-color 0.15s ease;
+    transition: opacity 0.18s ease, background-color 0.18s ease;
 }
 
 .workbuddian-tab-close:hover {
@@ -98,12 +117,14 @@
     height: 12px;
 }
 
-.workbuddian-new-chat-btn {
+.workbuddian-new-chat-btn,
+.workbuddian-search-btn {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     padding: 0;
     border: none;
     border-radius: var(--workbuddian-radius-md);
@@ -112,44 +133,21 @@
     font-size: 16px;
     line-height: 1;
     cursor: pointer;
-    flex-shrink: 0;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition: background-color 0.18s ease, color 0.18s ease;
 }
 
-.workbuddian-new-chat-btn:hover {
-    background: var(--background-modifier-hover);
-    color: var(--text-normal);
-}
-
-.workbuddian-new-chat-btn svg {
-    width: 14px;
-    height: 14px;
-}
-
-.workbuddian-search-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border: none;
-    border-radius: var(--workbuddian-radius-md);
-    background: var(--background-secondary);
-    color: var(--text-muted);
-    cursor: pointer;
-    flex-shrink: 0;
-}
-
+.workbuddian-new-chat-btn:hover,
 .workbuddian-search-btn:hover {
     background: var(--background-modifier-hover);
     color: var(--text-normal);
 }
 
+.workbuddian-new-chat-btn svg { width: 14px; height: 14px; }
+
 .workbuddian-search-input {
     flex-shrink: 0;
-    width: 140px;
-    padding: 3px 8px;
+    width: 150px;
+    padding: 4px 9px;
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--workbuddian-radius-md);
     background: var(--background-primary);
@@ -157,51 +155,42 @@
     font-size: var(--font-ui-smaller);
 }
 
-/* ==================== 消息区域 ==================== */
-.workbuddian-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--workbuddian-gap-lg);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
+/* ==================== 空态 ==================== */
 .workbuddian-empty-chat {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    text-align: center;
-    padding: 40px 20px;
+    padding: 44px 24px;
     color: var(--text-muted);
+    text-align: center;
 }
 
 .workbuddian-empty-chat-icon {
+    margin-bottom: 14px;
     color: var(--text-faint);
-    margin-bottom: 12px;
 }
 
 .workbuddian-empty-chat-icon svg {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
 }
 
 .workbuddian-empty-chat-title {
-    font-size: 20px;
+    margin-bottom: 7px;
+    color: var(--text-muted);
+    font-size: 21px;
     font-weight: 300;
     letter-spacing: -0.01em;
-    margin-bottom: 6px;
-    color: var(--text-muted);
 }
 
 .workbuddian-empty-chat-subtitle {
-    font-size: var(--font-ui-small);
     color: var(--text-faint);
+    font-size: var(--font-ui-small);
 }
 
-/* ==================== 消息行 ==================== */
+/* ==================== 消息行与气泡 ==================== */
 .workbuddian-message-row {
     display: flex;
     flex-direction: column;
@@ -218,14 +207,13 @@
     align-items: flex-start;
 }
 
-/* ==================== 消息气泡 ==================== */
 .workbuddian-bubble {
-    max-width: 100%;
     min-width: 0;
-    padding: 10px 14px;
+    max-width: 100%;
+    padding: 11px 16px;
     border-radius: var(--workbuddian-radius-xl);
     font-size: var(--font-ui-small);
-    line-height: 1.6;
+    line-height: 1.62;
     word-break: break-word;
     overflow-wrap: break-word;
     user-select: text;
@@ -236,53 +224,51 @@
     color: var(--text-normal);
 }
 
-.workbuddian-message-user .workbuddian-bubble ::selection {
-    background: rgba(0, 0, 0, 0.18);
+.workbuddian-message-user .workbuddian-bubble {
+    border-bottom-right-radius: var(--workbuddian-radius-sm);
+    background: var(--workbuddian-accent);
     color: #000;
 }
 
-.workbuddian-message-user .workbuddian-bubble {
-    background: var(--workbuddian-primary, #C8B487);
+.workbuddian-message-user .workbuddian-bubble ::selection {
+    background: rgba(0, 0, 0, 0.2);
     color: #000;
-    border-bottom-right-radius: var(--workbuddian-radius-sm);
 }
 
 .workbuddian-message-assistant .workbuddian-bubble {
+    border-bottom-left-radius: var(--workbuddian-radius-sm);
+    border-left: 2px solid var(--workbuddian-accent);
     background: var(--background-secondary);
     color: var(--text-normal);
-    border-bottom-left-radius: var(--workbuddian-radius-sm);
-    border-left: 3px solid var(--workbuddian-primary, #C8B487);
 }
 
-/* ==================== 消息操作（复制按钮，hover 整行浮出）==================== */
+/* 消息操作（复制按钮，hover 整行浮出） */
 .workbuddian-message-actions {
     display: flex;
     gap: var(--workbuddian-gap-sm);
-    padding: 2px 2px 0;
+    padding: 3px 3px 0;
     opacity: 0;
-    transition: opacity 0.15s ease;
+    transition: opacity 0.18s ease;
 }
 
-.workbuddian-message-row:hover .workbuddian-message-actions {
-    opacity: 1;
-}
+.workbuddian-message-row:hover .workbuddian-message-actions { opacity: 1; }
 
 .workbuddian-message-action-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 3px;
-    background: transparent;
+    padding: 4px;
     border: none;
+    border-radius: var(--workbuddian-radius-sm);
+    background: transparent;
     box-shadow: none;
     color: var(--text-muted);
     cursor: pointer;
-    border-radius: var(--workbuddian-radius-sm);
 }
 
 .workbuddian-message-action-btn:hover {
-    color: var(--text-normal);
     background: var(--background-modifier-hover);
+    color: var(--text-normal);
 }
 
 .workbuddian-message-action-btn .svg-icon {
@@ -295,14 +281,12 @@
     display: flex;
     align-items: center;
     gap: var(--workbuddian-gap-sm);
-    padding: 2px 0;
+    padding: 3px 0;
     opacity: 1;
-    transition: opacity 0.2s ease-out;
+    transition: opacity 0.25s ease-out;
 }
 
-.workbuddian-thinking-fadeout {
-    opacity: 0;
-}
+.workbuddian-thinking-fadeout { opacity: 0; }
 
 .workbuddian-thinking-text {
     color: var(--text-muted);
@@ -323,134 +307,84 @@
     animation: workbuddian-dot-bounce 1.4s ease-in-out infinite;
 }
 
-.workbuddian-dot:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.workbuddian-dot:nth-child(3) {
-    animation-delay: 0.4s;
-}
+.workbuddian-dot:nth-child(2) { animation-delay: 0.2s; }
+.workbuddian-dot:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes workbuddian-dot-bounce {
-    0%, 80%, 100% {
-        transform: scale(0.6);
-        opacity: 0.3;
-    }
-    40% {
-        transform: scale(1);
-        opacity: 1;
-    }
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
+    40% { transform: scale(1); opacity: 1; }
 }
 
-/* ==================== 思考块 ==================== */
-.workbuddian-thinking-block {
-    margin: var(--workbuddian-gap-md) 0;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--workbuddian-radius-lg);
-    overflow: hidden;
-    background: var(--background-primary-alt);
-}
-
-.workbuddian-thinking-header {
-    padding: var(--workbuddian-gap-sm) var(--workbuddian-gap-lg);
-    font-size: var(--font-ui-smaller);
-    color: var(--text-muted);
-    cursor: pointer;
-    user-select: none;
-    display: flex;
-    align-items: center;
-    gap: var(--workbuddian-gap-sm);
-    transition: background-color 0.15s ease;
-}
-
-.workbuddian-thinking-header:hover {
-    background: var(--background-modifier-hover);
-}
-
-.workbuddian-thinking-header-icon {
-    display: flex;
-    align-items: center;
-    color: var(--workbuddian-primary, #C8B487);
-}
-
-.workbuddian-thinking-header-icon svg {
-    width: 14px;
-    height: 14px;
-}
-
-.workbuddian-thinking-header-text {
-    flex: 1;
-}
-
-.workbuddian-thinking-header-chevron {
-    font-size: 11px;
-    color: var(--text-faint);
-}
-
-.workbuddian-thinking-body {
-    padding: 10px var(--workbuddian-gap-lg);
-    font-size: var(--font-ui-smaller);
-    font-family: var(--font-monospace);
-    color: var(--text-muted);
-    background: var(--background-primary);
-    border-top: 1px solid var(--background-modifier-border);
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-height: 300px;
-    overflow-y: auto;
-    line-height: 1.5;
-}
-
-/* ==================== 工具调用块 ==================== */
+/* ==================== 思考块 / 工具块（同款折叠壳） ==================== */
+.workbuddian-thinking-block,
 .workbuddian-tools-block {
-    max-width: 100%;
     min-width: 0;
+    max-width: 100%;
     margin: var(--workbuddian-gap-md) 0;
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--workbuddian-radius-lg);
     overflow: hidden;
 }
 
+.workbuddian-thinking-block { background: var(--background-primary-alt); }
+
+.workbuddian-thinking-header,
 .workbuddian-tools-header {
-    padding: var(--workbuddian-gap-sm) var(--workbuddian-gap-lg);
-    font-size: var(--font-ui-smaller);
-    color: var(--text-muted);
-    cursor: pointer;
-    user-select: none;
     display: flex;
     align-items: center;
     gap: var(--workbuddian-gap-sm);
+    padding: var(--workbuddian-gap-sm) var(--workbuddian-gap-lg);
     background: var(--background-primary-alt);
-    transition: background-color 0.15s ease;
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.18s ease;
 }
 
-.workbuddian-tools-header:hover {
-    background: var(--background-modifier-hover);
-}
+.workbuddian-thinking-header:hover,
+.workbuddian-tools-header:hover { background: var(--background-modifier-hover); }
 
+.workbuddian-thinking-header-icon,
 .workbuddian-tools-header-icon {
     display: flex;
     align-items: center;
-    color: var(--text-muted);
 }
 
+.workbuddian-thinking-header-icon { color: var(--workbuddian-accent); }
+.workbuddian-tools-header-icon { color: var(--text-muted); }
+
+.workbuddian-thinking-header-icon svg,
 .workbuddian-tools-header-icon svg {
     width: 14px;
     height: 14px;
 }
 
-.workbuddian-tools-header-text {
-    flex: 1;
-}
+.workbuddian-thinking-header-text,
+.workbuddian-tools-header-text { flex: 1; }
 
+.workbuddian-thinking-header-chevron,
 .workbuddian-tools-header-chevron {
-    font-size: 11px;
     color: var(--text-faint);
+    font-size: 11px;
 }
 
-.workbuddian-tools-list {
-    padding: var(--workbuddian-gap-xs) 0;
+.workbuddian-thinking-body {
+    max-height: 280px;
+    padding: 11px var(--workbuddian-gap-lg);
+    border-top: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+    color: var(--text-muted);
+    font-family: var(--font-monospace);
+    font-size: var(--font-ui-smaller);
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-y: auto;
 }
+
+/* 工具调用列表 */
+.workbuddian-tools-list { padding: var(--workbuddian-gap-xs) 0; }
 
 .workbuddian-tool-call {
     display: flex;
@@ -458,11 +392,11 @@
     min-width: 0;
     gap: var(--workbuddian-gap-sm);
     padding: var(--workbuddian-gap-xs) var(--workbuddian-gap-lg);
-    font-size: 11px;
-    font-family: var(--font-monospace);
-    color: var(--text-muted);
-    border-left: 3px solid var(--workbuddian-primary, #C8B487);
+    border-left: 2px solid var(--workbuddian-accent);
     background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-monospace);
+    font-size: 11.5px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -475,9 +409,9 @@
 }
 
 .workbuddian-tool-call-icon {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
-    flex-shrink: 0;
     color: var(--text-faint);
 }
 
@@ -489,40 +423,27 @@
 .workbuddian-tool-call-text {
     /* flex 子项默认 min-width:auto，不加这行就拒绝收缩到内容宽度以下，
        ellipsis 永远不会生效，长 JSON 会把整行连同气泡一起撑开 */
-    min-width: 0;
     flex: 1 1 auto;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-/* ==================== Markdown 渲染内容 ==================== */
-.workbuddian-markdown-content {
-    /* 基础样式由 MarkdownRenderer 提供，此处仅做微调 */
-}
-
+/* ==================== Markdown 渲染微调 ==================== */
 .workbuddian-markdown-content .markdown-rendered {
     font-size: var(--font-ui-small);
     line-height: 1.7;
 }
 
-.workbuddian-markdown-content .markdown-rendered p {
-    margin: 0.3em 0;
-}
+.workbuddian-markdown-content .markdown-rendered p { margin: 0.32em 0; }
+.workbuddian-markdown-content .markdown-rendered p:first-child { margin-top: 0; }
+.workbuddian-markdown-content .markdown-rendered p:last-child { margin-bottom: 0; }
 
-.workbuddian-markdown-content .markdown-rendered p:first-child {
-    margin-top: 0;
-}
-
-.workbuddian-markdown-content .markdown-rendered p:last-child {
-    margin-bottom: 0;
-}
-
-/* 表格样式 */
 .workbuddian-bubble table {
     margin: var(--workbuddian-gap-md) 0;
-    font-size: var(--font-ui-smaller);
     border-collapse: collapse;
+    font-size: var(--font-ui-smaller);
 }
 
 .workbuddian-bubble th,
@@ -536,67 +457,60 @@
     font-weight: 600;
 }
 
-/* 代码块样式 */
 .workbuddian-bubble pre {
-    margin: var(--workbuddian-gap-md) 0;
     max-width: 100%;
-    overflow-x: auto;
+    margin: var(--workbuddian-gap-md) 0;
     padding: var(--workbuddian-gap-sm) var(--workbuddian-gap-md);
     /* 气泡本身是 --background-secondary，代码块用 primary + 描边拉开对比，避免糊成一片 */
-    background: var(--background-primary);
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--workbuddian-radius-md);
+    background: var(--background-primary);
+    overflow-x: auto;
 }
 
 /* 代码块内的 code 不再叠加底色/内边距，交给外层 pre */
 .workbuddian-bubble pre code {
-    background: transparent;
     padding: 0;
+    background: transparent;
 }
 
 .workbuddian-bubble code {
-    font-size: 12px;
     font-family: var(--font-monospace);
+    font-size: 12px;
 }
 
-/* 列表样式 */
 .workbuddian-bubble ul,
 .workbuddian-bubble ol {
     margin: var(--workbuddian-gap-xs) 0;
     padding-left: 1.5em;
 }
 
-.workbuddian-bubble li {
-    margin: 2px 0;
-}
+.workbuddian-bubble li { margin: 3px 0; }
 
-/* 标题样式 */
 .workbuddian-bubble h1,
 .workbuddian-bubble h2,
 .workbuddian-bubble h3,
 .workbuddian-bubble h4 {
     margin: var(--workbuddian-gap-md) 0 var(--workbuddian-gap-xs);
-    font-weight: 600;
     border: none;
+    font-weight: 600;
 }
 
-.workbuddian-bubble h1 { font-size: 1.3em; }
-.workbuddian-bubble h2 { font-size: 1.2em; }
-.workbuddian-bubble h3 { font-size: 1.1em; }
+.workbuddian-bubble h1 { font-size: 1.32em; }
+.workbuddian-bubble h2 { font-size: 1.21em; }
+.workbuddian-bubble h3 { font-size: 1.11em; }
 .workbuddian-bubble h4 { font-size: 1em; }
 
-/* 引用块样式 */
 .workbuddian-bubble blockquote {
-    margin: 6px 0;
+    margin: 7px 0;
     padding: var(--workbuddian-gap-xs) var(--workbuddian-gap-lg);
-    border-left: 3px solid var(--workbuddian-primary, #C8B487);
-    background: var(--background-primary-alt);
+    border-left: 2px solid var(--workbuddian-accent);
     border-radius: 0 var(--workbuddian-radius-sm) var(--workbuddian-radius-sm) 0;
+    background: var(--background-primary-alt);
 }
 
-/* 分割线样式 */
 .workbuddian-bubble hr {
-    margin: 10px 0;
+    margin: 11px 0;
     border: none;
     border-top: 1px solid var(--background-modifier-border);
 }
@@ -604,9 +518,9 @@
 /* ==================== 输入区 ==================== */
 .workbuddian-input-area {
     position: relative;
-    padding: 7px var(--workbuddian-gap-lg);
-    border-top: 1px solid var(--background-modifier-border);
     flex-shrink: 0;
+    padding: 8px var(--workbuddian-gap-lg);
+    border-top: 1px solid var(--background-modifier-border);
 }
 
 .workbuddian-input-box {
@@ -617,28 +531,28 @@
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--workbuddian-radius-lg);
     background: var(--background-primary);
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .workbuddian-input-box:focus-within {
-    border-color: var(--workbuddian-primary, #C8B487);
-    box-shadow: 0 0 0 1px var(--workbuddian-primary, #C8B487);
+    border-color: var(--workbuddian-accent);
+    box-shadow: 0 0 0 1.5px var(--workbuddian-accent);
 }
 
 .workbuddian-input {
     flex: none;
     width: 100%;
-    resize: none;
+    min-height: 30px;
+    max-height: 200px;
+    height: var(--workbuddian-input-height, auto);
     padding: 2px;
     border: none;
-    font-size: var(--font-ui-small);
-    line-height: 1.5;
     background: transparent;
     color: var(--text-normal);
     font-family: inherit;
-    min-height: 28px;
-    max-height: 200px;
-    height: var(--workbuddian-input-height, auto);
+    font-size: var(--font-ui-small);
+    line-height: 1.55;
+    resize: none;
     overflow-y: hidden;
 }
 
@@ -650,93 +564,80 @@
 .workbuddian-at-suggest {
     position: absolute;
     bottom: 100%;
-    left: 12px;
-    margin-bottom: 4px;
-    max-height: 180px;
-    overflow-y: auto;
+    left: 14px;
+    z-index: 10;
+    max-height: 200px;
+    margin-bottom: 5px;
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--workbuddian-radius-md);
     background: var(--background-primary);
     box-shadow: var(--shadow-s);
-    z-index: 10;
+    overflow-y: auto;
 }
 
 .workbuddian-at-suggest-item {
-    padding: 6px 10px;
+    padding: 7px 11px;
+    border-left: 2px solid transparent;
     font-size: var(--font-ui-small);
-    cursor: pointer;
     white-space: nowrap;
-    border-left: 3px solid transparent;
+    cursor: pointer;
 }
 
-.workbuddian-at-suggest-item:hover {
+.workbuddian-at-suggest-item:hover { background: var(--background-modifier-hover); }
+
+/* 补全下拉的键盘高亮项：hover 与 active 现由 mouseenter 同步（见 I5），背景相同时
+   两者本就是同一项；额外加左侧 accent 边以防万一（如触屏无 hover 事件），避免高亮完全不可辨识 */
+.workbuddian-at-suggest-active {
+    border-left-color: var(--workbuddian-accent);
     background: var(--background-modifier-hover);
 }
 
-/* ==================== 输入框内工具栏 + 上下文用量指示器 ==================== */
+.workbuddian-slash-cmd-desc {
+    margin-left: var(--workbuddian-gap-xs);
+    color: var(--text-muted);
+    font-size: 0.85em;
+}
+
+/* ==================== 输入框内工具栏 ==================== */
 .workbuddian-input-toolbar {
     display: flex;
     align-items: center;
-    gap: var(--workbuddian-gap-sm);
     min-width: 0;
+    gap: var(--workbuddian-gap-sm);
 }
 
 /* 发送等右侧控件永不被压缩、永远留在框内 */
 .workbuddian-toolbar-right {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: var(--workbuddian-gap-sm);
     margin-left: auto;
-    flex-shrink: 0;
 }
 
 /* 空间不足时优先收缩模型按钮，保证右侧发送不被挤出 */
 .workbuddian-model-btn {
     flex: 0 1 auto;
     min-width: 0;
-    max-width: 77px;
-    padding: 1px 4px;
+    max-width: 84px;
+    padding: 2px 5px;
     border-radius: var(--workbuddian-radius-sm);
     color: var(--text-muted);
     font-size: var(--font-ui-smaller);
-    cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    transition: color 0.15s ease, background-color 0.15s ease;
+    cursor: pointer;
+    transition: color 0.18s ease, background-color 0.18s ease;
 }
 
 .workbuddian-model-btn:hover {
-    color: var(--text-normal);
     background: var(--background-modifier-hover);
+    color: var(--text-normal);
 }
 
 .workbuddian-toolbar-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    padding: 0;
-    border: none;
-    border-radius: var(--workbuddian-radius-sm);
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
     flex-shrink: 0;
-    transition: color 0.15s ease;
-}
-
-.workbuddian-toolbar-btn:hover {
-    color: var(--text-normal);
-}
-
-.workbuddian-toolbar-btn svg {
-    width: 16px;
-    height: 16px;
-}
-
-.workbuddian-send-btn {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -746,10 +647,32 @@
     border: none;
     border-radius: var(--workbuddian-radius-sm);
     background: transparent;
-    color: var(--workbuddian-primary, #C8B487);
+    color: var(--text-muted);
     cursor: pointer;
+    transition: color 0.18s ease;
+}
+
+.workbuddian-toolbar-btn:hover { color: var(--text-normal); }
+
+.workbuddian-toolbar-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.workbuddian-send-btn {
     flex-shrink: 0;
-    transition: opacity 0.15s ease, transform 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: var(--workbuddian-radius-sm);
+    background: transparent;
+    color: var(--workbuddian-accent);
+    cursor: pointer;
+    transition: opacity 0.18s ease, transform 0.12s ease;
 }
 
 .workbuddian-send-btn svg {
@@ -757,37 +680,382 @@
     height: 18px;
 }
 
-.workbuddian-send-btn:hover {
-    opacity: 0.75;
+.workbuddian-send-btn:hover { opacity: 0.75; }
+.workbuddian-send-btn:active { transform: scale(0.88); }
+
+/* 常驻指令指示按钮（激活态） */
+.workbuddian-instruction-active { color: var(--workbuddian-primary, var(--interactive-accent)); }
+
+/* 上下文用量圆环（工具栏内，发送键左侧） */
+.workbuddian-usage-ring {
+    --workbuddian-usage-color: var(--workbuddian-primary, #C8B487);
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: conic-gradient(
+        var(--workbuddian-usage-color) 0 calc(var(--workbuddian-usage-pct, 0) * 1%),
+        var(--background-modifier-border) calc(var(--workbuddian-usage-pct, 0) * 1%) 100%
+    );
+    -webkit-mask: radial-gradient(circle, transparent 4px, #000 4.5px);
+            mask: radial-gradient(circle, transparent 4px, #000 4.5px);
 }
 
-.workbuddian-send-btn:active {
-    transform: scale(0.9);
+.workbuddian-usage-ring.workbuddian-usage-warning {
+    --workbuddian-usage-color: var(--text-error);
 }
 
-/* ==================== 滚动条 ==================== */
-.workbuddian-messages::-webkit-scrollbar {
-    width: 5px;
+/* 拖拽悬停高亮 */
+.workbuddian-drop-active {
+    outline: 2px dashed var(--workbuddian-primary, var(--interactive-accent));
+    outline-offset: 3px;
 }
 
-.workbuddian-messages::-webkit-scrollbar-thumb {
-    background: var(--background-modifier-border);
+/* ==================== chips（引用/附件/选区/图片） ==================== */
+.workbuddian-ref-chips {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--workbuddian-gap-xs);
+    margin-bottom: var(--workbuddian-gap-xs);
+    overflow-x: auto;
+}
+
+.workbuddian-ref-chip {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    max-width: 88px;
+    padding: 2px 7px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--workbuddian-radius-sm);
+    color: var(--text-muted);
+    font-size: 0.8em;
+}
+
+.workbuddian-ref-chip-icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+}
+
+.workbuddian-ref-chip-icon svg {
+    width: 12px;
+    height: 12px;
+}
+
+.workbuddian-selection-chip { max-width: 250px; }
+
+.workbuddian-ref-chip-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.workbuddian-ref-chip-close {
+    flex-shrink: 0;
+    display: inline-flex;
+    opacity: 0.8;
+    cursor: pointer;
+}
+
+.workbuddian-ref-chip-close:hover { opacity: 1; }
+
+/* 图片附件缩略图 chip */
+.workbuddian-image-chip { padding: 2px; }
+
+.workbuddian-image-thumb {
+    display: block;
+    width: 44px;
+    height: 44px;
+    border-radius: 5px;
+    object-fit: cover;
+}
+
+/* 消息附件标签 */
+.workbuddian-message-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 7px;
+}
+
+.workbuddian-attachment-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 5px;
+    background: var(--background-modifier-form-field);
+    color: var(--text-muted);
+    font-size: 0.85em;
+}
+
+.workbuddian-attachment-chip-icon svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* 气泡内图片 chip：与输入区缩略图外观一致，不叠加 attachment-chip 的内边距/背景 */
+.workbuddian-message-attachments .workbuddian-image-chip {
+    padding: 2px;
+    background: none;
+}
+
+/* ==================== diff 体系 ==================== */
+/* 工具块内的行级 diff */
+.workbuddian-tool-diff { margin: 5px 0 0; }
+
+.workbuddian-tool-diff-header {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 5px;
+    font-size: 12px;
+    opacity: 0.8;
+    cursor: pointer;
+}
+
+/* 文件名过长时省略，而不是把右侧的撤销按钮挤出可视区 */
+.workbuddian-tool-diff-header > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 撤销按钮：贴右、永不收缩 */
+.workbuddian-tool-diff-undo {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* 已撤销的按钮：文案之外再给一个视觉区分，避免只靠 disabled 变灰不易察觉 */
+.workbuddian-tool-diff-undone {
+    opacity: 0.6;
+    text-decoration: line-through;
+}
+
+.workbuddian-tool-diff-body {
+    margin-top: 5px;
+    border-radius: 5px;
+    overflow-x: auto;
+}
+
+/* diff 行通用形态：DiffModal（.workbuddian-diff-box）与工具 diff 共用 */
+.workbuddian-diff-line {
+    padding: 2px 7px;
     border-radius: 3px;
 }
 
-.workbuddian-tab-bar::-webkit-scrollbar {
-    height: 3px;
+.workbuddian-diff-add { background: rgba(46, 160, 67, 0.14); }
+.workbuddian-diff-remove { background: rgba(214, 69, 65, 0.14); }
+.workbuddian-diff-add .workbuddian-diff-hl { background: rgba(46, 160, 67, 0.32); border-radius: 3px; }
+.workbuddian-diff-remove .workbuddian-diff-hl { background: rgba(214, 69, 65, 0.32); border-radius: 3px; }
+
+/* 工具 diff 的行版式（等宽、不换行） */
+.workbuddian-tool-diff .workbuddian-diff-line {
+    padding: 0 7px;
+    font-family: var(--font-monospace);
+    font-size: 12px;
+    white-space: pre;
 }
 
-.workbuddian-tab-bar::-webkit-scrollbar-thumb {
-    background: var(--background-modifier-border);
-    border-radius: 2px;
+.workbuddian-tool-diff .workbuddian-diff-equal { opacity: 0.65; }
+
+/* DiffModal（inline edit 预览） */
+.workbuddian-diff-box {
+    max-height: 50vh;
+    margin-bottom: var(--workbuddian-gap-md);
+    font-family: var(--font-monospace);
+    font-size: var(--font-ui-small);
+    white-space: pre-wrap;
+    overflow: auto;
 }
 
-/* ==================== 不可见辅助类 ==================== */
-.workbuddian-chat-container .workbuddian-hidden { display: none; }
+/* Bash 终端输出块 */
+.workbuddian-bash-block { margin: 3px 0 5px; }
 
-/* ==================== Reduced motion ==================== */
+.workbuddian-bash-body pre {
+    max-height: 250px;
+    margin: 5px 0;
+    padding: 7px 9px;
+    border-radius: 5px;
+    background: var(--background-secondary);
+    font-family: var(--font-monospace);
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow-y: auto;
+}
+
+/* ==================== 错误卡与批准卡 ==================== */
+.workbuddian-error-card {
+    padding: var(--workbuddian-gap-md);
+    border: 1px solid var(--text-error);
+    border-radius: var(--workbuddian-radius-sm);
+    background: var(--background-primary-alt);
+}
+
+.workbuddian-error-header {
+    display: flex;
+    align-items: center;
+    gap: var(--workbuddian-gap-xs);
+    margin-bottom: var(--workbuddian-gap-xs);
+    color: var(--text-error);
+    font-weight: 600;
+}
+
+.workbuddian-error-body {
+    margin-bottom: var(--workbuddian-gap-md);
+    color: var(--text-muted);
+    font-size: 0.9em;
+    white-space: pre-wrap;
+}
+
+.workbuddian-error-actions {
+    display: flex;
+    gap: var(--workbuddian-gap-xs);
+}
+
+.workbuddian-error-btn { cursor: pointer; }
+
+/* 批准卡（ACP 权限请求） */
+.workbuddian-approval-card {
+    margin: 7px 0;
+    padding: 9px 11px;
+    border: 1px solid var(--workbuddian-accent);
+    border-radius: 7px;
+}
+
+.workbuddian-approval-card-pending { border-color: var(--interactive-accent); }
+
+.workbuddian-approval-card-title {
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.workbuddian-approval-card-actions {
+    display: flex;
+    gap: 9px;
+    margin-top: 9px;
+}
+
+.workbuddian-approval-card-resolved {
+    padding: 5px 0;
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+}
+
+.workbuddian-approval-card-cmd {
+    margin: 5px 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.workbuddian-approval-card-path {
+    margin-bottom: 5px;
+    color: var(--text-muted);
+}
+
+/* ==================== 弹窗类 ==================== */
+/* 日志查看 Modal */
+.workbuddian-log-body {
+    max-height: 55vh;
+    margin: var(--workbuddian-gap-sm) 0;
+    padding: var(--workbuddian-gap-sm) var(--workbuddian-gap-md);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--workbuddian-radius-md);
+    background: var(--background-primary);
+    font-family: var(--font-monospace);
+    font-size: var(--font-ui-smaller);
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow: auto;
+}
+
+.workbuddian-log-actions {
+    display: flex;
+    gap: var(--workbuddian-gap-sm);
+    justify-content: flex-end;
+    margin-top: var(--workbuddian-gap-sm);
+}
+
+/* /resume 会话选择弹窗：列表行原来是裸 div（无 hover/cursor 提示），补上可点击的视觉反馈 */
+.workbuddian-resume-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.workbuddian-resume-item {
+    padding: 7px 9px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.workbuddian-resume-item:hover,
+.workbuddian-resume-item:focus-visible { background: var(--background-modifier-hover); }
+
+/* 描边只给键盘聚焦，鼠标 hover 仅背景高亮——与面板内 :focus-visible 的约定一致。
+   Modal 挂在 .workbuddian-chat-container 之外，覆盖不到，故在此重复一份同样的视觉。 */
+.workbuddian-resume-item:focus-visible {
+    outline: 2px solid var(--workbuddian-accent);
+    outline-offset: 2px;
+}
+
+.workbuddian-resume-item-title {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.workbuddian-resume-item-meta {
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+}
+
+/* 常驻指令弹窗 */
+.workbuddian-instruction-textarea {
+    width: 100%;
+    min-height: 8em;
+    resize: vertical;
+}
+
+.workbuddian-instruction-buttons {
+    display: flex;
+    gap: 9px;
+    justify-content: flex-end;
+    margin-top: 14px;
+}
+
+/* ==================== 无障碍与动效 ==================== */
+/* 仅键盘 Tab 聚焦时显示（:focus-visible），鼠标点击不显示；限定在聊天容器内，不影响 Obsidian 其它 UI。
+   只作用于没有原生 focus 样式的可点击控件；不能笼统匹配所有元素，否则会盖过 .workbuddian-input
+   / .workbuddian-tab-rename-input 上刻意写的 outline: none（同选择器优先级，此规则声明顺序更靠后会赢）。 */
+.workbuddian-chat-container :is(button, [role="button"], [role="tab"], a):focus-visible {
+    outline: 2px solid var(--workbuddian-accent);
+    outline-offset: 2px;
+    border-radius: 5px;
+}
+
+/* 屏幕阅读器专用播报区：视觉上完全隐藏，但对辅助技术可见 */
+.workbuddian-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .workbuddian-dot,
     .workbuddian-tab,
@@ -800,301 +1068,4 @@
         animation: none;
         transition: none;
     }
-}
-
-.workbuddian-slash-cmd-desc {
-    color: var(--text-muted);
-    margin-left: var(--workbuddian-gap-xs);
-    font-size: 0.85em;
-}
-
-.workbuddian-error-card {
-    border: 1px solid var(--text-error);
-    border-radius: var(--workbuddian-radius-sm);
-    padding: var(--workbuddian-gap-md);
-    background: var(--background-primary-alt);
-}
-.workbuddian-error-header {
-    display: flex;
-    align-items: center;
-    gap: var(--workbuddian-gap-xs);
-    color: var(--text-error);
-    font-weight: 600;
-    margin-bottom: var(--workbuddian-gap-xs);
-}
-.workbuddian-error-body {
-    color: var(--text-muted);
-    font-size: 0.9em;
-    white-space: pre-wrap;
-    margin-bottom: var(--workbuddian-gap-md);
-}
-.workbuddian-error-actions {
-    display: flex;
-    gap: var(--workbuddian-gap-xs);
-}
-.workbuddian-error-btn {
-    cursor: pointer;
-}
-
-.workbuddian-ref-chips {
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: var(--workbuddian-gap-xs);
-    margin-bottom: var(--workbuddian-gap-xs);
-}
-.workbuddian-ref-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    max-width: 80px;
-    flex-shrink: 0;
-    padding: 1px 6px;
-    border-radius: var(--workbuddian-radius-sm);
-    border: 1px solid var(--background-modifier-border);
-    color: var(--text-muted);
-    font-size: 0.8em;
-}
-.workbuddian-ref-chip-icon {
-    display: inline-flex;
-    align-items: center;
-    flex-shrink: 0;
-}
-.workbuddian-ref-chip-icon svg {
-    width: 12px;
-    height: 12px;
-}
-.workbuddian-selection-chip {
-    max-width: 240px;
-}
-.workbuddian-ref-chip-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-}
-.workbuddian-ref-chip-close {
-    display: inline-flex;
-    flex-shrink: 0;
-    cursor: pointer;
-    opacity: 0.8;
-}
-.workbuddian-ref-chip-close:hover { opacity: 1; }
-
-.workbuddian-diff-box {
-    font-family: var(--font-monospace);
-    font-size: var(--font-ui-small);
-    max-height: 50vh;
-    overflow: auto;
-    white-space: pre-wrap;
-    margin-bottom: var(--workbuddian-gap-md);
-}
-.workbuddian-diff-line { padding: 1px 6px; border-radius: 2px; }
-.workbuddian-diff-add { background: var(--background-modifier-success); }
-.workbuddian-diff-remove { background: var(--background-modifier-error); }
-/* DiffModal 内改用与工具 diff 相同的浅色行底：主题变量底色过饱和，0.35 alpha 的
-   词级高亮（.workbuddian-diff-hl）叠上去几乎不可见，整行看着同色（WB-006） */
-.workbuddian-diff-box .workbuddian-diff-add { background: rgba(0, 160, 60, 0.15); }
-.workbuddian-diff-box .workbuddian-diff-remove { background: rgba(200, 40, 40, 0.15); }
-
-/* 日志查看 Modal */
-.workbuddian-log-body {
-    font-family: var(--font-monospace);
-    font-size: var(--font-ui-smaller);
-    max-height: 55vh;
-    overflow: auto;
-    white-space: pre-wrap;
-    word-break: break-word;
-    background: var(--background-primary);
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--workbuddian-radius-md);
-    padding: var(--workbuddian-gap-sm) var(--workbuddian-gap-md);
-    margin: var(--workbuddian-gap-sm) 0;
-}
-.workbuddian-log-actions {
-    display: flex;
-    gap: var(--workbuddian-gap-sm);
-    justify-content: flex-end;
-    margin-top: var(--workbuddian-gap-sm);
-}
-
-/* 图片附件缩略图 chip */
-.workbuddian-image-chip { padding: 2px; }
-.workbuddian-image-thumb {
-    width: 40px;
-    height: 40px;
-    object-fit: cover;
-    border-radius: 4px;
-    display: block;
-}
-/* 拖拽悬停高亮 */
-.workbuddian-drop-active {
-    outline: 2px dashed var(--workbuddian-primary, var(--interactive-accent));
-    outline-offset: 2px;
-}
-
-/* ===== 消息附件标签 ===== */
-.workbuddian-message-attachments {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 6px;
-}
-
-.workbuddian-attachment-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: 4px;
-    background: var(--background-modifier-form-field);
-    font-size: 0.85em;
-    color: var(--text-muted);
-}
-
-.workbuddian-attachment-chip-icon svg {
-    width: 12px;
-    height: 12px;
-}
-
-/* 气泡内图片 chip：与输入区缩略图外观一致，不叠加 attachment-chip 的内边距/背景 */
-.workbuddian-message-attachments .workbuddian-image-chip { padding: 2px; background: none; }
-
-/* 常驻指令指示按钮（激活态）*/
-.workbuddian-instruction-active { color: var(--workbuddian-primary, var(--interactive-accent)); }
-/* 常驻指令弹窗 */
-.workbuddian-instruction-textarea { width: 100%; min-height: 8em; resize: vertical; }
-.workbuddian-instruction-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
-
-/* 上下文用量圆环（工具栏内，发送键左侧）*/
-.workbuddian-usage-ring {
-    --workbuddian-usage-color: var(--workbuddian-primary, #C8B487);
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    background: conic-gradient(
-        var(--workbuddian-usage-color) 0 calc(var(--workbuddian-usage-pct, 0) * 1%),
-        var(--background-modifier-border) calc(var(--workbuddian-usage-pct, 0) * 1%) 100%
-    );
-    -webkit-mask: radial-gradient(circle, transparent 3px, #000 3.5px);
-            mask: radial-gradient(circle, transparent 3px, #000 3.5px);
-}
-.workbuddian-usage-ring.workbuddian-usage-warning {
-    --workbuddian-usage-color: var(--text-error);
-}
-
-/* 工具块内的行级 diff */
-.workbuddian-tool-diff { margin: 4px 0 0 0; }
-.workbuddian-tool-diff-header {
-    cursor: pointer;
-    font-size: 12px;
-    opacity: 0.8;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    min-width: 0;
-}
-/* 文件名过长时省略，而不是把右侧的撤销按钮挤出可视区 */
-.workbuddian-tool-diff-header > span:first-child {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-/* 撤销按钮：贴右、永不收缩（原先靠内联 style 设置 margin-left） */
-.workbuddian-tool-diff-undo {
-    margin-left: auto;
-    flex-shrink: 0;
-}
-.workbuddian-tool-diff-body { margin-top: 4px; border-radius: 4px; overflow-x: auto; }
-/* 限定在 .workbuddian-tool-diff 容器下，避免与 inline-edit DiffModal 的同名裸类（styles.css:880-882）碰撞 */
-.workbuddian-tool-diff .workbuddian-diff-line { font-family: var(--font-monospace); font-size: 12px; white-space: pre; padding: 0 6px; }
-.workbuddian-tool-diff .workbuddian-diff-add { background: rgba(0, 160, 60, 0.15); }
-.workbuddian-tool-diff .workbuddian-diff-remove { background: rgba(200, 40, 40, 0.15); }
-.workbuddian-tool-diff .workbuddian-diff-equal { opacity: 0.65; }
-.workbuddian-diff-add .workbuddian-diff-hl { background: rgba(0, 160, 60, 0.35); border-radius: 2px; }
-
-/* Bash 终端输出块 */
-.workbuddian-bash-block { margin: 2px 0 4px; }
-.workbuddian-bash-body pre { font-family: var(--font-monospace); font-size: 12px; white-space: pre-wrap; word-break: break-all; margin: 4px 0; padding: 6px 8px; background: var(--background-secondary); border-radius: 4px; max-height: 240px; overflow-y: auto; }
-.workbuddian-diff-remove .workbuddian-diff-hl { background: rgba(200, 40, 40, 0.35); border-radius: 2px; }
-
-/* 批准卡（ACP 权限请求） */
-.workbuddian-approval-card { border: 1px solid var(--workbuddian-primary, #C8B487); border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
-.workbuddian-approval-card-pending { border-color: var(--interactive-accent); }
-.workbuddian-approval-card-title { font-weight: 600; margin-bottom: 4px; }
-.workbuddian-approval-card-actions { display: flex; gap: 8px; margin-top: 8px; }
-.workbuddian-approval-card-resolved { color: var(--text-muted); font-size: var(--font-ui-smaller); padding: 4px 0; }
-.workbuddian-approval-card-cmd { white-space: pre-wrap; word-break: break-all; margin: 4px 0; }
-.workbuddian-approval-card-path { color: var(--text-muted); margin-bottom: 4px; }
-
-/* ==================== 焦点环（键盘可达性） ==================== */
-/* 仅键盘 Tab 聚焦时显示（:focus-visible），鼠标点击不显示；限定在聊天容器内，不影响 Obsidian 其它 UI。
-   只作用于没有原生 focus 样式的可点击控件；不能笼统匹配所有元素，否则会盖过 .workbuddian-input
-   / .workbuddian-tab-rename-input 上刻意写的 outline: none（同选择器优先级，此规则声明顺序更靠后会赢）。 */
-.workbuddian-chat-container :is(button, [role="button"], [role="tab"], a):focus-visible {
-    outline: 2px solid var(--workbuddian-primary, #C8B487);
-    outline-offset: 2px;
-    border-radius: 4px;
-}
-
-/* /resume 会话选择弹窗：列表行原来是裸 div（无 hover/cursor 提示），补上可点击的视觉反馈 */
-.workbuddian-resume-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-height: 60vh;
-    overflow-y: auto;
-}
-.workbuddian-resume-item {
-    cursor: pointer;
-    padding: 6px 8px;
-    border-radius: 4px;
-}
-.workbuddian-resume-item:hover,
-.workbuddian-resume-item:focus-visible {
-    background: var(--background-modifier-hover);
-}
-/* 描边只给键盘聚焦，鼠标 hover 仅背景高亮——与面板内 :focus-visible 的约定一致。
-   Modal 挂在 .workbuddian-chat-container 之外，覆盖不到，故在此重复一份同样的视觉。 */
-.workbuddian-resume-item:focus-visible {
-    outline: 2px solid var(--workbuddian-primary, #C8B487);
-    outline-offset: 2px;
-}
-.workbuddian-resume-item-title {
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.workbuddian-resume-item-meta {
-    font-size: var(--font-ui-smaller);
-    color: var(--text-muted);
-}
-
-/* 屏幕阅读器专用播报区：视觉上完全隐藏，但对辅助技术可见 */
-.workbuddian-sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-}
-
-/* 补全下拉的键盘高亮项：hover 与 active 现由 mouseenter 同步（见 I5），背景相同时
-   两者本就是同一项；额外加左侧 accent 边以防万一（如触屏无 hover 事件），避免高亮完全不可辨识 */
-.workbuddian-at-suggest-active {
-    background: var(--background-modifier-hover);
-    border-left-color: var(--workbuddian-primary, #C8B487);
-}
-
-/* 已撤销的按钮：文案之外再给一个视觉区分，避免只靠 disabled 变灰不易察觉 */
-.workbuddian-tool-diff-undone {
-    text-decoration: line-through;
-    opacity: 0.6;
 }

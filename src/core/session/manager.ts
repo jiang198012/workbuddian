@@ -4,189 +4,118 @@ import { fallbackTitle } from '../../shared/autoTitle';
 import { t, matchesAnyLang } from '../../i18n';
 import { bbError } from '../../shared/logBuffer';
 
+function newConversation(title?: string): Conversation {
+    const now = Date.now();
+    return {
+        id: generateId(),
+        title: title?.trim() ? title.trim() : t('chat.newConversation'),
+        sessionId: '', // 首次发送消息时分配
+        messages: [],
+        createdAt: now,
+        updatedAt: now,
+    };
+}
+
+/**
+ * 会话集合的内存真相源：工厂 → 查询 → 变更 → 持久化。
+ * 持久化经 persistCallback 单点出口，任何写失败只记日志不抛出（聊天不能因落盘失败而中断）。
+ * activeId 仅作"初始绑定"提示（view 打开/加载历史时读一次）；运行期活跃指针在每个 view 自己手里。
+ */
 export class ConversationManager {
-    private conversations: Map<string, Conversation> = new Map();
-    // 仅作"初始绑定"提示（view 打开/加载历史时读一次）：运行期的活跃对话指针是每个 view 自己的
-    // activeConvId（view.ts），这里不再是插件级唯一选中态，切标签不写回此处（WB-005）
+    private readonly conversations = new Map<string, Conversation>();
     private activeId: string | null = null;
     private persistCallback: ((convs: Conversation[]) => Promise<void>) | null = null;
 
-    setPersistCallback(callback: (convs: Conversation[]) => Promise<void>) {
-        this.persistCallback = callback;
-    }
+    // ---- 工厂 ----
 
-    /** 判断是否已经加载过对话数据（用于避免多个同时打开的视图重复 load() 时用旧快照互相覆盖） */
-    hasConversations(): boolean {
-        return this.conversations.size > 0;
-    }
-
-    private async persist() {
-        if (this.persistCallback) {
-            await this.persistCallback(this.getAll());
-        }
-    }
-
-    private handlePersistError(error: unknown) {
-        bbError('[WB] persist failed:', getErrorMessage(error));
-    }
-
-    /** 显式触发持久化（流式结束后调用） */
-    async flush(): Promise<void> {
-        await this.persist();
-    }
-
-    /** 从持久化数据加载对话 */
-    load(conversations: Conversation[]) {
-        if (!conversations || conversations.length === 0) {
-            // 创建一个新对话作为默认
-            this.createConversation();
-            return;
-        }
-        for (const conv of conversations) {
-            this.conversations.set(conv.id, { ...conv });
-        }
-        // 激活第一个
-        this.activeId = conversations[0].id;
-    }
-
-    /** 创建新对话 */
+    /** 创建新对话（写入即激活初始指针并持久化） */
     createConversation(title?: string): Conversation {
-        const id = generateId();
-        const conv: Conversation = {
-            id,
-            title: title || t('chat.newConversation'),
-            sessionId: '', // 首次发送消息时由 Gateway 分配
-            messages: [],
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-        };
-        this.conversations.set(id, conv);
-        this.activeId = id;
-        this.persist().catch((err) => this.handlePersistError(err));
+        const conv = newConversation(title);
+        this.conversations.set(conv.id, conv);
+        this.activeId = conv.id;
+        this.commit();
         return conv;
     }
 
-    /** 删除对话 */
-    deleteConversation(id: string): boolean {
-        if (!this.conversations.has(id)) return false;
-        this.conversations.delete(id);
-        if (this.activeId === id) {
-            const remaining = this.getAll();
-            this.activeId = remaining.length > 0 ? remaining[0].id : null;
-        }
-        this.persist().catch((err) => this.handlePersistError(err));
-        return true;
+    /** 分叉会话：复制源会话消息（id 重生成）、写入 CLI 分配的分叉 acpSessionId；源不存在返回 null */
+    forkConversation(sourceId: string, title: string, acpSessionId: string): Conversation | null {
+        const src = this.conversations.get(sourceId);
+        if (!src) return null;
+        const forked = this.createConversation(title);
+        forked.messages = src.messages.map((m) => ({ ...m, id: generateId() }));
+        forked.sessionId = ''; // 首次发送时生成新 key；CLI 侧上下文走 acpSessionId load
+        forked.acpSessionId = acpSessionId;
+        forked.updatedAt = Date.now();
+        this.commit();
+        return forked;
     }
 
-    /** 切换到指定对话 */
-    switchTo(id: string): Conversation | null {
-        const conv = this.conversations.get(id);
-        if (!conv) return null;
-        this.activeId = id;
-        return conv;
-    }
+    // ---- 查询 ----
 
-    /** 重命名对话 */
-    renameConversation(id: string, newTitle: string): boolean {
-        const trimmed = newTitle.trim();
-        if (!trimmed) return false;
-        const conv = this.conversations.get(id);
-        if (!conv) return false;
-        conv.title = trimmed;
-        conv.updatedAt = Date.now();
-        this.persist().catch((err) => this.handlePersistError(err));
-        return true;
-    }
-
-    /** 获取当前活跃对话 */
-    getActive(): Conversation | null {
-        if (!this.activeId) return null;
-        return this.conversations.get(this.activeId) || null;
-    }
-
-    /** 按 id 精确查找对话，不依赖也不影响内部 activeId —— 供各视图维护各自独立的活跃对话指针 */
+    /** 按 id 精确查找，不依赖也不影响初始指针 —— 供各视图维护各自独立的活跃对话指针 */
     getById(id: string): Conversation | null {
         return this.conversations.get(id) || null;
     }
 
-    /** 获取所有对话（按更新时间倒序） */
+    /** 初始指针指向的对话 */
+    getActive(): Conversation | null {
+        return (this.activeId && this.conversations.get(this.activeId)) || null;
+    }
+
+    /** 全部对话，按更新时间倒序 */
     getAll(): Conversation[] {
-        return Array.from(this.conversations.values())
-            .sort((a, b) => b.updatedAt - a.updatedAt);
+        return [...this.conversations.values()].sort((a, b) => b.updatedAt - a.updatedAt);
     }
 
-    /** 按标题和消息正文做本地大小写不敏感的包含匹配 */
+    /** 按标题和消息正文做本地大小写不敏感的包含匹配；空串返回全部 */
     search(query: string): Conversation[] {
-        const trimmed = query.trim().toLowerCase();
-        if (!trimmed) return this.getAll();
-        return this.getAll().filter((conv) => {
-            if (conv.title.toLowerCase().includes(trimmed)) return true;
-            return conv.messages.some((msg) => msg.content.toLowerCase().includes(trimmed));
-        });
+        const needle = query.trim().toLowerCase();
+        const all = this.getAll();
+        if (!needle) return all;
+        return all.filter((conv) =>
+            conv.title.toLowerCase().includes(needle)
+            || conv.messages.some((msg) => msg.content.toLowerCase().includes(needle)));
     }
 
-    /** 添加消息到当前活跃对话 */
-    addMessage(convId: string, role: 'user' | 'assistant', content: string, attachments?: string[]): ChatMessage | null {
-        const conv = this.conversations.get(convId);
-        if (!conv) return null;
-
-        const msg: ChatMessage = {
-            id: generateId(),
-            role,
-            content,
-            timestamp: Date.now()
-        };
-        if (attachments && attachments.length > 0) {
-            msg.attachments = attachments;
-        }
-        conv.messages.push(msg);
-        conv.updatedAt = Date.now();
-
-        // 首条用户消息自动生成标题（跨语言识别默认标题，兼容切换语言前后的旧数据）
-        if (matchesAnyLang(conv.title, 'chat.newConversation') && role === 'user' && content.trim()) {
-            conv.title = fallbackTitle(content);
-        }
-
-        this.persist().catch((err) => this.handlePersistError(err));
-        return msg;
-    }
-
-    /** 更新指定消息内容（用于流式追加） */
-    updateMessage(convId: string, msgId: string, content: string, skipSave = false): boolean {
-        const conv = this.conversations.get(convId);
-        if (!conv) return false;
-        const msg = conv.messages.find(m => m.id === msgId);
-        if (!msg) return false;
-        msg.content = content;
-        conv.updatedAt = Date.now();
-        if (!skipSave) {
-            this.persist().catch((err) => this.handlePersistError(err));
-        }
-        return true;
-    }
-
-    /** 设置对话的 Gateway sessionId */
-    setSessionId(convId: string, sessionId: string): boolean {
-        const conv = this.conversations.get(convId);
-        if (!conv) return false;
-        conv.sessionId = sessionId;
-        return true;
-    }
-
-    /** 回写 CLI 分配的 ACP 会话 id；与 setSessionId 一样不单独触发持久化，靠同轮后续 persist/flush 顺带落盘 */
-    setAcpSessionId(convId: string, acpSessionId: string): boolean {
-        const conv = this.conversations.get(convId);
-        if (!conv) return false;
-        conv.acpSessionId = acpSessionId;
-        return true;
-    }
-
-    /** 按 v1 sessionId（provider 会话 key）反查会话，供 provider 的 ConversationLookup 注入用 */
+    /** 按 v1 sessionId 反查会话，供 provider 的 ConversationLookup 注入用 */
     findBySessionId(sessionId: string): Conversation | null {
         for (const conv of this.conversations.values()) {
             if (conv.sessionId === sessionId) return conv;
         }
         return null;
+    }
+
+    /** 是否已加载过对话数据（避免多面板重复 load() 时用旧快照互相覆盖） */
+    hasConversations(): boolean {
+        return this.conversations.size > 0;
+    }
+
+    // ---- 变更 ----
+
+    /** 追加消息；首条用户消息触发截断标题（跨语言识别默认标题，兼容切换语言前后的旧数据） */
+    addMessage(convId: string, role: 'user' | 'assistant', content: string, attachments?: string[]): ChatMessage | null {
+        const conv = this.conversations.get(convId);
+        if (!conv) return null;
+        const msg: ChatMessage = { id: generateId(), role, content, timestamp: Date.now() };
+        if (attachments?.length) msg.attachments = attachments;
+        conv.messages.push(msg);
+        conv.updatedAt = Date.now();
+        if (matchesAnyLang(conv.title, 'chat.newConversation') && role === 'user' && content.trim()) {
+            conv.title = fallbackTitle(content);
+        }
+        this.commit();
+        return msg;
+    }
+
+    /** 更新指定消息内容（用于流式追加）；skipSave 跳过持久化（流式中高频调用，末尾 flush 兜底） */
+    updateMessage(convId: string, msgId: string, content: string, skipSave = false): boolean {
+        const msg = this.conversations.get(convId)?.messages.find((m) => m.id === msgId);
+        if (!msg) return false;
+        msg.content = content;
+        const conv = this.conversations.get(convId)!;
+        conv.updatedAt = Date.now();
+        if (!skipSave) this.commit();
+        return true;
     }
 
     /** 记录对话最近一轮的 token 用量（流式内更新，随后 flush 持久化） */
@@ -199,41 +128,103 @@ export class ConversationManager {
 
     /** 把某条消息标记为错误并设置文案 */
     setError(convId: string, msgId: string, content: string): boolean {
-        const conv = this.conversations.get(convId);
-        if (!conv) return false;
-        const msg = conv.messages.find(m => m.id === msgId);
+        const msg = this.conversations.get(convId)?.messages.find((m) => m.id === msgId);
         if (!msg) return false;
         msg.content = content;
         msg.isError = true;
-        conv.updatedAt = Date.now();
-        this.persist().catch((err) => this.handlePersistError(err));
+        this.conversations.get(convId)!.updatedAt = Date.now();
+        this.commit();
         return true;
     }
 
-    /** 删除最后一对 user+assistant 消息，返回该 user 文本（供重试重发）；不满足返回 null */
-    deleteLastExchange(convId: string): string | null {
+    /** 回写 v1 sessionId（provider 会话 key）；不单独持久化，靠同轮后续 commit/flush 顺带落盘 */
+    setSessionId(convId: string, sessionId: string): boolean {
         const conv = this.conversations.get(convId);
-        if (!conv || conv.messages.length < 2) return null;
-        const last = conv.messages[conv.messages.length - 1];
-        const prev = conv.messages[conv.messages.length - 2];
-        if (last.role !== 'assistant' || prev.role !== 'user') return null;
-        const userText = prev.content;
-        conv.messages.splice(conv.messages.length - 2, 2);
-        conv.updatedAt = Date.now();
-        this.persist().catch((err) => this.handlePersistError(err));
-        return userText;
-    }
-    /** 分叉会话：复制源会话消息（id 重生成）、写入 CLI 分配的分叉 acpSessionId；源不存在返回 null */
-    forkConversation(sourceId: string, title: string, acpSessionId: string): Conversation | null {
-        const src = this.conversations.get(sourceId);
-        if (!src) return null;
-        const forked = this.createConversation(title);
-        forked.messages = src.messages.map((m) => ({ ...m, id: generateId() }));
-        forked.sessionId = ''; // 首次发送时由 input.ts 生成 v1 key；CLI 侧上下文走 acpSessionId load
-        forked.acpSessionId = acpSessionId;
-        forked.updatedAt = Date.now();
-        this.persist().catch((err) => this.handlePersistError(err));
-        return forked;
+        if (!conv) return false;
+        conv.sessionId = sessionId;
+        return true;
     }
 
+    /** 回写 CLI 分配的 ACP 会话 id；持久化时机同 setSessionId */
+    setAcpSessionId(convId: string, acpSessionId: string): boolean {
+        const conv = this.conversations.get(convId);
+        if (!conv) return false;
+        conv.acpSessionId = acpSessionId;
+        return true;
+    }
+
+    /** 重命名对话（空名拒绝） */
+    renameConversation(id: string, newTitle: string): boolean {
+        const trimmed = newTitle.trim();
+        if (!trimmed) return false;
+        const conv = this.conversations.get(id);
+        if (!conv) return false;
+        conv.title = trimmed;
+        conv.updatedAt = Date.now();
+        this.commit();
+        return true;
+    }
+
+    /** 切换到指定对话（仅移动初始指针） */
+    switchTo(id: string): Conversation | null {
+        const conv = this.conversations.get(id);
+        if (!conv) return null;
+        this.activeId = id;
+        return conv;
+    }
+
+    /** 删除对话；被删的是初始指针指向的对话时改指到最新一个 */
+    deleteConversation(id: string): boolean {
+        const existed = this.conversations.delete(id);
+        if (!existed) return false;
+        if (this.activeId === id) {
+            this.activeId = this.getAll()[0]?.id ?? null;
+        }
+        this.commit();
+        return true;
+    }
+
+    /** 删除最后一对 user+assistant 消息，返回该 user 文本（供重试重发）；结构不满足返回 null */
+    deleteLastExchange(convId: string): string | null {
+        const conv = this.conversations.get(convId);
+        const messages = conv?.messages;
+        if (!conv || !messages || messages.length < 2) return null;
+        const last = messages[messages.length - 1];
+        const prev = messages[messages.length - 2];
+        if (last.role !== 'assistant' || prev.role !== 'user') return null;
+        messages.length -= 2;
+        conv.updatedAt = Date.now();
+        this.commit();
+        return prev.content;
+    }
+
+    // ---- 持久化 ----
+
+    setPersistCallback(callback: (convs: Conversation[]) => Promise<void>) {
+        this.persistCallback = callback;
+    }
+
+    /** 变更统一出口：写操作调用它把当前全量交给持久化回调 */
+    private commit() {
+        if (!this.persistCallback) return;
+        // Promise.resolve 包一层：容忍测试里不返回 Promise 的 mock
+        void Promise.resolve(this.persistCallback(this.getAll())).catch((err) => {
+            bbError('[WB] persist failed:', getErrorMessage(err));
+        });
+    }
+
+    /** 显式触发持久化（流式结束后调用） */
+    async flush(): Promise<void> {
+        if (this.persistCallback) await this.persistCallback(this.getAll());
+    }
+
+    /** 从持久化数据加载对话；空数据补一个默认新对话 */
+    load(conversations: Conversation[]) {
+        if (!conversations?.length) {
+            this.createConversation();
+            return;
+        }
+        conversations.forEach((conv) => this.conversations.set(conv.id, { ...conv }));
+        this.activeId = conversations[0].id;
+    }
 }
