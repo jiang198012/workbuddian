@@ -1831,6 +1831,44 @@ function splitInlineDiff(oldLine, newLine) {
   return { oldSegs: build(oldLine), newSegs: build(newLine) };
 }
 
+// src/shared/diffRows.ts
+function renderDiffRows(diffBody, diffLines) {
+  const appendRow = (type, prefix, segs) => {
+    const row = diffBody.createDiv({ cls: `workbuddian-diff-line workbuddian-diff-${type}` });
+    row.createSpan({ text: prefix });
+    for (const seg of segs) {
+      const span = row.createSpan({ text: seg.text });
+      if (seg.changed)
+        span.addClass("workbuddian-diff-hl");
+    }
+  };
+  for (let i = 0; i < diffLines.length; i++) {
+    const line = diffLines[i];
+    if (line.type === "remove") {
+      const removes = [];
+      while (i < diffLines.length && diffLines[i].type === "remove")
+        removes.push(diffLines[i++]);
+      const adds = [];
+      while (i < diffLines.length && diffLines[i].type === "add")
+        adds.push(diffLines[i++]);
+      i--;
+      const paired = Math.min(removes.length, adds.length);
+      for (let k = 0; k < paired; k++) {
+        const { oldSegs, newSegs } = splitInlineDiff(removes[k].text, adds[k].text);
+        appendRow("remove", "- ", oldSegs);
+        appendRow("add", "+ ", newSegs);
+      }
+      for (let k = paired; k < removes.length; k++)
+        appendRow("remove", "- ", [{ text: removes[k].text, changed: false }]);
+      for (let k = paired; k < adds.length; k++)
+        appendRow("add", "+ ", [{ text: adds[k].text, changed: false }]);
+    } else {
+      const prefix = line.type === "add" ? "+ " : "  ";
+      appendRow(line.type, prefix, [{ text: line.text, changed: false }]);
+    }
+  }
+}
+
 // src/shared/imageStore.ts
 var fs2 = __toESM(require("fs"));
 var path2 = __toESM(require("path"));
@@ -2259,42 +2297,6 @@ async function renderApprovalCard(view, container, data) {
       actions.empty();
       card.createDiv({ cls: "workbuddian-approval-card-resolved", text: def.resolved });
     };
-  }
-}
-function renderDiffRows(diffBody, diffLines) {
-  const appendRow = (type, prefix, segs) => {
-    const row = diffBody.createDiv({ cls: `workbuddian-diff-line workbuddian-diff-${type}` });
-    row.createSpan({ text: prefix });
-    for (const seg of segs) {
-      const span = row.createSpan({ text: seg.text });
-      if (seg.changed)
-        span.addClass("workbuddian-diff-hl");
-    }
-  };
-  for (let i = 0; i < diffLines.length; i++) {
-    const line = diffLines[i];
-    if (line.type === "remove") {
-      const removes = [];
-      while (i < diffLines.length && diffLines[i].type === "remove")
-        removes.push(diffLines[i++]);
-      const adds = [];
-      while (i < diffLines.length && diffLines[i].type === "add")
-        adds.push(diffLines[i++]);
-      i--;
-      const paired = Math.min(removes.length, adds.length);
-      for (let k = 0; k < paired; k++) {
-        const { oldSegs, newSegs } = splitInlineDiff(removes[k].text, adds[k].text);
-        appendRow("remove", "- ", oldSegs);
-        appendRow("add", "+ ", newSegs);
-      }
-      for (let k = paired; k < removes.length; k++)
-        appendRow("remove", "- ", [{ text: removes[k].text, changed: false }]);
-      for (let k = paired; k < adds.length; k++)
-        appendRow("add", "+ ", [{ text: adds[k].text, changed: false }]);
-    } else {
-      const prefix = line.type === "add" ? "+ " : "  ";
-      appendRow(line.type, prefix, [{ text: line.text, changed: false }]);
-    }
   }
 }
 function renderApprovalDetail(body, detail) {
@@ -4087,10 +4089,7 @@ var DiffModal = class extends import_obsidian10.Modal {
   onOpen() {
     this.titleEl.setText(t("inline.previewTitle"));
     const box = this.contentEl.createDiv({ cls: "workbuddian-diff-box" });
-    for (const line of this.diff) {
-      const prefix = line.type === "add" ? "+ " : line.type === "remove" ? "- " : "  ";
-      box.createDiv({ cls: `workbuddian-diff-line workbuddian-diff-${line.type}`, text: prefix + line.text });
-    }
+    renderDiffRows(box, this.diff);
     new import_obsidian10.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.accept")).setCta().onClick(() => {
       this.close();
       this.onAccept();

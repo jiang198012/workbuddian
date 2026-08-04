@@ -1,6 +1,7 @@
 import { App, Editor, Modal, Notice, Setting } from 'obsidian';
 import { CodebuddyProvider } from '../../providers/codebuddy';
 import { lineDiff, type DiffLine } from '../../shared/lineDiff';
+import { renderDiffRows } from '../../shared/diffRows';
 import { buildEditPrompt } from '../../shared/editPrompt';
 import { t } from '../../i18n';
 
@@ -36,10 +37,7 @@ class DiffModal extends Modal {
     onOpen() {
         this.titleEl.setText(t('inline.previewTitle'));
         const box = this.contentEl.createDiv({ cls: 'workbuddian-diff-box' });
-        for (const line of this.diff) {
-            const prefix = line.type === 'add' ? '+ ' : line.type === 'remove' ? '- ' : '  ';
-            box.createDiv({ cls: `workbuddian-diff-line workbuddian-diff-${line.type}`, text: prefix + line.text });
-        }
+        renderDiffRows(box, this.diff);
         new Setting(this.contentEl)
             .addButton(b => b.setButtonText(t('inline.accept')).setCta().onClick(() => { this.close(); this.onAccept(); }))
             .addButton(b => b.setButtonText(t('inline.reject')).onClick(() => this.close()));
