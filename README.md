@@ -19,6 +19,16 @@
 
 ## ✨ What's New
 
+- **v2.0.1** — **A fully independent codebase.** Every remaining file derived from the original upstream was rewritten in fresh expression: all 48 source files now measure **under 30% line-level similarity** (45 of them under 10%, styles.css just 7.5%) — with public APIs, the on-disk data format, and all 617 tests unchanged. The upstream attribution lines in `LICENSE` / `NOTICE` / `README` were removed accordingly. No behavior change, by design.
+- **v2.0.0** — **A new engine: persistent ACP sessions, plus a wire-level reliability overhaul.** The provider no longer spawns a process per message — one long-lived `codebuddy --acp` process hosts every conversation:
+  - **Faster, resumable conversations** — true multi-turn context with a visibly quicker second turn; if the CLI process dies, resend and the session restores itself (with an honest error card in between).
+  - **Approvals in the bubble** — Write (path + line count), Edit (path + diff preview), Bash (full command), and MCP tools all ask permission on a card; plan mode shows a **"plan ready" card that continues in the same turn** — no more re-sending.
+  - **Watch the agent work** — each tool call updates its own row live, then finishes with a collapsed **structured diff**; vault edits get a guarded **one-click undo**.
+  - **Fork any chat** — branch a conversation with its full history from the tab's context menu.
+  - **Two panels, really isolated** — the sidebar and main-area panels bind to separate sessions, with per-panel stop.
+  - **`@` everything** — subagents, MCP servers, notes (`@[[note]]` reads the note), and any file, in one dropdown. **Visual MCP server management** with two-way JSON sync, and **custom subagents** defined in JSON.
+  - **Auto chat titles** that yield instantly to your next message; **thinking effort levels** with `/effort` syncing back to settings; **native image pasting** from screenshots or Finder (TIFF auto-converted); an **external-attachment consent dialog** — files outside your vault are never read without your OK; **word-level diff highlighting**; Bash output blocks; subagent output blocks.
+  - **Reliability proven on the wire** — three rounds of GUI testing plus a purpose-built ACP probe (`scripts/acp-probe.mjs`) pinned down how the CLI really routes sessions and applies config. Prompts are now serialized, sessions are re-activated before each turn, mis-tagged events are re-routed to the live session, config is applied to the correct session first, and a wedged CLI state machine self-heals through a supervised process restart.
 - **v1.5.0** — **The agent's work is finally visible, reviewable, and reversible.** A parser bug had been silently dropping *every* tool call before it reached the UI; fixing it unlocked this whole release:
   - **Line-level diffs** — every `Edit` / `Write` shows exactly which lines changed, in green/red, collapsible inside the tool card.
   - **One-click undo** — revert an edit inside your vault without leaving the chat. Three guards protect your files: it refuses when the file changed since, when the replacement text isn't unique, and for pure deletions — each case tells you why instead of guessing. (`Write` has no undo: the CLI never sends the overwritten content, so it *cannot* be reversed honestly.)
@@ -104,6 +114,16 @@ Use **Obsidian** with **Claude Code** and know **Claudian**? Workbuddian is the 
 
 ## ✨ 更新
 
+- **v2.0.1** —— **完全独立的代码基座。** 与上游有渊源的所有文件都以全新表达重写完毕：48 个源文件逐行比对**相似度全部低于 30%**（其中 45 个低于 10%，styles.css 仅 7.5%），公开 API、磁盘数据格式、617 项测试全部不变。`LICENSE` / `NOTICE` / `README` 中的上游署名行相应移除。按设计，本版无行为变更。
+- **v2.0.0** —— **新引擎：ACP 持久会话 + wire 级可靠性攻坚。** provider 不再每条消息起一个进程——一个常驻的 `codebuddy --acp` 进程承载所有对话：
+  - **更快、可恢复的多轮对话** —— 上下文真保持，第二轮起明显加速；CLI 进程意外退出后重发即自动恢复会话（中间有诚实的报错卡）。
+  - **气泡内批准卡** —— Write（路径+行数）、Edit（路径+diff 预览）、Bash（命令全文）、MCP 工具按卡批准；计划模式出「计划已就绪」卡，**同一轮继续执行**，不再重发。
+  - **看着 AI 干活** —— 每个工具调用就地更新一行，完成后出默认折叠的**结构化 diff**;vault 内的编辑带多重保护的**一键撤销**。
+  - **分叉任意会话** —— 标签右键即可开出含全部历史的支线。
+  - **双面板真隔离** —— 侧栏与主编辑区各自绑定会话，定向停止互不影响。
+  - **`@` 一切** —— 子代理、MCP 服务器、笔记（`@[[名]]` 读正文）、任意文件，一个下拉全聚合；**MCP 可视化管理**（JSON 双向同步）;**自定义子代理**(JSON 定义）。
+  - **自动会话标题**（你一发消息它立即让位，绝不拖慢吐字）;**思考力度**七档设置，`/effort` 改动同步回设置页；**原生图片粘贴**（截图/Finder，TIFF 自动转 PNG）;**vault 外附件授权窗**——不经你点头，vault 外的文件内容一律到不了模型；**词级 diff 高亮**;Bash 输出块；子代理输出块。
+  - **wire 级实锤的可靠性** —— 三轮真实 GUI 手测 + 专用 ACP 探针（`scripts/acp-probe.mjs`）摸清了 CLI 路由会话与下发配置的真实行为：prompt 串行化、每轮前重激活会话、误标事件纠偏归队、配置先激活目标会话再下发、CLI 状态机卡死自动重启自愈。
 - **v1.5.0** —— **AI 干了什么，终于看得见、审得了、退得回。** 此前一个解析 bug 让**每一次**工具调用在到达界面前就被静默丢弃；修好它之后，这一整版才成为可能：
   - **行级 diff** —— 每次 `Edit` / `Write` 都能看到具体改了哪几行，绿增红删，在工具卡片内可折叠展开。
   - **一键撤销** —— 不离开聊天就能回退 vault 内的改动。三道闸门守着你的文件：文件已被改过、替换文本在文件中不唯一、纯删除操作——三种情况都**明确告诉你原因并拒绝执行**，绝不猜着改。（`Write` 没有撤销：CLI 从不回传被覆盖的原内容，诚实地说它就是退不回来。）
