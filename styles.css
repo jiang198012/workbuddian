@@ -1009,6 +1009,8 @@
 .workbuddian-tool-diff .workbuddian-diff-add { background: rgba(0, 160, 60, 0.15); }
 .workbuddian-tool-diff .workbuddian-diff-remove { background: rgba(200, 40, 40, 0.15); }
 .workbuddian-tool-diff .workbuddian-diff-equal { opacity: 0.65; }
+.workbuddian-diff-add .workbuddian-diff-hl { background: rgba(0, 160, 60, 0.35); border-radius: 2px; }
+.workbuddian-diff-remove .workbuddian-diff-hl { background: rgba(200, 40, 40, 0.35); border-radius: 2px; }
 
 /* 批准卡（ACP 权限请求） */
 .workbuddian-approval-card { border: 1px solid var(--workbuddian-primary, #C8B487); border-radius: 6px; padding: 8px 10px; margin: 6px 0; }

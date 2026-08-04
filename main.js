@@ -1780,6 +1780,31 @@ function lineDiff(oldText, newText) {
   return out;
 }
 
+// src/shared/wordDiff.ts
+function splitInlineDiff(oldLine, newLine) {
+  let pre = 0;
+  const maxPre = Math.min(oldLine.length, newLine.length);
+  while (pre < maxPre && oldLine[pre] === newLine[pre])
+    pre++;
+  let suf = 0;
+  while (suf < Math.min(oldLine.length, newLine.length) - pre && oldLine[oldLine.length - 1 - suf] === newLine[newLine.length - 1 - suf])
+    suf++;
+  const build = (line) => {
+    const segs = [];
+    if (pre > 0)
+      segs.push({ text: line.slice(0, pre), changed: false });
+    const mid = line.slice(pre, line.length - suf);
+    if (mid)
+      segs.push({ text: mid, changed: true });
+    if (suf > 0)
+      segs.push({ text: line.slice(line.length - suf), changed: false });
+    if (!segs.length)
+      segs.push({ text: "", changed: false });
+    return segs;
+  };
+  return { oldSegs: build(oldLine), newSegs: build(newLine) };
+}
+
 // src/shared/imageStore.ts
 var fs2 = __toESM(require("fs"));
 var path2 = __toESM(require("path"));
@@ -2210,6 +2235,42 @@ async function renderApprovalCard(view, container, data) {
     };
   }
 }
+function renderDiffRows(diffBody, diffLines) {
+  const appendRow = (type, prefix, segs) => {
+    const row = diffBody.createDiv({ cls: `workbuddian-diff-line workbuddian-diff-${type}` });
+    row.createSpan({ text: prefix });
+    for (const seg of segs) {
+      const span = row.createSpan({ text: seg.text });
+      if (seg.changed)
+        span.addClass("workbuddian-diff-hl");
+    }
+  };
+  for (let i = 0; i < diffLines.length; i++) {
+    const line = diffLines[i];
+    if (line.type === "remove") {
+      const removes = [];
+      while (i < diffLines.length && diffLines[i].type === "remove")
+        removes.push(diffLines[i++]);
+      const adds = [];
+      while (i < diffLines.length && diffLines[i].type === "add")
+        adds.push(diffLines[i++]);
+      i--;
+      const paired = Math.min(removes.length, adds.length);
+      for (let k = 0; k < paired; k++) {
+        const { oldSegs, newSegs } = splitInlineDiff(removes[k].text, adds[k].text);
+        appendRow("remove", "- ", oldSegs);
+        appendRow("add", "+ ", newSegs);
+      }
+      for (let k = paired; k < removes.length; k++)
+        appendRow("remove", "- ", [{ text: removes[k].text, changed: false }]);
+      for (let k = paired; k < adds.length; k++)
+        appendRow("add", "+ ", [{ text: adds[k].text, changed: false }]);
+    } else {
+      const prefix = line.type === "add" ? "+ " : "  ";
+      appendRow(line.type, prefix, [{ text: line.text, changed: false }]);
+    }
+  }
+}
 function renderApprovalDetail(body, detail) {
   switch (detail.kind) {
     case "write":
@@ -2218,13 +2279,7 @@ function renderApprovalDetail(body, detail) {
     case "edit": {
       body.createDiv({ cls: "workbuddian-approval-card-path", text: detail.path });
       const diffEl = body.createDiv({ cls: "workbuddian-tool-diff-body" });
-      for (const line of lineDiff(detail.oldText, detail.newText)) {
-        const prefix = line.type === "add" ? "+ " : line.type === "remove" ? "- " : "  ";
-        diffEl.createDiv({
-          cls: `workbuddian-diff-line workbuddian-diff-${line.type}`,
-          text: prefix + line.text
-        });
-      }
+      renderDiffRows(diffEl, lineDiff(detail.oldText, detail.newText));
       return;
     }
     case "bash":
@@ -2733,13 +2788,7 @@ async function sendText(view, text, permissionModeOverride) {
               });
             }
             const diffBody = diffBlock.createDiv({ cls: "workbuddian-tool-diff-body workbuddian-hidden" });
-            for (const line of diffLines) {
-              const prefix = line.type === "add" ? "+ " : line.type === "remove" ? "- " : "  ";
-              diffBody.createDiv({
-                cls: `workbuddian-diff-line workbuddian-diff-${line.type}`,
-                text: prefix + line.text
-              });
-            }
+            renderDiffRows(diffBody, diffLines);
             const toggleDiff = () => {
               const hidden = diffBody.hasClass("workbuddian-hidden");
               diffBody.toggleClass("workbuddian-hidden", !hidden);
