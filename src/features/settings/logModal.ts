@@ -1,4 +1,4 @@
-import { App, Modal, Notice } from 'obsidian';
+import { App, Modal, Notice, Setting } from 'obsidian';
 import { getLogs, clearLogs } from '../../shared/logBuffer';
 import { t } from '../../i18n';
 
@@ -14,7 +14,7 @@ export class LogModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.addClass('workbuddian-log-modal');
-        contentEl.createEl('h3', { text: t('log.title') });
+        new Setting(contentEl).setName(t('log.title')).setHeading();
 
         const pre = contentEl.createEl('pre', { cls: 'workbuddian-log-body' });
         const render = () => {

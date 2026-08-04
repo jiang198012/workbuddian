@@ -2315,7 +2315,7 @@ var InstructionModal = class extends import_obsidian2.Modal {
   }
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h3", { text: t("instruction.modalTitle") });
+    new import_obsidian2.Setting(contentEl).setName(t("instruction.modalTitle")).setHeading();
     const ta = contentEl.createEl("textarea", {
       cls: "workbuddian-instruction-textarea",
       attr: { placeholder: t("instruction.placeholder"), rows: "6" }
@@ -2377,7 +2377,7 @@ var ResumeModal = class extends import_obsidian3.Modal {
   }
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h3", { text: t("resume.modalTitle") });
+    new import_obsidian3.Setting(contentEl).setName(t("resume.modalTitle")).setHeading();
     const conversations = this.view.manager.getAll();
     if (conversations.length === 0) {
       contentEl.createEl("p", { text: t("resume.empty") });
@@ -4417,7 +4417,7 @@ var LogModal = class extends import_obsidian9.Modal {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("workbuddian-log-modal");
-    contentEl.createEl("h3", { text: t("log.title") });
+    new import_obsidian9.Setting(contentEl).setName(t("log.title")).setHeading();
     const pre = contentEl.createEl("pre", { cls: "workbuddian-log-body" });
     const render = () => {
       const logs = getLogs();

@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.0.2 — 2026-08-04
+
+发布合规修复（Obsidian 市场审核口径）：日志弹窗、常驻指令弹窗、/resume 会话选择弹窗的标题由直接 `createEl('h3')` 改为 `Setting.setName(...).setHeading()`。无行为变更。
+
 ## v2.0.1 — 2026-08-04
 
 独立化收官：与上游 BuddyBridge 的代码关系清零。全部 48 个源文件与上游逐行比对相似度 <30%（其中 45 个 <10%，styles.css 仅 7.5%），`LICENSE` 版权行、`NOTICE` 衍生声明、`README` 致谢同步移除。

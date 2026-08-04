@@ -1,4 +1,4 @@
-import { Modal } from 'obsidian';
+import { Modal, Setting } from 'obsidian';
 import type { WorkbuddianChatView } from './view';
 import { switchToChat } from './tabs';
 import { formatConversationSummary } from '../../shared/conversationSummary';
@@ -11,7 +11,7 @@ class ResumeModal extends Modal {
     }
     onOpen() {
         const { contentEl } = this;
-        contentEl.createEl('h3', { text: t('resume.modalTitle') });
+        new Setting(contentEl).setName(t('resume.modalTitle')).setHeading();
 
         const conversations = this.view.manager.getAll(); // 已按 updatedAt 倒序
         if (conversations.length === 0) {

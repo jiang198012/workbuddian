@@ -1,4 +1,4 @@
-import { Modal } from 'obsidian';
+import { Modal, Setting } from 'obsidian';
 import type { WorkbuddianChatView } from './view';
 import { t } from '../../i18n';
 
@@ -8,7 +8,7 @@ class InstructionModal extends Modal {
     }
     onOpen() {
         const { contentEl } = this;
-        contentEl.createEl('h3', { text: t('instruction.modalTitle') });
+        new Setting(contentEl).setName(t('instruction.modalTitle')).setHeading();
         const ta = contentEl.createEl('textarea', {
             cls: 'workbuddian-instruction-textarea',
             attr: { placeholder: t('instruction.placeholder'), rows: '6' },
