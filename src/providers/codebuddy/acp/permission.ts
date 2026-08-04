@@ -60,10 +60,14 @@ export function mapPermissionRequest(requestId: number, params: unknown): Permis
     const meta = asRecord(toolCall._meta);
     const rawInput = asRecord(toolCall.rawInput);
     const metaName = meta['codebuddy.ai/toolName'];
-    const toolName = typeof metaName === 'string' && metaName ? metaName
-        : typeof rawInput.toolName === 'string' ? rawInput.toolName
-        : typeof toolCall.title === 'string' ? toolCall.title : 'tool';
-    const isPlan = toolName === 'DeferExecuteTool' || rawInput.toolName === 'ExitPlanMode';
+    const rawToolName = typeof rawInput.toolName === 'string' ? rawInput.toolName : '';
+    // DeferExecuteTool 是委托包装器：展示名取内层工具（rawInput.toolName），如 mcp__fake__echo
+    const toolName = typeof metaName === 'string' && metaName
+        ? (metaName === 'DeferExecuteTool' && rawToolName ? rawToolName : metaName)
+        : rawToolName || (typeof toolCall.title === 'string' ? toolCall.title : 'tool');
+    // 计划批准特化只看内层工具：rawInput.toolName === 'ExitPlanMode'
+    // （DeferExecuteTool 也会包装普通 MCP/委托调用——2026-08-03 实测 mcp__fake__echo 走同一包装器）
+    const isPlan = rawToolName === 'ExitPlanMode';
     const options: PermissionOptionData[] = (Array.isArray(p.options) ? p.options : [])
         .map((o) => {
             const rec = asRecord(o);

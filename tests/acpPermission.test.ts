@@ -67,3 +67,20 @@ describe('buildPermissionResult / pickOptionId', () => {
         expect(pickOptionId([], 'reject')).toBeUndefined();
     });
 });
+
+describe('DeferExecuteTool wrapper disambiguation', () => {
+    it('treats DeferExecuteTool wrapping a non-plan tool as generic approval with inner tool name', () => {
+        const data = mapPermissionRequest(9, {
+            sessionId: 's1',
+            options: OPTIONS,
+            toolCall: {
+                toolCallId: 'c9',
+                rawInput: { params: { text: 'hello-mcp' }, toolName: 'mcp__fake__echo' },
+                _meta: { 'codebuddy.ai/toolName': 'DeferExecuteTool' },
+            },
+        });
+        expect(data.isPlanApproval).toBe(false);
+        expect(data.toolName).toBe('mcp__fake__echo');
+        expect(data.detail.kind).toBe('generic');
+    });
+});
