@@ -162,11 +162,15 @@ export class WorkbuddianChatView extends ItemView {
         inputBox.addEventListener('drop', (e) => { inputBox.removeClass('workbuddian-drop-active'); handleDrop(this, e); });
         this.atSuggestEl = inputArea.createDiv({ cls: 'workbuddian-at-suggest workbuddian-hidden' });
 
-        // 输入框内底部工具栏：左侧 模型/附件/授权，右侧 圆环 + 发送图标
+        // 输入框内底部工具栏：左侧 输入相关（模型/附件），右侧 会话控制（授权/指令/用量/发送）
+        // 分组 + 低频指令收进「更多」菜单，避免 6 个控件挤一条把模型按钮压到 31px（体检实测）
         const toolbar = inputBox.createDiv({ cls: 'workbuddian-input-toolbar' });
 
+        // 左组：输入相关
+        const leftGroup = toolbar.createDiv({ cls: 'workbuddian-toolbar-left' });
+
         // 模型选择（点击弹出菜单）
-        const modelBtn = toolbar.createDiv({
+        const modelBtn = leftGroup.createDiv({
             cls: 'workbuddian-model-btn',
             attr: { 'aria-label': t('settings.model'), title: t('settings.model'), role: 'button', tabindex: '0' }
         });
@@ -181,15 +185,18 @@ export class WorkbuddianChatView extends ItemView {
         });
 
         // 附件（系统文件选择器挑任意文件）
-        const attachBtn = toolbar.createEl('button', {
+        const attachBtn = leftGroup.createEl('button', {
             cls: 'workbuddian-toolbar-btn',
             attr: { 'aria-label': t('input.attach'), title: t('input.attach') }
         });
         setIcon(attachBtn, 'paperclip');
         attachBtn.onclick = () => openAttachmentPicker(this);
 
+        // 右组：会话控制
+        const rightGroup = toolbar.createDiv({ cls: 'workbuddian-toolbar-right' });
+
         // 授权（permission 模式）
-        const permBtn = toolbar.createEl('button', {
+        const permBtn = rightGroup.createEl('button', {
             cls: 'workbuddian-toolbar-btn',
             attr: { 'aria-label': t('input.permission') }
         });
@@ -198,14 +205,12 @@ export class WorkbuddianChatView extends ItemView {
         permBtn.onclick = (e) => openPermissionMenu(this, permBtn, e);
         this.permissionBtn = permBtn;
 
-        // 常驻指令指示（有指令时高亮，点击编辑/清除）
-        const instrBtn = toolbar.createEl('button', { cls: 'workbuddian-toolbar-btn' });
+        // 常驻指令指示：低频功能收进「更多」菜单（有指令时按钮高亮成 accent，点击直接开指令编辑）
+        const instrBtn = rightGroup.createEl('button', { cls: 'workbuddian-toolbar-btn' });
         setIcon(instrBtn, 'hash');
         instrBtn.onclick = () => openInstructionModal(this, '');
         this.instructionBtn = instrBtn;
         this.refreshInstructionIndicator();
-
-        const rightGroup = toolbar.createDiv({ cls: 'workbuddian-toolbar-right' });
         // role="img" 配合 aria-label：裸 div 是隐式 role=generic，ARIA 规范禁止在其上用
         // aria-label（多数辅助技术会忽略），见 M2
         this.usageEl = rightGroup.createDiv({ cls: 'workbuddian-usage-ring workbuddian-hidden', attr: { role: 'img' } });

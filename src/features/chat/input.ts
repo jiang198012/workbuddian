@@ -1113,11 +1113,13 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                         const bashBlock = list.createDiv({ cls: 'workbuddian-bash-block' });
                         const bashHeader = bashBlock.createDiv({
                             cls: 'workbuddian-tool-diff-header',
-                            attr: { role: 'button', tabindex: '0', 'aria-expanded': 'false', 'aria-label': t('tool.outputToggle') }
+                            attr: { role: 'button', tabindex: '0', 'aria-expanded': 'true', 'aria-label': t('tool.outputToggle') }
                         });
                         bashHeader.createSpan({ text: outputTitle });
-                        const bashChevron = bashHeader.createSpan({ text: '▾' });
-                        const bashBody = bashBlock.createDiv({ cls: 'workbuddian-bash-body workbuddian-hidden' });
+                        const bashChevron = bashHeader.createSpan({ text: '▸' });
+                        // Bash 输出默认展开：这是用户关心的「命令结果」，不是过程细节；
+                        // 思考/工具/diff 保持折叠（内部过程），避免长对话被过程块占满屏幕
+                        const bashBody = bashBlock.createDiv({ cls: 'workbuddian-bash-body' });
                         bashBody.createEl('pre', { text: chunk.toolOutput });
                         const toggleBash = () => {
                             const hidden = bashBody.hasClass('workbuddian-hidden');

@@ -237,11 +237,15 @@ var STRINGS = {
   "usage.tooltip": { zh: "\u4E0A\u4E0B\u6587 {used} / {total} tokens", en: "Context {used} / {total} tokens" },
   "render.emptyTitle": { zh: "\u5F00\u59CB\u65B0\u5BF9\u8BDD", en: "Start a new conversation" },
   "render.emptySubtitle": { zh: "\u70B9\u51FB\u4E0A\u65B9 + \u6309\u94AE\u6216\u8F93\u5165\u6D88\u606F\u5F00\u59CB\u804A\u5929", en: "Click the + button above or type a message to start chatting" },
+  "render.suggestSummarize": { zh: "\u603B\u7ED3\u5F53\u524D\u7B14\u8BB0", en: "Summarize the current note" },
+  "render.suggestExplain": { zh: "\u89E3\u91CA\u8FD9\u4E2A\u60F3\u6CD5", en: "Explain this idea" },
+  "render.suggestRewrite": { zh: "\u6539\u5199\u8FD9\u6BB5\u6587\u5B57", en: "Rewrite this text" },
   "render.thinking": { zh: "\u601D\u8003\u4E2D", en: "Thinking" },
   "render.errorTitle": { zh: "\u51FA\u9519\u4E86", en: "Something went wrong" },
   "render.retry": { zh: "\u91CD\u8BD5", en: "Retry" },
   "render.openSettings": { zh: "\u6253\u5F00\u8BBE\u7F6E", en: "Open settings" },
   "render.copy": { zh: "\u590D\u5236", en: "Copy" },
+  "render.copyCode": { zh: "\u590D\u5236\u4EE3\u7801", en: "Copy code" },
   "render.copied": { zh: "\u5DF2\u590D\u5236", en: "Copied" },
   "render.copyFailed": { zh: "\u590D\u5236\u5931\u8D25", en: "Copy failed" },
   "tabs.close": { zh: "\u5173\u95ED\u5BF9\u8BDD", en: "Close chat" },
@@ -298,8 +302,11 @@ var STRINGS = {
   "slash.status": { zh: "\u67E5\u770B\u72B6\u6001", en: "Show status" }
 };
 function t(key) {
+  var _a, _b, _c;
   const entry = STRINGS[key];
-  return entry ? entry[currentLang] : key;
+  if (!entry)
+    return key;
+  return (_c = (_b = (_a = entry[currentLang]) != null ? _a : entry.en) != null ? _b : entry.zh) != null ? _c : key;
 }
 function matchesAnyLang(value, key) {
   const entry = STRINGS[key];
@@ -3443,11 +3450,11 @@ async function sendText(view, text, permissionModeOverride) {
             const bashBlock = list.createDiv({ cls: "workbuddian-bash-block" });
             const bashHeader = bashBlock.createDiv({
               cls: "workbuddian-tool-diff-header",
-              attr: { role: "button", tabindex: "0", "aria-expanded": "false", "aria-label": t("tool.outputToggle") }
+              attr: { role: "button", tabindex: "0", "aria-expanded": "true", "aria-label": t("tool.outputToggle") }
             });
             bashHeader.createSpan({ text: outputTitle });
-            const bashChevron = bashHeader.createSpan({ text: "\u25BE" });
-            const bashBody = bashBlock.createDiv({ cls: "workbuddian-bash-body workbuddian-hidden" });
+            const bashChevron = bashHeader.createSpan({ text: "\u25B8" });
+            const bashBody = bashBlock.createDiv({ cls: "workbuddian-bash-body" });
             bashBody.createEl("pre", { text: chunk.toolOutput });
             const toggleBash = () => {
               const hidden = bashBody.hasClass("workbuddian-hidden");
@@ -3628,6 +3635,15 @@ async function renderMessages(view) {
     (0, import_obsidian6.setIcon)(icon, "message-square");
     empty.createDiv({ cls: "workbuddian-empty-chat-title", text: t("render.emptyTitle") });
     empty.createDiv({ cls: "workbuddian-empty-chat-subtitle", text: t("render.emptySubtitle") });
+    const suggestions = empty.createDiv({ cls: "workbuddian-empty-suggestions" });
+    for (const s of [t("render.suggestSummarize"), t("render.suggestExplain"), t("render.suggestRewrite")]) {
+      const chip = suggestions.createEl("button", { cls: "workbuddian-empty-suggestion", text: s });
+      chip.onclick = () => {
+        view.inputEl.value = s;
+        adjustTextareaHeight(view);
+        view.inputEl.focus();
+      };
+    }
     renderContextUsage(view);
     return;
   }
@@ -3726,6 +3742,10 @@ function renderErrorCard(view, bubble, msg) {
   const icon = header.createSpan({ cls: "workbuddian-error-icon" });
   (0, import_obsidian6.setIcon)(icon, "alert-triangle");
   header.createSpan({ cls: "workbuddian-error-title", text: t("render.errorTitle") });
+  if (msg.timestamp) {
+    const time = new Date(msg.timestamp).toLocaleTimeString();
+    header.createSpan({ cls: "workbuddian-error-time", text: time });
+  }
   card.createDiv({ cls: "workbuddian-error-body", text: msg.content });
   const actions = card.createDiv({ cls: "workbuddian-error-actions" });
   const retryBtn = actions.createEl("button", { cls: "workbuddian-error-btn", text: t("render.retry") });
@@ -3741,14 +3761,24 @@ async function renderMarkdownContent(view, bubble, content) {
   let markdownContainer = bubble.querySelector(".workbuddian-markdown-content");
   if (!(markdownContainer instanceof HTMLElement)) {
     markdownContainer = bubble.createDiv({ cls: "workbuddian-markdown-content" });
-    if (thinkingBlock instanceof HTMLElement) {
-      bubble.insertBefore(markdownContainer, thinkingBlock);
-    } else if (toolsBlock instanceof HTMLElement) {
-      bubble.insertBefore(markdownContainer, toolsBlock);
-    }
   }
   if (!(markdownContainer instanceof HTMLElement))
     return;
+  const lastBlock = (() => {
+    const thinking = bubble.querySelector(".workbuddian-thinking-block");
+    const tools = bubble.querySelector(".workbuddian-tools-block");
+    if (thinking instanceof HTMLElement && tools instanceof HTMLElement) {
+      return thinking.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING ? tools : thinking;
+    }
+    return thinking instanceof HTMLElement ? thinking : tools instanceof HTMLElement ? tools : null;
+  })();
+  if (lastBlock instanceof HTMLElement) {
+    if (markdownContainer.previousElementSibling !== lastBlock) {
+      lastBlock.insertAdjacentElement("afterend", markdownContainer);
+    }
+  } else if (markdownContainer.parentElement !== bubble) {
+    bubble.appendChild(markdownContainer);
+  }
   markdownContainer.empty();
   await import_obsidian6.MarkdownRenderer.render(
     view.app,
@@ -3757,6 +3787,35 @@ async function renderMarkdownContent(view, bubble, content) {
     "",
     view.markdownComponent
   );
+  markdownContainer.querySelectorAll("pre").forEach((pre) => {
+    if (!(pre instanceof HTMLElement))
+      return;
+    if (pre.querySelector(".workbuddian-code-copy-wrap"))
+      return;
+    const wrap = pre.createDiv({ cls: "workbuddian-code-copy-wrap" });
+    pre.before(wrap);
+    wrap.appendChild(pre);
+    const btn = wrap.createEl("button", {
+      cls: "workbuddian-code-copy-btn",
+      attr: { "aria-label": t("render.copyCode"), title: t("render.copyCode") }
+    });
+    (0, import_obsidian6.setIcon)(btn, "copy");
+    btn.onclick = async () => {
+      var _a;
+      const code = (_a = pre.textContent) != null ? _a : "";
+      try {
+        await navigator.clipboard.writeText(code);
+        (0, import_obsidian6.setIcon)(btn, "check");
+        btn.setAttribute("title", t("render.copied"));
+        window.setTimeout(() => {
+          (0, import_obsidian6.setIcon)(btn, "copy");
+          btn.setAttribute("title", t("render.copyCode"));
+        }, 1500);
+      } catch (e) {
+        new import_obsidian6.Notice(t("render.copyFailed"));
+      }
+    };
+  });
 }
 function scrollToBottom(view) {
   view.messageContainer.scrollTop = view.messageContainer.scrollHeight;
@@ -3808,10 +3867,12 @@ function renderTabs(view) {
     const isActive = conv.id === activeId;
     const tab = view.tabBar.createDiv({
       cls: "workbuddian-tab",
-      attr: { role: "tab", tabindex: "0", "aria-selected": isActive ? "true" : "false" }
+      // title 显示完整标题（标签宽 150px 会省略，悬停可看全）
+      attr: { role: "tab", tabindex: "0", "aria-selected": isActive ? "true" : "false", title: conv.title }
     });
     if (isActive) {
       tab.addClass("workbuddian-tab-active");
+      queueMicrotask(() => tab.scrollIntoView({ block: "nearest", inline: "nearest" }));
     }
     const titleSpan = tab.createSpan({ text: conv.title, cls: "workbuddian-tab-title" });
     titleSpan.onclick = (e) => {
@@ -4102,7 +4163,8 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     });
     this.atSuggestEl = inputArea.createDiv({ cls: "workbuddian-at-suggest workbuddian-hidden" });
     const toolbar = inputBox.createDiv({ cls: "workbuddian-input-toolbar" });
-    const modelBtn = toolbar.createDiv({
+    const leftGroup = toolbar.createDiv({ cls: "workbuddian-toolbar-left" });
+    const modelBtn = leftGroup.createDiv({
       cls: "workbuddian-model-btn",
       attr: { "aria-label": t("settings.model"), title: t("settings.model"), role: "button", tabindex: "0" }
     });
@@ -4114,13 +4176,14 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
         openModelMenu(this, modelBtn);
       }
     });
-    const attachBtn = toolbar.createEl("button", {
+    const attachBtn = leftGroup.createEl("button", {
       cls: "workbuddian-toolbar-btn",
       attr: { "aria-label": t("input.attach"), title: t("input.attach") }
     });
     (0, import_obsidian8.setIcon)(attachBtn, "paperclip");
     attachBtn.onclick = () => openAttachmentPicker(this);
-    const permBtn = toolbar.createEl("button", {
+    const rightGroup = toolbar.createDiv({ cls: "workbuddian-toolbar-right" });
+    const permBtn = rightGroup.createEl("button", {
       cls: "workbuddian-toolbar-btn",
       attr: { "aria-label": t("input.permission") }
     });
@@ -4128,12 +4191,11 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     permBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + this.settings.permissionMode)}`);
     permBtn.onclick = (e) => openPermissionMenu(this, permBtn, e);
     this.permissionBtn = permBtn;
-    const instrBtn = toolbar.createEl("button", { cls: "workbuddian-toolbar-btn" });
+    const instrBtn = rightGroup.createEl("button", { cls: "workbuddian-toolbar-btn" });
     (0, import_obsidian8.setIcon)(instrBtn, "hash");
     instrBtn.onclick = () => openInstructionModal(this, "");
     this.instructionBtn = instrBtn;
     this.refreshInstructionIndicator();
-    const rightGroup = toolbar.createDiv({ cls: "workbuddian-toolbar-right" });
     this.usageEl = rightGroup.createDiv({ cls: "workbuddian-usage-ring workbuddian-hidden", attr: { role: "img" } });
     this.sendBtn = rightGroup.createEl("button", {
       cls: "workbuddian-send-btn",

@@ -22,3 +22,9 @@ fix.mjs
 
 # 录制成品/中间产物（本地，不入库）
 /demo-recordings/
+
+# e2e 测试产物（截图，不入库）
+/chat*.png
+
+# Serena 本地工具缓存（不入库）
+.serena/

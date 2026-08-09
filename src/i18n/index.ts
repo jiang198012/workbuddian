@@ -29,10 +29,11 @@ export function applyLang(setting: 'auto' | Lang): void {
 }
 
 /**
- * 全部用户可见字符串的中英对照。key 用 kebab/dot 命名，逐文件补充。
+ * 全部用户可见字符串的中英对照（zh/en 必填）。key 用 kebab/dot 命名，逐文件补充。
  * 仅面向用户的 UI 文案进此表；[WB] 日志、发给 CLI 的 prompt、注释不进。
+ * 多语言扩展：在条目上加 ja/ko 等可选字段即可，t() 自动回落（en → zh → key）。
  */
-export const STRINGS: Record<string, { zh: string; en: string }> = {
+export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: string }> = {
     'chat.send': { zh: '发送', en: 'Send' },
     'chat.stop': { zh: '停止', en: 'Stop' },
     'chat.newConversation': { zh: '新对话', en: 'New chat' },
@@ -198,11 +199,15 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
 
     'render.emptyTitle': { zh: '开始新对话', en: 'Start a new conversation' },
     'render.emptySubtitle': { zh: '点击上方 + 按钮或输入消息开始聊天', en: 'Click the + button above or type a message to start chatting' },
+    'render.suggestSummarize': { zh: '总结当前笔记', en: 'Summarize the current note' },
+    'render.suggestExplain': { zh: '解释这个想法', en: 'Explain this idea' },
+    'render.suggestRewrite': { zh: '改写这段文字', en: 'Rewrite this text' },
     'render.thinking': { zh: '思考中', en: 'Thinking' },
     'render.errorTitle': { zh: '出错了', en: 'Something went wrong' },
     'render.retry': { zh: '重试', en: 'Retry' },
     'render.openSettings': { zh: '打开设置', en: 'Open settings' },
     'render.copy': { zh: '复制', en: 'Copy' },
+    'render.copyCode': { zh: '复制代码', en: 'Copy code' },
     'render.copied': { zh: '已复制', en: 'Copied' },
     'render.copyFailed': { zh: '复制失败', en: 'Copy failed' },
 
@@ -263,9 +268,16 @@ export const STRINGS: Record<string, { zh: string; en: string }> = {
     'slash.status': { zh: '查看状态', en: 'Show status' },
 };
 
+/**
+ * 取当前语言的文案,带回落链:
+ * 当前语言 → en → zh → key 本身。
+ * 为未来多语言扩展(ja/ko 等)预留:即使某条文案没翻译,也不会取到 undefined 崩溃,
+ * 而是回落到最接近的可用语言。新语言只需在 STRINGS 条目里加字段,其余零改动。
+ */
 export function t(key: string): string {
     const entry = STRINGS[key];
-    return entry ? entry[currentLang] : key;
+    if (!entry) return key;
+    return entry[currentLang] ?? entry.en ?? entry.zh ?? key;
 }
 
 /** value 是否等于某 key 的中文或英文文案（跨语言识别默认标题等，兼容切换语言前后的旧数据） */

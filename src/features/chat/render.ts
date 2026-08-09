@@ -1,7 +1,7 @@
 import { MarkdownRenderer, Notice, setIcon } from 'obsidian';
 import type { ChatMessage } from '../../types';
 import type { WorkbuddianChatView } from './view';
-import { retryLastMessage, openWorkbuddianSettings, thumbSrc, renderContextUsage } from './input';
+import { retryLastMessage, openWorkbuddianSettings, thumbSrc, renderContextUsage, adjustTextareaHeight } from './input';
 import { ensureTableBlankLines } from '../../shared/tableNormalize';
 import { fileBasename, isAbsolutePath } from '../../shared/attachments';
 import { isImagePath } from '../../shared/imageStore';
@@ -16,6 +16,18 @@ export async function renderMessages(view: WorkbuddianChatView) {
         setIcon(icon, 'message-square');
         empty.createDiv({ cls: 'workbuddian-empty-chat-title', text: t('render.emptyTitle') });
         empty.createDiv({ cls: 'workbuddian-empty-chat-subtitle', text: t('render.emptySubtitle') });
+
+        // 快速开始建议：点击填入输入框并聚焦，降低冷启动门槛
+        const suggestions = empty.createDiv({ cls: 'workbuddian-empty-suggestions' });
+        for (const s of [t('render.suggestSummarize'), t('render.suggestExplain'), t('render.suggestRewrite')]) {
+            const chip = suggestions.createEl('button', { cls: 'workbuddian-empty-suggestion', text: s });
+            chip.onclick = () => {
+                view.inputEl.value = s;
+                adjustTextareaHeight(view);
+                view.inputEl.focus();
+            };
+        }
+
         renderContextUsage(view); // 无对话时一并收起用量圆环，避免残留上一个对话的数值
         return;
     }
@@ -129,6 +141,11 @@ export function renderErrorCard(view: WorkbuddianChatView, bubble: HTMLElement, 
     const icon = header.createSpan({ cls: 'workbuddian-error-icon' });
     setIcon(icon, 'alert-triangle');
     header.createSpan({ cls: 'workbuddian-error-title', text: t('render.errorTitle') });
+    // 错误时间：诊断更有用（区分「刚发生」与「历史遗留」）
+    if (msg.timestamp) {
+        const time = new Date(msg.timestamp).toLocaleTimeString();
+        header.createSpan({ cls: 'workbuddian-error-time', text: time });
+    }
     card.createDiv({ cls: 'workbuddian-error-body', text: msg.content });
     const actions = card.createDiv({ cls: 'workbuddian-error-actions' });
     const retryBtn = actions.createEl('button', { cls: 'workbuddian-error-btn', text: t('render.retry') });
@@ -148,16 +165,32 @@ export async function renderMarkdownContent(view: WorkbuddianChatView, bubble: H
     let markdownContainer = bubble.querySelector('.workbuddian-markdown-content');
     if (!(markdownContainer instanceof HTMLElement)) {
         markdownContainer = bubble.createDiv({ cls: 'workbuddian-markdown-content' });
-
-        // 如果有思考块/工具块，将 Markdown 内容插入到它们之前
-        if (thinkingBlock instanceof HTMLElement) {
-            bubble.insertBefore(markdownContainer, thinkingBlock);
-        } else if (toolsBlock instanceof HTMLElement) {
-            bubble.insertBefore(markdownContainer, toolsBlock);
-        }
     }
 
     if (!(markdownContainer instanceof HTMLElement)) return;
+
+    // 关键:始终把 Markdown 容器锚定在 bubble 末尾(思考块/工具块之后)。
+    // 之前用「插到思考块之前」的写法,但思考块/工具块会在流式过程中被重建,
+    // 重建后正文容器就落到了它们后面——思考内容被当成正文渲染(泄漏)。
+    // 正文是「结果」,思考/工具是「过程」,正文必须在最后。
+    const lastBlock = (() => {
+        const thinking = bubble.querySelector('.workbuddian-thinking-block');
+        const tools = bubble.querySelector('.workbuddian-tools-block');
+        if (thinking instanceof HTMLElement && tools instanceof HTMLElement) {
+            // 两者都存在:取 DOM 顺序更靠后的那个
+            return thinking.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING ? tools : thinking;
+        }
+        return (thinking instanceof HTMLElement) ? thinking : (tools instanceof HTMLElement) ? tools : null;
+    })();
+
+    if (lastBlock instanceof HTMLElement) {
+        // 只有当前不在正确位置时才移动,避免频繁 DOM 操作
+        if (markdownContainer.previousElementSibling !== lastBlock) {
+            lastBlock.insertAdjacentElement('afterend', markdownContainer);
+        }
+    } else if (markdownContainer.parentElement !== bubble) {
+        bubble.appendChild(markdownContainer);
+    }
 
     // 清空之前渲染的内容
     markdownContainer.empty();
@@ -169,6 +202,37 @@ export async function renderMarkdownContent(view: WorkbuddianChatView, bubble: H
         '',
         view.markdownComponent
     );
+
+    // 代码块级复制：给每个 <pre> 包一层容器 + 右上角复制钮（hover 代码块浮出）。
+    // 消息级复制在行操作里，但代码块往往很长，用户只想复制那一段。
+    markdownContainer.querySelectorAll('pre').forEach((pre) => {
+        if (!(pre instanceof HTMLElement)) return;
+        if (pre.querySelector('.workbuddian-code-copy-wrap')) return; // 已包过
+
+        const wrap = pre.createDiv({ cls: 'workbuddian-code-copy-wrap' });
+        pre.before(wrap); // 把 pre 移进 wrap
+        wrap.appendChild(pre);
+
+        const btn = wrap.createEl('button', {
+            cls: 'workbuddian-code-copy-btn',
+            attr: { 'aria-label': t('render.copyCode'), title: t('render.copyCode') }
+        });
+        setIcon(btn, 'copy');
+        btn.onclick = async () => {
+            const code = pre.textContent ?? '';
+            try {
+                await navigator.clipboard.writeText(code);
+                setIcon(btn, 'check');
+                btn.setAttribute('title', t('render.copied'));
+                window.setTimeout(() => {
+                    setIcon(btn, 'copy');
+                    btn.setAttribute('title', t('render.copyCode'));
+                }, 1500);
+            } catch {
+                new Notice(t('render.copyFailed'));
+            }
+        };
+    });
 }
 
 export function scrollToBottom(view: WorkbuddianChatView) {

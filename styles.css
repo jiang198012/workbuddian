@@ -49,7 +49,18 @@
     overflow-x: auto;
 }
 
-.workbuddian-tab-bar::-webkit-scrollbar { display: none; }
+/* 标签栏横向滚动：细滚动条（hover 才明显），不占高度；标签多时当前对话靠
+   scrollIntoView 自动滚入可视区（见 tabs.ts），无需额外滚动按钮挤占窄面板 */
+.workbuddian-tab-bar::-webkit-scrollbar {
+    height: 3px;
+}
+.workbuddian-tab-bar::-webkit-scrollbar-thumb {
+    background: var(--background-modifier-border);
+    border-radius: 2px;
+}
+.workbuddian-tab-bar::-webkit-scrollbar-thumb:hover {
+    background: var(--background-modifier-border-hover);
+}
 
 .workbuddian-tab {
     flex-shrink: 0;
@@ -190,6 +201,32 @@
     font-size: var(--font-ui-small);
 }
 
+/* 空态快速开始建议（点击填入输入框） */
+.workbuddian-empty-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--workbuddian-gap-sm);
+    justify-content: center;
+    margin-top: 18px;
+}
+
+.workbuddian-empty-suggestion {
+    padding: 5px 12px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--workbuddian-radius-lg);
+    background: var(--background-secondary);
+    color: var(--text-muted);
+    font-size: var(--font-ui-small);
+    cursor: pointer;
+    transition: border-color 0.18s ease, color 0.18s ease, background-color 0.18s ease;
+}
+
+.workbuddian-empty-suggestion:hover {
+    border-color: var(--workbuddian-accent);
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
 /* ==================== 消息行与气泡 ==================== */
 .workbuddian-message-row {
     display: flex;
@@ -242,16 +279,46 @@
     color: var(--text-normal);
 }
 
-/* 消息操作（复制按钮，hover 整行浮出） */
+/* 消息操作（复制按钮，默认半透明可见，hover 整行更明显——不再完全隐藏，
+   否则触屏/不常 hover 的用户根本发现不了这个操作，体检 UX 问题 #3） */
 .workbuddian-message-actions {
     display: flex;
     gap: var(--workbuddian-gap-sm);
     padding: 3px 3px 0;
-    opacity: 0;
+    opacity: 0.45;
     transition: opacity 0.18s ease;
 }
 
 .workbuddian-message-row:hover .workbuddian-message-actions { opacity: 1; }
+
+/* 代码块级复制按钮：贴代码块右上角，hover 代码块时浮出 */
+.workbuddian-bubble .workbuddian-code-copy-wrap {
+    position: relative;
+}
+
+.workbuddian-code-copy-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px;
+    border: none;
+    border-radius: var(--workbuddian-radius-sm);
+    background: var(--background-primary-alt);
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.workbuddian-bubble pre:hover .workbuddian-code-copy-btn,
+.workbuddian-code-copy-btn:focus-visible { opacity: 1; }
+
+.workbuddian-code-copy-btn:hover { color: var(--text-normal); }
+.workbuddian-code-copy-btn .svg-icon { width: 13px; height: 13px; }
 
 .workbuddian-message-action-btn {
     display: inline-flex;
@@ -606,7 +673,16 @@
     gap: var(--workbuddian-gap-sm);
 }
 
-/* 发送等右侧控件永不被压缩、永远留在框内 */
+/* 左组（输入相关）：模型/附件，可随空间收缩 */
+.workbuddian-toolbar-left {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: var(--workbuddian-gap-sm);
+    flex: 0 1 auto;
+}
+
+/* 右组（会话控制）：授权/指令/用量/发送，永不被压缩、永远留在框内 */
 .workbuddian-toolbar-right {
     flex-shrink: 0;
     display: flex;
@@ -905,6 +981,13 @@
     margin-bottom: var(--workbuddian-gap-xs);
     color: var(--text-error);
     font-weight: 600;
+}
+
+.workbuddian-error-time {
+    margin-left: auto;
+    color: var(--text-faint);
+    font-size: 0.8em;
+    font-weight: 400;
 }
 
 .workbuddian-error-body {

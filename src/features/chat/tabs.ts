@@ -60,10 +60,13 @@ export function renderTabs(view: WorkbuddianChatView) {
         const isActive = conv.id === activeId;
         const tab = view.tabBar.createDiv({
             cls: 'workbuddian-tab',
-            attr: { role: 'tab', tabindex: '0', 'aria-selected': isActive ? 'true' : 'false' }
+            // title 显示完整标题（标签宽 150px 会省略，悬停可看全）
+            attr: { role: 'tab', tabindex: '0', 'aria-selected': isActive ? 'true' : 'false', title: conv.title }
         });
         if (isActive) {
             tab.addClass('workbuddian-tab-active');
+            // 选中标签自动滚入可视区（标签多时当前对话不被挤出屏幕外）
+            queueMicrotask(() => tab.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
         }
         const titleSpan = tab.createSpan({ text: conv.title, cls: 'workbuddian-tab-title' });
         titleSpan.onclick = (e: MouseEvent) => {
