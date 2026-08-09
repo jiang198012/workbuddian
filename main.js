@@ -236,6 +236,7 @@ var init_i18n = __esm({
       "render.copied": { zh: "\u5DF2\u590D\u5236", en: "Copied" },
       "render.copyFailed": { zh: "\u590D\u5236\u5931\u8D25", en: "Copy failed" },
       "tabs.close": { zh: "\u5173\u95ED\u5BF9\u8BDD", en: "Close chat" },
+      "tabs.searchPlaceholder": { zh: "\u641C\u7D22\u4F1A\u8BDD\u2026", en: "Search chats\u2026" },
       "tabs.rename": { zh: "\u91CD\u547D\u540D", en: "Rename" },
       "tabs.fork": { zh: "\u5206\u53C9\u5F53\u524D\u4F1A\u8BDD", en: "Fork this chat" },
       "tabs.forkPrefix": { zh: "\u5206\u53C9", en: "Fork" },
@@ -260,6 +261,7 @@ var init_i18n = __esm({
       "cmd.openSettings": { zh: "\u6253\u5F00 Workbuddian \u8BBE\u7F6E", en: "Open Workbuddian settings" },
       "cmd.exportChat": { zh: "\u5BFC\u51FA\u5F53\u524D\u4F1A\u8BDD\u4E3A\u7B14\u8BB0", en: "Export current conversation as note" },
       "cmd.openChatFirst": { zh: "\u8BF7\u5148\u6253\u5F00\u804A\u5929\u9762\u677F", en: "Please open the chat panel first" },
+      "cmd.searchChats": { zh: "\u641C\u7D22\u4F1A\u8BDD", en: "Search conversations" },
       "cmd.loadFailed": { zh: "Workbuddian \u52A0\u8F7D\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian failed to load, check the Console" },
       "cmd.cannotCreatePanel": { zh: "Workbuddian\uFF1A\u65E0\u6CD5\u521B\u5EFA\u804A\u5929\u9762\u677F", en: "Workbuddian: could not create chat panel" },
       "cmd.openPanelFailed": { zh: "Workbuddian\uFF1A\u6253\u5F00\u9762\u677F\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian: failed to open panel, check the Console" },
@@ -4073,6 +4075,7 @@ async function removeChat(view, id) {
   await renderMessages(view);
 }
 function renderTabs(view) {
+  var _a, _b;
   if (view.activeRename) {
     const prev = view.activeRename;
     view.activeRename = null;
@@ -4083,7 +4086,8 @@ function renderTabs(view) {
   const newBtn = view.tabBar.querySelector(".workbuddian-new-chat-btn");
   const oldTabs = view.tabBar.querySelectorAll(".workbuddian-tab");
   oldTabs.forEach((t2) => t2.remove());
-  const conversations = view.manager.getAll();
+  const query = (_b = (_a = view.searchQuery) == null ? void 0 : _a.trim().toLowerCase()) != null ? _b : "";
+  const conversations = query ? view.manager.search(query) : view.manager.getAll();
   const activeId = view.activeConvId;
   for (const conv of conversations) {
     const isActive = conv.id === activeId;
@@ -4096,7 +4100,18 @@ function renderTabs(view) {
       tab.addClass("workbuddian-tab-active");
       queueMicrotask(() => tab.scrollIntoView({ block: "nearest", inline: "nearest" }));
     }
-    const titleSpan = tab.createSpan({ text: conv.title, cls: "workbuddian-tab-title" });
+    const titleSpan = tab.createSpan({ cls: "workbuddian-tab-title" });
+    if (query && conv.title.toLowerCase().includes(query)) {
+      const idx = conv.title.toLowerCase().indexOf(query);
+      const before = conv.title.slice(0, idx);
+      const hit = conv.title.slice(idx, idx + query.length);
+      const after = conv.title.slice(idx + query.length);
+      titleSpan.appendText(before);
+      titleSpan.createEl("mark", { text: hit, cls: "workbuddian-tab-hit" });
+      titleSpan.appendText(after);
+    } else {
+      titleSpan.setText(conv.title);
+    }
     titleSpan.onclick = (e) => {
       if (e.detail >= 2) {
         e.stopPropagation();
@@ -4271,6 +4286,7 @@ var VIEW_TYPE_CHAT = "workbuddian-panel";
 var WorkbuddianChatView = class extends import_obsidian8.ItemView {
   constructor(leaf, api, manager, settings, loadDataCallback, saveSettingsCallback) {
     super(leaf);
+    this.searchQuery = "";
     this.isStreaming = false;
     this.streamingMsgId = null;
     /** 本面板悬挂的批准卡：requestId → 兜底 reject optionId（关面板/切会话/卸载时统一答 reject） */
@@ -4352,6 +4368,23 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     });
     (0, import_obsidian8.setIcon)(newBtn, "plus");
     newBtn.onclick = () => createNewChat(this);
+    this.searchInputEl = this.tabBar.createEl("input", {
+      type: "text",
+      cls: "workbuddian-search-input",
+      attr: { placeholder: t("tabs.searchPlaceholder"), "aria-label": t("tabs.searchPlaceholder") }
+    });
+    this.searchInputEl.oninput = () => {
+      this.searchQuery = this.searchInputEl.value.trim();
+      renderTabs(this);
+    };
+    this.searchInputEl.onkeydown = (e) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        this.searchInputEl.value = "";
+        this.searchQuery = "";
+        renderTabs(this);
+      }
+    };
     this.messageContainer = container.createDiv({ cls: "workbuddian-messages" });
     this.liveRegionEl = container.createDiv({
       cls: "workbuddian-sr-only",
@@ -5376,6 +5409,20 @@ var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
           return;
         }
         void this.exportCurrentChat(view);
+      }
+    });
+    this.addCommand({
+      id: "search-chats",
+      name: t("cmd.searchChats"),
+      callback: () => {
+        void this.activateView();
+        setTimeout(() => {
+          var _a;
+          const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
+          const view = leaf == null ? void 0 : leaf.view;
+          if (view)
+            (_a = view.searchInputEl) == null ? void 0 : _a.focus();
+        }, 300);
       }
     });
   }

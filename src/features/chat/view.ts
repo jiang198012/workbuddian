@@ -28,6 +28,9 @@ export class WorkbuddianChatView extends ItemView {
     instructionBtn!: HTMLButtonElement;
     permissionBtn!: HTMLButtonElement;
     tabBar!: HTMLElement;
+    /** 会话搜索框(标签栏,搜索态过滤 tab;空串=显示全部) */
+    searchInputEl!: HTMLInputElement;
+    searchQuery: string = '';
     isStreaming: boolean = false;
     streamingMsgId: string | null = null;
     /** 本面板悬挂的批准卡：requestId → 兜底 reject optionId（关面板/切会话/卸载时统一答 reject） */
@@ -127,6 +130,25 @@ export class WorkbuddianChatView extends ItemView {
         });
         setIcon(newBtn, 'plus');
         newBtn.onclick = () => createNewChat(this);
+
+        // 会话搜索框:输入实时过滤 tab(调 manager.search),空串恢复全部
+        this.searchInputEl = this.tabBar.createEl('input', {
+            type: 'text',
+            cls: 'workbuddian-search-input',
+            attr: { placeholder: t('tabs.searchPlaceholder'), 'aria-label': t('tabs.searchPlaceholder') },
+        });
+        this.searchInputEl.oninput = () => {
+            this.searchQuery = this.searchInputEl.value.trim();
+            renderTabs(this);
+        };
+        this.searchInputEl.onkeydown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                e.stopPropagation();
+                this.searchInputEl.value = '';
+                this.searchQuery = '';
+                renderTabs(this);
+            }
+        };
 
         this.messageContainer = container.createDiv({ cls: 'workbuddian-messages' });
 

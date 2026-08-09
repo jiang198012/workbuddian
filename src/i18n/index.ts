@@ -214,6 +214,7 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'render.copyFailed': { zh: '复制失败', en: 'Copy failed' },
 
     'tabs.close': { zh: '关闭对话', en: 'Close chat' },
+    'tabs.searchPlaceholder': { zh: '搜索会话…', en: 'Search chats…' },
     'tabs.rename': { zh: '重命名', en: 'Rename' },
     'tabs.fork': { zh: '分叉当前会话', en: 'Fork this chat' },
     'tabs.forkPrefix': { zh: '分叉', en: 'Fork' },
@@ -239,6 +240,7 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'cmd.openSettings': { zh: '打开 Workbuddian 设置', en: 'Open Workbuddian settings' },
     'cmd.exportChat': { zh: '导出当前会话为笔记', en: 'Export current conversation as note' },
     'cmd.openChatFirst': { zh: '请先打开聊天面板', en: 'Please open the chat panel first' },
+    'cmd.searchChats': { zh: '搜索会话', en: 'Search conversations' },
     'cmd.loadFailed': { zh: 'Workbuddian 加载失败，请查看 Console', en: 'Workbuddian failed to load, check the Console' },
     'cmd.cannotCreatePanel': { zh: 'Workbuddian：无法创建聊天面板', en: 'Workbuddian: could not create chat panel' },
     'cmd.openPanelFailed': { zh: 'Workbuddian：打开面板失败，请查看 Console', en: 'Workbuddian: failed to open panel, check the Console' },

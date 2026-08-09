@@ -135,6 +135,18 @@ export default class WorkbuddianPlugin extends Plugin {
                 void this.exportCurrentChat(view);
             },
         });
+        this.addCommand({
+            id: 'search-chats',
+            name: t('cmd.searchChats'),
+            callback: () => {
+                void this.activateView();
+                setTimeout(() => {
+                    const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
+                    const view = leaf?.view as WorkbuddianChatView | undefined;
+                    if (view) view.searchInputEl?.focus();
+                }, 300);
+            },
+        });
     }
 
     /** 导出当前会话为笔记（命令面板增强） */

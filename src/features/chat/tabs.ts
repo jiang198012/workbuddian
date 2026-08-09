@@ -53,7 +53,9 @@ export function renderTabs(view: WorkbuddianChatView) {
     const oldTabs = view.tabBar.querySelectorAll('.workbuddian-tab');
     oldTabs.forEach(t => t.remove());
 
-    const conversations = view.manager.getAll();
+    // 会话搜索:搜索态只渲染匹配会话(标题或消息正文)
+    const query = view.searchQuery?.trim().toLowerCase() ?? '';
+    const conversations = query ? view.manager.search(query) : view.manager.getAll();
     const activeId = view.activeConvId;
 
     for (const conv of conversations) {
@@ -68,7 +70,19 @@ export function renderTabs(view: WorkbuddianChatView) {
             // 选中标签自动滚入可视区（标签多时当前对话不被挤出屏幕外）
             queueMicrotask(() => tab.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
         }
-        const titleSpan = tab.createSpan({ text: conv.title, cls: 'workbuddian-tab-title' });
+        // 搜索命中时标题片段高亮(<mark>),方便定位命中位置
+        const titleSpan = tab.createSpan({ cls: 'workbuddian-tab-title' });
+        if (query && conv.title.toLowerCase().includes(query)) {
+            const idx = conv.title.toLowerCase().indexOf(query);
+            const before = conv.title.slice(0, idx);
+            const hit = conv.title.slice(idx, idx + query.length);
+            const after = conv.title.slice(idx + query.length);
+            titleSpan.appendText(before);
+            titleSpan.createEl('mark', { text: hit, cls: 'workbuddian-tab-hit' });
+            titleSpan.appendText(after);
+        } else {
+            titleSpan.setText(conv.title);
+        }
         titleSpan.onclick = (e: MouseEvent) => {
             if (e.detail >= 2) {
                 e.stopPropagation();

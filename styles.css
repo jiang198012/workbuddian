@@ -166,6 +166,14 @@
     font-size: var(--font-ui-smaller);
 }
 
+/* 搜索命中标题高亮 */
+.workbuddian-tab-hit {
+    background: var(--text-accent);
+    color: var(--text-on-accent);
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
 /* ==================== 空态 ==================== */
 .workbuddian-empty-chat {
     flex: 1;
