@@ -223,6 +223,8 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'tabs.forkNeedMessage': { zh: '先发送一条消息，才能分叉', en: 'Send a message first to fork' },
     'tabs.forkStreaming': { zh: '正在响应中，稍候再分叉', en: 'Wait for the response to finish before forking' },
     'tabs.delete': { zh: '删除对话', en: 'Delete chat' },
+    'tabs.confirmDelete': { zh: '删除对话', en: 'Delete conversation' },
+    'tabs.deleteConfirmBtn': { zh: '确认删除', en: 'Confirm' },
     'tabs.exportAsNote': { zh: '导出为笔记', en: 'Export as note' },
     'tabs.nothingToExport': { zh: '没有可导出的内容', en: 'Nothing to export' },
     'tabs.exportedAs': { zh: '已导出为「{name}」', en: 'Exported as "{name}"' },

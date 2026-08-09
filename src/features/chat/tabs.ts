@@ -37,6 +37,20 @@ export async function removeChat(view: WorkbuddianChatView, id: string) {
     await renderMessages(view);
 }
 
+/** 删除前确认：Notice 弹"确认删除?"带按钮，点按钮才真删(防误删,3 秒内不点自动消失) */
+export function confirmAndRemoveChat(view: WorkbuddianChatView, id: string) {
+    const conv = view.manager.getById(id);
+    const label = conv ? conv.title : id;
+    const notice = new Notice('', 3000);
+    const noticeEl = notice.noticeEl;
+    noticeEl.createEl('span', { text: `${t('tabs.confirmDelete')}「${label}」？` });
+    noticeEl.createEl('button', { text: t('tabs.deleteConfirmBtn'), cls: 'mod-warning' })
+        .onclick = () => {
+            void removeChat(view, id);
+            notice.hide();
+        };
+}
+
 /** 渲染标签栏 */
 export function renderTabs(view: WorkbuddianChatView) {
     if (view.activeRename) {
@@ -97,11 +111,11 @@ export function renderTabs(view: WorkbuddianChatView) {
             attr: { title: t('tabs.close'), 'aria-label': t('tabs.close'), role: 'button', tabindex: '0' }
         });
         setIcon(closeBtn, 'x');
-        closeBtn.onclick = (e: MouseEvent) => deleteChat(view, conv.id, e);
+        closeBtn.onclick = (e: MouseEvent) => { e.stopPropagation(); confirmAndRemoveChat(view, conv.id); };
         closeBtn.onkeydown = (e: KeyboardEvent) => {
             if (isActivationKey(e.key)) {
                 e.preventDefault();
-                void deleteChat(view, conv.id, e);
+                confirmAndRemoveChat(view, conv.id);
             }
         };
         tab.onclick = () => {
@@ -212,8 +226,8 @@ export function showTabContextMenu(view: WorkbuddianChatView, e: MouseEvent, con
     );
 
     menu.addItem((item) =>
-        item.setTitle(t('tabs.delete')).setIcon('trash-2').onClick(async () => {
-            await removeChat(view, convId);
+        item.setTitle(t('tabs.delete')).setIcon('trash-2').onClick(() => {
+            confirmAndRemoveChat(view, convId);
         })
     );
 

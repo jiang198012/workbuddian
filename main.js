@@ -245,6 +245,8 @@ var init_i18n = __esm({
       "tabs.forkNeedMessage": { zh: "\u5148\u53D1\u9001\u4E00\u6761\u6D88\u606F\uFF0C\u624D\u80FD\u5206\u53C9", en: "Send a message first to fork" },
       "tabs.forkStreaming": { zh: "\u6B63\u5728\u54CD\u5E94\u4E2D\uFF0C\u7A0D\u5019\u518D\u5206\u53C9", en: "Wait for the response to finish before forking" },
       "tabs.delete": { zh: "\u5220\u9664\u5BF9\u8BDD", en: "Delete chat" },
+      "tabs.confirmDelete": { zh: "\u5220\u9664\u5BF9\u8BDD", en: "Delete conversation" },
+      "tabs.deleteConfirmBtn": { zh: "\u786E\u8BA4\u5220\u9664", en: "Confirm" },
       "tabs.exportAsNote": { zh: "\u5BFC\u51FA\u4E3A\u7B14\u8BB0", en: "Export as note" },
       "tabs.nothingToExport": { zh: "\u6CA1\u6709\u53EF\u5BFC\u51FA\u7684\u5185\u5BB9", en: "Nothing to export" },
       "tabs.exportedAs": { zh: "\u5DF2\u5BFC\u51FA\u4E3A\u300C{name}\u300D", en: 'Exported as "{name}"' },
@@ -4081,10 +4083,6 @@ async function switchToChat(view, id) {
   renderTabs(view);
   await renderMessages(view);
 }
-async function deleteChat(view, id, e) {
-  e.stopPropagation();
-  await removeChat(view, id);
-}
 async function removeChat(view, id) {
   var _a, _b;
   const wasActive = view.activeConvId === id;
@@ -4094,6 +4092,17 @@ async function removeChat(view, id) {
   }
   renderTabs(view);
   await renderMessages(view);
+}
+function confirmAndRemoveChat(view, id) {
+  const conv = view.manager.getById(id);
+  const label = conv ? conv.title : id;
+  const notice = new import_obsidian7.Notice("", 3e3);
+  const noticeEl = notice.noticeEl;
+  noticeEl.createEl("span", { text: `${t("tabs.confirmDelete")}\u300C${label}\u300D\uFF1F` });
+  noticeEl.createEl("button", { text: t("tabs.deleteConfirmBtn"), cls: "mod-warning" }).onclick = () => {
+    void removeChat(view, id);
+    notice.hide();
+  };
 }
 function renderTabs(view) {
   var _a, _b;
@@ -4147,11 +4156,14 @@ function renderTabs(view) {
       attr: { title: t("tabs.close"), "aria-label": t("tabs.close"), role: "button", tabindex: "0" }
     });
     (0, import_obsidian7.setIcon)(closeBtn, "x");
-    closeBtn.onclick = (e) => deleteChat(view, conv.id, e);
+    closeBtn.onclick = (e) => {
+      e.stopPropagation();
+      confirmAndRemoveChat(view, conv.id);
+    };
     closeBtn.onkeydown = (e) => {
       if (isActivationKey(e.key)) {
         e.preventDefault();
-        void deleteChat(view, conv.id, e);
+        confirmAndRemoveChat(view, conv.id);
       }
     };
     tab.onclick = () => {
@@ -4262,8 +4274,8 @@ function showTabContextMenu(view, e, convId, tab, titleSpan) {
     })
   );
   menu.addItem(
-    (item) => item.setTitle(t("tabs.delete")).setIcon("trash-2").onClick(async () => {
-      await removeChat(view, convId);
+    (item) => item.setTitle(t("tabs.delete")).setIcon("trash-2").onClick(() => {
+      confirmAndRemoveChat(view, convId);
     })
   );
   menu.addSeparator();
