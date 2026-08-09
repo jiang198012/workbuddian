@@ -137,6 +137,13 @@
     text-overflow: ellipsis;
 }
 
+/* 置顶会话 📌 标识 */
+.workbuddian-tab-pin {
+    flex-shrink: 0;
+    font-size: 11px;
+    line-height: 1;
+}
+
 .workbuddian-tab-rename-input {
     max-width: 130px;
     padding: 2px 5px;

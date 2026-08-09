@@ -34,6 +34,12 @@ if [ ! -f "$VAULT/.obsidian/plugins/workbuddian/manifest.json" ]; then
 fi
 
 echo "1/3 退出已运行的 Obsidian ..."
+# 临时把 demo-vault 设为唯一 open(否则 Obsidian 恢复上次打开的正式 vault,测试会加载旧插件)
+PIN_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/obsidian-vault-pin.py"
+python3 "$PIN_SCRIPT" pin "$VAULT"
+# 无论启动成功/失败,退出时恢复 obsidian.json(不破坏正式 vault 的打开状态)
+restore_obsidian() { python3 "$PIN_SCRIPT" restore >/dev/null 2>&1 || true; }
+trap restore_obsidian EXIT
 osascript -e 'quit app "Obsidian"' 2>/dev/null || true
 for _ in $(seq 1 10); do
     pgrep -x Obsidian >/dev/null 2>&1 || break

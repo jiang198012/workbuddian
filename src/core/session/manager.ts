@@ -64,7 +64,11 @@ export class ConversationManager {
 
     /** 全部对话，按更新时间倒序 */
     getAll(): Conversation[] {
-        return [...this.conversations.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+        // 置顶的排最前(各自内部按 updatedAt 降序)
+        return [...this.conversations.values()].sort((a, b) => {
+            if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+            return b.updatedAt - a.updatedAt;
+        });
     }
 
     /** 按标题和消息正文做本地大小写不敏感的包含匹配；空串返回全部 */
@@ -163,6 +167,15 @@ export class ConversationManager {
         conv.updatedAt = Date.now();
         this.commit();
         return true;
+    }
+
+    /** 切换会话置顶状态；返回切换后的 pinned 值（未找到返回 null） */
+    togglePinned(id: string): boolean | null {
+        const conv = this.conversations.get(id);
+        if (!conv) return null;
+        conv.pinned = !conv.pinned;
+        this.commit();
+        return conv.pinned;
     }
 
     /** 切换到指定对话（仅移动初始指针） */

@@ -82,6 +82,10 @@ export function renderTabs(view: WorkbuddianChatView) {
             // 选中标签自动滚入可视区（标签多时当前对话不被挤出屏幕外）
             queueMicrotask(() => tab.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
         }
+        // 置顶会话显示 📌 标识
+        if (conv.pinned) {
+            tab.createSpan({ cls: 'workbuddian-tab-pin', text: '📌', attr: { 'aria-label': t('tabs.pinned') } });
+        }
         // 搜索命中时标题片段高亮(<mark>),方便定位命中位置
         const titleSpan = tab.createSpan({ cls: 'workbuddian-tab-title' });
         if (query && conv.title.toLowerCase().includes(query)) {
@@ -206,6 +210,17 @@ export function showTabContextMenu(view: WorkbuddianChatView, e: MouseEvent, con
     const conv = view.manager.getAll().find(c => c.id === convId);
     if (!conv) return;
     const menu = new Menu();
+
+    // 置顶/取消置顶
+    menu.addItem((item) =>
+        item
+            .setTitle(conv.pinned ? t('tabs.unpin') : t('tabs.pin'))
+            .setIcon(conv.pinned ? 'pin-off' : 'pin')
+            .onClick(() => {
+                view.manager.togglePinned(convId);
+                renderTabs(view);
+            })
+    );
 
     menu.addItem((item) =>
         item.setTitle(t('tabs.rename')).setIcon('pencil').onClick(() => {

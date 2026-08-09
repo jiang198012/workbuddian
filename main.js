@@ -250,6 +250,9 @@ var init_i18n = __esm({
       "tabs.delete": { zh: "\u5220\u9664\u5BF9\u8BDD", en: "Delete chat" },
       "tabs.confirmDelete": { zh: "\u5220\u9664\u5BF9\u8BDD", en: "Delete conversation" },
       "tabs.deleteConfirmBtn": { zh: "\u786E\u8BA4\u5220\u9664", en: "Confirm" },
+      "tabs.pin": { zh: "\u7F6E\u9876\u4F1A\u8BDD", en: "Pin conversation" },
+      "tabs.unpin": { zh: "\u53D6\u6D88\u7F6E\u9876", en: "Unpin conversation" },
+      "tabs.pinned": { zh: "\u5DF2\u7F6E\u9876", en: "Pinned" },
       "tabs.exportAsNote": { zh: "\u5BFC\u51FA\u4E3A\u7B14\u8BB0", en: "Export as note" },
       "tabs.nothingToExport": { zh: "\u6CA1\u6709\u53EF\u5BFC\u51FA\u7684\u5185\u5BB9", en: "Nothing to export" },
       "tabs.exportedAs": { zh: "\u5DF2\u5BFC\u51FA\u4E3A\u300C{name}\u300D", en: 'Exported as "{name}"' },
@@ -4155,6 +4158,9 @@ function renderTabs(view) {
       tab.addClass("workbuddian-tab-active");
       queueMicrotask(() => tab.scrollIntoView({ block: "nearest", inline: "nearest" }));
     }
+    if (conv.pinned) {
+      tab.createSpan({ cls: "workbuddian-tab-pin", text: "\u{1F4CC}", attr: { "aria-label": t("tabs.pinned") } });
+    }
     const titleSpan = tab.createSpan({ cls: "workbuddian-tab-title" });
     if (query && conv.title.toLowerCase().includes(query)) {
       const idx = conv.title.toLowerCase().indexOf(query);
@@ -4285,6 +4291,12 @@ function showTabContextMenu(view, e, convId, tab, titleSpan) {
   if (!conv)
     return;
   const menu = new import_obsidian7.Menu();
+  menu.addItem(
+    (item) => item.setTitle(conv.pinned ? t("tabs.unpin") : t("tabs.pin")).setIcon(conv.pinned ? "pin-off" : "pin").onClick(() => {
+      view.manager.togglePinned(convId);
+      renderTabs(view);
+    })
+  );
   menu.addItem(
     (item) => item.setTitle(t("tabs.rename")).setIcon("pencil").onClick(() => {
       beginRenameTab(view, tab, titleSpan, convId);
@@ -4653,7 +4665,11 @@ var ConversationManager = class {
   }
   /** 全部对话，按更新时间倒序 */
   getAll() {
-    return [...this.conversations.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+    return [...this.conversations.values()].sort((a, b) => {
+      if (a.pinned !== b.pinned)
+        return a.pinned ? -1 : 1;
+      return b.updatedAt - a.updatedAt;
+    });
   }
   /** 按标题和消息正文做本地大小写不敏感的包含匹配；空串返回全部 */
   search(query) {
@@ -4753,6 +4769,15 @@ var ConversationManager = class {
     conv.updatedAt = Date.now();
     this.commit();
     return true;
+  }
+  /** 切换会话置顶状态；返回切换后的 pinned 值（未找到返回 null） */
+  togglePinned(id) {
+    const conv = this.conversations.get(id);
+    if (!conv)
+      return null;
+    conv.pinned = !conv.pinned;
+    this.commit();
+    return conv.pinned;
   }
   /** 切换到指定对话（仅移动初始指针） */
   switchTo(id) {

@@ -28,6 +28,8 @@ export interface Conversation {
     createdAt: number;
     updatedAt: number;
     lastUsage?: UsageInfo;
+    /** 会话置顶标记：置顶的会话排最前（右键菜单切换） */
+    pinned?: boolean;
 }
 
 // ==================== 窄化读取辅助 ====================

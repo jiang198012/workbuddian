@@ -37,11 +37,13 @@
 
 > 注：原稿的 "Inline Edit 未实现"、"无可扩展斜杠命令" 经代码核实为**误判**（两者均已实现），已修正。
 
-1. **无 compact 上下文压缩**——长会话上下文管理缺位（CLI 有 /compact 可透传，但无 UI/自动触发）
-2. **无双栏常驻会话管理器**（Claudian 2.1.0 dual-pane）
-3. **MCP 仅 stdio 传输**（不支持 SSE/HTTP）
-4. **Linux 不支持**（对中国用户影响小）
-5. **后端生态**——单一 CodeBuddy，但原生覆盖国内模型（DeepSeek/GLM/Kimi/MiniMax）
+1. **无 compact 上下文压缩**——已补（用量预警条 + /compact 一键触发，commit `048b281`）
+2. **无双栏常驻会话管理器**——已补（主面板左侧会话列表，commit `7f4cacb`）
+3. **MCP 仅 stdio 传输（不支持 SSE/HTTP）**——**不可做**：探针证实 ACP 不接受 http/sse 形态（mcpModal.ts 注释 + spec R5）。CLI 虽新增 `--mcp-config`/`--acp-transport streamable-http` 参数，但未登录无法验证完整握手，且中国用户本地 stdio MCP 为主，SSE/HTTP 需求低。等待 CLI 明确支持后再评估。
+4. **Linux 不支持**——依赖 CodeBuddy CLI 的 Linux 支持，超出插件范围。
+5. **后端生态**——依赖 CodeBuddy 支持更多 CLI，超出插件范围。
+
+**结论：Claudian 对比差距项已基本触底。** 可做的（compact/dual-pane/会话搜索/MCP管理UI/context-saving）全部完成；剩余差距（SSE-HTTP/Linux/多后端）均依赖外部 CLI 能力或超出插件范围，暂不可行。转向不依赖外部的新方向继续提升产品。
 
 ## 生态定位差异
 
