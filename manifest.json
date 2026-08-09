@@ -2,7 +2,7 @@
   "id": "workbuddian",
   "name": "Workbuddian",
   "minAppVersion": "1.7.2",
-  "description": "Chat with the local WorkBuddy/CodeBuddy CLI as an AI agent in your vault: streaming replies, screenshot vision, persistent custom instructions, @-reference any file, model/permission toolbar, slash commands, inline edit, export and search.",
+  "description": "把本地 CodeBuddy CLI 变成 Obsidian 里的 AI 聊天插件:流式回复、@引用笔记、图片视觉、MCP 管理、行级 diff 一键撤销。Chat with the local WorkBuddy/CodeBuddy CLI as an AI agent in your vault: streaming replies, screenshot vision, @-reference any file, MCP servers, inline edit, export and search.",
   "author": "jiang198012",
   "authorUrl": "https://github.com/jiang198012",
   "isDesktopOnly": true,

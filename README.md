@@ -13,7 +13,7 @@
   <strong>简体中文</strong> | <a href="./README.en.md">English</a>
 </p>
 
-在 Obsidian 里，把本地 **CodeBuddy CLI** 变成你的 **AI 工作搭档**——不用切窗口，在笔记里直接聊天、引用、改稿。
+**Workbuddian** 是一个 **Obsidian 社区插件**，把本地 **CodeBuddy CLI** 变成你笔记里的 **AI 聊天助手**——不用切窗口，直接在 Vault 里聊天、`@` 引用笔记、流式回复、改稿。
 
 > ⚠️ **仅桌面端**（Windows / macOS），需 Obsidian 1.7.2+。Linux 暂不支持。
 

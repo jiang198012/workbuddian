@@ -14,7 +14,7 @@
 
 > **Primary audience is Chinese-speaking Obsidian users. The canonical README is in Simplified Chinese ([中文](./README.md)); this English page is a condensed entry point.**
 
-Turn your local **CodeBuddy CLI** into an AI chat agent living inside your Obsidian vault — chat, reference notes, and edit your writing without ever switching windows.
+**Workbuddian** is an **Obsidian community plugin** that turns your local **CodeBuddy CLI** into an **AI chat agent** living inside your vault — chat, reference notes with `@`, stream replies, and edit your writing without ever switching windows.
 
 > ⚠️ **Desktop only** (Windows / macOS), requires Obsidian 1.7.2+. Linux is not supported yet.
 
