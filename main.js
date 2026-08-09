@@ -2201,6 +2201,45 @@ function filterTemplates(query) {
   return PROMPT_TEMPLATES.filter((t2) => t2.name.toLowerCase().startsWith(q));
 }
 
+// src/shared/vaultStats.ts
+function extractTags(file) {
+  if (!file.content)
+    return [];
+  const tags = /* @__PURE__ */ new Set();
+  const body = file.content.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  for (const m of body.matchAll(/#([A-Za-z一-龥][\w一-龥/-]*)/g)) {
+    tags.add(m[1]);
+  }
+  return [...tags];
+}
+function buildVaultStats(files, nowMs = Date.now()) {
+  var _a;
+  const total = files.length;
+  const notes = files.filter((f) => f.path.endsWith(".md"));
+  const folders = new Set(notes.map((n) => n.path.includes("/") ? n.path.split("/").slice(0, -1).join("/") : "(\u6839\u76EE\u5F55)"));
+  const tagCount = /* @__PURE__ */ new Map();
+  for (const n of notes) {
+    for (const tag of extractTags(n)) {
+      tagCount.set(tag, ((_a = tagCount.get(tag)) != null ? _a : 0) + 1);
+    }
+  }
+  const topTags = [...tagCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const recent = notes.map((n) => n.path).sort().slice(0, 5);
+  const lines = [
+    "\u5F53\u524D Vault \u7EDF\u8BA1\u4FE1\u606F\uFF1A",
+    `- \u6587\u4EF6\u603B\u6570: ${total}`,
+    `- Markdown \u7B14\u8BB0: ${notes.length}`,
+    `- \u76EE\u5F55\u6570: ${folders.size}`,
+    "",
+    "\u70ED\u95E8\u6807\u7B7E(Top 10):",
+    ...topTags.length ? topTags.map(([tag, c]) => `- #${tag} \xD7 ${c}`) : ["- (\u65E0\u6807\u7B7E)"],
+    "",
+    "\u6587\u4EF6\u793A\u4F8B(\u524D 5):",
+    ...recent.length ? recent.map((p) => `- ${p}`) : ["- (\u7A7A vault)"]
+  ];
+  return lines.join("\n");
+}
+
 // src/shared/attachments.ts
 function fileBasename(p) {
   const parts = p.split(/[\\/]/);
@@ -2664,6 +2703,9 @@ function updateAtSuggest(view) {
   }
   const query = state.query.toLowerCase();
   const entries = [];
+  if ("stats".startsWith(query)) {
+    entries.push({ label: "@stats\uFF08Vault \u7EDF\u8BA1\uFF09", pick: () => insertTextMention(view, "stats") });
+  }
   for (const name of parseAgentNames(view.settings.customAgentsJson).filter((n) => n.toLowerCase().includes(query))) {
     entries.push({ label: `@Agents/${name}`, pick: () => insertTextMention(view, name) });
   }
@@ -3201,6 +3243,13 @@ function insertSlashCommand(view, name) {
   adjustTextareaHeight(view);
 }
 async function buildReferenceBlock(view, text) {
+  if (text.includes("@stats")) {
+    const files = view.app.vault.getFiles().map((f) => ({ path: f.path }));
+    const stats = buildVaultStats(files);
+    return `\u4EE5\u4E0B\u662F\u5F53\u524D Vault \u7684\u7EDF\u8BA1\u4FE1\u606F\uFF1A
+
+${stats}`;
+  }
   const names = parseAtReferences(text);
   if (names.length === 0)
     return "";

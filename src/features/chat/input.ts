@@ -10,6 +10,7 @@ import { renderMessages, renderMarkdownContent, scrollToBottom } from './render'
 import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
 import { findTemplate, filterTemplates } from '../../shared/promptTemplates';
+import { buildVaultStats } from '../../shared/vaultStats';
 import { fileBasename, buildAttachmentBlock, attachmentDirs, isAbsolutePath } from '../../shared/attachments';
 import { parseFileChange, type FileEdit, type FileWrite } from '../../shared/toolDetail';
 import { lineDiff, type DiffLine } from '../../shared/lineDiff';
@@ -66,6 +67,10 @@ export function updateAtSuggest(view: WorkbuddianChatView) {
     const query = state.query.toLowerCase();
     // 四源聚合：子代理 / MCP 服务器（均读设置 JSON）→ vault 文件；统一渲染保证键盘高亮索引不错位
     const entries: Array<{ label: string; pick: () => void }> = [];
+    // @stats 特殊引用:vault 统计(前缀 @st 匹配)
+    if ('stats'.startsWith(query)) {
+        entries.push({ label: '@stats（Vault 统计）', pick: () => insertTextMention(view, 'stats') });
+    }
     for (const name of parseAgentNames(view.settings.customAgentsJson).filter(n => n.toLowerCase().includes(query))) {
         entries.push({ label: `@Agents/${name}`, pick: () => insertTextMention(view, name) });
     }
@@ -705,6 +710,13 @@ export function insertSlashCommand(view: WorkbuddianChatView, name: string) {
 
 /** 解析消息里所有 @[[笔记名]] 引用，读取笔记全文拼成独立的上下文区块 */
 export async function buildReferenceBlock(view: WorkbuddianChatView, text: string): Promise<string> {
+    // @stats 特殊引用:vault 统计摘要(文件/笔记/标签/文件示例)
+    if (text.includes('@stats')) {
+        const files = view.app.vault.getFiles().map((f) => ({ path: f.path }));
+        const stats = buildVaultStats(files);
+        return `以下是当前 Vault 的统计信息：\n\n${stats}`;
+    }
+
     const names = parseAtReferences(text);
     if (names.length === 0) return '';
 
