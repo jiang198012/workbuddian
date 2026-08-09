@@ -20,7 +20,7 @@ const ENDPOINT = `http://127.0.0.1:${PORT}`;
 
 const FPS = 10;            // 输出帧率
 const TARGET_MS = 30_000;  // 总时长 30 秒
-const SCALE_W = 720;       // 输出宽度(等比缩放)
+const SCALE_W = 936;       // 输出宽度(等比缩放,约比原 720 宽 30%)
 
 async function findMainPage(browser) {
     for (const ctx of browser.contexts()) {
@@ -42,8 +42,8 @@ async function main() {
     const page = await findMainPage(browser);
     console.log('主窗口:', await page.title());
 
-    // 宽幅布局:窗口 1200×867,隐藏状态栏
-    await page.setViewportSize({ width: 1200, height: 867 });
+    // 宽幅布局:窗口 1440×900,隐藏状态栏(源帧更高清)
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.evaluate(() => { const sb = document.querySelector('.status-bar'); if (sb) sb.style.display='none'; });
 
     // 初始:左侧打开笔记正文,右侧空态面板
@@ -165,7 +165,7 @@ async function main() {
         frame++;
         const f = join(FRAMES_DIR, `f${String(frame).padStart(4,'0')}.png`);
         // 宽幅:截整个窗口(含左侧笔记 + 右侧面板)
-        await page.screenshot({ path: f, clip: { x: 0, y: 0, width: 1200, height: 867 } });
+        await page.screenshot({ path: f, clip: { x: 0, y: 0, width: 1440, height: 900 } });
         return f;
     };
 
