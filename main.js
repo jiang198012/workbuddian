@@ -171,6 +171,9 @@ var init_i18n = __esm({
       "input.attach": { zh: "\u9644\u52A0\u6587\u4EF6", en: "Attach files" },
       "input.imageSaveFailed": { zh: "\u56FE\u7247\u4FDD\u5B58\u5931\u8D25", en: "Failed to save image" },
       "input.contextUsage": { zh: "\u4E0A\u4E0B\u6587\u7528\u91CF", en: "Context usage" },
+      "input.usageWarning": { zh: "\u4E0A\u4E0B\u6587\u5DF2\u7528", en: "Context at" },
+      "input.usageCompact": { zh: "\u538B\u7F29 /compact", en: "Compact" },
+      "input.usageNewChat": { zh: "\u65B0\u5EFA\u5BF9\u8BDD", en: "New chat" },
       "instruction.modalTitle": { zh: "\u5E38\u9A7B\u6307\u4EE4", en: "Custom instruction" },
       "instruction.placeholder": { zh: "\u7ED9 AI \u8BBE\u5B9A\u5E38\u9A7B\u7684\u89C4\u5219 / \u4EBA\u8BBE\uFF08\u5BF9\u6240\u6709\u5BF9\u8BDD\u751F\u6548\uFF09", en: "Set a persistent rule/persona for the AI (applies to all chats)" },
       "instruction.save": { zh: "\u4FDD\u5B58", en: "Save" },
@@ -3088,6 +3091,29 @@ function renderContextUsage(view, cliWindowSize) {
   (0, import_obsidian5.setTooltip)(view.usageEl, tip);
   view.usageEl.setAttribute("aria-label", tip);
   view.usageEl.toggleClass("workbuddian-usage-warning", isUsageWarning(percent));
+  renderUsageBanner(view, percent);
+}
+function renderUsageBanner(view, percent) {
+  const banner = view.usageBannerEl;
+  if (!banner)
+    return;
+  if (!isUsageWarning(percent)) {
+    banner.addClass("workbuddian-hidden");
+    return;
+  }
+  banner.empty();
+  banner.removeClass("workbuddian-hidden");
+  banner.createSpan({ text: `${t("input.usageWarning")}\uFF08${percent}%\uFF09`, cls: "workbuddian-usage-banner-text" });
+  const compactBtn = banner.createEl("button", { text: t("input.usageCompact"), cls: "workbuddian-usage-banner-btn" });
+  compactBtn.onclick = () => {
+    void sendText(view, "/compact");
+    banner.addClass("workbuddian-hidden");
+  };
+  const newBtn = banner.createEl("button", { text: t("input.usageNewChat"), cls: "workbuddian-usage-banner-btn" });
+  newBtn.onclick = () => {
+    void createNewChat(view);
+    banner.addClass("workbuddian-hidden");
+  };
 }
 function attachmentPath(f) {
   var _a, _b, _c;
@@ -4427,6 +4453,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     this.attachChipsEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
     this.selectionEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
     const inputArea = container.createDiv({ cls: "workbuddian-input-area" });
+    this.usageBannerEl = inputArea.createDiv({ cls: "workbuddian-usage-banner workbuddian-hidden" });
     const inputBox = inputArea.createDiv({ cls: "workbuddian-input-box" });
     this.inputEl = inputBox.createEl("textarea", {
       cls: "workbuddian-input",

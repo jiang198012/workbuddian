@@ -789,6 +789,31 @@
     --workbuddian-usage-color: var(--text-error);
 }
 
+/* 上下文用量预警条 */
+.workbuddian-usage-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    margin-bottom: var(--workbuddian-gap-xs);
+    border-radius: var(--workbuddian-radius-md);
+    background: color-mix(in srgb, var(--text-error) 12%, var(--background-primary));
+    border: 1px solid color-mix(in srgb, var(--text-error) 30%, transparent);
+    font-size: var(--font-ui-smaller);
+    color: var(--text-normal);
+}
+.workbuddian-usage-banner.workbuddian-hidden { display: none; }
+.workbuddian-usage-banner-text { flex: 1; }
+.workbuddian-usage-banner-btn {
+    padding: 2px 10px;
+    border-radius: var(--workbuddian-radius-sm);
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    font-size: var(--font-ui-smaller);
+    cursor: pointer;
+}
+.workbuddian-usage-banner-btn:hover { background: var(--background-modifier-hover); }
+
 /* 拖拽悬停高亮 */
 .workbuddian-drop-active {
     outline: 2px dashed var(--workbuddian-primary, var(--interactive-accent));

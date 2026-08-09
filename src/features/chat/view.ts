@@ -31,6 +31,8 @@ export class WorkbuddianChatView extends ItemView {
     /** 会话搜索框(标签栏,搜索态过滤 tab;空串=显示全部) */
     searchInputEl!: HTMLInputElement;
     searchQuery: string = '';
+    /** 上下文用量预警条(用量 ≥80% 显示,提示压缩/新建) */
+    usageBannerEl!: HTMLElement;
     isStreaming: boolean = false;
     streamingMsgId: string | null = null;
     /** 本面板悬挂的批准卡：requestId → 兜底 reject optionId（关面板/切会话/卸载时统一答 reject） */
@@ -164,6 +166,8 @@ export class WorkbuddianChatView extends ItemView {
         this.attachChipsEl = container.createDiv({ cls: 'workbuddian-ref-chips workbuddian-hidden' });
         this.selectionEl = container.createDiv({ cls: 'workbuddian-ref-chips workbuddian-hidden' });
         const inputArea = container.createDiv({ cls: 'workbuddian-input-area' });
+        // 上下文用量预警条:用量 ≥80% 时显示,提示压缩/新建(见 renderContextUsage)
+        this.usageBannerEl = inputArea.createDiv({ cls: 'workbuddian-usage-banner workbuddian-hidden' });
         const inputBox = inputArea.createDiv({ cls: 'workbuddian-input-box' });
         this.inputEl = inputBox.createEl('textarea', {
             cls: 'workbuddian-input',

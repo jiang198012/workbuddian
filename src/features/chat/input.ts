@@ -447,6 +447,34 @@ export function renderContextUsage(view: WorkbuddianChatView, cliWindowSize?: nu
     setTooltip(view.usageEl, tip);
     view.usageEl.setAttribute('aria-label', tip);
     view.usageEl.toggleClass('workbuddian-usage-warning', isUsageWarning(percent));
+
+    // 用量预警条:≥阈值时显示,带"压缩/新建"操作
+    renderUsageBanner(view, percent);
+}
+
+/** 渲染上下文用量预警条(≥80% 时提示压缩或新建,避免长会话上下文耗尽) */
+function renderUsageBanner(view: WorkbuddianChatView, percent: number) {
+    const banner = view.usageBannerEl;
+    if (!banner) return;
+    if (!isUsageWarning(percent)) {
+        banner.addClass('workbuddian-hidden');
+        return;
+    }
+    banner.empty();
+    banner.removeClass('workbuddian-hidden');
+    banner.createSpan({ text: `${t('input.usageWarning')}（${percent}%）`, cls: 'workbuddian-usage-banner-text' });
+    // 压缩:发送 /compact 到当前会话(透传 CLI)
+    const compactBtn = banner.createEl('button', { text: t('input.usageCompact'), cls: 'workbuddian-usage-banner-btn' });
+    compactBtn.onclick = () => {
+        void sendText(view, '/compact');
+        banner.addClass('workbuddian-hidden');
+    };
+    // 新建:开新对话
+    const newBtn = banner.createEl('button', { text: t('input.usageNewChat'), cls: 'workbuddian-usage-banner-btn' });
+    newBtn.onclick = () => {
+        void createNewChat(view);
+        banner.addClass('workbuddian-hidden');
+    };
 }
 
 /**
