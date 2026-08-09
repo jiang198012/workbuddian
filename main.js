@@ -2143,6 +2143,49 @@ function parseCommandFrontmatter(content) {
   };
 }
 
+// src/shared/promptTemplates.ts
+var PROMPT_TEMPLATES = [
+  {
+    name: "translate",
+    prompt: "\u8BF7\u628A\u4E0B\u9762\u7684\u5185\u5BB9\u7FFB\u8BD1\u6210\u4E2D\u6587\uFF0C\u4FDD\u6301\u539F\u610F\u548C\u8BED\u6C14\uFF1A\n\n{\u5F85\u7FFB\u8BD1\u6587\u672C}",
+    desc: "\u7FFB\u8BD1\u6210\u4E2D\u6587"
+  },
+  {
+    name: "summarize",
+    prompt: "\u8BF7\u7528 3-5 \u53E5\u8BDD\u603B\u7ED3\u4E0B\u9762\u7684\u8981\u70B9\uFF1A\n\n{\u5F85\u603B\u7ED3\u6587\u672C}",
+    desc: "\u603B\u7ED3\u8981\u70B9"
+  },
+  {
+    name: "rewrite",
+    prompt: "\u8BF7\u6539\u5199\u4E0B\u9762\u7684\u5185\u5BB9\uFF0C\u8BA9\u5B83\u66F4\u7B80\u6D01\u3001\u66F4\u6613\u8BFB\uFF1A\n\n{\u5F85\u6539\u5199\u6587\u672C}",
+    desc: "\u6539\u5199\u6DA6\u8272"
+  },
+  {
+    name: "polish",
+    prompt: "\u8BF7\u6DA6\u8272\u4E0B\u9762\u7684\u6587\u5B57\uFF0C\u63D0\u5347\u8868\u8FBE\u8D28\u91CF\uFF0C\u4FDD\u7559\u539F\u610F\uFF1A\n\n{\u5F85\u6DA6\u8272\u6587\u672C}",
+    desc: "\u6DA6\u8272\u6587\u5B57"
+  },
+  {
+    name: "review",
+    prompt: "\u8BF7\u5BA1\u67E5\u4E0B\u9762\u7684\u4EE3\u7801/\u5185\u5BB9\uFF0C\u6307\u51FA\u95EE\u9898\u5E76\u7ED9\u51FA\u6539\u8FDB\u5EFA\u8BAE\uFF1A\n\n{\u5F85\u5BA1\u67E5\u5185\u5BB9}",
+    desc: "\u5BA1\u67E5\u6539\u8FDB"
+  },
+  {
+    name: "explain",
+    prompt: "\u8BF7\u7528\u901A\u4FD7\u6613\u61C2\u7684\u65B9\u5F0F\u89E3\u91CA\u4E0B\u9762\u7684\u6982\u5FF5\uFF1A\n\n{\u5F85\u89E3\u91CA\u5185\u5BB9}",
+    desc: "\u901A\u4FD7\u89E3\u91CA"
+  }
+];
+function findTemplate(name) {
+  var _a;
+  const q = name.toLowerCase();
+  return (_a = PROMPT_TEMPLATES.find((t2) => t2.name.toLowerCase() === q)) != null ? _a : null;
+}
+function filterTemplates(query) {
+  const q = query.toLowerCase();
+  return PROMPT_TEMPLATES.filter((t2) => t2.name.toLowerCase().startsWith(q));
+}
+
 // src/shared/attachments.ts
 function fileBasename(p) {
   const parts = p.split(/[\\/]/);
@@ -3090,7 +3133,9 @@ function updateSlashSuggest(view) {
   const q = query.toLowerCase();
   const matches = [
     ...filterSlashCommands(query),
-    ...view.customCommands.filter((c) => c.name.toLowerCase().startsWith(q))
+    ...view.customCommands.filter((c) => c.name.toLowerCase().startsWith(q)),
+    // A1 模板命令:prefix 加 ⚡ 标识,与 CLI/自定义命令区分
+    ...filterTemplates(query).map((t2) => ({ name: t2.name, desc: `\u26A1 ${t2.desc}` }))
   ];
   view.atSuggestEl.empty();
   if (matches.length === 0) {
@@ -3121,6 +3166,17 @@ async function loadCustomCommands(view) {
   view.customCommands = cmds;
 }
 function insertSlashCommand(view, name) {
+  const template = findTemplate(name);
+  if (template) {
+    view.inputEl.value = template.prompt;
+    view.inputEl.setSelectionRange(0, 0);
+    view.inputEl.focus();
+    view.atSuggestEl.addClass("workbuddian-hidden");
+    view.atSuggestEl.empty();
+    adjustTextareaHeight(view);
+    renderReferenceChips(view);
+    return;
+  }
   view.inputEl.value = `/${name} `;
   const pos = view.inputEl.value.length;
   view.inputEl.setSelectionRange(pos, pos);
@@ -3190,6 +3246,13 @@ async function sendMessage(view) {
     return;
   }
   const slash = parseSlashCommand(text);
+  if (slash && findTemplate(slash.name) && slash.rest === "") {
+    view.inputEl.value = findTemplate(slash.name).prompt;
+    view.inputEl.setSelectionRange(0, 0);
+    adjustTextareaHeight(view);
+    renderReferenceChips(view);
+    return;
+  }
   if ((slash == null ? void 0 : slash.name) === "clear") {
     await createNewChat(view);
     view.inputEl.value = "";

@@ -9,6 +9,7 @@ import type { WorkbuddianChatView } from './view';
 import { renderMessages, renderMarkdownContent, scrollToBottom } from './render';
 import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
+import { findTemplate, filterTemplates } from '../../shared/promptTemplates';
 import { fileBasename, buildAttachmentBlock, attachmentDirs, isAbsolutePath } from '../../shared/attachments';
 import { parseFileChange, type FileEdit, type FileWrite } from '../../shared/toolDetail';
 import { lineDiff, type DiffLine } from '../../shared/lineDiff';
@@ -642,9 +643,11 @@ export function updateSlashSuggest(view: WorkbuddianChatView): boolean {
     void loadCustomCommands(view); // 后台刷新自定义命令缓存，供下次补全使用
 
     const q = query.toLowerCase();
-    const matches = [
+    const matches: Array<{ name: string; desc: string }> = [
         ...filterSlashCommands(query),
         ...view.customCommands.filter(c => c.name.toLowerCase().startsWith(q)),
+        // A1 模板命令:prefix 加 ⚡ 标识,与 CLI/自定义命令区分
+        ...filterTemplates(query).map(t => ({ name: t.name, desc: `⚡ ${t.desc}` })),
     ];
     view.atSuggestEl.empty();
     if (matches.length === 0) {
@@ -679,6 +682,18 @@ export async function loadCustomCommands(view: WorkbuddianChatView): Promise<voi
 }
 
 export function insertSlashCommand(view: WorkbuddianChatView, name: string) {
+    // A1 模板命令:命中则直接填入模板 prompt(可编辑),不走 /name 透传
+    const template = findTemplate(name);
+    if (template) {
+        view.inputEl.value = template.prompt;
+        view.inputEl.setSelectionRange(0, 0);
+        view.inputEl.focus();
+        view.atSuggestEl.addClass('workbuddian-hidden');
+        view.atSuggestEl.empty();
+        adjustTextareaHeight(view);
+        renderReferenceChips(view);
+        return;
+    }
     view.inputEl.value = `/${name} `;
     const pos = view.inputEl.value.length;
     view.inputEl.setSelectionRange(pos, pos);
@@ -762,6 +777,14 @@ export async function sendMessage(view: WorkbuddianChatView) {
     }
 
     const slash = parseSlashCommand(text);
+    // A1 模板命令:输入框里是 /翻译 这类纯命令(无参数)时,填入模板正文等待编辑,不发送
+    if (slash && findTemplate(slash.name) && slash.rest === '') {
+        view.inputEl.value = findTemplate(slash.name)!.prompt;
+        view.inputEl.setSelectionRange(0, 0);
+        adjustTextareaHeight(view);
+        renderReferenceChips(view);
+        return;
+    }
     if (slash?.name === 'clear') {
         // /clear：本地新建对话，不发 CLI
         await createNewChat(view);
