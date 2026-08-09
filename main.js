@@ -9,6 +9,9 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
@@ -30,6 +33,302 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// src/i18n/index.ts
+function setLang(lang) {
+  currentLang = lang;
+}
+function detectLang() {
+  try {
+    const l = typeof window !== "undefined" && window.localStorage.getItem("language") || "";
+    return l.startsWith("zh") ? "zh" : "en";
+  } catch (e) {
+    return "zh";
+  }
+}
+function applyLang(setting) {
+  setLang(setting === "auto" ? detectLang() : setting);
+}
+function t(key) {
+  var _a, _b, _c;
+  const entry = STRINGS[key];
+  if (!entry)
+    return key;
+  return (_c = (_b = (_a = entry[currentLang]) != null ? _a : entry.en) != null ? _b : entry.zh) != null ? _c : key;
+}
+function matchesAnyLang(value, key) {
+  const entry = STRINGS[key];
+  return !!entry && (value === entry.zh || value === entry.en);
+}
+var currentLang, STRINGS;
+var init_i18n = __esm({
+  "src/i18n/index.ts"() {
+    currentLang = "zh";
+    STRINGS = {
+      "chat.send": { zh: "\u53D1\u9001", en: "Send" },
+      "chat.stop": { zh: "\u505C\u6B62", en: "Stop" },
+      "chat.newConversation": { zh: "\u65B0\u5BF9\u8BDD", en: "New chat" },
+      "chat.autoTitlePrompt": { zh: "\u8BF7\u4E3A\u4EE5\u4E0B\u5185\u5BB9\u751F\u6210\u4E00\u4E2A\u4E0D\u8D85\u8FC7 20 \u5B57\u7684\u4F1A\u8BDD\u6807\u9898\uFF0C\u53EA\u8F93\u51FA\u6807\u9898\u672C\u8EAB\uFF0C\u4E0D\u8981\u6807\u70B9\u7ED3\u5C3E\uFF1A\n\n", en: "Generate a chat title (max 20 chars) for the content below. Output only the title, no trailing punctuation:\n\n" },
+      "common.unknownError": { zh: "\u672A\u77E5\u9519\u8BEF", en: "Unknown error" },
+      "provider.cliNotFound": { zh: "\u627E\u4E0D\u5230 codebuddy CLI\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 WorkBuddy \u684C\u9762\u7248\uFF0C\u6216\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u6307\u5B9A codebuddy \u8DEF\u5F84\u3002", en: "codebuddy CLI not found. Make sure WorkBuddy desktop is installed, or set the codebuddy path in the plugin settings." },
+      "provider.nodeNotFound": { zh: "\u627E\u4E0D\u5230 Node.js \u6765\u8FD0\u884C codebuddy\uFF08\u8DEF\u5F84\uFF1A{path}\uFF09\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 Node.js\u3002", en: "Node.js not found to run codebuddy (path: {path}). Make sure Node.js is installed." },
+      "provider.acpUnsupported": { zh: "\u5F53\u524D codebuddy CLI \u7248\u672C\u8FC7\u65E7\uFF0C\u4E0D\u652F\u6301 ACP \u6301\u4E45\u4F1A\u8BDD\u3002\u8BF7\u5347\u7EA7 WorkBuddy \u684C\u9762\u7248\u3002", en: "Your codebuddy CLI is too old for ACP persistent sessions. Please upgrade WorkBuddy." },
+      "provider.notLoggedIn": { zh: "codebuddy CLI \u7591\u4F3C\u672A\u767B\u5F55\u3002\u8BF7\u5148\u5728 WorkBuddy \u684C\u9762\u7248\u4E2D\u767B\u5F55\u3002", en: "codebuddy CLI appears logged out. Please log in via WorkBuddy first." },
+      "provider.handshakeFailed": { zh: "codebuddy CLI \u63E1\u624B\u5931\u8D25\uFF1A{detail}", en: "codebuddy CLI handshake failed: {detail}" },
+      "provider.turnTimeout": { zh: "\u672C\u8F6E\u54CD\u5E94\u8D85\u65F6\uFF0C\u5DF2\u4E2D\u65AD", en: "Turn timed out and was interrupted" },
+      "provider.turnFailed": { zh: "\u672C\u8F6E\u4E2D\u65AD\uFF1A{reason}", en: "Turn interrupted: {reason}" },
+      "provider.processDied": { zh: "codebuddy \u8FDB\u7A0B\u610F\u5916\u9000\u51FA\uFF0C\u672C\u8F6E\u5DF2\u4E2D\u65AD\u3002\u91CD\u65B0\u53D1\u9001\u5C06\u81EA\u52A8\u6062\u590D\u4F1A\u8BDD\u3002", en: "codebuddy process exited unexpectedly. Resend to resume the session." },
+      "provider.busy": { zh: "\u8BE5\u4F1A\u8BDD\u6B63\u5728\u54CD\u5E94\u4E2D\uFF0C\u8BF7\u7A0D\u5019", en: "This conversation is still responding" },
+      "export.roleUser": { zh: "**\u7528\u6237**", en: "**User**" },
+      "export.roleAssistant": { zh: "**AI**", en: "**AI**" },
+      "export.metaExportedAt": { zh: "\u5BFC\u51FA\u65F6\u95F4", en: "Exported" },
+      "export.metaMessages": { zh: "\u6D88\u606F\u6570", en: "messages" },
+      "settings.conn": { zh: "CodeBuddy \u8FDE\u63A5", en: "CodeBuddy Connection" },
+      "settings.path": { zh: "CodeBuddy \u8DEF\u5F84", en: "CodeBuddy path" },
+      "settings.pathDesc": { zh: "codebuddy \u53EF\u6267\u884C\u6587\u4EF6\u8DEF\u5F84\u3002\u5982 WorkBuddy \u81EA\u5B9A\u4E49\u5B89\u88C5\uFF0C\u8DEF\u5F84\u901A\u5E38\u4E3A\uFF1A\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy\uFF08\u53F3\u952E WorkBuddy \u5FEB\u6377\u65B9\u5F0F \u2192 \u6253\u5F00\u6587\u4EF6\u4F4D\u7F6E \u53EF\u627E\u5230\u5B89\u88C5\u76EE\u5F55\uFF09", en: "Path to the codebuddy executable. For a custom WorkBuddy install it is usually: <InstallDir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy (right-click the WorkBuddy shortcut \u2192 Open file location)." },
+      "settings.pathPlaceholder": { zh: "WorkBuddy\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy", en: "<WorkBuddy install dir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy" },
+      "settings.pathDetect": { zh: "\u81EA\u52A8\u68C0\u6D4B", en: "Auto-detect" },
+      "settings.pathDetected": { zh: "\u5DF2\u586B\u5165\u68C0\u6D4B\u5230\u7684\u8DEF\u5F84\uFF1A{path}", en: "Filled in the detected path: {path}" },
+      "settings.pathNotFound": { zh: "\u672A\u627E\u5230 WorkBuddy \u9ED8\u8BA4\u5B89\u88C5\uFF0C\u8BF7\u624B\u52A8\u6307\u5B9A\u8DEF\u5F84", en: "WorkBuddy default install not found; set the path manually." },
+      "settings.node": { zh: "\u624B\u52A8\u6307\u5B9A Node.js \u8DEF\u5F84", en: "Node.js path (manual)" },
+      "settings.nodeDesc": { zh: "\u7559\u7A7A\u5219\u81EA\u52A8\u63A2\u6D4B\u3002\u5982\u679C\u81EA\u52A8\u63A2\u6D4B\u5931\u8D25\uFF08\u4F8B\u5982\u975E\u6807\u51C6\u5B89\u88C5\u8DEF\u5F84\uFF09\uFF0C\u53EF\u4EE5\u5728\u8FD9\u91CC\u624B\u52A8\u6307\u5B9A node \u53EF\u6267\u884C\u6587\u4EF6\u7684\u5B8C\u6574\u8DEF\u5F84", en: "Leave empty to auto-detect. If detection fails (e.g. non-standard install), set the full path to the node executable here." },
+      "settings.nodePlaceholder": { zh: "\u7559\u7A7A = \u81EA\u52A8\u63A2\u6D4B", en: "Empty = auto-detect" },
+      "settings.mcpServers": { zh: "MCP \u670D\u52A1\u5668\uFF08JSON\uFF09", en: "MCP servers (JSON)" },
+      "settings.mcpServersDesc": { zh: 'stdio \u4F20\u8F93\u7684 MCP \u670D\u52A1\u5668\u6570\u7EC4\uFF0C\u5982 [{"name":"x","command":"npx","args":["-y","pkg"]}]\u3002\u7559\u7A7A\u4E0D\u6CE8\u5165\uFF1B\u5BF9\u65B0\u5EFA/\u6062\u590D\u7684\u4F1A\u8BDD\u751F\u6548\u3002', en: 'Array of stdio MCP servers, e.g. [{"name":"x","command":"npx","args":["-y","pkg"]}]. Empty = none; applies to newly created/restored sessions.' },
+      "settings.customAgents": { zh: "\u5B50\u4EE3\u7406\uFF08JSON\uFF09", en: "Custom agents (JSON)" },
+      "settings.customAgentsDesc": { zh: '\u5B50\u4EE3\u7406\u5B9A\u4E49\u5BF9\u8C61\uFF0C\u5982 {"reviewer":{"description":"\u5BA1\u67E5\u4EE3\u7801","prompt":"\u4F60\u662F\u4EE3\u7801\u5BA1\u67E5\u5458"}}\uFF0C\u5BF9\u5E94 CLI --agents\uFF1B\u652F\u6301 tools\uFF08\u5DE5\u5177\u767D\u540D\u5355\uFF09\u4E0E model \u952E\uFF082026-08-03 \u63A2\u9488\u5B9E\u6D4B CLI \u63A5\u53D7\uFF09\u3002\u6539\u52A8\u540E CLI \u8FDB\u7A0B\u81EA\u52A8\u91CD\u542F\u751F\u6548\u3002', en: 'Custom agent definitions, e.g. {"reviewer":{"description":"Reviews code","prompt":"You review code"}} (CLI --agents); tools (allowlist) and model keys are accepted (probed 2026-08-03). The CLI process restarts automatically on change.' },
+      "settings.invalidJson": { zh: "{field}\uFF1AJSON \u65E0\u6CD5\u89E3\u6790\uFF0C\u672A\u751F\u6548", en: "{field}: invalid JSON, not applied" },
+      "mcp.addServer": { zh: "\u6DFB\u52A0\u670D\u52A1\u5668", en: "Add server" },
+      "mcp.importClipboard": { zh: "\u4ECE\u526A\u8D34\u677F\u5BFC\u5165", en: "Import from clipboard" },
+      "mcp.importBad": { zh: "\u526A\u8D34\u677F\u91CC\u6CA1\u6709\u53EF\u8BC6\u522B\u7684 MCP \u914D\u7F6E", en: "No recognizable MCP config in clipboard" },
+      "mcp.modalTitleAdd": { zh: "\u6DFB\u52A0 MCP \u670D\u52A1\u5668", en: "Add MCP server" },
+      "mcp.modalTitleEdit": { zh: "\u7F16\u8F91 MCP \u670D\u52A1\u5668", en: "Edit MCP server" },
+      "mcp.fieldName": { zh: "\u540D\u79F0", en: "Name" },
+      "mcp.fieldCommand": { zh: "\u547D\u4EE4", en: "Command" },
+      "mcp.fieldArgs": { zh: "\u53C2\u6570\uFF08\u7A7A\u683C\u5206\u9694\uFF09", en: "Args (space-separated)" },
+      "mcp.fieldEnv": { zh: "\u73AF\u5883\u53D8\u91CF\uFF08\u6BCF\u884C KEY=VALUE\uFF09", en: "Env (KEY=VALUE per line)" },
+      "mcp.fieldEnabled": { zh: "\u542F\u7528", en: "Enabled" },
+      "mcp.save": { zh: "\u4FDD\u5B58", en: "Save" },
+      "mcp.nameRequired": { zh: "\u540D\u79F0\u4E0D\u80FD\u4E3A\u7A7A", en: "Name is required" },
+      "settings.thoughtLevel": { zh: "\u601D\u8003\u529B\u5EA6", en: "Thinking effort" },
+      "settings.thoughtLevelDesc": { zh: "\u5BF9\u5E94 CLI thought_level\uFF08\u6309\u4F1A\u8BDD\u751F\u6548\uFF09\uFF1BCLI \u4FA7\u7528 /effort \u6539\u52A8\u4F1A\u540C\u6B65\u56DE\u8FD9\u91CC\u3002", en: "Maps to CLI thought_level (per session). Changes via the /effort command sync back here." },
+      "settings.autoTitle": { zh: "\u81EA\u52A8\u751F\u6210\u4F1A\u8BDD\u6807\u9898", en: "Auto-generate chat titles" },
+      "settings.autoTitleDesc": { zh: "\u9996\u8F6E\u56DE\u590D\u540E\u7531 AI \u547D\u540D\u65B0\u4F1A\u8BDD\uFF1B\u4F60\u624B\u52A8\u6539\u8FC7\u540D\u7684\u4F1A\u8BDD\u4E0D\u4F1A\u88AB\u8986\u76D6\u3002", en: "AI names new chats after the first reply; chats you renamed manually are left alone." },
+      "settings.timeout": { zh: "CLI \u8D85\u65F6\u65F6\u957F\uFF08\u5206\u949F\uFF09", en: "CLI timeout (minutes)" },
+      "settings.timeoutDesc": { zh: "CodeBuddy CLI \u5355\u6B21\u54CD\u5E94\u6700\u957F\u7B49\u5F85\u65F6\u95F4\uFF0C\u8D85\u8FC7\u4F1A\u5F3A\u5236\u4E2D\u65AD", en: "Max wait per CodeBuddy CLI response; exceeding it aborts the call." },
+      "settings.model": { zh: "\u6A21\u578B", en: "Model" },
+      "settings.modelDesc": { zh: "CodeBuddy CLI \u4F7F\u7528\u7684\u6A21\u578B", en: "Model used by the CodeBuddy CLI" },
+      "settings.modelAuto": { zh: "Auto\uFF08\u9ED8\u8BA4\uFF0C\u7531 CodeBuddy \u81EA\u52A8\u9009\u62E9\uFF09", en: "Auto (default, chosen by CodeBuddy)" },
+      "settings.inject": { zh: "\u4E0A\u4E0B\u6587\u6CE8\u5165", en: "Context injection" },
+      "settings.injectVault": { zh: "\u6CE8\u5165 Vault \u4E0A\u4E0B\u6587", en: "Inject vault context" },
+      "settings.injectVaultDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u81EA\u52A8\u9644\u4E0A\u5F53\u524D Vault \u8DEF\u5F84\uFF0C\u8BA9 AI \u57FA\u4E8E Vault \u4E2D\u7684\u6587\u4EF6\u56DE\u7B54\u95EE\u9898", en: "When on, every message includes the current vault path so the AI can answer based on vault files." },
+      "settings.injectNote": { zh: "\u6CE8\u5165\u5F53\u524D\u7B14\u8BB0\u94FE\u63A5", en: "Inject current note link" },
+      "settings.injectNoteDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u9644\u4E0A\u5F53\u524D\u6B63\u5728\u67E5\u770B\u7684\u7B14\u8BB0\u6807\u9898\u548C\u8DEF\u5F84\uFF08\u4E0D\u5305\u542B\u6B63\u6587\u5185\u5BB9\uFF09", en: "When on, every message includes the current note title and path (not its content)." },
+      "settings.pastedKeep": { zh: "\u7C98\u8D34\u56FE\u4FDD\u7559\u6570\u91CF", en: "Pasted image retention" },
+      "settings.pastedKeepDesc": { zh: "\u63D2\u4EF6\u76EE\u5F55\u5185\u6700\u591A\u4FDD\u7559\u591A\u5C11\u5F20\u7C98\u8D34\u7684\u56FE\u7247\uFF0C\u8D85\u51FA\u7684\u81EA\u52A8\u5220\u9664\u3002\u586B 0 \u8868\u793A\u4E0D\u9650\u5236\uFF08\u5386\u53F2\u6D88\u606F\u91CC\u7684\u7F29\u7565\u56FE\u4E0D\u4F1A\u5931\u6548\uFF0C\u4F46\u56FE\u7247\u4F1A\u4E00\u76F4\u7D2F\u79EF\uFF09\u3002\u9ED8\u8BA4 20\uFF0C\u6700\u5927 500\u3002", en: "How many pasted images to keep in the plugin folder; older ones are deleted automatically. 0 means unlimited (thumbnails in old messages stay valid, but images accumulate). Default 20, max 500." },
+      "settings.appearance": { zh: "\u5916\u89C2", en: "Appearance" },
+      "settings.language": { zh: "\u754C\u9762\u8BED\u8A00", en: "Interface language" },
+      "settings.languageDesc": { zh: "\u63D2\u4EF6\u754C\u9762\u663E\u793A\u8BED\u8A00\u3002Auto \u8DDF\u968F Obsidian\u3002\u804A\u5929\u9762\u677F\u5373\u65F6\u5207\u6362\uFF1B\u547D\u4EE4\u9762\u677F\u540D\u79F0\u9700 Cmd+R \u540E\u66F4\u65B0\u3002", en: "Plugin UI language. Auto follows Obsidian. Chat panels switch instantly; command-palette names update after a reload." },
+      "settings.langAuto": { zh: "Auto\uFF08\u8DDF\u968F Obsidian\uFF09", en: "Auto (follow Obsidian)" },
+      "settings.langZh": { zh: "\u4E2D\u6587", en: "\u4E2D\u6587" },
+      "settings.langEn": { zh: "English", en: "English" },
+      "settings.langReload": { zh: "\u754C\u9762\u8BED\u8A00\u5DF2\u5207\u6362", en: "Interface language changed" },
+      "settings.contextWindow": { zh: "\u4E0A\u4E0B\u6587\u7A97\u53E3\u4E0A\u9650\uFF08token\uFF09", en: "Context window size (tokens)" },
+      "settings.contextWindowDesc": { zh: "\u8BA1\u7B97\u4E0A\u4E0B\u6587\u7528\u91CF\u767E\u5206\u6BD4\u7684\u5206\u6BCD\u3002\u4E0D\u540C\u6A21\u578B\u7A97\u53E3\u4E0D\u540C\uFF0C\u53EF\u6309\u5B9E\u9645\u8C03\u6574\uFF08\u9ED8\u8BA4 200000\uFF09\u3002", en: "Denominator for the context-usage percentage. Adjust to your model\u2019s window (default 200000)." },
+      "settings.permissionMode": { zh: "\u6388\u6743\u6A21\u5F0F", en: "Permission mode" },
+      "settings.permissionModeDesc": { zh: "\u63A7\u5236 CodeBuddy \u6267\u884C\u64CD\u4F5C\u524D\u7684\u6388\u6743\u7EA7\u522B\uFF0C\u7B49\u540C\u5DE5\u5177\u680F\u76FE\u724C\u56FE\u6807\uFF1A\u9ED8\u8BA4\uFF08\u6BCF\u6B65\u8BE2\u95EE\uFF09/ \u5B8C\u5168\u8BBF\u95EE\uFF08\u8DF3\u8FC7\u6240\u6709\u6388\u6743\uFF09\u3002", en: "Authorization level before CodeBuddy acts; same as the toolbar shield: Default (asks each step) / Full access (skips all)." },
+      "settings.primary": { zh: "\u804A\u5929\u4E3B\u8272\u8C03", en: "Chat accent color" },
+      "settings.primaryDesc": { zh: "\u81EA\u5B9A\u4E49\u804A\u5929\u9762\u677F\u7684\u5F3A\u8C03\u8272\uFF08\u7528\u6237\u6C14\u6CE1\u3001\u53D1\u9001\u6309\u94AE\u3001\u8FB9\u6846\u3001focus \u9AD8\u4EAE\u7B49\uFF09\u3002\u70B9\u300C\u6062\u590D\u9ED8\u8BA4\u300D\u8DDF\u968F Obsidian \u4E3B\u9898\u8272\u3002", en: 'Customize the chat accent color (user bubble, send button, borders, focus ring). Click "Reset" to follow the Obsidian theme.' },
+      "settings.resetTooltip": { zh: "\u6062\u590D\u9ED8\u8BA4\uFF08\u8DDF\u968F\u4E3B\u9898\u8272\uFF09", en: "Reset (follow theme color)" },
+      "settings.reset": { zh: "\u91CD\u7F6E", en: "Reset" },
+      "settings.resetDefault": { zh: "\u91CD\u7F6E\u4E3A\u9ED8\u8BA4", en: "Reset to defaults" },
+      "settings.resetDesc": { zh: "\u6E05\u7A7A\u6240\u6709\u81EA\u5B9A\u4E49\u8BBE\u7F6E\uFF0C\u6062\u590D\u5230\u63D2\u4EF6\u9ED8\u8BA4\u503C\uFF08\u5305\u62EC\u8DEF\u5F84\u3001\u6A21\u578B\u3001\u6CE8\u5165\u5F00\u5173\u3001\u4E3B\u8272\u8C03\uFF09\u3002", en: "Clear all custom settings and restore plugin defaults (paths, model, injection toggles, accent color)." },
+      "settings.resetConfirm": { zh: "\u786E\u8BA4\u91CD\u7F6E\uFF1F", en: "Confirm reset?" },
+      "settings.resetDone": { zh: "\u5DF2\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u8BBE\u7F6E", en: "Settings reset to defaults" },
+      "settings.importExport": { zh: "\u5BFC\u5165 / \u5BFC\u51FA\u8BBE\u7F6E", en: "Import / Export settings" },
+      "settings.export": { zh: "\u5BFC\u51FA\u8BBE\u7F6E", en: "Export settings" },
+      "settings.exportDesc": { zh: "\u628A\u5F53\u524D\u8BBE\u7F6E\u4FDD\u5B58\u4E3A JSON \u6587\u4EF6\uFF0C\u4FBF\u4E8E\u5907\u4EFD\u6216\u8FC1\u79FB\uFF08\u542B\u672C\u673A\u8DEF\u5F84\uFF0C\u8DE8\u673A\u5668\u9700\u81EA\u884C\u8C03\u6574\uFF09\u3002", en: "Save current settings as a JSON file for backup/migration (includes local paths; adjust when moving machines)." },
+      "settings.exportBtn": { zh: "\u5BFC\u51FA\u4E3A\u6587\u4EF6", en: "Export to file" },
+      "settings.exportDone": { zh: "\u8BBE\u7F6E\u5DF2\u5BFC\u51FA\u4E3A workbuddian-settings.json", en: "Settings exported to workbuddian-settings.json" },
+      "settings.import": { zh: "\u5BFC\u5165\u8BBE\u7F6E", en: "Import settings" },
+      "settings.importDesc": { zh: "\u9009\u62E9\u4E4B\u524D\u5BFC\u51FA\u7684 JSON \u6587\u4EF6\uFF0C\u8986\u76D6\u5F53\u524D\u8BBE\u7F6E\u3002", en: "Pick a previously exported JSON file to overwrite current settings." },
+      "settings.importBtn": { zh: "\u4ECE\u6587\u4EF6\u5BFC\u5165", en: "Import from file" },
+      "settings.importDone": { zh: "\u8BBE\u7F6E\u5DF2\u5BFC\u5165", en: "Settings imported" },
+      "settings.importErr": { zh: "\u5BFC\u5165\u5931\u8D25\uFF1AJSON \u89E3\u6790\u9519\u8BEF", en: "Import failed: invalid JSON" },
+      "settings.logs": { zh: "\u65E5\u5FD7", en: "Logs" },
+      "settings.logsDesc": { zh: "\u67E5\u770B\u6700\u8FD1\u7684\u63D2\u4EF6\u8FD0\u884C\u65E5\u5FD7\uFF08[WB]\uFF09\uFF0C\u4FBF\u4E8E\u6392\u67E5\u95EE\u9898\u3002\u4EC5\u4FDD\u5B58\u5728\u5185\u5B58\uFF0C\u91CD\u8F7D\u540E\u6E05\u7A7A\u3002", en: "View recent plugin logs ([WB]) for troubleshooting. Kept in memory only; cleared on reload." },
+      "settings.viewLogs": { zh: "\u67E5\u770B\u65E5\u5FD7", en: "View logs" },
+      "log.title": { zh: "Workbuddian \u65E5\u5FD7", en: "Workbuddian logs" },
+      "log.copy": { zh: "\u590D\u5236\u5168\u90E8", en: "Copy all" },
+      "log.clear": { zh: "\u6E05\u7A7A", en: "Clear" },
+      "log.copied": { zh: "\u65E5\u5FD7\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Logs copied to clipboard" },
+      "log.cleared": { zh: "\u65E5\u5FD7\u5DF2\u6E05\u7A7A", en: "Logs cleared" },
+      "log.empty": { zh: "\uFF08\u6682\u65E0\u65E5\u5FD7\uFF09", en: "(No logs yet)" },
+      "input.removeReference": { zh: "\u79FB\u9664\u5F15\u7528", en: "Remove reference" },
+      "input.ariaLabel": { zh: "\u804A\u5929\u8F93\u5165\u6846", en: "Chat input" },
+      "a11y.newReply": { zh: "\u65B0\u56DE\u590D\uFF1A", en: "New reply: " },
+      "input.customCommand": { zh: "\uFF08\u81EA\u5B9A\u4E49\u547D\u4EE4\uFF09", en: "(Custom command)" },
+      "input.attach": { zh: "\u9644\u52A0\u6587\u4EF6", en: "Attach files" },
+      "input.imageSaveFailed": { zh: "\u56FE\u7247\u4FDD\u5B58\u5931\u8D25", en: "Failed to save image" },
+      "input.contextUsage": { zh: "\u4E0A\u4E0B\u6587\u7528\u91CF", en: "Context usage" },
+      "instruction.modalTitle": { zh: "\u5E38\u9A7B\u6307\u4EE4", en: "Custom instruction" },
+      "instruction.placeholder": { zh: "\u7ED9 AI \u8BBE\u5B9A\u5E38\u9A7B\u7684\u89C4\u5219 / \u4EBA\u8BBE\uFF08\u5BF9\u6240\u6709\u5BF9\u8BDD\u751F\u6548\uFF09", en: "Set a persistent rule/persona for the AI (applies to all chats)" },
+      "instruction.save": { zh: "\u4FDD\u5B58", en: "Save" },
+      "instruction.clear": { zh: "\u6E05\u9664", en: "Clear" },
+      "instruction.indicatorOn": { zh: "\u5E38\u9A7B\u6307\u4EE4\uFF08\u5DF2\u8BBE\u7F6E\uFF0C\u70B9\u51FB\u7F16\u8F91\uFF09", en: "Custom instruction (set \u2014 click to edit)" },
+      "instruction.indicatorOff": { zh: "\u5E38\u9A7B\u6307\u4EE4\uFF08\u70B9\u51FB\u8BBE\u7F6E\uFF09", en: "Custom instruction (click to set)" },
+      "input.permission": { zh: "\u6388\u6743\u6A21\u5F0F", en: "Permission mode" },
+      "perm.default": { zh: "\u9ED8\u8BA4\uFF08\u6BCF\u6B65\u8BE2\u95EE\uFF09", en: "Default (ask each step)" },
+      "perm.plan": { zh: "\u8BA1\u5212\u6A21\u5F0F\uFF08\u53EA\u8BFB\u4E0D\u6539\uFF09", en: "Plan (read-only)" },
+      "perm.acceptEdits": { zh: "\u81EA\u52A8\u63A5\u53D7\u7F16\u8F91", en: "Accept edits" },
+      "perm.bypassPermissions": { zh: "\u5B8C\u5168\u8BBF\u95EE", en: "Full access" },
+      "input.stop": { zh: "\u505C\u6B62", en: "Stop" },
+      "input.bubbleNotFound": { zh: "\u627E\u4E0D\u5230 Assistant \u6D88\u606F\u6C14\u6CE1", en: "Assistant message bubble not found" },
+      "input.thinking": { zh: "\u601D\u8003\u4E2D...", en: "Thinking..." },
+      "input.toolCall": { zh: "\u5DE5\u5177\u8C03\u7528", en: "Tool call" },
+      "input.toolCallToggle": { zh: "\u5C55\u5F00\u6216\u6298\u53E0\u5DE5\u5177\u8C03\u7528\u8BE6\u60C5", en: "Expand or collapse tool call details" },
+      "tool.diffTitle": { zh: "\u6539\u52A8", en: "Changes" },
+      "tool.diffToggle": { zh: "\u5C55\u5F00\u6216\u6298\u53E0\u6539\u52A8\u8BE6\u60C5", en: "Expand or collapse change details" },
+      "tool.undo": { zh: "\u64A4\u9500\u6B64\u4FEE\u6539", en: "Undo this edit" },
+      "tool.undone": { zh: "\u5DF2\u64A4\u9500", en: "Undone" },
+      "tool.undoStale": { zh: "\u6587\u4EF6\u5DF2\u53D8\u5316\uFF0C\u672A\u6267\u884C\u64A4\u9500", en: "File has changed since; undo skipped" },
+      "tool.undoAmbiguous": { zh: "\u6539\u52A8\u6587\u672C\u5728\u6587\u4EF6\u4E2D\u51FA\u73B0\u591A\u6B21\uFF0C\u4E3A\u907F\u514D\u8BEF\u6539\u5DF2\u8DF3\u8FC7\u64A4\u9500", en: "The changed text appears more than once in the file; undo was skipped to avoid a wrong edit." },
+      "tool.undoFailed": { zh: "\u64A4\u9500\u5931\u8D25", en: "Undo failed" },
+      "tool.output": { zh: "\u8F93\u51FA", en: "Output" },
+      "tool.agentOutput": { zh: "\u5B50\u4EE3\u7406\u8F93\u51FA", en: "Subagent output" },
+      "tool.outputToggle": { zh: "\u5C55\u5F00\u6216\u6298\u53E0\u547D\u4EE4\u8F93\u51FA", en: "Expand or collapse command output" },
+      "approval.title": { zh: "\u5DE5\u5177\u6279\u51C6", en: "Tool approval" },
+      "approval.allow": { zh: "\u5141\u8BB8", en: "Allow" },
+      "approval.alwaysAllow": { zh: "\u603B\u662F\u5141\u8BB8", en: "Always allow" },
+      "approval.reject": { zh: "\u62D2\u7EDD", en: "Reject" },
+      "approval.planReady": { zh: "\u8BA1\u5212\u5DF2\u5C31\u7EEA", en: "Plan ready" },
+      "approval.execute": { zh: "\u6309\u6B64\u6267\u884C", en: "Execute" },
+      "approval.alwaysExecute": { zh: "\u603B\u662F\u6267\u884C", en: "Always execute" },
+      "approval.cancel": { zh: "\u53D6\u6D88", en: "Cancel" },
+      "approval.writeLines": { zh: "\u5199\u5165 {path}\uFF08{count} \u884C\uFF09", en: "Write {path} ({count} lines)" },
+      "approval.resolvedAllow": { zh: "\u5DF2\u5141\u8BB8", en: "Allowed" },
+      "approval.resolvedAlways": { zh: "\u5DF2\u603B\u662F\u5141\u8BB8", en: "Always allowed" },
+      "approval.resolvedReject": { zh: "\u5DF2\u62D2\u7EDD", en: "Rejected" },
+      "input.requestFailed": { zh: "\u8BF7\u6C42\u5931\u8D25", en: "Request failed" },
+      "input.noResponse": { zh: "\uFF08\u65E0\u54CD\u5E94\uFF0C\u8BF7\u91CD\u8BD5\uFF09", en: "(No response, please retry)" },
+      "input.rejectedTurn": { zh: "\u8BE5\u64CD\u4F5C\u5DF2\u88AB\u62D2\u7EDD\u3002", en: "The operation was rejected." },
+      "input.thought": { zh: "\u5DF2\u601D\u8003", en: "Thought" },
+      "input.send": { zh: "\u53D1\u9001", en: "Send" },
+      "external.title": { zh: "\u8BFB\u53D6 Vault \u5916\u6587\u4EF6", en: "Read files outside the vault" },
+      "external.desc": { zh: "\u4EE5\u4E0B\u9644\u4EF6\u4F4D\u4E8E Vault \u4E4B\u5916\uFF0C\u53D1\u9001\u540E CodeBuddy \u4F1A\u8BFB\u53D6\u5176\u5185\u5BB9\uFF1B\u53D6\u6D88\u5219\u4E0D\u53D1\u9001\u672C\u6761\u6D88\u606F\u3002", en: "These attachments are outside the vault; sending lets CodeBuddy read their contents. Cancel aborts this message." },
+      "external.allowOnce": { zh: "\u5141\u8BB8\u4E00\u6B21", en: "Allow once" },
+      "view.displayText": { zh: "Workbuddian \u804A\u5929", en: "Workbuddian Chat" },
+      "view.newChat": { zh: "\u65B0\u5EFA\u5BF9\u8BDD", en: "New chat" },
+      "view.inputPlaceholder": { zh: "\u8F93\u5165\u6D88\u606F... (Shift+Enter \u6362\u884C\uFF0CEnter \u53D1\u9001)", en: "Type a message... (Shift+Enter for newline, Enter to send)" },
+      "view.send": { zh: "\u53D1\u9001", en: "Send" },
+      "usage.tooltip": { zh: "\u4E0A\u4E0B\u6587 {used} / {total} tokens", en: "Context {used} / {total} tokens" },
+      "render.emptyTitle": { zh: "\u5F00\u59CB\u65B0\u5BF9\u8BDD", en: "Start a new conversation" },
+      "render.emptySubtitle": { zh: "\u70B9\u51FB\u4E0A\u65B9 + \u6309\u94AE\u6216\u8F93\u5165\u6D88\u606F\u5F00\u59CB\u804A\u5929", en: "Click the + button above or type a message to start chatting" },
+      "render.suggestSummarize": { zh: "\u603B\u7ED3\u5F53\u524D\u7B14\u8BB0", en: "Summarize the current note" },
+      "render.suggestExplain": { zh: "\u89E3\u91CA\u8FD9\u4E2A\u60F3\u6CD5", en: "Explain this idea" },
+      "render.suggestRewrite": { zh: "\u6539\u5199\u8FD9\u6BB5\u6587\u5B57", en: "Rewrite this text" },
+      "render.thinking": { zh: "\u601D\u8003\u4E2D", en: "Thinking" },
+      "render.errorTitle": { zh: "\u51FA\u9519\u4E86", en: "Something went wrong" },
+      "render.retry": { zh: "\u91CD\u8BD5", en: "Retry" },
+      "render.openSettings": { zh: "\u6253\u5F00\u8BBE\u7F6E", en: "Open settings" },
+      "render.copy": { zh: "\u590D\u5236", en: "Copy" },
+      "render.copyCode": { zh: "\u590D\u5236\u4EE3\u7801", en: "Copy code" },
+      "render.copied": { zh: "\u5DF2\u590D\u5236", en: "Copied" },
+      "render.copyFailed": { zh: "\u590D\u5236\u5931\u8D25", en: "Copy failed" },
+      "tabs.close": { zh: "\u5173\u95ED\u5BF9\u8BDD", en: "Close chat" },
+      "tabs.rename": { zh: "\u91CD\u547D\u540D", en: "Rename" },
+      "tabs.fork": { zh: "\u5206\u53C9\u5F53\u524D\u4F1A\u8BDD", en: "Fork this chat" },
+      "tabs.forkPrefix": { zh: "\u5206\u53C9", en: "Fork" },
+      "tabs.forked": { zh: "\u5DF2\u5206\u53C9\uFF1A{title}", en: "Forked: {title}" },
+      "tabs.forkFailed": { zh: "\u5206\u53C9\u5931\u8D25", en: "Fork failed" },
+      "tabs.forkNeedMessage": { zh: "\u5148\u53D1\u9001\u4E00\u6761\u6D88\u606F\uFF0C\u624D\u80FD\u5206\u53C9", en: "Send a message first to fork" },
+      "tabs.forkStreaming": { zh: "\u6B63\u5728\u54CD\u5E94\u4E2D\uFF0C\u7A0D\u5019\u518D\u5206\u53C9", en: "Wait for the response to finish before forking" },
+      "tabs.delete": { zh: "\u5220\u9664\u5BF9\u8BDD", en: "Delete chat" },
+      "tabs.exportAsNote": { zh: "\u5BFC\u51FA\u4E3A\u7B14\u8BB0", en: "Export as note" },
+      "tabs.nothingToExport": { zh: "\u6CA1\u6709\u53EF\u5BFC\u51FA\u7684\u5185\u5BB9", en: "Nothing to export" },
+      "tabs.exportedAs": { zh: "\u5DF2\u5BFC\u51FA\u4E3A\u300C{name}\u300D", en: 'Exported as "{name}"' },
+      "tabs.exportFailed": { zh: "\u5BFC\u51FA\u5931\u8D25\uFF1A{err}", en: "Export failed: {err}" },
+      "tabs.copyToClipboard": { zh: "\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Copy to clipboard" },
+      "tabs.copiedToClipboard": { zh: "\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Copied to clipboard" },
+      "tabs.copyFailed": { zh: "\u590D\u5236\u5931\u8D25\uFF1A{err}", en: "Copy failed: {err}" },
+      "cmd.ribbonTooltip": { zh: "Workbuddian \u804A\u5929", en: "Workbuddian Chat" },
+      "cmd.openChat": { zh: "\u6253\u5F00\u804A\u5929\u9762\u677F", en: "Open chat panel" },
+      "cmd.openChatMainPane": { zh: "\u5728\u4E3B\u7F16\u8F91\u533A\u6253\u5F00\u5927\u9762\u677F", en: "Open large panel in main area" },
+      "cmd.inlineEdit": { zh: "\u7528 CodeBuddy \u7F16\u8F91\u9009\u533A", en: "Edit selection with CodeBuddy" },
+      "cmd.newChat": { zh: "\u65B0\u5EFA\u5BF9\u8BDD", en: "New conversation" },
+      "cmd.editInstruction": { zh: "\u7F16\u8F91\u5E38\u9A7B\u6307\u4EE4", en: "Edit persistent instruction" },
+      "cmd.openSettings": { zh: "\u6253\u5F00 Workbuddian \u8BBE\u7F6E", en: "Open Workbuddian settings" },
+      "cmd.exportChat": { zh: "\u5BFC\u51FA\u5F53\u524D\u4F1A\u8BDD\u4E3A\u7B14\u8BB0", en: "Export current conversation as note" },
+      "cmd.openChatFirst": { zh: "\u8BF7\u5148\u6253\u5F00\u804A\u5929\u9762\u677F", en: "Please open the chat panel first" },
+      "cmd.loadFailed": { zh: "Workbuddian \u52A0\u8F7D\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian failed to load, check the Console" },
+      "cmd.cannotCreatePanel": { zh: "Workbuddian\uFF1A\u65E0\u6CD5\u521B\u5EFA\u804A\u5929\u9762\u677F", en: "Workbuddian: could not create chat panel" },
+      "cmd.openPanelFailed": { zh: "Workbuddian\uFF1A\u6253\u5F00\u9762\u677F\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian: failed to open panel, check the Console" },
+      "cmd.openMainPaneFailed": { zh: "Workbuddian\uFF1A\u6253\u5F00\u4E3B\u7F16\u8F91\u533A\u9762\u677F\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian: failed to open main-area panel, check the Console" },
+      "inline.editTitle": { zh: "\u7528 CodeBuddy \u7F16\u8F91\u9009\u533A", en: "Edit selection with CodeBuddy" },
+      "inline.instructionLabel": { zh: "\u7F16\u8F91\u8981\u6C42", en: "Edit instruction" },
+      "inline.instructionPlaceholder": { zh: "\u5982\uFF1A\u6539\u7B80\u6D01 / \u7FFB\u8BD1\u6210\u82F1\u6587", en: "e.g. make concise / translate to English" },
+      "inline.editBtn": { zh: "\u7F16\u8F91", en: "Edit" },
+      "inline.instructionRequired": { zh: "\u8BF7\u8F93\u5165\u7F16\u8F91\u8981\u6C42", en: "Please enter an edit instruction" },
+      "inline.previewTitle": { zh: "\u9884\u89C8\u6539\u52A8", en: "Preview changes" },
+      "inline.accept": { zh: "\u63A5\u53D7", en: "Accept" },
+      "inline.reject": { zh: "\u62D2\u7EDD", en: "Reject" },
+      "inline.selectFirst": { zh: "\u8BF7\u5148\u9009\u4E2D\u4E00\u6BB5\u6587\u672C", en: "Please select some text first" },
+      "inline.editing": { zh: "CodeBuddy \u7F16\u8F91\u4E2D\u2026", en: "CodeBuddy is editing\u2026" },
+      "inline.noResult": { zh: "\u672A\u83B7\u5F97\u7F16\u8F91\u7ED3\u679C", en: "No edit result returned" },
+      "inline.editFailed": { zh: "\u7F16\u8F91\u5931\u8D25\uFF1A", en: "Edit failed: " },
+      "slash.clear": { zh: "\u6E05\u7A7A\u5E76\u65B0\u5EFA\u5BF9\u8BDD\uFF08\u672C\u5730\uFF09", en: "Clear and start a new chat (local)" },
+      "slash.compact": { zh: "\u538B\u7F29\u4E0A\u4E0B\u6587", en: "Compact context" },
+      "slash.context": { zh: "\u67E5\u770B\u4E0A\u4E0B\u6587\u7528\u91CF", en: "Show context usage" },
+      "slash.cost": { zh: "\u67E5\u770B\u672C\u6B21\u82B1\u8D39", en: "Show session cost" },
+      "slash.model": { zh: "\u5207\u6362\u6A21\u578B", en: "Switch model" },
+      "slash.permissions": { zh: "\u67E5\u770B/\u7BA1\u7406\u6743\u9650", en: "View/manage permissions" },
+      "slash.resume": { zh: "\u6062\u590D\u5386\u53F2\u4F1A\u8BDD", en: "Resume a past session" },
+      "resume.modalTitle": { zh: "\u9009\u62E9\u8981\u6062\u590D\u7684\u5BF9\u8BDD", en: "Resume a conversation" },
+      "resume.empty": { zh: "\uFF08\u8FD8\u6CA1\u6709\u5386\u53F2\u5BF9\u8BDD\uFF09", en: "(No conversations yet)" },
+      "resume.justNow": { zh: "\u521A\u521A", en: "just now" },
+      "resume.minutesAgo": { zh: "\u5206\u949F\u524D", en: "min ago" },
+      "resume.hoursAgo": { zh: "\u5C0F\u65F6\u524D", en: "h ago" },
+      "resume.daysAgo": { zh: "\u5929\u524D", en: "d ago" },
+      "resume.messageCount": { zh: "\u6761", en: "msgs" },
+      "slash.export": { zh: "\u5BFC\u51FA\u5BF9\u8BDD", en: "Export conversation" },
+      "slash.status": { zh: "\u67E5\u770B\u72B6\u6001", en: "Show status" }
+    };
+  }
+});
+
+// src/shared/export.ts
+var export_exports = {};
+__export(export_exports, {
+  formatConversationAsMarkdown: () => formatConversationAsMarkdown
+});
+function formatTime(ts) {
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+function formatConversationAsMarkdown(conv) {
+  var _a;
+  if (conv.messages.length === 0)
+    return "";
+  const lines = [`# ${conv.title}`, ""];
+  lines.push(`> ${t("export.metaExportedAt")}: ${formatTime(Date.now())} \xB7 ${t("export.metaMessages")}: ${conv.messages.length}`, "");
+  for (const msg of conv.messages) {
+    const label = msg.role === "user" ? t("export.roleUser") : t("export.roleAssistant");
+    const time = formatTime(msg.timestamp);
+    const errMark = msg.isError ? " \u26A0\uFE0F" : "";
+    lines.push(`${label} \xB7 ${time}${errMark}:`, msg.content, "");
+    if ((_a = msg.attachments) == null ? void 0 : _a.length) {
+      lines.push(`> \u{1F4CE} ${msg.attachments.join(", ")}`, "");
+    }
+  }
+  return lines.join("\n").trimEnd();
+}
+var init_export = __esm({
+  "src/shared/export.ts"() {
+    init_i18n();
+  }
+});
 
 // src/main.ts
 var main_exports = {};
@@ -97,257 +396,8 @@ function isPermissionMode(value) {
   return typeof value === "string" && PERMISSION_MODES.includes(value);
 }
 
-// src/i18n/index.ts
-var currentLang = "zh";
-function setLang(lang) {
-  currentLang = lang;
-}
-function detectLang() {
-  try {
-    const l = typeof window !== "undefined" && window.localStorage.getItem("language") || "";
-    return l.startsWith("zh") ? "zh" : "en";
-  } catch (e) {
-    return "zh";
-  }
-}
-function applyLang(setting) {
-  setLang(setting === "auto" ? detectLang() : setting);
-}
-var STRINGS = {
-  "chat.send": { zh: "\u53D1\u9001", en: "Send" },
-  "chat.stop": { zh: "\u505C\u6B62", en: "Stop" },
-  "chat.newConversation": { zh: "\u65B0\u5BF9\u8BDD", en: "New chat" },
-  "chat.autoTitlePrompt": { zh: "\u8BF7\u4E3A\u4EE5\u4E0B\u5185\u5BB9\u751F\u6210\u4E00\u4E2A\u4E0D\u8D85\u8FC7 20 \u5B57\u7684\u4F1A\u8BDD\u6807\u9898\uFF0C\u53EA\u8F93\u51FA\u6807\u9898\u672C\u8EAB\uFF0C\u4E0D\u8981\u6807\u70B9\u7ED3\u5C3E\uFF1A\n\n", en: "Generate a chat title (max 20 chars) for the content below. Output only the title, no trailing punctuation:\n\n" },
-  "common.unknownError": { zh: "\u672A\u77E5\u9519\u8BEF", en: "Unknown error" },
-  "provider.cliNotFound": { zh: "\u627E\u4E0D\u5230 codebuddy CLI\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 WorkBuddy \u684C\u9762\u7248\uFF0C\u6216\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u6307\u5B9A codebuddy \u8DEF\u5F84\u3002", en: "codebuddy CLI not found. Make sure WorkBuddy desktop is installed, or set the codebuddy path in the plugin settings." },
-  "provider.nodeNotFound": { zh: "\u627E\u4E0D\u5230 Node.js \u6765\u8FD0\u884C codebuddy\uFF08\u8DEF\u5F84\uFF1A{path}\uFF09\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 Node.js\u3002", en: "Node.js not found to run codebuddy (path: {path}). Make sure Node.js is installed." },
-  "provider.acpUnsupported": { zh: "\u5F53\u524D codebuddy CLI \u7248\u672C\u8FC7\u65E7\uFF0C\u4E0D\u652F\u6301 ACP \u6301\u4E45\u4F1A\u8BDD\u3002\u8BF7\u5347\u7EA7 WorkBuddy \u684C\u9762\u7248\u3002", en: "Your codebuddy CLI is too old for ACP persistent sessions. Please upgrade WorkBuddy." },
-  "provider.notLoggedIn": { zh: "codebuddy CLI \u7591\u4F3C\u672A\u767B\u5F55\u3002\u8BF7\u5148\u5728 WorkBuddy \u684C\u9762\u7248\u4E2D\u767B\u5F55\u3002", en: "codebuddy CLI appears logged out. Please log in via WorkBuddy first." },
-  "provider.handshakeFailed": { zh: "codebuddy CLI \u63E1\u624B\u5931\u8D25\uFF1A{detail}", en: "codebuddy CLI handshake failed: {detail}" },
-  "provider.turnTimeout": { zh: "\u672C\u8F6E\u54CD\u5E94\u8D85\u65F6\uFF0C\u5DF2\u4E2D\u65AD", en: "Turn timed out and was interrupted" },
-  "provider.turnFailed": { zh: "\u672C\u8F6E\u4E2D\u65AD\uFF1A{reason}", en: "Turn interrupted: {reason}" },
-  "provider.processDied": { zh: "codebuddy \u8FDB\u7A0B\u610F\u5916\u9000\u51FA\uFF0C\u672C\u8F6E\u5DF2\u4E2D\u65AD\u3002\u91CD\u65B0\u53D1\u9001\u5C06\u81EA\u52A8\u6062\u590D\u4F1A\u8BDD\u3002", en: "codebuddy process exited unexpectedly. Resend to resume the session." },
-  "provider.busy": { zh: "\u8BE5\u4F1A\u8BDD\u6B63\u5728\u54CD\u5E94\u4E2D\uFF0C\u8BF7\u7A0D\u5019", en: "This conversation is still responding" },
-  "export.roleUser": { zh: "**\u7528\u6237**", en: "**User**" },
-  "export.roleAssistant": { zh: "**AI**", en: "**AI**" },
-  "export.metaExportedAt": { zh: "\u5BFC\u51FA\u65F6\u95F4", en: "Exported" },
-  "export.metaMessages": { zh: "\u6D88\u606F\u6570", en: "messages" },
-  "settings.conn": { zh: "CodeBuddy \u8FDE\u63A5", en: "CodeBuddy Connection" },
-  "settings.path": { zh: "CodeBuddy \u8DEF\u5F84", en: "CodeBuddy path" },
-  "settings.pathDesc": { zh: "codebuddy \u53EF\u6267\u884C\u6587\u4EF6\u8DEF\u5F84\u3002\u5982 WorkBuddy \u81EA\u5B9A\u4E49\u5B89\u88C5\uFF0C\u8DEF\u5F84\u901A\u5E38\u4E3A\uFF1A\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy\uFF08\u53F3\u952E WorkBuddy \u5FEB\u6377\u65B9\u5F0F \u2192 \u6253\u5F00\u6587\u4EF6\u4F4D\u7F6E \u53EF\u627E\u5230\u5B89\u88C5\u76EE\u5F55\uFF09", en: "Path to the codebuddy executable. For a custom WorkBuddy install it is usually: <InstallDir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy (right-click the WorkBuddy shortcut \u2192 Open file location)." },
-  "settings.pathPlaceholder": { zh: "WorkBuddy\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy", en: "<WorkBuddy install dir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy" },
-  "settings.pathDetect": { zh: "\u81EA\u52A8\u68C0\u6D4B", en: "Auto-detect" },
-  "settings.pathDetected": { zh: "\u5DF2\u586B\u5165\u68C0\u6D4B\u5230\u7684\u8DEF\u5F84\uFF1A{path}", en: "Filled in the detected path: {path}" },
-  "settings.pathNotFound": { zh: "\u672A\u627E\u5230 WorkBuddy \u9ED8\u8BA4\u5B89\u88C5\uFF0C\u8BF7\u624B\u52A8\u6307\u5B9A\u8DEF\u5F84", en: "WorkBuddy default install not found; set the path manually." },
-  "settings.node": { zh: "\u624B\u52A8\u6307\u5B9A Node.js \u8DEF\u5F84", en: "Node.js path (manual)" },
-  "settings.nodeDesc": { zh: "\u7559\u7A7A\u5219\u81EA\u52A8\u63A2\u6D4B\u3002\u5982\u679C\u81EA\u52A8\u63A2\u6D4B\u5931\u8D25\uFF08\u4F8B\u5982\u975E\u6807\u51C6\u5B89\u88C5\u8DEF\u5F84\uFF09\uFF0C\u53EF\u4EE5\u5728\u8FD9\u91CC\u624B\u52A8\u6307\u5B9A node \u53EF\u6267\u884C\u6587\u4EF6\u7684\u5B8C\u6574\u8DEF\u5F84", en: "Leave empty to auto-detect. If detection fails (e.g. non-standard install), set the full path to the node executable here." },
-  "settings.nodePlaceholder": { zh: "\u7559\u7A7A = \u81EA\u52A8\u63A2\u6D4B", en: "Empty = auto-detect" },
-  "settings.mcpServers": { zh: "MCP \u670D\u52A1\u5668\uFF08JSON\uFF09", en: "MCP servers (JSON)" },
-  "settings.mcpServersDesc": { zh: 'stdio \u4F20\u8F93\u7684 MCP \u670D\u52A1\u5668\u6570\u7EC4\uFF0C\u5982 [{"name":"x","command":"npx","args":["-y","pkg"]}]\u3002\u7559\u7A7A\u4E0D\u6CE8\u5165\uFF1B\u5BF9\u65B0\u5EFA/\u6062\u590D\u7684\u4F1A\u8BDD\u751F\u6548\u3002', en: 'Array of stdio MCP servers, e.g. [{"name":"x","command":"npx","args":["-y","pkg"]}]. Empty = none; applies to newly created/restored sessions.' },
-  "settings.customAgents": { zh: "\u5B50\u4EE3\u7406\uFF08JSON\uFF09", en: "Custom agents (JSON)" },
-  "settings.customAgentsDesc": { zh: '\u5B50\u4EE3\u7406\u5B9A\u4E49\u5BF9\u8C61\uFF0C\u5982 {"reviewer":{"description":"\u5BA1\u67E5\u4EE3\u7801","prompt":"\u4F60\u662F\u4EE3\u7801\u5BA1\u67E5\u5458"}}\uFF0C\u5BF9\u5E94 CLI --agents\uFF1B\u652F\u6301 tools\uFF08\u5DE5\u5177\u767D\u540D\u5355\uFF09\u4E0E model \u952E\uFF082026-08-03 \u63A2\u9488\u5B9E\u6D4B CLI \u63A5\u53D7\uFF09\u3002\u6539\u52A8\u540E CLI \u8FDB\u7A0B\u81EA\u52A8\u91CD\u542F\u751F\u6548\u3002', en: 'Custom agent definitions, e.g. {"reviewer":{"description":"Reviews code","prompt":"You review code"}} (CLI --agents); tools (allowlist) and model keys are accepted (probed 2026-08-03). The CLI process restarts automatically on change.' },
-  "settings.invalidJson": { zh: "{field}\uFF1AJSON \u65E0\u6CD5\u89E3\u6790\uFF0C\u672A\u751F\u6548", en: "{field}: invalid JSON, not applied" },
-  "mcp.addServer": { zh: "\u6DFB\u52A0\u670D\u52A1\u5668", en: "Add server" },
-  "mcp.importClipboard": { zh: "\u4ECE\u526A\u8D34\u677F\u5BFC\u5165", en: "Import from clipboard" },
-  "mcp.importBad": { zh: "\u526A\u8D34\u677F\u91CC\u6CA1\u6709\u53EF\u8BC6\u522B\u7684 MCP \u914D\u7F6E", en: "No recognizable MCP config in clipboard" },
-  "mcp.modalTitleAdd": { zh: "\u6DFB\u52A0 MCP \u670D\u52A1\u5668", en: "Add MCP server" },
-  "mcp.modalTitleEdit": { zh: "\u7F16\u8F91 MCP \u670D\u52A1\u5668", en: "Edit MCP server" },
-  "mcp.fieldName": { zh: "\u540D\u79F0", en: "Name" },
-  "mcp.fieldCommand": { zh: "\u547D\u4EE4", en: "Command" },
-  "mcp.fieldArgs": { zh: "\u53C2\u6570\uFF08\u7A7A\u683C\u5206\u9694\uFF09", en: "Args (space-separated)" },
-  "mcp.fieldEnv": { zh: "\u73AF\u5883\u53D8\u91CF\uFF08\u6BCF\u884C KEY=VALUE\uFF09", en: "Env (KEY=VALUE per line)" },
-  "mcp.fieldEnabled": { zh: "\u542F\u7528", en: "Enabled" },
-  "mcp.save": { zh: "\u4FDD\u5B58", en: "Save" },
-  "mcp.nameRequired": { zh: "\u540D\u79F0\u4E0D\u80FD\u4E3A\u7A7A", en: "Name is required" },
-  "settings.thoughtLevel": { zh: "\u601D\u8003\u529B\u5EA6", en: "Thinking effort" },
-  "settings.thoughtLevelDesc": { zh: "\u5BF9\u5E94 CLI thought_level\uFF08\u6309\u4F1A\u8BDD\u751F\u6548\uFF09\uFF1BCLI \u4FA7\u7528 /effort \u6539\u52A8\u4F1A\u540C\u6B65\u56DE\u8FD9\u91CC\u3002", en: "Maps to CLI thought_level (per session). Changes via the /effort command sync back here." },
-  "settings.autoTitle": { zh: "\u81EA\u52A8\u751F\u6210\u4F1A\u8BDD\u6807\u9898", en: "Auto-generate chat titles" },
-  "settings.autoTitleDesc": { zh: "\u9996\u8F6E\u56DE\u590D\u540E\u7531 AI \u547D\u540D\u65B0\u4F1A\u8BDD\uFF1B\u4F60\u624B\u52A8\u6539\u8FC7\u540D\u7684\u4F1A\u8BDD\u4E0D\u4F1A\u88AB\u8986\u76D6\u3002", en: "AI names new chats after the first reply; chats you renamed manually are left alone." },
-  "settings.timeout": { zh: "CLI \u8D85\u65F6\u65F6\u957F\uFF08\u5206\u949F\uFF09", en: "CLI timeout (minutes)" },
-  "settings.timeoutDesc": { zh: "CodeBuddy CLI \u5355\u6B21\u54CD\u5E94\u6700\u957F\u7B49\u5F85\u65F6\u95F4\uFF0C\u8D85\u8FC7\u4F1A\u5F3A\u5236\u4E2D\u65AD", en: "Max wait per CodeBuddy CLI response; exceeding it aborts the call." },
-  "settings.model": { zh: "\u6A21\u578B", en: "Model" },
-  "settings.modelDesc": { zh: "CodeBuddy CLI \u4F7F\u7528\u7684\u6A21\u578B", en: "Model used by the CodeBuddy CLI" },
-  "settings.modelAuto": { zh: "Auto\uFF08\u9ED8\u8BA4\uFF0C\u7531 CodeBuddy \u81EA\u52A8\u9009\u62E9\uFF09", en: "Auto (default, chosen by CodeBuddy)" },
-  "settings.inject": { zh: "\u4E0A\u4E0B\u6587\u6CE8\u5165", en: "Context injection" },
-  "settings.injectVault": { zh: "\u6CE8\u5165 Vault \u4E0A\u4E0B\u6587", en: "Inject vault context" },
-  "settings.injectVaultDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u81EA\u52A8\u9644\u4E0A\u5F53\u524D Vault \u8DEF\u5F84\uFF0C\u8BA9 AI \u57FA\u4E8E Vault \u4E2D\u7684\u6587\u4EF6\u56DE\u7B54\u95EE\u9898", en: "When on, every message includes the current vault path so the AI can answer based on vault files." },
-  "settings.injectNote": { zh: "\u6CE8\u5165\u5F53\u524D\u7B14\u8BB0\u94FE\u63A5", en: "Inject current note link" },
-  "settings.injectNoteDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u9644\u4E0A\u5F53\u524D\u6B63\u5728\u67E5\u770B\u7684\u7B14\u8BB0\u6807\u9898\u548C\u8DEF\u5F84\uFF08\u4E0D\u5305\u542B\u6B63\u6587\u5185\u5BB9\uFF09", en: "When on, every message includes the current note title and path (not its content)." },
-  "settings.pastedKeep": { zh: "\u7C98\u8D34\u56FE\u4FDD\u7559\u6570\u91CF", en: "Pasted image retention" },
-  "settings.pastedKeepDesc": { zh: "\u63D2\u4EF6\u76EE\u5F55\u5185\u6700\u591A\u4FDD\u7559\u591A\u5C11\u5F20\u7C98\u8D34\u7684\u56FE\u7247\uFF0C\u8D85\u51FA\u7684\u81EA\u52A8\u5220\u9664\u3002\u586B 0 \u8868\u793A\u4E0D\u9650\u5236\uFF08\u5386\u53F2\u6D88\u606F\u91CC\u7684\u7F29\u7565\u56FE\u4E0D\u4F1A\u5931\u6548\uFF0C\u4F46\u56FE\u7247\u4F1A\u4E00\u76F4\u7D2F\u79EF\uFF09\u3002\u9ED8\u8BA4 20\uFF0C\u6700\u5927 500\u3002", en: "How many pasted images to keep in the plugin folder; older ones are deleted automatically. 0 means unlimited (thumbnails in old messages stay valid, but images accumulate). Default 20, max 500." },
-  "settings.appearance": { zh: "\u5916\u89C2", en: "Appearance" },
-  "settings.language": { zh: "\u754C\u9762\u8BED\u8A00", en: "Interface language" },
-  "settings.languageDesc": { zh: "\u63D2\u4EF6\u754C\u9762\u663E\u793A\u8BED\u8A00\u3002Auto \u8DDF\u968F Obsidian\u3002\u804A\u5929\u9762\u677F\u5373\u65F6\u5207\u6362\uFF1B\u547D\u4EE4\u9762\u677F\u540D\u79F0\u9700 Cmd+R \u540E\u66F4\u65B0\u3002", en: "Plugin UI language. Auto follows Obsidian. Chat panels switch instantly; command-palette names update after a reload." },
-  "settings.langAuto": { zh: "Auto\uFF08\u8DDF\u968F Obsidian\uFF09", en: "Auto (follow Obsidian)" },
-  "settings.langZh": { zh: "\u4E2D\u6587", en: "\u4E2D\u6587" },
-  "settings.langEn": { zh: "English", en: "English" },
-  "settings.langReload": { zh: "\u754C\u9762\u8BED\u8A00\u5DF2\u5207\u6362", en: "Interface language changed" },
-  "settings.contextWindow": { zh: "\u4E0A\u4E0B\u6587\u7A97\u53E3\u4E0A\u9650\uFF08token\uFF09", en: "Context window size (tokens)" },
-  "settings.contextWindowDesc": { zh: "\u8BA1\u7B97\u4E0A\u4E0B\u6587\u7528\u91CF\u767E\u5206\u6BD4\u7684\u5206\u6BCD\u3002\u4E0D\u540C\u6A21\u578B\u7A97\u53E3\u4E0D\u540C\uFF0C\u53EF\u6309\u5B9E\u9645\u8C03\u6574\uFF08\u9ED8\u8BA4 200000\uFF09\u3002", en: "Denominator for the context-usage percentage. Adjust to your model\u2019s window (default 200000)." },
-  "settings.permissionMode": { zh: "\u6388\u6743\u6A21\u5F0F", en: "Permission mode" },
-  "settings.permissionModeDesc": { zh: "\u63A7\u5236 CodeBuddy \u6267\u884C\u64CD\u4F5C\u524D\u7684\u6388\u6743\u7EA7\u522B\uFF0C\u7B49\u540C\u5DE5\u5177\u680F\u76FE\u724C\u56FE\u6807\uFF1A\u9ED8\u8BA4\uFF08\u6BCF\u6B65\u8BE2\u95EE\uFF09/ \u5B8C\u5168\u8BBF\u95EE\uFF08\u8DF3\u8FC7\u6240\u6709\u6388\u6743\uFF09\u3002", en: "Authorization level before CodeBuddy acts; same as the toolbar shield: Default (asks each step) / Full access (skips all)." },
-  "settings.primary": { zh: "\u804A\u5929\u4E3B\u8272\u8C03", en: "Chat accent color" },
-  "settings.primaryDesc": { zh: "\u81EA\u5B9A\u4E49\u804A\u5929\u9762\u677F\u7684\u5F3A\u8C03\u8272\uFF08\u7528\u6237\u6C14\u6CE1\u3001\u53D1\u9001\u6309\u94AE\u3001\u8FB9\u6846\u3001focus \u9AD8\u4EAE\u7B49\uFF09\u3002\u70B9\u300C\u6062\u590D\u9ED8\u8BA4\u300D\u8DDF\u968F Obsidian \u4E3B\u9898\u8272\u3002", en: 'Customize the chat accent color (user bubble, send button, borders, focus ring). Click "Reset" to follow the Obsidian theme.' },
-  "settings.resetTooltip": { zh: "\u6062\u590D\u9ED8\u8BA4\uFF08\u8DDF\u968F\u4E3B\u9898\u8272\uFF09", en: "Reset (follow theme color)" },
-  "settings.reset": { zh: "\u91CD\u7F6E", en: "Reset" },
-  "settings.resetDefault": { zh: "\u91CD\u7F6E\u4E3A\u9ED8\u8BA4", en: "Reset to defaults" },
-  "settings.resetDesc": { zh: "\u6E05\u7A7A\u6240\u6709\u81EA\u5B9A\u4E49\u8BBE\u7F6E\uFF0C\u6062\u590D\u5230\u63D2\u4EF6\u9ED8\u8BA4\u503C\uFF08\u5305\u62EC\u8DEF\u5F84\u3001\u6A21\u578B\u3001\u6CE8\u5165\u5F00\u5173\u3001\u4E3B\u8272\u8C03\uFF09\u3002", en: "Clear all custom settings and restore plugin defaults (paths, model, injection toggles, accent color)." },
-  "settings.resetConfirm": { zh: "\u786E\u8BA4\u91CD\u7F6E\uFF1F", en: "Confirm reset?" },
-  "settings.resetDone": { zh: "\u5DF2\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u8BBE\u7F6E", en: "Settings reset to defaults" },
-  "settings.importExport": { zh: "\u5BFC\u5165 / \u5BFC\u51FA\u8BBE\u7F6E", en: "Import / Export settings" },
-  "settings.export": { zh: "\u5BFC\u51FA\u8BBE\u7F6E", en: "Export settings" },
-  "settings.exportDesc": { zh: "\u628A\u5F53\u524D\u8BBE\u7F6E\u4FDD\u5B58\u4E3A JSON \u6587\u4EF6\uFF0C\u4FBF\u4E8E\u5907\u4EFD\u6216\u8FC1\u79FB\uFF08\u542B\u672C\u673A\u8DEF\u5F84\uFF0C\u8DE8\u673A\u5668\u9700\u81EA\u884C\u8C03\u6574\uFF09\u3002", en: "Save current settings as a JSON file for backup/migration (includes local paths; adjust when moving machines)." },
-  "settings.exportBtn": { zh: "\u5BFC\u51FA\u4E3A\u6587\u4EF6", en: "Export to file" },
-  "settings.exportDone": { zh: "\u8BBE\u7F6E\u5DF2\u5BFC\u51FA\u4E3A workbuddian-settings.json", en: "Settings exported to workbuddian-settings.json" },
-  "settings.import": { zh: "\u5BFC\u5165\u8BBE\u7F6E", en: "Import settings" },
-  "settings.importDesc": { zh: "\u9009\u62E9\u4E4B\u524D\u5BFC\u51FA\u7684 JSON \u6587\u4EF6\uFF0C\u8986\u76D6\u5F53\u524D\u8BBE\u7F6E\u3002", en: "Pick a previously exported JSON file to overwrite current settings." },
-  "settings.importBtn": { zh: "\u4ECE\u6587\u4EF6\u5BFC\u5165", en: "Import from file" },
-  "settings.importDone": { zh: "\u8BBE\u7F6E\u5DF2\u5BFC\u5165", en: "Settings imported" },
-  "settings.importErr": { zh: "\u5BFC\u5165\u5931\u8D25\uFF1AJSON \u89E3\u6790\u9519\u8BEF", en: "Import failed: invalid JSON" },
-  "settings.logs": { zh: "\u65E5\u5FD7", en: "Logs" },
-  "settings.logsDesc": { zh: "\u67E5\u770B\u6700\u8FD1\u7684\u63D2\u4EF6\u8FD0\u884C\u65E5\u5FD7\uFF08[WB]\uFF09\uFF0C\u4FBF\u4E8E\u6392\u67E5\u95EE\u9898\u3002\u4EC5\u4FDD\u5B58\u5728\u5185\u5B58\uFF0C\u91CD\u8F7D\u540E\u6E05\u7A7A\u3002", en: "View recent plugin logs ([WB]) for troubleshooting. Kept in memory only; cleared on reload." },
-  "settings.viewLogs": { zh: "\u67E5\u770B\u65E5\u5FD7", en: "View logs" },
-  "log.title": { zh: "Workbuddian \u65E5\u5FD7", en: "Workbuddian logs" },
-  "log.copy": { zh: "\u590D\u5236\u5168\u90E8", en: "Copy all" },
-  "log.clear": { zh: "\u6E05\u7A7A", en: "Clear" },
-  "log.copied": { zh: "\u65E5\u5FD7\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Logs copied to clipboard" },
-  "log.cleared": { zh: "\u65E5\u5FD7\u5DF2\u6E05\u7A7A", en: "Logs cleared" },
-  "log.empty": { zh: "\uFF08\u6682\u65E0\u65E5\u5FD7\uFF09", en: "(No logs yet)" },
-  "input.removeReference": { zh: "\u79FB\u9664\u5F15\u7528", en: "Remove reference" },
-  "input.ariaLabel": { zh: "\u804A\u5929\u8F93\u5165\u6846", en: "Chat input" },
-  "a11y.newReply": { zh: "\u65B0\u56DE\u590D\uFF1A", en: "New reply: " },
-  "input.customCommand": { zh: "\uFF08\u81EA\u5B9A\u4E49\u547D\u4EE4\uFF09", en: "(Custom command)" },
-  "input.attach": { zh: "\u9644\u52A0\u6587\u4EF6", en: "Attach files" },
-  "input.imageSaveFailed": { zh: "\u56FE\u7247\u4FDD\u5B58\u5931\u8D25", en: "Failed to save image" },
-  "input.contextUsage": { zh: "\u4E0A\u4E0B\u6587\u7528\u91CF", en: "Context usage" },
-  "instruction.modalTitle": { zh: "\u5E38\u9A7B\u6307\u4EE4", en: "Custom instruction" },
-  "instruction.placeholder": { zh: "\u7ED9 AI \u8BBE\u5B9A\u5E38\u9A7B\u7684\u89C4\u5219 / \u4EBA\u8BBE\uFF08\u5BF9\u6240\u6709\u5BF9\u8BDD\u751F\u6548\uFF09", en: "Set a persistent rule/persona for the AI (applies to all chats)" },
-  "instruction.save": { zh: "\u4FDD\u5B58", en: "Save" },
-  "instruction.clear": { zh: "\u6E05\u9664", en: "Clear" },
-  "instruction.indicatorOn": { zh: "\u5E38\u9A7B\u6307\u4EE4\uFF08\u5DF2\u8BBE\u7F6E\uFF0C\u70B9\u51FB\u7F16\u8F91\uFF09", en: "Custom instruction (set \u2014 click to edit)" },
-  "instruction.indicatorOff": { zh: "\u5E38\u9A7B\u6307\u4EE4\uFF08\u70B9\u51FB\u8BBE\u7F6E\uFF09", en: "Custom instruction (click to set)" },
-  "input.permission": { zh: "\u6388\u6743\u6A21\u5F0F", en: "Permission mode" },
-  "perm.default": { zh: "\u9ED8\u8BA4\uFF08\u6BCF\u6B65\u8BE2\u95EE\uFF09", en: "Default (ask each step)" },
-  "perm.plan": { zh: "\u8BA1\u5212\u6A21\u5F0F\uFF08\u53EA\u8BFB\u4E0D\u6539\uFF09", en: "Plan (read-only)" },
-  "perm.acceptEdits": { zh: "\u81EA\u52A8\u63A5\u53D7\u7F16\u8F91", en: "Accept edits" },
-  "perm.bypassPermissions": { zh: "\u5B8C\u5168\u8BBF\u95EE", en: "Full access" },
-  "input.stop": { zh: "\u505C\u6B62", en: "Stop" },
-  "input.bubbleNotFound": { zh: "\u627E\u4E0D\u5230 Assistant \u6D88\u606F\u6C14\u6CE1", en: "Assistant message bubble not found" },
-  "input.thinking": { zh: "\u601D\u8003\u4E2D...", en: "Thinking..." },
-  "input.toolCall": { zh: "\u5DE5\u5177\u8C03\u7528", en: "Tool call" },
-  "input.toolCallToggle": { zh: "\u5C55\u5F00\u6216\u6298\u53E0\u5DE5\u5177\u8C03\u7528\u8BE6\u60C5", en: "Expand or collapse tool call details" },
-  "tool.diffTitle": { zh: "\u6539\u52A8", en: "Changes" },
-  "tool.diffToggle": { zh: "\u5C55\u5F00\u6216\u6298\u53E0\u6539\u52A8\u8BE6\u60C5", en: "Expand or collapse change details" },
-  "tool.undo": { zh: "\u64A4\u9500\u6B64\u4FEE\u6539", en: "Undo this edit" },
-  "tool.undone": { zh: "\u5DF2\u64A4\u9500", en: "Undone" },
-  "tool.undoStale": { zh: "\u6587\u4EF6\u5DF2\u53D8\u5316\uFF0C\u672A\u6267\u884C\u64A4\u9500", en: "File has changed since; undo skipped" },
-  "tool.undoAmbiguous": { zh: "\u6539\u52A8\u6587\u672C\u5728\u6587\u4EF6\u4E2D\u51FA\u73B0\u591A\u6B21\uFF0C\u4E3A\u907F\u514D\u8BEF\u6539\u5DF2\u8DF3\u8FC7\u64A4\u9500", en: "The changed text appears more than once in the file; undo was skipped to avoid a wrong edit." },
-  "tool.undoFailed": { zh: "\u64A4\u9500\u5931\u8D25", en: "Undo failed" },
-  "tool.output": { zh: "\u8F93\u51FA", en: "Output" },
-  "tool.agentOutput": { zh: "\u5B50\u4EE3\u7406\u8F93\u51FA", en: "Subagent output" },
-  "tool.outputToggle": { zh: "\u5C55\u5F00\u6216\u6298\u53E0\u547D\u4EE4\u8F93\u51FA", en: "Expand or collapse command output" },
-  "approval.title": { zh: "\u5DE5\u5177\u6279\u51C6", en: "Tool approval" },
-  "approval.allow": { zh: "\u5141\u8BB8", en: "Allow" },
-  "approval.alwaysAllow": { zh: "\u603B\u662F\u5141\u8BB8", en: "Always allow" },
-  "approval.reject": { zh: "\u62D2\u7EDD", en: "Reject" },
-  "approval.planReady": { zh: "\u8BA1\u5212\u5DF2\u5C31\u7EEA", en: "Plan ready" },
-  "approval.execute": { zh: "\u6309\u6B64\u6267\u884C", en: "Execute" },
-  "approval.alwaysExecute": { zh: "\u603B\u662F\u6267\u884C", en: "Always execute" },
-  "approval.cancel": { zh: "\u53D6\u6D88", en: "Cancel" },
-  "approval.writeLines": { zh: "\u5199\u5165 {path}\uFF08{count} \u884C\uFF09", en: "Write {path} ({count} lines)" },
-  "approval.resolvedAllow": { zh: "\u5DF2\u5141\u8BB8", en: "Allowed" },
-  "approval.resolvedAlways": { zh: "\u5DF2\u603B\u662F\u5141\u8BB8", en: "Always allowed" },
-  "approval.resolvedReject": { zh: "\u5DF2\u62D2\u7EDD", en: "Rejected" },
-  "input.requestFailed": { zh: "\u8BF7\u6C42\u5931\u8D25", en: "Request failed" },
-  "input.noResponse": { zh: "\uFF08\u65E0\u54CD\u5E94\uFF0C\u8BF7\u91CD\u8BD5\uFF09", en: "(No response, please retry)" },
-  "input.rejectedTurn": { zh: "\u8BE5\u64CD\u4F5C\u5DF2\u88AB\u62D2\u7EDD\u3002", en: "The operation was rejected." },
-  "input.thought": { zh: "\u5DF2\u601D\u8003", en: "Thought" },
-  "input.send": { zh: "\u53D1\u9001", en: "Send" },
-  "external.title": { zh: "\u8BFB\u53D6 Vault \u5916\u6587\u4EF6", en: "Read files outside the vault" },
-  "external.desc": { zh: "\u4EE5\u4E0B\u9644\u4EF6\u4F4D\u4E8E Vault \u4E4B\u5916\uFF0C\u53D1\u9001\u540E CodeBuddy \u4F1A\u8BFB\u53D6\u5176\u5185\u5BB9\uFF1B\u53D6\u6D88\u5219\u4E0D\u53D1\u9001\u672C\u6761\u6D88\u606F\u3002", en: "These attachments are outside the vault; sending lets CodeBuddy read their contents. Cancel aborts this message." },
-  "external.allowOnce": { zh: "\u5141\u8BB8\u4E00\u6B21", en: "Allow once" },
-  "view.displayText": { zh: "Workbuddian \u804A\u5929", en: "Workbuddian Chat" },
-  "view.newChat": { zh: "\u65B0\u5EFA\u5BF9\u8BDD", en: "New chat" },
-  "view.inputPlaceholder": { zh: "\u8F93\u5165\u6D88\u606F... (Shift+Enter \u6362\u884C\uFF0CEnter \u53D1\u9001)", en: "Type a message... (Shift+Enter for newline, Enter to send)" },
-  "view.send": { zh: "\u53D1\u9001", en: "Send" },
-  "usage.tooltip": { zh: "\u4E0A\u4E0B\u6587 {used} / {total} tokens", en: "Context {used} / {total} tokens" },
-  "render.emptyTitle": { zh: "\u5F00\u59CB\u65B0\u5BF9\u8BDD", en: "Start a new conversation" },
-  "render.emptySubtitle": { zh: "\u70B9\u51FB\u4E0A\u65B9 + \u6309\u94AE\u6216\u8F93\u5165\u6D88\u606F\u5F00\u59CB\u804A\u5929", en: "Click the + button above or type a message to start chatting" },
-  "render.suggestSummarize": { zh: "\u603B\u7ED3\u5F53\u524D\u7B14\u8BB0", en: "Summarize the current note" },
-  "render.suggestExplain": { zh: "\u89E3\u91CA\u8FD9\u4E2A\u60F3\u6CD5", en: "Explain this idea" },
-  "render.suggestRewrite": { zh: "\u6539\u5199\u8FD9\u6BB5\u6587\u5B57", en: "Rewrite this text" },
-  "render.thinking": { zh: "\u601D\u8003\u4E2D", en: "Thinking" },
-  "render.errorTitle": { zh: "\u51FA\u9519\u4E86", en: "Something went wrong" },
-  "render.retry": { zh: "\u91CD\u8BD5", en: "Retry" },
-  "render.openSettings": { zh: "\u6253\u5F00\u8BBE\u7F6E", en: "Open settings" },
-  "render.copy": { zh: "\u590D\u5236", en: "Copy" },
-  "render.copyCode": { zh: "\u590D\u5236\u4EE3\u7801", en: "Copy code" },
-  "render.copied": { zh: "\u5DF2\u590D\u5236", en: "Copied" },
-  "render.copyFailed": { zh: "\u590D\u5236\u5931\u8D25", en: "Copy failed" },
-  "tabs.close": { zh: "\u5173\u95ED\u5BF9\u8BDD", en: "Close chat" },
-  "tabs.rename": { zh: "\u91CD\u547D\u540D", en: "Rename" },
-  "tabs.fork": { zh: "\u5206\u53C9\u5F53\u524D\u4F1A\u8BDD", en: "Fork this chat" },
-  "tabs.forkPrefix": { zh: "\u5206\u53C9", en: "Fork" },
-  "tabs.forked": { zh: "\u5DF2\u5206\u53C9\uFF1A{title}", en: "Forked: {title}" },
-  "tabs.forkFailed": { zh: "\u5206\u53C9\u5931\u8D25", en: "Fork failed" },
-  "tabs.forkNeedMessage": { zh: "\u5148\u53D1\u9001\u4E00\u6761\u6D88\u606F\uFF0C\u624D\u80FD\u5206\u53C9", en: "Send a message first to fork" },
-  "tabs.forkStreaming": { zh: "\u6B63\u5728\u54CD\u5E94\u4E2D\uFF0C\u7A0D\u5019\u518D\u5206\u53C9", en: "Wait for the response to finish before forking" },
-  "tabs.delete": { zh: "\u5220\u9664\u5BF9\u8BDD", en: "Delete chat" },
-  "tabs.exportAsNote": { zh: "\u5BFC\u51FA\u4E3A\u7B14\u8BB0", en: "Export as note" },
-  "tabs.nothingToExport": { zh: "\u6CA1\u6709\u53EF\u5BFC\u51FA\u7684\u5185\u5BB9", en: "Nothing to export" },
-  "tabs.exportedAs": { zh: "\u5DF2\u5BFC\u51FA\u4E3A\u300C{name}\u300D", en: 'Exported as "{name}"' },
-  "tabs.exportFailed": { zh: "\u5BFC\u51FA\u5931\u8D25\uFF1A{err}", en: "Export failed: {err}" },
-  "tabs.copyToClipboard": { zh: "\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Copy to clipboard" },
-  "tabs.copiedToClipboard": { zh: "\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F", en: "Copied to clipboard" },
-  "tabs.copyFailed": { zh: "\u590D\u5236\u5931\u8D25\uFF1A{err}", en: "Copy failed: {err}" },
-  "cmd.ribbonTooltip": { zh: "Workbuddian \u804A\u5929", en: "Workbuddian Chat" },
-  "cmd.openChat": { zh: "\u6253\u5F00\u804A\u5929\u9762\u677F", en: "Open chat panel" },
-  "cmd.openChatMainPane": { zh: "\u5728\u4E3B\u7F16\u8F91\u533A\u6253\u5F00\u5927\u9762\u677F", en: "Open large panel in main area" },
-  "cmd.inlineEdit": { zh: "\u7528 CodeBuddy \u7F16\u8F91\u9009\u533A", en: "Edit selection with CodeBuddy" },
-  "cmd.loadFailed": { zh: "Workbuddian \u52A0\u8F7D\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian failed to load, check the Console" },
-  "cmd.cannotCreatePanel": { zh: "Workbuddian\uFF1A\u65E0\u6CD5\u521B\u5EFA\u804A\u5929\u9762\u677F", en: "Workbuddian: could not create chat panel" },
-  "cmd.openPanelFailed": { zh: "Workbuddian\uFF1A\u6253\u5F00\u9762\u677F\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian: failed to open panel, check the Console" },
-  "cmd.openMainPaneFailed": { zh: "Workbuddian\uFF1A\u6253\u5F00\u4E3B\u7F16\u8F91\u533A\u9762\u677F\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian: failed to open main-area panel, check the Console" },
-  "inline.editTitle": { zh: "\u7528 CodeBuddy \u7F16\u8F91\u9009\u533A", en: "Edit selection with CodeBuddy" },
-  "inline.instructionLabel": { zh: "\u7F16\u8F91\u8981\u6C42", en: "Edit instruction" },
-  "inline.instructionPlaceholder": { zh: "\u5982\uFF1A\u6539\u7B80\u6D01 / \u7FFB\u8BD1\u6210\u82F1\u6587", en: "e.g. make concise / translate to English" },
-  "inline.editBtn": { zh: "\u7F16\u8F91", en: "Edit" },
-  "inline.instructionRequired": { zh: "\u8BF7\u8F93\u5165\u7F16\u8F91\u8981\u6C42", en: "Please enter an edit instruction" },
-  "inline.previewTitle": { zh: "\u9884\u89C8\u6539\u52A8", en: "Preview changes" },
-  "inline.accept": { zh: "\u63A5\u53D7", en: "Accept" },
-  "inline.reject": { zh: "\u62D2\u7EDD", en: "Reject" },
-  "inline.selectFirst": { zh: "\u8BF7\u5148\u9009\u4E2D\u4E00\u6BB5\u6587\u672C", en: "Please select some text first" },
-  "inline.editing": { zh: "CodeBuddy \u7F16\u8F91\u4E2D\u2026", en: "CodeBuddy is editing\u2026" },
-  "inline.noResult": { zh: "\u672A\u83B7\u5F97\u7F16\u8F91\u7ED3\u679C", en: "No edit result returned" },
-  "inline.editFailed": { zh: "\u7F16\u8F91\u5931\u8D25\uFF1A", en: "Edit failed: " },
-  "slash.clear": { zh: "\u6E05\u7A7A\u5E76\u65B0\u5EFA\u5BF9\u8BDD\uFF08\u672C\u5730\uFF09", en: "Clear and start a new chat (local)" },
-  "slash.compact": { zh: "\u538B\u7F29\u4E0A\u4E0B\u6587", en: "Compact context" },
-  "slash.context": { zh: "\u67E5\u770B\u4E0A\u4E0B\u6587\u7528\u91CF", en: "Show context usage" },
-  "slash.cost": { zh: "\u67E5\u770B\u672C\u6B21\u82B1\u8D39", en: "Show session cost" },
-  "slash.model": { zh: "\u5207\u6362\u6A21\u578B", en: "Switch model" },
-  "slash.permissions": { zh: "\u67E5\u770B/\u7BA1\u7406\u6743\u9650", en: "View/manage permissions" },
-  "slash.resume": { zh: "\u6062\u590D\u5386\u53F2\u4F1A\u8BDD", en: "Resume a past session" },
-  "resume.modalTitle": { zh: "\u9009\u62E9\u8981\u6062\u590D\u7684\u5BF9\u8BDD", en: "Resume a conversation" },
-  "resume.empty": { zh: "\uFF08\u8FD8\u6CA1\u6709\u5386\u53F2\u5BF9\u8BDD\uFF09", en: "(No conversations yet)" },
-  "resume.justNow": { zh: "\u521A\u521A", en: "just now" },
-  "resume.minutesAgo": { zh: "\u5206\u949F\u524D", en: "min ago" },
-  "resume.hoursAgo": { zh: "\u5C0F\u65F6\u524D", en: "h ago" },
-  "resume.daysAgo": { zh: "\u5929\u524D", en: "d ago" },
-  "resume.messageCount": { zh: "\u6761", en: "msgs" },
-  "slash.export": { zh: "\u5BFC\u51FA\u5BF9\u8BDD", en: "Export conversation" },
-  "slash.status": { zh: "\u67E5\u770B\u72B6\u6001", en: "Show status" }
-};
-function t(key) {
-  var _a, _b, _c;
-  const entry = STRINGS[key];
-  if (!entry)
-    return key;
-  return (_c = (_b = (_a = entry[currentLang]) != null ? _a : entry.en) != null ? _b : entry.zh) != null ? _c : key;
-}
-function matchesAnyLang(value, key) {
-  const entry = STRINGS[key];
-  return !!entry && (value === entry.zh || value === entry.en);
-}
+// src/providers/codebuddy/index.ts
+init_i18n();
 
 // src/shared/logBuffer.ts
 var MAX_ENTRIES = 300;
@@ -1837,6 +1887,7 @@ function registerWorkbuddianIcon() {
 var import_obsidian7 = require("obsidian");
 
 // src/types/index.ts
+init_i18n();
 function isObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -1969,30 +2020,8 @@ function exportSettings(settings) {
   return JSON.stringify(settings, null, 2);
 }
 
-// src/shared/export.ts
-function formatTime(ts) {
-  const d = new Date(ts);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-function formatConversationAsMarkdown(conv) {
-  var _a;
-  if (conv.messages.length === 0)
-    return "";
-  const lines = [`# ${conv.title}`, ""];
-  lines.push(`> ${t("export.metaExportedAt")}: ${formatTime(Date.now())} \xB7 ${t("export.metaMessages")}: ${conv.messages.length}`, "");
-  for (const msg of conv.messages) {
-    const label = msg.role === "user" ? t("export.roleUser") : t("export.roleAssistant");
-    const time = formatTime(msg.timestamp);
-    const errMark = msg.isError ? " \u26A0\uFE0F" : "";
-    lines.push(`${label} \xB7 ${time}${errMark}:`, msg.content, "");
-    if ((_a = msg.attachments) == null ? void 0 : _a.length) {
-      lines.push(`> \u{1F4CE} ${msg.attachments.join(", ")}`, "");
-    }
-  }
-  return lines.join("\n").trimEnd();
-}
+// src/features/chat/tabs.ts
+init_export();
 
 // src/shared/inputKeys.ts
 function shouldSendMessage(e) {
@@ -2010,6 +2039,9 @@ function nextSuggestIndex(current, total, delta) {
     return -1;
   return ((current + delta) % total + total) % total;
 }
+
+// src/features/chat/tabs.ts
+init_i18n();
 
 // src/features/chat/render.ts
 var import_obsidian6 = require("obsidian");
@@ -2111,6 +2143,7 @@ ${contextText}`;
 }
 
 // src/shared/slashCommand.ts
+init_i18n();
 function parseSlashCommand(text) {
   const firstLine = text.trim().split("\n")[0];
   const m = firstLine.match(/^\/(\S+)\s*(.*)$/);
@@ -2465,6 +2498,7 @@ function pruneImages(dir, keepN) {
 
 // src/features/chat/instructionModal.ts
 var import_obsidian2 = require("obsidian");
+init_i18n();
 var InstructionModal = class extends import_obsidian2.Modal {
   constructor(view, initial) {
     super(view.app);
@@ -2508,6 +2542,7 @@ ${addition}` : addition : existing;
 var import_obsidian3 = require("obsidian");
 
 // src/shared/conversationSummary.ts
+init_i18n();
 var MINUTE = 6e4;
 var HOUR = 36e5;
 var DAY = 864e5;
@@ -2528,6 +2563,7 @@ function formatConversationSummary(conv, now) {
 }
 
 // src/features/chat/resumeModal.ts
+init_i18n();
 var ResumeModal = class extends import_obsidian3.Modal {
   constructor(view) {
     super(view.app);
@@ -2584,6 +2620,7 @@ function buildSelectionBlock(selectedText, noteName) {
 
 // src/features/chat/externalAccessModal.ts
 var import_obsidian4 = require("obsidian");
+init_i18n();
 var ExternalAccessModal = class extends import_obsidian4.Modal {
   constructor(app, paths, decide) {
     super(app);
@@ -2673,6 +2710,7 @@ function onConfigChanged(app, cb) {
 }
 
 // src/features/chat/input.ts
+init_i18n();
 function suggestItems(view) {
   return Array.from(view.atSuggestEl.querySelectorAll(".workbuddian-at-suggest-item"));
 }
@@ -3809,6 +3847,7 @@ function isTableRowish(line) {
 }
 
 // src/features/chat/render.ts
+init_i18n();
 async function renderMessages(view) {
   view.messageContainer.empty();
   const conv = view.getActiveConversation();
@@ -4227,6 +4266,7 @@ function showTabContextMenu(view, e, convId, tab, titleSpan) {
 }
 
 // src/features/chat/view.ts
+init_i18n();
 var VIEW_TYPE_CHAT = "workbuddian-panel";
 var WorkbuddianChatView = class extends import_obsidian8.ItemView {
   constructor(leaf, api, manager, settings, loadDataCallback, saveSettingsCallback) {
@@ -4433,6 +4473,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
 };
 
 // src/core/session/manager.ts
+init_i18n();
 function newConversation(title) {
   const now = Date.now();
   return {
@@ -4650,9 +4691,11 @@ var ConversationManager = class {
 
 // src/features/settings/tab.ts
 var import_obsidian11 = require("obsidian");
+init_i18n();
 
 // src/features/settings/logModal.ts
 var import_obsidian9 = require("obsidian");
+init_i18n();
 var LogModal = class extends import_obsidian9.Modal {
   constructor(app) {
     super(app);
@@ -4694,6 +4737,7 @@ var LogModal = class extends import_obsidian9.Modal {
 
 // src/features/settings/mcpModal.ts
 var import_obsidian10 = require("obsidian");
+init_i18n();
 function parseEnvLines(text) {
   return text.split("\n").map((line) => line.trim()).filter((line) => line.includes("=")).map((line) => {
     const idx = line.indexOf("=");
@@ -5133,6 +5177,7 @@ function buildEditPrompt(selection, instruction) {
 }
 
 // src/features/inline-edit/index.ts
+init_i18n();
 async function collectEditResult(api, sessionId, prompt, vaultPath) {
   let text = "";
   for await (const chunk of api.sendMessage(sessionId, prompt, vaultPath)) {
@@ -5217,6 +5262,7 @@ function runInlineEdit(app, api, editor, vaultPath) {
 }
 
 // src/main.ts
+init_i18n();
 var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
   constructor() {
     super(...arguments);
@@ -5282,6 +5328,77 @@ var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
         runInlineEdit(this.app, this.api, editor, basePath);
       }
     });
+    this.addCommand({
+      id: "new-chat",
+      name: t("cmd.newChat"),
+      callback: () => {
+        void this.activateView();
+        setTimeout(() => {
+          const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
+          const view = leaf == null ? void 0 : leaf.view;
+          if (view)
+            void createNewChat(view);
+        }, 300);
+      }
+    });
+    this.addCommand({
+      id: "edit-instruction",
+      name: t("cmd.editInstruction"),
+      callback: () => {
+        void this.activateView();
+        setTimeout(() => {
+          const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
+          const view = leaf == null ? void 0 : leaf.view;
+          if (view)
+            openInstructionModal(view, "");
+        }, 300);
+      }
+    });
+    this.addCommand({
+      id: "open-settings",
+      name: t("cmd.openSettings"),
+      callback: () => {
+        const setting = this.app.setting;
+        if (setting == null ? void 0 : setting.open)
+          setting.open();
+        if (setting == null ? void 0 : setting.openTabById)
+          setting.openTabById("workbuddian");
+      }
+    });
+    this.addCommand({
+      id: "export-current-chat",
+      name: t("cmd.exportChat"),
+      callback: () => {
+        const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
+        const view = leaf == null ? void 0 : leaf.view;
+        if (!view) {
+          new import_obsidian13.Notice(t("cmd.openChatFirst"));
+          return;
+        }
+        void this.exportCurrentChat(view);
+      }
+    });
+  }
+  /** 导出当前会话为笔记（命令面板增强） */
+  async exportCurrentChat(view) {
+    const conv = view.getActiveConversation();
+    if (!conv || conv.messages.length === 0) {
+      new import_obsidian13.Notice(t("tabs.nothingToExport"));
+      return;
+    }
+    const { formatConversationAsMarkdown: formatConversationAsMarkdown2 } = await Promise.resolve().then(() => (init_export(), export_exports));
+    const markdown = formatConversationAsMarkdown2(conv);
+    if (!markdown) {
+      new import_obsidian13.Notice(t("tabs.nothingToExport"));
+      return;
+    }
+    const fileName = `${conv.title.replace(/[\\/:*?"<>|]/g, " ")}.md`;
+    try {
+      await this.app.vault.create(fileName, markdown);
+      new import_obsidian13.Notice(t("tabs.exportedAs").replace("{name}", fileName));
+    } catch (err) {
+      new import_obsidian13.Notice(t("tabs.exportFailed").replace("{err}", getErrorMessage(err)));
+    }
   }
   /** 会话持久化单点：读出旧数据、换掉会话段、整体写回（管理器回调唯一入口） */
   async persistConversations(conversations) {

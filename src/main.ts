@@ -2,11 +2,13 @@ import { Notice, Plugin, WorkspaceLeaf } from 'obsidian';
 import { CodebuddyProvider } from './providers/codebuddy';
 import { WorkbuddianChatView, VIEW_TYPE_CHAT } from './features/chat/view';
 import { ConversationManager } from './core/session/manager';
-import { migrateSettings, normalizePersistedData, type WorkbuddianSettings, type PersistedData } from './types';
+import { migrateSettings, normalizePersistedData, getErrorMessage, type WorkbuddianSettings, type PersistedData } from './types';
 import { WorkbuddianSettingTab } from './features/settings/tab';
 import { registerWorkbuddianIcon, WORKBUDDIAN_ICON_ID } from './shared/icon';
 import { applyPrimaryColor } from './shared/primaryColor';
 import { runInlineEdit } from './features/inline-edit';
+import { createNewChat } from './features/chat/tabs';
+import { openInstructionModal } from './features/chat/instructionModal';
 import { applyLang, t } from './i18n';
 import { bbError } from './shared/logBuffer';
 
@@ -86,6 +88,72 @@ export default class WorkbuddianPlugin extends Plugin {
                 runInlineEdit(this.app, this.api, editor, basePath);
             },
         });
+
+        // 命令面板增强：常用操作快捷键级入口（A2）
+        this.addCommand({
+            id: 'new-chat',
+            name: t('cmd.newChat'),
+            callback: () => {
+                void this.activateView();
+                // 等待面板出现后新建对话
+                setTimeout(() => {
+                    const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
+                    const view = leaf?.view as WorkbuddianChatView | undefined;
+                    if (view) void createNewChat(view);
+                }, 300);
+            },
+        });
+        this.addCommand({
+            id: 'edit-instruction',
+            name: t('cmd.editInstruction'),
+            callback: () => {
+                void this.activateView();
+                setTimeout(() => {
+                    const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
+                    const view = leaf?.view as WorkbuddianChatView | undefined;
+                    if (view) openInstructionModal(view, '');
+                }, 300);
+            },
+        });
+        this.addCommand({
+            id: 'open-settings',
+            name: t('cmd.openSettings'),
+            callback: () => {
+                // app.setting 是 Obsidian 运行时存在但类型未公开的 API,类型断言访问
+                const setting = (this.app as unknown as { setting?: { open?: () => void; openTabById?: (id: string) => void } }).setting;
+                if (setting?.open) setting.open();
+                if (setting?.openTabById) setting.openTabById('workbuddian');
+            },
+        });
+        this.addCommand({
+            id: 'export-current-chat',
+            name: t('cmd.exportChat'),
+            callback: () => {
+                const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
+                const view = leaf?.view as WorkbuddianChatView | undefined;
+                if (!view) { new Notice(t('cmd.openChatFirst')); return; }
+                void this.exportCurrentChat(view);
+            },
+        });
+    }
+
+    /** 导出当前会话为笔记（命令面板增强） */
+    private async exportCurrentChat(view: WorkbuddianChatView): Promise<void> {
+        const conv = view.getActiveConversation();
+        if (!conv || conv.messages.length === 0) {
+            new Notice(t('tabs.nothingToExport'));
+            return;
+        }
+        const { formatConversationAsMarkdown } = await import('./shared/export');
+        const markdown = formatConversationAsMarkdown(conv);
+        if (!markdown) { new Notice(t('tabs.nothingToExport')); return; }
+        const fileName = `${conv.title.replace(/[\\/:*?"<>|]/g, ' ')}.md`;
+        try {
+            await this.app.vault.create(fileName, markdown);
+            new Notice(t('tabs.exportedAs').replace('{name}', fileName));
+        } catch (err) {
+            new Notice(t('tabs.exportFailed').replace('{err}', getErrorMessage(err)));
+        }
     }
 
     /** 会话持久化单点：读出旧数据、换掉会话段、整体写回（管理器回调唯一入口） */
