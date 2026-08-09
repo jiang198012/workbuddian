@@ -17,9 +17,14 @@
 
 > ⚠️ **仅桌面端**（Windows / macOS），需 Obsidian 1.7.2+。Linux 暂不支持。
 
-![Workbuddian 主界面——在笔记里 @ 引用,AI 读取内容并回答](docs/images/screenshot.png)
+<p align="center">
+  <img src="docs/assets/workbuddian-demo.gif" alt="Workbuddian 核心流程演示——在笔记里 @ 引用,AI 读取内容并回答(30 秒循环)" width="85%"/>
+</p>
 
-![Workbuddian 核心流程演示——空态 → @ 引用 → AI 回答](docs/assets/workbuddian-demo.gif)
+<p align="center">
+  <img src="docs/images/chat-demo.png" alt="流式对话与 Markdown 渲染——表格、代码、列表" width="49%"/>
+  <img src="docs/images/chat-atsuggest.png" alt="@ 引用与附件 chips——对话历史 + 引用 + 附件" width="49%"/>
+</p>
 
 > **⭐ 如果你觉得 Workbuddian 有用,欢迎 [Star 这个仓库](https://github.com/jiang198012/workbuddian),帮助更多人发现它。**
 
