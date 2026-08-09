@@ -4139,7 +4139,6 @@ function renderTabs(view) {
     prev.commit();
     return;
   }
-  const newBtn = view.tabBar.querySelector(".workbuddian-new-chat-btn");
   const oldTabs = view.tabBar.querySelectorAll(".workbuddian-tab");
   oldTabs.forEach((t2) => t2.remove());
   const query = (_b = (_a = view.searchQuery) == null ? void 0 : _a.trim().toLowerCase()) != null ? _b : "";
@@ -4210,9 +4209,6 @@ function renderTabs(view) {
       e.preventDefault();
       showTabContextMenu(view, e, conv.id, tab, titleSpan);
     };
-    if (newBtn) {
-      tab.after(newBtn);
-    }
   }
 }
 function beginRenameTab(view, tab, titleSpan, convId) {
@@ -4360,11 +4356,20 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     this.lastMarkdownView = null;
     /** 在飞的自动标题会话 key（可丢弃后台任务）：用户发送新消息时立即取消它，让出串行队列 */
     this.titleSessionKey = null;
+    /** 是否主编辑区大面板(启用 dual-pane 左侧会话列表);侧栏窄面板为 false */
+    this.isMainPane = false;
     this.api = api;
     this.loadDataCallback = loadDataCallback;
     this.saveSettingsCallback = saveSettingsCallback;
     this.manager = manager;
     this.settings = settings;
+    let isMainPane = false;
+    try {
+      const root = leaf.getRoot();
+      isMainPane = root === this.app.workspace.rootSplit || root === this.app.workspace.leftSplit;
+    } catch (e) {
+    }
+    this.isMainPane = isMainPane;
     this.markdownComponent = new import_obsidian8.Component();
     this.markdownComponent.load();
   }
@@ -4389,6 +4394,11 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
   }
   async onOpen() {
     var _a, _b;
+    try {
+      const root = this.leaf.getRoot();
+      this.isMainPane = root !== this.app.workspace.rightSplit;
+    } catch (e) {
+    }
     this.lastMarkdownView = this.app.workspace.getActiveViewOfType(import_obsidian8.MarkdownView);
     this.registerEvent(this.app.workspace.on("active-leaf-change", (leaf) => {
       if ((leaf == null ? void 0 : leaf.view) instanceof import_obsidian8.MarkdownView)
@@ -4414,45 +4424,70 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
       bbError("[WB] \u52A0\u8F7D\u5386\u53F2\u5BF9\u8BDD\u5931\u8D25:", e);
     }
   }
-  /** 构建/重建整个面板 DOM（用当前语言的 t() 文案）。语言切换时可重复调用刷新界面语言。 */
-  buildUI() {
-    const container = this.contentEl;
-    container.empty();
-    container.addClass("workbuddian-chat-container");
-    this.tabBar = container.createDiv({ cls: "workbuddian-tab-bar", attr: { role: "tablist" } });
-    const newBtn = this.tabBar.createEl("button", {
-      text: "",
-      cls: "workbuddian-new-chat-btn",
-      attr: { title: t("view.newChat"), "aria-label": t("view.newChat") }
-    });
-    (0, import_obsidian8.setIcon)(newBtn, "plus");
-    newBtn.onclick = () => createNewChat(this);
-    this.searchInputEl = this.tabBar.createEl("input", {
+  /** 创建会话搜索框(挂到指定容器);dual-pane 挂侧栏 header,否则挂顶部 tabBar */
+  createSearchInput(parent) {
+    const el = parent.createEl("input", {
       type: "text",
       cls: "workbuddian-search-input",
       attr: { placeholder: t("tabs.searchPlaceholder"), "aria-label": t("tabs.searchPlaceholder") }
     });
-    this.searchInputEl.oninput = () => {
-      this.searchQuery = this.searchInputEl.value.trim();
+    el.oninput = () => {
+      this.searchQuery = el.value.trim();
       renderTabs(this);
     };
-    this.searchInputEl.onkeydown = (e) => {
+    el.onkeydown = (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        this.searchInputEl.value = "";
+        el.value = "";
         this.searchQuery = "";
         renderTabs(this);
       }
     };
-    this.messageContainer = container.createDiv({ cls: "workbuddian-messages" });
-    this.liveRegionEl = container.createDiv({
+    return el;
+  }
+  /** 创建新建对话按钮(挂到指定容器) */
+  createNewChatBtn(parent) {
+    const btn = parent.createEl("button", {
+      text: "",
+      cls: "workbuddian-new-chat-btn",
+      attr: { title: t("view.newChat"), "aria-label": t("view.newChat") }
+    });
+    (0, import_obsidian8.setIcon)(btn, "plus");
+    btn.onclick = () => createNewChat(this);
+    return btn;
+  }
+  /** 构建/重建整个面板 DOM（用当前语言的 t() 文案）。语言切换时可重复调用刷新界面语言。 */
+  buildUI() {
+    try {
+      const root = this.leaf.getRoot();
+      this.isMainPane = root !== this.app.workspace.rightSplit;
+    } catch (e) {
+    }
+    const container = this.contentEl;
+    container.empty();
+    container.addClass("workbuddian-chat-container");
+    container.toggleClass("workbuddian-dual-pane", this.isMainPane);
+    const mainPane = this.isMainPane ? container.createDiv({ cls: "workbuddian-main-pane" }) : container;
+    if (this.isMainPane) {
+      const sidebar = container.createDiv({ cls: "workbuddian-sidebar" });
+      const header = sidebar.createDiv({ cls: "workbuddian-sidebar-header" });
+      this.createNewChatBtn(header);
+      this.searchInputEl = this.createSearchInput(header);
+      this.tabBar = sidebar.createDiv({ cls: "workbuddian-tab-bar workbuddian-tab-bar-vertical", attr: { role: "tablist" } });
+    } else {
+      this.tabBar = mainPane.createDiv({ cls: "workbuddian-tab-bar", attr: { role: "tablist" } });
+      this.createNewChatBtn(this.tabBar);
+      this.searchInputEl = this.createSearchInput(this.tabBar);
+    }
+    this.messageContainer = mainPane.createDiv({ cls: "workbuddian-messages" });
+    this.liveRegionEl = mainPane.createDiv({
       cls: "workbuddian-sr-only",
       attr: { "aria-live": "polite", role: "status" }
     });
-    this.chipsEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
-    this.attachChipsEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
-    this.selectionEl = container.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
-    const inputArea = container.createDiv({ cls: "workbuddian-input-area" });
+    this.chipsEl = mainPane.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
+    this.attachChipsEl = mainPane.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
+    this.selectionEl = mainPane.createDiv({ cls: "workbuddian-ref-chips workbuddian-hidden" });
+    const inputArea = mainPane.createDiv({ cls: "workbuddian-input-area" });
     this.usageBannerEl = inputArea.createDiv({ cls: "workbuddian-usage-banner workbuddian-hidden" });
     const inputBox = inputArea.createDiv({ cls: "workbuddian-input-box" });
     this.inputEl = inputBox.createEl("textarea", {

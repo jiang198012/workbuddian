@@ -55,6 +55,8 @@ export class WorkbuddianChatView extends ItemView {
     lastMarkdownView: MarkdownView | null = null;
     /** 在飞的自动标题会话 key（可丢弃后台任务）：用户发送新消息时立即取消它，让出串行队列 */
     titleSessionKey: string | null = null;
+    /** 是否主编辑区大面板(启用 dual-pane 左侧会话列表);侧栏窄面板为 false */
+    isMainPane: boolean = false;
 
     get vaultPath(): string | undefined {
         const adapter = this.app.vault.adapter as { basePath?: string };
@@ -68,6 +70,14 @@ export class WorkbuddianChatView extends ItemView {
         this.saveSettingsCallback = saveSettingsCallback;
         this.manager = manager;
         this.settings = settings;
+        // dual-pane:仅主编辑区大面板启用(左侧常驻会话列表);侧栏窄面板保持顶部标签
+        // 判断:leaf 的根是 main(主编辑区)还是 right(右侧栏)
+        let isMainPane = false;
+        try {
+            const root = leaf.getRoot();
+            isMainPane = root === this.app.workspace.rootSplit || root === this.app.workspace.leftSplit;
+        } catch { /* 未知位置默认侧栏 */ }
+        this.isMainPane = isMainPane;
         this.markdownComponent = new Component();
         this.markdownComponent.load();
     }
@@ -83,6 +93,12 @@ export class WorkbuddianChatView extends ItemView {
     }
 
     async onOpen() {
+        // dual-pane:主编辑区大面板启用(leaf 挂载后 root 稳定);侧栏窄面板保持顶部标签
+        // 判断:leaf 不在右侧栏即为 main pane(rightSplit 是侧栏,其余 main/left 都算主面板)
+        try {
+            const root = this.leaf.getRoot();
+            this.isMainPane = root !== this.app.workspace.rightSplit;
+        } catch { /* 未知位置默认侧栏 */ }
         // 追踪最后一个 Markdown 视图：聚焦聊天面板后 workspace.activeEditor 会变空，
         // 需靠它在发送时读回笔记选区（CM 选区在失焦后仍保留）
         this.lastMarkdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -117,55 +133,82 @@ export class WorkbuddianChatView extends ItemView {
         }
     }
 
-    /** 构建/重建整个面板 DOM（用当前语言的 t() 文案）。语言切换时可重复调用刷新界面语言。 */
-    private buildUI() {
-        const container = this.contentEl;
-        container.empty();
-        container.addClass('workbuddian-chat-container');
-
-        // 顶部标签栏
-        this.tabBar = container.createDiv({ cls: 'workbuddian-tab-bar', attr: { role: 'tablist' } });
-        const newBtn = this.tabBar.createEl('button', {
-            text: '',
-            cls: 'workbuddian-new-chat-btn',
-            attr: { title: t('view.newChat'), 'aria-label': t('view.newChat') }
-        });
-        setIcon(newBtn, 'plus');
-        newBtn.onclick = () => createNewChat(this);
-
-        // 会话搜索框:输入实时过滤 tab(调 manager.search),空串恢复全部
-        this.searchInputEl = this.tabBar.createEl('input', {
+    /** 创建会话搜索框(挂到指定容器);dual-pane 挂侧栏 header,否则挂顶部 tabBar */
+    private createSearchInput(parent: HTMLElement): HTMLInputElement {
+        const el = parent.createEl('input', {
             type: 'text',
             cls: 'workbuddian-search-input',
             attr: { placeholder: t('tabs.searchPlaceholder'), 'aria-label': t('tabs.searchPlaceholder') },
         });
-        this.searchInputEl.oninput = () => {
-            this.searchQuery = this.searchInputEl.value.trim();
+        el.oninput = () => {
+            this.searchQuery = el.value.trim();
             renderTabs(this);
         };
-        this.searchInputEl.onkeydown = (e: KeyboardEvent) => {
+        el.onkeydown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 e.stopPropagation();
-                this.searchInputEl.value = '';
+                el.value = '';
                 this.searchQuery = '';
                 renderTabs(this);
             }
         };
+        return el;
+    }
 
-        this.messageContainer = container.createDiv({ cls: 'workbuddian-messages' });
+    /** 创建新建对话按钮(挂到指定容器) */
+    private createNewChatBtn(parent: HTMLElement): HTMLButtonElement {
+        const btn = parent.createEl('button', {
+            text: '',
+            cls: 'workbuddian-new-chat-btn',
+            attr: { title: t('view.newChat'), 'aria-label': t('view.newChat') },
+        });
+        setIcon(btn, 'plus');
+        btn.onclick = () => createNewChat(this);
+        return btn;
+    }
+
+    /** 构建/重建整个面板 DOM（用当前语言的 t() 文案）。语言切换时可重复调用刷新界面语言。 */
+    private buildUI() {
+        // 每次重建时重新判断位置(leaf 此时已就位,refreshUI/语言切换也走这里)
+        try {
+            const root = this.leaf.getRoot();
+            this.isMainPane = root !== this.app.workspace.rightSplit;
+        } catch { /* 未知位置保持已有值 */ }
+        const container = this.contentEl;
+        container.empty();
+        container.addClass('workbuddian-chat-container');
+        container.toggleClass('workbuddian-dual-pane', this.isMainPane);
+
+        // 主面板(dual-pane):左侧常驻会话列表栏 + 右侧聊天区;侧栏窄面板:保持顶部标签
+        const mainPane = this.isMainPane ? container.createDiv({ cls: 'workbuddian-main-pane' }) : container;
+        if (this.isMainPane) {
+            // 左侧会话列表栏:header(新建+搜索) + tabBar(竖向会话列表)
+            const sidebar = container.createDiv({ cls: 'workbuddian-sidebar' });
+            const header = sidebar.createDiv({ cls: 'workbuddian-sidebar-header' });
+            this.createNewChatBtn(header);
+            this.searchInputEl = this.createSearchInput(header);
+            this.tabBar = sidebar.createDiv({ cls: 'workbuddian-tab-bar workbuddian-tab-bar-vertical', attr: { role: 'tablist' } });
+        } else {
+            // 顶部标签栏(侧栏面板现状)
+            this.tabBar = mainPane.createDiv({ cls: 'workbuddian-tab-bar', attr: { role: 'tablist' } });
+            this.createNewChatBtn(this.tabBar);
+            this.searchInputEl = this.createSearchInput(this.tabBar);
+        }
+
+        this.messageContainer = mainPane.createDiv({ cls: 'workbuddian-messages' });
 
         // 屏幕阅读器播报区：renderMessages 每次都会清空重建 messageContainer，若把 aria-live 挂在
         // 那上面，整段历史会被当作新增内容反复朗读。改用这个视觉隐藏的独立节点，只写入新回复本身。
-        this.liveRegionEl = container.createDiv({
+        this.liveRegionEl = mainPane.createDiv({
             cls: 'workbuddian-sr-only',
             attr: { 'aria-live': 'polite', role: 'status' }
         });
 
         // 底部输入区
-        this.chipsEl = container.createDiv({ cls: 'workbuddian-ref-chips workbuddian-hidden' });
-        this.attachChipsEl = container.createDiv({ cls: 'workbuddian-ref-chips workbuddian-hidden' });
-        this.selectionEl = container.createDiv({ cls: 'workbuddian-ref-chips workbuddian-hidden' });
-        const inputArea = container.createDiv({ cls: 'workbuddian-input-area' });
+        this.chipsEl = mainPane.createDiv({ cls: 'workbuddian-ref-chips workbuddian-hidden' });
+        this.attachChipsEl = mainPane.createDiv({ cls: 'workbuddian-ref-chips workbuddian-hidden' });
+        this.selectionEl = mainPane.createDiv({ cls: 'workbuddian-ref-chips workbuddian-hidden' });
+        const inputArea = mainPane.createDiv({ cls: 'workbuddian-input-area' });
         // 上下文用量预警条:用量 ≥80% 时显示,提示压缩/新建(见 renderContextUsage)
         this.usageBannerEl = inputArea.createDiv({ cls: 'workbuddian-usage-banner workbuddian-hidden' });
         const inputBox = inputArea.createDiv({ cls: 'workbuddian-input-box' });

@@ -21,6 +21,50 @@
     overflow: hidden;
 }
 
+/* dual-pane(主编辑区大面板):左右分栏,左侧常驻会话列表 */
+.workbuddian-chat-container.workbuddian-dual-pane {
+    flex-direction: row;
+}
+.workbuddian-sidebar {
+    flex-shrink: 0;
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--background-modifier-border);
+    overflow: hidden;
+}
+.workbuddian-sidebar-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--workbuddian-gap-xs);
+    padding: var(--workbuddian-gap-md);
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.workbuddian-main-pane {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+/* dual-pane 里的会话列表竖向滚动 */
+.workbuddian-chat-container.workbuddian-dual-pane .workbuddian-tab-bar {
+    flex: 1;
+    flex-direction: column;
+    align-items: stretch;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-bottom: none;
+}
+.workbuddian-chat-container.workbuddian-dual-pane .workbuddian-tab {
+    flex-shrink: 0;
+    max-width: none;
+    width: auto;
+    margin: 0 var(--workbuddian-gap-sm);
+    justify-content: space-between;
+}
+
 .workbuddian-messages {
     flex: 1;
     display: flex;
@@ -164,6 +208,12 @@
     background: var(--background-primary);
     color: var(--text-normal);
     font-size: var(--font-ui-smaller);
+}
+/* dual-pane 侧栏 header 里搜索框填满 */
+.workbuddian-sidebar-header .workbuddian-search-input {
+    flex: 1;
+    width: auto;
+    min-width: 0;
 }
 
 /* 搜索命中标题高亮 */

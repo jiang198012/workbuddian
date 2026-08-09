@@ -61,9 +61,7 @@ export function renderTabs(view: WorkbuddianChatView) {
         return;
     }
 
-    // 保留新建按钮
-    const newBtn = view.tabBar.querySelector('.workbuddian-new-chat-btn');
-    // 清除旧标签
+    // 清除旧标签(新建按钮在 dual-pane 的 sidebar header 或侧栏 tabBar 内,独立于 tab 列表,不清除)
     const oldTabs = view.tabBar.querySelectorAll('.workbuddian-tab');
     oldTabs.forEach(t => t.remove());
 
@@ -136,10 +134,6 @@ export function renderTabs(view: WorkbuddianChatView) {
             showTabContextMenu(view, e, conv.id, tab, titleSpan);
         };
 
-        // 把新建按钮放在最后
-        if (newBtn) {
-            tab.after(newBtn);
-        }
     }
 }
 
