@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI, Node.js
-status: stable (v2.1.0)
+status: stable (v2.2.0)
 license: MIT
 -->
 
