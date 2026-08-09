@@ -8,10 +8,9 @@
 [![Release](https://img.shields.io/github/v/release/jiang198012/workbuddian?sort=semver)](https://github.com/jiang198012/workbuddian/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **⚠️ Windows and macOS are supported.** Linux is not supported yet.
-> **Requires Obsidian 1.7.2+.**
+> **⚠️ Windows and macOS are supported** (Linux is not supported yet). **Requires Obsidian 1.7.2+.**
 
-![Workbuddian — settings & chat](docs/images/screenshot.png)
+![Workbuddian — chat panel](docs/images/screenshot.png)
 
 ![Workbuddian demo](docs/images/workbuddian-intro.gif)
 
@@ -19,7 +18,16 @@
 
 ## ✨ What's New
 
-- **v2.0.1** — **A fully independent codebase.** Every remaining file derived from the original upstream was rewritten in fresh expression: all 48 source files now measure **under 30% line-level similarity** (45 of them under 10%, styles.css just 7.5%) — with public APIs, the on-disk data format, and all 617 tests unchanged. The upstream attribution lines in `LICENSE` / `NOTICE` / `README` were removed accordingly. No behavior change, by design.
+- **v2.1.0** — **A UX pass driven by the first usability review, plus an e2e testing base.** 617 unit tests all green; e2e exercises the real Obsidian end to end:
+  - **Thinking no longer leaks into replies** — the message body is now anchored to the end of the bubble, so streamed thought text can never be rendered as the answer.
+  - **Grouped input toolbar** — input controls (model / attachment) on the left, session controls (permission / instruction / usage / send) on the right, so the model button no longer gets squeezed in narrow panels.
+  - **Message actions easier to find** — the copy button is softly visible by default (not only on hover), and code blocks get their own copy button.
+  - **Smarter tab bar** — the active tab auto-scrolls into view, hover shows the full title, and a slimmer scrollbar keeps the current chat on screen with many tabs.
+  - **Empty-state quick starts** — suggestion chips ("Summarize the current note / Explain this idea / Rewrite this text") that fill the input on click.
+  - **Bash output expanded by default** — command results are what you care about; thinking / tool / diff blocks stay collapsed.
+  - **Error-card timestamps** — each error card shows when it happened, so you can tell a fresh failure from a leftover one.
+  - **i18n `t()` fallback chain** (current language → en → zh → key) lays the groundwork for more languages.
+- **v2.0.1** — **A fully independent codebase.** Every remaining file derived from the original upstream was rewritten in fresh expression: all 48 source files now measure **under 30% line-level similarity** (45 of them under 10%, styles.css just 7.5%) — with public APIs, the on-disk data format, and all 617 tests unchanged. No behavior change, by design.
 - **v2.0.0** — **A new engine: persistent ACP sessions, plus a wire-level reliability overhaul.** The provider no longer spawns a process per message — one long-lived `codebuddy --acp` process hosts every conversation:
   - **Faster, resumable conversations** — true multi-turn context with a visibly quicker second turn; if the CLI process dies, resend and the session restores itself (with an honest error card in between).
   - **Approvals in the bubble** — Write (path + line count), Edit (path + diff preview), Bash (full command), and MCP tools all ask permission on a card; plan mode shows a **"plan ready" card that continues in the same turn** — no more re-sending.
@@ -29,21 +37,7 @@
   - **`@` everything** — subagents, MCP servers, notes (`@[[note]]` reads the note), and any file, in one dropdown. **Visual MCP server management** with two-way JSON sync, and **custom subagents** defined in JSON.
   - **Auto chat titles** that yield instantly to your next message; **thinking effort levels** with `/effort` syncing back to settings; **native image pasting** from screenshots or Finder (TIFF auto-converted); an **external-attachment consent dialog** — files outside your vault are never read without your OK; **word-level diff highlighting**; Bash output blocks; subagent output blocks.
   - **Reliability proven on the wire** — three rounds of GUI testing plus a purpose-built ACP probe (`scripts/acp-probe.mjs`) pinned down how the CLI really routes sessions and applies config. Prompts are now serialized, sessions are re-activated before each turn, mis-tagged events are re-routed to the live session, config is applied to the correct session first, and a wedged CLI state machine self-heals through a supervised process restart.
-- **v1.5.0** — **The agent's work is finally visible, reviewable, and reversible.** A parser bug had been silently dropping *every* tool call before it reached the UI; fixing it unlocked this whole release:
-  - **Line-level diffs** — every `Edit` / `Write` shows exactly which lines changed, in green/red, collapsible inside the tool card.
-  - **One-click undo** — revert an edit inside your vault without leaving the chat. Three guards protect your files: it refuses when the file changed since, when the replacement text isn't unique, and for pure deletions — each case tells you why instead of guessing. (`Write` has no undo: the CLI never sends the overwritten content, so it *cannot* be reversed honestly.)
-  - **Plan mode is back** — ask for a plan, read it as a rendered card, then run it with one click. The card states plainly that the CLI can't approve plans natively in non-interactive mode, so "run" re-sends the plan with accept-edits permission — applied to that single run only, leaving your permission setting untouched.
-  - **`/resume` conversation picker** — pick from your past conversations (newest first, with message count and relative time) instead of typing a session id.
-  - **Keyboard-first completion** — `@` and slash-command dropdowns now respond to ↑↓ and Enter, with mouse hover and keyboard highlight kept in sync.
-  - **Accessibility pass** — ARIA roles and labels, a keyboard-only focus ring, Esc to close dropdowns, Enter/Space to activate chips and tabs, and new replies announced to screen readers without re-reading the whole conversation.
-  - **Send an image with no text**, and long tool arguments no longer stretch the bubble into a horizontal scrollbar.
-- **v1.4.0** — **Context usage ring**: a 14px ring in the input toolbar shows how much of the context window the current conversation has used. Hover for the exact numbers (`Context usage 22.6k / 200.0k · 11%`); the ring turns red at 80% so you know when to start a fresh chat. It stays hidden until there's data to show, so it never crowds the toolbar.
-- **v1.3.0** — **Message thumbnails**: image attachments now show as 40×40 thumbnails inside the sent message bubble, degrading to a filename chip when the file is gone or the path no longer resolves. **Configurable pasted-image retention**: the settings page now lets you set how many pasted images to keep on disk (default 20, max 500, 0 = unlimited).
-- **v1.2.4** — **Dynamic model list**: the model selector now fetches the live list of available CodeBuddy models from `codebuddy --help` on startup, so newly added models appear automatically without waiting for a plugin update. Falls back to the built-in whitelist if the CLI is not reachable.
-- **v1.2.3** — **Attachment name labels**: files attached to a user message now appear as labeled chips (paperclip + filename) inside the message bubble, so you can see at a glance what was sent.
-- **v1.2.2** — **IME-friendly Enter**: composing text with an input method no longer sends the message by accident. Plus a **copy button** on every message (hover to reveal).
-- **v1.2.1** — **Fix (Windows)**: referencing a large note or file with `@` no longer crashes with `spawn ENAMETOOLONG` — the prompt is now piped through stdin instead of the command line, so there's no length limit.
-- **v1.2.0** — **Instruction mode (`#`)**: type `#your rule` in the chat to set a persistent instruction / persona that applies to every conversation (edit or clear it anytime from the toolbar). **`@` any file**: reference not just notes but any vault file — markdown is read inline, other files are attached for the CLI to read.
+- **v1.2.0 – v1.5.0** — **Everything that made the agent's work visible and reversible:** line-level diffs with one-click undo, plan mode, the `/resume` conversation picker, keyboard-first completion, an accessibility pass, the context-usage ring, message thumbnails, the dynamic model list, IME-friendly Enter, and instruction mode (`#`). Details in the [CHANGELOG](CHANGELOG.md).
 
 ## Features
 
@@ -84,7 +78,27 @@
 
 ### First-time setup
 
-If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the environment setup prompt once (see the Chinese section below or open `提示词-授予Vault读写权限.md`).
+If Workbuddian cannot find CodeBuddy or Node.js automatically, copy the prompt below **in full** into a WorkBuddy chat and run it once:
+
+---
+
+Please configure the runtime environment for the Workbuddian plugin, as follows:
+
+1. Locate `vendor/node.zip` under your WorkBuddy install directory (common paths: `C:\Program Files\WorkBuddy`, `D:\Program Files\WorkBuddy`, `%LOCALAPPDATA%\Programs\WorkBuddy`).
+
+2. If no usable `node.exe` exists under `~/.workbuddy/binaries/node/versions/`, extract the `node-v*-win-x64/` folder from `node.zip` and copy its files to `~/.workbuddy/binaries/node/versions/{version}/` (extract the version from the folder name, e.g. `22.22.2`).
+
+3. Run `~/.workbuddy/binaries/node/versions/{version}/node.exe --version` to confirm it works.
+
+4. Optional: do the same for `vendor/PortableGit.zip`.
+
+Tell me once the environment is ready.
+
+---
+
+Then restart Obsidian and Workbuddian will work.
+
+> **Vault permissions:** Workbuddian needs the CodeBuddy CLI to read/write your vault. If you see a permission error, send the full contents of `提示词-授予Vault读写权限.md` to WorkBuddy/CodeBuddy once, then **fully quit** WorkBuddy (tray icon → Quit) and reopen it.
 
 ## Usage
 
@@ -99,8 +113,10 @@ If Workbuddian cannot find CodeBuddy or Node.js automatically, follow the enviro
 | Symptom | Cause | Solution |
 |---|---|---|
 | `Cannot find codebuddy CLI` | Auto-detection failed | Fill the **CodeBuddy path** in plugin settings. Default location: `WorkBuddyInstallDir\resources\app.asar.unpacked\cli\bin\codebuddy` |
-| `Cannot find Node.js` | Node.js is not configured | Run the first-time environment setup prompt (Chinese section below) |
+| `Cannot find Node.js` | Node.js is not configured | Run the first-time environment setup prompt (see "First-time setup" above) |
 | Stuck on "Thinking..." | Streaming ended without text chunks | Fixed |
+| Conversation history missing after restart | The chat view failed to hold a reference and couldn't load history | Fixed |
+| `（No response, please retry）` | This turn ended without any text (a pure tool call / CLI timeout / empty model reply) | Retry directly; if it persists, open the developer console and check the `[WB]` logs (chunk type, exit code, stderr) |
 
 ## Related
 
@@ -114,6 +130,15 @@ Use **Obsidian** with **Claude Code** and know **Claudian**? Workbuddian is the 
 
 ## ✨ 更新
 
+- **v2.1.0** —— **首轮 UX 体检驱动的全面改造 + e2e 测试基建。** 617 项单测全绿；e2e 连真实 Obsidian 全流程验证。
+  - **思考内容不再泄漏进回复正文** —— 正文容器锚定到气泡末尾（思考/工具块之后），流式过程中的思考文本绝不会再被渲染成答案。
+  - **输入工具栏分组** —— 左侧输入相关（模型/附件）、右侧会话控制（授权/指令/用量/发送），窄面板下模型按钮不再被压扁。
+  - **消息操作更好找** —— 复制按钮默认半透明可见（不再仅 hover 浮出），代码块自带独立复制按钮。
+  - **标签栏更聪明** —— 选中标签自动滚入可视区、悬停显示完整标题、细滚动条，标签再多也不把当前对话挤出屏幕。
+  - **空态快速开始** —— 「总结当前笔记 / 解释这个想法 / 改写这段文字」建议 chips，点击即填入输入框。
+  - **Bash 输出默认展开** —— 命令结果是用户关心的；思考/工具/diff 保持折叠。
+  - **错误卡时间戳** —— 每个错误卡显示发生时间，一眼区分「刚发生」与「历史遗留」。
+  - **i18n `t()` 回落链**（当前语言 → en → zh → key），为更多语言铺路。
 - **v2.0.1** —— **完全独立的代码基座。** 与上游有渊源的所有文件都以全新表达重写完毕：48 个源文件逐行比对**相似度全部低于 30%**（其中 45 个低于 10%，styles.css 仅 7.5%），公开 API、磁盘数据格式、617 项测试全部不变。`LICENSE` / `NOTICE` / `README` 中的上游署名行相应移除。按设计，本版无行为变更。
 - **v2.0.0** —— **新引擎：ACP 持久会话 + wire 级可靠性攻坚。** provider 不再每条消息起一个进程——一个常驻的 `codebuddy --acp` 进程承载所有对话：
   - **更快、可恢复的多轮对话** —— 上下文真保持，第二轮起明显加速；CLI 进程意外退出后重发即自动恢复会话（中间有诚实的报错卡）。
@@ -124,21 +149,7 @@ Use **Obsidian** with **Claude Code** and know **Claudian**? Workbuddian is the 
   - **`@` 一切** —— 子代理、MCP 服务器、笔记（`@[[名]]` 读正文）、任意文件，一个下拉全聚合；**MCP 可视化管理**（JSON 双向同步）;**自定义子代理**(JSON 定义）。
   - **自动会话标题**（你一发消息它立即让位，绝不拖慢吐字）;**思考力度**七档设置，`/effort` 改动同步回设置页；**原生图片粘贴**（截图/Finder，TIFF 自动转 PNG）;**vault 外附件授权窗**——不经你点头，vault 外的文件内容一律到不了模型；**词级 diff 高亮**;Bash 输出块；子代理输出块。
   - **wire 级实锤的可靠性** —— 三轮真实 GUI 手测 + 专用 ACP 探针（`scripts/acp-probe.mjs`）摸清了 CLI 路由会话与下发配置的真实行为：prompt 串行化、每轮前重激活会话、误标事件纠偏归队、配置先激活目标会话再下发、CLI 状态机卡死自动重启自愈。
-- **v1.5.0** —— **AI 干了什么，终于看得见、审得了、退得回。** 此前一个解析 bug 让**每一次**工具调用在到达界面前就被静默丢弃；修好它之后，这一整版才成为可能：
-  - **行级 diff** —— 每次 `Edit` / `Write` 都能看到具体改了哪几行，绿增红删，在工具卡片内可折叠展开。
-  - **一键撤销** —— 不离开聊天就能回退 vault 内的改动。三道闸门守着你的文件：文件已被改过、替换文本在文件中不唯一、纯删除操作——三种情况都**明确告诉你原因并拒绝执行**，绝不猜着改。（`Write` 没有撤销：CLI 从不回传被覆盖的原内容，诚实地说它就是退不回来。）
-  - **计划模式回归** —— 让 AI 先出计划，以卡片形式读完，再一键执行。卡片会如实说明：CLI 在非交互模式下无法原生批准计划，所以「执行」是把计划重新发起一轮，使用「自动接受编辑」权限，且**仅对这一次生效，不改动你的权限设置**。
-  - **`/resume` 会话选择器** —— 从历史对话里直接挑（按最近更新排序，带消息数和相对时间），不用再记 session id。
-  - **补全支持键盘** —— `@` 和斜杠命令下拉可用 ↑↓ 选择、回车确认，鼠标悬停与键盘高亮同步，不会各高亮一个。
-  - **无障碍改进** —— ARIA 角色与标签、仅键盘可见的焦点环、Esc 关闭下拉、Enter/Space 激活 chip 与标签页，新回复播报给屏幕阅读器时不会把整段历史重念一遍。
-  - **图片可以不配文字直接发送**，超长工具参数也不再把气泡撑出横向滚动条。
-- **v1.4.0** —— **上下文用量圆环**：输入区工具栏用一个 14px 圆环显示当前对话的上下文占用，悬停出准确数字（`上下文用量 22.6k / 200.0k · 11%`），占比 ≥80% 时变红提示该开新对话了。没有用量数据时完全不显示，不占工具栏空间。
-- **v1.3.0** —— **消息内图片缩略图**：图片附件发送后在气泡内以 40×40 缩略图显示，文件被清理或路径失效时自动降级为文件名 chip。**粘贴图保留数量可配置**：设置页可设置粘贴图在磁盘上保留的数量（默认 20，最大 500，0 = 不限制）。
-- **v1.2.4** —— **动态模型列表**：模型选择器启动时会从 `codebuddy --help` 实时拉取可用模型列表，新模型无需等插件更新即可自动出现；CLI 不可达时回退到内置白名单。
-- **v1.2.3** —— **附件文件名标签**：用户消息附带文件后，气泡内会显示 paperclip + 文件名的 chip，一眼就能看到这条消息带了哪些附件。
-- **v1.2.2** —— **输入法 Enter 友好**：中文输入法拼字（有候选）时按 Enter 只上屏候选、不再误发送。每条消息 hover 时浮出**复制按钮**，一键复制原文。
-- **v1.2.1** —— **修复（Windows）**：用 `@` 引用大笔记 / 大文件提问时不再报 `spawn ENAMETOOLONG`——prompt 改经 stdin 传入，不再受命令行长度限制。
-- **v1.2.0** —— **指令模式 `#`**：聊天框输 `#你的规则` 设一条常驻指令 / 人设，对所有对话生效（工具栏可随时改 / 清）。**`@` 引用任意文件**：不只笔记——markdown 读正文嵌入，其它文件作附件交 CLI 读。
+- **v1.2.0 – v1.5.0** —— **让 AI 的工作看得见、审得了、退得回的一切基础：** 行级 diff 与一键撤销、计划模式、`/resume` 会话选择器、补全键盘支持、无障碍改进、上下文用量圆环、消息内图片缩略图、动态模型列表、输入法 Enter 友好、指令模式 `#`。详见 [CHANGELOG](CHANGELOG.md)。
 
 ## 功能亮点
 
@@ -211,13 +222,15 @@ Use **Obsidian** with **Claude Code** and know **Claudian**? Workbuddian is the 
 
 插件启动时自动搜索以下位置：
 
-| 搜索目标 | Windows 路径 |
-|----------|-------------|
-| WorkBuddy 安装 | `%LocalAppData%\Programs\WorkBuddy\...`、`%ProgramFiles%\WorkBuddy\...`、C/D/E 盘全覆盖 |
-| npm 全局安装 | `%AppData%\npm\codebuddy.cmd`、`%ProgramFiles%\nodejs\...` |
-| 系统 PATH | 遍历 `PATH` 中每个目录查找 `codebuddy.cmd` / `codebuddy.exe` |
-| WorkBuddy 自带 Node | `~/.workbuddy/binaries/node/versions/*/` |
-| 多盘符 Node | `C:\Program Files\nodejs`、D 盘、E 盘 |
+| 搜索目标 | Windows | macOS |
+|----------|---------|-------|
+| WorkBuddy 安装 | `%LocalAppData%\Programs\WorkBuddy\...`、`%ProgramFiles%\WorkBuddy\...`、C/D/E 盘全覆盖 | `/Applications/WorkBuddy.app/...`、`~/Applications/WorkBuddy.app/...` |
+| npm 全局安装 | `%AppData%\npm\codebuddy.cmd`、`%ProgramFiles%\nodejs\...` | npm 全局 `bin/`（`codebuddy`、`node`） |
+| 系统 PATH | 遍历 `PATH` 查找 `codebuddy.cmd` / `codebuddy.exe` | 遍历 `PATH` 查找 `codebuddy` / `node` |
+| 版本管理器 | nvm / volta | nvm（`~/.nvm`）、volta（`~/.volta/bin`） |
+| Homebrew | — | `/opt/homebrew/bin`（Apple Silicon）、`/usr/local/bin`（Intel） |
+| WorkBuddy 自带 Node | `~/.workbuddy/binaries/node/versions/*/` | `~/.workbuddy/binaries/node/versions/*/` |
+| 多盘符 / 多路径 Node | `C:\Program Files\nodejs`、D 盘、E 盘 | 常见自定义安装目录 |
 
 ## 故障排查
 
@@ -237,15 +250,25 @@ Use **Obsidian** with **Claude Code** and know **Claudian**? Workbuddian is the 
 
 ## 设置
 
-| 设置项              | 说明                             | 默认值 |
-| ------------------ | ------------------------------- | --- |
-| CodeBuddy 路径       | CLI 可执行文件路径（留空自动检测）        | 自动  |
-| CLI 超时时长（分钟）   | 单次响应最长等待时间，超时强制中断         | 5   |
-| 手动指定 Node.js 路径 | 留空自动探测；探测失败时手动指定 node 完整路径 | 自动  |
-| 注入 Vault 上下文     | 每次消息附上当前 Vault 路径             | 开   |
-| 注入当前笔记链接        | 每次消息附上当前笔记标题+路径（不含正文）      | 关   |
-| 界面语言             | Auto（跟随 Obsidian）/ 中文 / English | Auto |
-| 聊天主色调           | 自定义强调色（留空＝默认土黄）             | 默认 |
+| 分组 | 设置项 | 说明 | 默认值 |
+| --- | --- | --- | --- |
+| CodeBuddy 连接 | CodeBuddy 路径 | CLI 可执行文件路径（留空自动检测） | 自动 |
+| | 手动指定 Node.js 路径 | 留空自动探测；探测失败时手动指定 node 完整路径 | 自动 |
+| | CLI 超时时长（分钟） | 单次响应最长等待时间，超时强制中断 | 5 |
+| | 思考力度 | 对应 CLI thought_level（按会话生效），`/effort` 改动同步回这里 | enabled |
+| | MCP 服务器 | stdio 传输的 MCP 服务器 JSON 数组；可视化列表 + JSON 双向同步 | 空 |
+| | 子代理 | 自定义子代理 JSON（对应 CLI `--agents`，支持 tools/model 键） | 空 |
+| 上下文注入 | 注入 Vault 上下文 | 每次消息附上当前 Vault 路径 | 开 |
+| | 注入当前笔记链接 | 每次消息附上当前笔记标题+路径（不含正文） | 关 |
+| | 自动生成会话标题 | 首轮回复后由 AI 命名新会话；手动改名不被覆盖 | 开 |
+| | 粘贴图保留数量 | 插件目录内最多保留的粘贴图数量，0 = 不限制 | 20 |
+| 外观 | 界面语言 | Auto（跟随 Obsidian）/ 中文 / English | Auto |
+| | 聊天主色调 | 自定义强调色；「恢复默认」跟随 Obsidian 主题色 | 跟随主题 |
+| | 上下文窗口上限（token） | 上下文用量百分比的分母，按模型窗口调整 | 200000 |
+| 管理 | 导出设置 | 把当前设置保存为 JSON 文件，便于备份/迁移 | — |
+| | 导入设置 | 从导出的 JSON 文件恢复设置 | — |
+| | 重置为默认 | 清空所有自定义设置，恢复插件默认值 | — |
+| | 查看日志 | 打开 `[WB]` 日志面板，排查问题用 | — |
 
 > **模型**与**授权模式**已移到聊天输入框底部工具栏：点当前模型名可切换模型，点盾牌图标切换权限（默认 / 完全访问）。工具栏还有 **📎 附件**（挑任意文件注入）与 **`#` 常驻指令**。在笔记里选中文字会实时出现「选区」chip，随消息作只读上下文发送。
 
