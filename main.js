@@ -130,6 +130,8 @@ var STRINGS = {
   "provider.busy": { zh: "\u8BE5\u4F1A\u8BDD\u6B63\u5728\u54CD\u5E94\u4E2D\uFF0C\u8BF7\u7A0D\u5019", en: "This conversation is still responding" },
   "export.roleUser": { zh: "**\u7528\u6237**", en: "**User**" },
   "export.roleAssistant": { zh: "**AI**", en: "**AI**" },
+  "export.metaExportedAt": { zh: "\u5BFC\u51FA\u65F6\u95F4", en: "Exported" },
+  "export.metaMessages": { zh: "\u6D88\u606F\u6570", en: "messages" },
   "settings.conn": { zh: "CodeBuddy \u8FDE\u63A5", en: "CodeBuddy Connection" },
   "settings.path": { zh: "CodeBuddy \u8DEF\u5F84", en: "CodeBuddy path" },
   "settings.pathDesc": { zh: "codebuddy \u53EF\u6267\u884C\u6587\u4EF6\u8DEF\u5F84\u3002\u5982 WorkBuddy \u81EA\u5B9A\u4E49\u5B89\u88C5\uFF0C\u8DEF\u5F84\u901A\u5E38\u4E3A\uFF1A\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy\uFF08\u53F3\u952E WorkBuddy \u5FEB\u6377\u65B9\u5F0F \u2192 \u6253\u5F00\u6587\u4EF6\u4F4D\u7F6E \u53EF\u627E\u5230\u5B89\u88C5\u76EE\u5F55\uFF09", en: "Path to the codebuddy executable. For a custom WorkBuddy install it is usually: <InstallDir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy (right-click the WorkBuddy shortcut \u2192 Open file location)." },
@@ -1968,13 +1970,26 @@ function exportSettings(settings) {
 }
 
 // src/shared/export.ts
+function formatTime(ts) {
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
 function formatConversationAsMarkdown(conv) {
+  var _a;
   if (conv.messages.length === 0)
     return "";
   const lines = [`# ${conv.title}`, ""];
+  lines.push(`> ${t("export.metaExportedAt")}: ${formatTime(Date.now())} \xB7 ${t("export.metaMessages")}: ${conv.messages.length}`, "");
   for (const msg of conv.messages) {
     const label = msg.role === "user" ? t("export.roleUser") : t("export.roleAssistant");
-    lines.push(`${label}:`, msg.content, "");
+    const time = formatTime(msg.timestamp);
+    const errMark = msg.isError ? " \u26A0\uFE0F" : "";
+    lines.push(`${label} \xB7 ${time}${errMark}:`, msg.content, "");
+    if ((_a = msg.attachments) == null ? void 0 : _a.length) {
+      lines.push(`> \u{1F4CE} ${msg.attachments.join(", ")}`, "");
+    }
   }
   return lines.join("\n").trimEnd();
 }

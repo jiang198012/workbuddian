@@ -51,6 +51,8 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'provider.busy': { zh: '该会话正在响应中，请稍候', en: 'This conversation is still responding' },
     'export.roleUser': { zh: '**用户**', en: '**User**' },
     'export.roleAssistant': { zh: '**AI**', en: '**AI**' },
+    'export.metaExportedAt': { zh: '导出时间', en: 'Exported' },
+    'export.metaMessages': { zh: '消息数', en: 'messages' },
 
     'settings.conn': { zh: 'CodeBuddy 连接', en: 'CodeBuddy Connection' },
     'settings.path': { zh: 'CodeBuddy 路径', en: 'CodeBuddy path' },
