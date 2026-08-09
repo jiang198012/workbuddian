@@ -9,7 +9,17 @@ UX 全面改造（首轮体检驱动）+ E2E 测试基建。617 项单测全绿�
 - **context-saving MCP**：MCP 服务器改为 `@mcp/xxx` 激活才注入会话，未引用时不占上下文（省 token）；无引用时保持全局注入兼容旧行为。
 - **国内模型 UI 优化**：模型选择菜单显示中文名（DeepSeek V4 Pro 深度求索 / GLM-5.2 智谱 / Kimi 月之暗面 / MiniMax 稀宇），国内模型优先排序；模型按钮文字同步中文名。
 - **CodeBuddy 插件管理**：设置页新增「CodeBuddy 插件」分组，扫描 `~/.codebuddy/plugins` 按市场列出插件（含中文描述），启停 / 更新经 CLI 可信通道执行。
-- 632 项单测全绿（新增 15 项覆盖 mcpServers / cliOptions / codebuddyPlugins）。
+- **模板 prompt**：`/translate`、`/summarize`、`/rewrite`、`/polish`、`/review`、`/explain` 六个常用模板，选中即填入输入框供编辑（⚡ 标识与 CLI 命令区分）。
+- **@stats vault 统计**：消息含 `@stats` 时注入 vault 统计摘要（文件/笔记/目录数/热门标签/文件示例），`@st` 前缀补全。
+- **会话导出增强**：导出 Markdown 带元数据行（导出时间/消息数）+ 每条消息时间戳 + 附件标注 + 错误标记。
+- **命令面板增强**：新增「新建对话 / 编辑常驻指令 / 打开设置 / 导出当前会话 / 搜索会话」命令。
+- **会话搜索**：标签栏搜索框实时过滤（调 manager.search，标题+消息正文），命中标题高亮；`/resume` 选择器加搜索过滤 + 无结果提示。
+- **删除会话确认**：标签 ✕ 与右键删除都弹 Notice 确认（点「确认删除」才真删，3 秒不点自动消失），防误删。
+- **上下文用量预警条**：用量 ≥80% 时输入框上方显示「上下文已用（NN%）」+ 一键「压缩 /compact」/「新建对话」。
+- **dual-pane 常驻会话管理器**：主编辑区大面板左侧新增常驻会话列表栏（新建+搜索+竖向列表）；侧栏窄面板保持顶部标签。
+- **会话置顶/星标**：右键「置顶/取消置顶」，置顶会话排最前 + 📌 标识。
+- **e2e 测试环境修复**：start-obsidian-debug.sh 启动前临时 pin demo-vault 为唯一 open（避免 Obsidian 恢复正式 vault 导致测试加载旧插件），退出恢复。
+- 644 项单测全绿（新增 27 项覆盖 mcpServers / cliOptions / codebuddyPlugins / promptTemplates / vaultStats / export）。
 
 ### UX 改进（7 项）
 - **修复思考内容泄漏进回复正文**：`renderMarkdownContent` 原用「插到思考块之前」定位正文容器，思考块在流式过程中重建后容器落到其后面，思考文本被渲染成正文。改为始终把正文容器锚定在 bubble 末尾（思考/工具块之后）。
