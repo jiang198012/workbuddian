@@ -1,6 +1,4 @@
-<p align="center">
-  <strong>Workbuddian</strong>
-</p>
+<h1 align="center">Workbuddian</h1>
 
 <p align="center">
   <a href="https://github.com/jiang198012/workbuddian/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/jiang198012/workbuddian?sort=semver"></a>
@@ -51,6 +49,7 @@ license: MIT
 | **会话分叉与双面板** | 标签右键分叉任意会话;侧栏 + 主面板各自绑定独立会话,定向停止互不干扰 |
 | **MCP 可视化管理** | 列表增删改 / 启停 / 剪贴板导入;JSON 直编双向即时同步;自定义子代理(JSON 定义) |
 | **多语言界面** | 中文 / English 即时切换,自定义主色 |
+| **对比终端直接用 CLI** | 可视化界面、批准卡、一键撤销、面板集成都在 Obsidian 内完成,不必切到终端 |
 | **指令模式 `#`** | 设一条常驻指令 / 人设,对所有对话生效 |
 
 ## 安全与权限

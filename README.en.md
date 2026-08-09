@@ -1,6 +1,4 @@
-<p align="center">
-  <strong>Workbuddian</strong>
-</p>
+<h1 align="center">Workbuddian</h1>
 
 <p align="center">
   <a href="https://github.com/jiang198012/workbuddian/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/jiang198012/workbuddian?sort=semver"></a>
@@ -29,6 +27,7 @@
 - **Conversation forking** and **two truly isolated panels** (sidebar + main area, separate sessions).
 - **Visual MCP server management** with two-way JSON sync; custom subagents in JSON.
 - **Bilingual UI** (中文 / English) with instant switching.
+- **Beyond using the CLI directly** — visual interface, approval cards, one-click undo, and panel integration all live inside Obsidian.
 
 ## Installation
 

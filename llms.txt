@@ -1,0 +1,26 @@
+# Workbuddian
+
+> 把本地 CodeBuddy CLI 变成 Obsidian 里的 AI 聊天插件(Obsidian community plugin that turns your local CodeBuddy CLI into an AI chat agent inside your vault).
+
+Workbuddian 是一个 Obsidian 社区插件(desktop-only, Windows / macOS, Obsidian 1.7.2+),把本地 WorkBuddy/CodeBuddy CLI 变成 vault 内的 AI 聊天 agent。流式回复、@ 引用笔记、图片视觉、气泡内批准卡、行级 diff 一键撤销、MCP 可视化管理、双面板隔离、中英双语界面。
+
+## Core docs
+
+- [README.md](README.md):完整中文文档(安装、快速开始、使用方法、设置、FAQ)— 简体中文,单一权威来源
+- [README.en.md](README.en.md):英文精简入口版
+- [CHANGELOG.md](CHANGELOG.md):版本变更记录
+- [CONTRIBUTING.md](CONTRIBUTING.md):贡献指南
+- [SECURITY.md](SECURITY.md):安全说明
+- [LICENSE](LICENSE):MIT License
+
+## Install
+
+Obsidian 设置 → 第三方插件 → 浏览 → 搜索 "Workbuddian" → 安装 → 启用。需先安装 WorkBuddy 桌面版(≥ 5.0.5,含 CodeBuddy CLI)。
+
+## Usage
+
+打开聊天面板后,输入消息按 Enter 发送;`@` 弹出聚合引用(子代理 / MCP 服务器 / Vault 文件);`@[[笔记名]]` 读取笔记全文作为上下文。
+
+## 快速开始
+
+首次使用若插件找不到 CodeBuddy/Node.js,将「快速开始」里的环境初始化提示词完整复制到 WorkBuddy 对话执行一次即可(见 README.md)。
