@@ -10,6 +10,7 @@ import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, upda
 import { openInstructionModal } from './instructionModal';
 import type { SlashCommandInfo } from '../../shared/slashCommand';
 import { isActivationKey } from '../../shared/inputKeys';
+import { modelLabel } from '../../shared/cliOptions';
 import { t } from '../../i18n';
 import { bbError } from '../../shared/logBuffer';
 
@@ -174,7 +175,7 @@ export class WorkbuddianChatView extends ItemView {
             cls: 'workbuddian-model-btn',
             attr: { 'aria-label': t('settings.model'), title: t('settings.model'), role: 'button', tabindex: '0' }
         });
-        modelBtn.setText(this.settings.model);
+        modelBtn.setText(modelLabel(this.settings.model));
         modelBtn.addEventListener('click', () => openModelMenu(this, modelBtn));
         // role="button" 的 div 没有原生键盘激活行为，手动补上 Enter/Space
         modelBtn.addEventListener('keydown', (e: KeyboardEvent) => {

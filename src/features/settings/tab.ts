@@ -7,6 +7,8 @@ import { resolveCodebuddyPath } from '../../utils/cliPath';
 import { LogModal } from './logModal';
 import { McpServerModal } from './mcpModal';
 import { parseMcpServers, serializeMcpServers, parseClipboardServers, type McpServerEntry } from '../../shared/mcpServers';
+import { discoverPlugins, type CodebuddyPluginInfo } from '../../shared/codebuddyPlugins';
+import { execFile } from 'child_process';
 
 export class WorkbuddianSettingTab extends PluginSettingTab {
     plugin: WorkbuddianPlugin;
@@ -252,6 +254,10 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                     }
                 }));
 
+        // ===== CodeBuddy 插件管理（R7）=====
+        new Setting(containerEl).setName('CodeBuddy 插件').setHeading();
+        this.renderCodebuddyPlugins(containerEl);
+
         // ===== 外观 =====
         new Setting(containerEl).setName(t('settings.appearance')).setHeading();
 
@@ -385,5 +391,59 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
             .addButton(btn => btn.setButtonText(t('settings.viewLogs')).onClick(() => {
                 new LogModal(this.app).open();
             }));
+    }
+
+    /** R7:CodeBuddy 插件管理——列出已发现插件 + 启停/更新操作(经 CLI 命令) */
+    private renderCodebuddyPlugins(containerEl: HTMLElement): void {
+        const codebuddyPath = this.plugin.settings.codebuddyPath || 'codebuddy';
+        const plugins = discoverPlugins();
+        if (!plugins.length) {
+            new Setting(containerEl)
+                .setDesc('未发现 CodeBuddy 插件市场(需先安装 CodeBuddy CLI 并配置插件市场)。')
+                .setDisabled(true);
+            return;
+        }
+
+        // 按市场分组渲染
+        const byMarket = new Map<string, CodebuddyPluginInfo[]>();
+        for (const p of plugins) {
+            const arr = byMarket.get(p.marketplace) ?? [];
+            arr.push(p);
+            byMarket.set(p.marketplace, arr);
+        }
+
+        const runPluginCmd = (name: string, args: string[], btn: HTMLButtonElement, done: (ok: boolean) => void) => {
+            btn.disabled = true;
+            btn.setText('处理中…');
+            execFile(codebuddyPath, ['plugin', ...args, name], { timeout: 20_000 }, (err) => {
+                btn.disabled = false;
+                btn.setText(args[0] === 'enable' ? '启用' : args[0] === 'disable' ? '禁用' : '更新');
+                if (err) {
+                    new Notice(`插件「${name}」操作失败: ${err.message}`);
+                    done(false);
+                } else {
+                    new Notice(`插件「${name}」已${args[0] === 'enable' ? '启用' : args[0] === 'disable' ? '禁用' : '更新'}`);
+                    done(true);
+                }
+            });
+        };
+
+        for (const [market, list] of byMarket) {
+            new Setting(containerEl).setName(`市场: ${market}`).setHeading();
+            for (const plugin of list) {
+                const row = new Setting(containerEl)
+                    .setName(plugin.name)
+                    .setDesc(plugin.description || '(无描述)');
+                row.addButton(btn => btn.setButtonText('启用').onClick(() => {
+                    runPluginCmd(plugin.name, ['enable'], btn.buttonEl, () => {});
+                }));
+                row.addButton(btn => btn.setButtonText('禁用').onClick(() => {
+                    runPluginCmd(plugin.name, ['disable'], btn.buttonEl, () => {});
+                }));
+                row.addButton(btn => btn.setButtonText('更新').onClick(() => {
+                    runPluginCmd(plugin.name, ['update'], btn.buttonEl, () => {});
+                }));
+            }
+        }
     }
 }

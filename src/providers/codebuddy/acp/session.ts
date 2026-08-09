@@ -77,25 +77,27 @@ export class AcpSession {
         if (this.acpSessionId) this.needsReload = true;
     }
 
-    async ensureLoaded(vaultPath?: string): Promise<void> {
+    async ensureLoaded(vaultPath?: string, mcpServersOverride?: unknown[]): Promise<void> {
         if (this.acpSessionId && !this.needsReload) return;
         this.status = 'loading';
         this.lastVaultPath = vaultPath;
+        // R10 context-saving MCP:本次加载优先用调用方按需过滤的服务器（@mcp 激活才注入），否则回退全局配置
+        const mcpServers = mcpServersOverride ?? this.config.mcpServers ?? [];
         try {
             if (!this.acpSessionId) {
                 // 懒加载链：插件存的 acpSessionId → 先试 v1 uuid（--session-id 时代 CLI 侧可能真存着）→ session/new 回写
                 const candidate = this.lookup.getAcpSessionId(this.key) ?? this.key;
                 try {
-                    await this.client.request('session/load', { sessionId: candidate, cwd: vaultPath ?? '', mcpServers: this.config.mcpServers ?? [] });
+                    await this.client.request('session/load', { sessionId: candidate, cwd: vaultPath ?? '', mcpServers });
                     this.acpSessionId = candidate;
                 } catch {
                     const result = await this.client.request<{ sessionId: string }>(
-                        'session/new', { cwd: vaultPath ?? '', mcpServers: this.config.mcpServers ?? [] });
+                        'session/new', { cwd: vaultPath ?? '', mcpServers });
                     this.acpSessionId = result.sessionId;
                 }
                 this.lookup.setAcpSessionId(this.key, this.acpSessionId);
             } else {
-                await this.client.request('session/load', { sessionId: this.acpSessionId, cwd: vaultPath ?? '', mcpServers: this.config.mcpServers ?? [] });
+                await this.client.request('session/load', { sessionId: this.acpSessionId, cwd: vaultPath ?? '', mcpServers });
             }
             this.activation.current = this.acpSessionId; // new/load 都会把 CLI 的活动会话切到本会话
             this.needsReload = false;

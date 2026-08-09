@@ -114,6 +114,17 @@ export class CodebuddyProvider {
         }
     }
 
+    /** R10 context-saving MCP：把消息里 @mcp/xxx 命中的服务器过滤出来，供本次会话加载用 */
+    private resolveMcpForMessage(mcpNames?: string[]): unknown[] | undefined {
+        if (!mcpNames?.length) return undefined; // 无引用 → 回退全局配置（兼容旧行为）
+        const all = this.config.mcpServers ?? [];
+        const lower = mcpNames.map((n) => n.toLowerCase());
+        const matched = (all as Array<Record<string, unknown>>).filter((s) =>
+            typeof s.name === 'string' && lower.includes(s.name.toLowerCase()));
+        // 显式引用（哪怕名字不存在）→ 传匹配结果（可为空数组 = 不注入任何 MCP）
+        return matched;
+    }
+
     /** 子代理 JSON（对象）：转为 CLI --agents 启动旗标；解析失败保留旧值；空串清空 */
     setCustomAgentsJson(json: string): void {
         const trimmed = json.trim();
@@ -195,6 +206,7 @@ export class CodebuddyProvider {
         addDirs: string[] = [],
         permissionModeOverride?: PermissionMode,
         images?: Array<{ data: string; mimeType: string }>,
+        mcpNames?: string[],
     ): AsyncGenerator<StreamChunk> {
         // v2 退役项：addDirs（--add-dir 预授权 hack）与 permissionModeOverride（计划卡重发 workaround）
         // 仅保留签名兼容，不再消费；vault 外附件的读取授权由插件侧确认弹窗把关（WB-002）
@@ -203,7 +215,10 @@ export class CodebuddyProvider {
         const session = this.registry.get(sessionId);
         try {
             await this.client.ensureStarted();
-            await session.ensureLoaded(vaultPath);
+            // R10 context-saving MCP：消息里 @mcp/xxx 命中的服务器才注入本次会话加载；
+            // 未命中任何引用时保持全局配置（兼容旧行为）
+            const mcpOverride = this.resolveMcpForMessage(mcpNames);
+            await session.ensureLoaded(vaultPath, mcpOverride);
         } catch (e) {
             throw new Error(this.startErrorMessage(e));
         }

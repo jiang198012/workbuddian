@@ -52,6 +52,40 @@ var MODEL_OPTIONS = {
   "deepseek-v4-flash": "deepseek-v4-flash",
   "deepseek-v4-pro": "deepseek-v4-pro"
 };
+var MODEL_LABELS = {
+  hy3: "Hunyuan \u6DF7\u5143",
+  "glm-5.2": "GLM-5.2\uFF08\u667A\u8C31\uFF09",
+  "glm-5.1": "GLM-5.1\uFF08\u667A\u8C31\uFF09",
+  "glm-5v-turbo": "GLM-5V Turbo\uFF08\u667A\u8C31\xB7\u89C6\u89C9\uFF09",
+  "minimax-m3": "MiniMax-M3\uFF08\u7A00\u5B87\uFF09",
+  "kimi-k3-1": "Kimi K3\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
+  "kimi-k2.7": "Kimi K2.7\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
+  "kimi-k2.6": "Kimi K2.6\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
+  "deepseek-v4-flash": "DeepSeek V4 Flash\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
+  "deepseek-v4-pro": "DeepSeek V4 Pro\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
+  auto: "Auto\uFF08\u81EA\u52A8\u9009\u62E9\uFF09"
+};
+function modelLabel(id) {
+  var _a;
+  return (_a = MODEL_LABELS[id]) != null ? _a : id;
+}
+var MODEL_ORDER = [
+  "glm-5.2",
+  "glm-5.1",
+  "glm-5v-turbo",
+  "deepseek-v4-pro",
+  "deepseek-v4-flash",
+  "kimi-k3-1",
+  "kimi-k2.7",
+  "kimi-k2.6",
+  "minimax-m3",
+  "hy3"
+];
+function orderModels(ids) {
+  const ranked = MODEL_ORDER.filter((m) => ids.includes(m));
+  const rest = ids.filter((m) => !MODEL_ORDER.includes(m));
+  return [...ranked, ...rest];
+}
 var FALLBACK_MODEL_OPTIONS = MODEL_OPTIONS;
 var PERMISSION_MODES = ["default", "plan", "acceptEdits", "bypassPermissions"];
 var PERMISSION_MODE_CHOICES = ["default", "plan", "bypassPermissions"];
@@ -1068,28 +1102,29 @@ var AcpSession = class {
     if (this.acpSessionId)
       this.needsReload = true;
   }
-  async ensureLoaded(vaultPath) {
-    var _a, _b, _c, _d;
+  async ensureLoaded(vaultPath, mcpServersOverride) {
+    var _a, _b;
     if (this.acpSessionId && !this.needsReload)
       return;
     this.status = "loading";
     this.lastVaultPath = vaultPath;
+    const mcpServers = (_a = mcpServersOverride != null ? mcpServersOverride : this.config.mcpServers) != null ? _a : [];
     try {
       if (!this.acpSessionId) {
-        const candidate = (_a = this.lookup.getAcpSessionId(this.key)) != null ? _a : this.key;
+        const candidate = (_b = this.lookup.getAcpSessionId(this.key)) != null ? _b : this.key;
         try {
-          await this.client.request("session/load", { sessionId: candidate, cwd: vaultPath != null ? vaultPath : "", mcpServers: (_b = this.config.mcpServers) != null ? _b : [] });
+          await this.client.request("session/load", { sessionId: candidate, cwd: vaultPath != null ? vaultPath : "", mcpServers });
           this.acpSessionId = candidate;
         } catch (e) {
           const result = await this.client.request(
             "session/new",
-            { cwd: vaultPath != null ? vaultPath : "", mcpServers: (_c = this.config.mcpServers) != null ? _c : [] }
+            { cwd: vaultPath != null ? vaultPath : "", mcpServers }
           );
           this.acpSessionId = result.sessionId;
         }
         this.lookup.setAcpSessionId(this.key, this.acpSessionId);
       } else {
-        await this.client.request("session/load", { sessionId: this.acpSessionId, cwd: vaultPath != null ? vaultPath : "", mcpServers: (_d = this.config.mcpServers) != null ? _d : [] });
+        await this.client.request("session/load", { sessionId: this.acpSessionId, cwd: vaultPath != null ? vaultPath : "", mcpServers });
       }
       this.activation.current = this.acpSessionId;
       this.needsReload = false;
@@ -1417,6 +1452,14 @@ function serializeMcpServers(servers) {
 function activeMcpServers(servers) {
   return servers.filter((s) => !s.disabled).map((s) => ({ name: s.name, command: s.command, args: s.args, env: s.env }));
 }
+function extractMcpNames(text) {
+  const names = [];
+  for (const match of text.matchAll(/@mcp\/([A-Za-z0-9._-]+)/g)) {
+    if (!names.includes(match[1]))
+      names.push(match[1]);
+  }
+  return names;
+}
 function parseClipboardServers(text) {
   let raw;
   try {
@@ -1523,6 +1566,16 @@ var CodebuddyProvider = class {
       bbLog("[WB] mcpServersJson \u89E3\u6790\u5931\u8D25\uFF0C\u4FDD\u7559\u65E7\u503C:", e);
     }
   }
+  /** R10 context-saving MCP：把消息里 @mcp/xxx 命中的服务器过滤出来，供本次会话加载用 */
+  resolveMcpForMessage(mcpNames) {
+    var _a;
+    if (!(mcpNames == null ? void 0 : mcpNames.length))
+      return void 0;
+    const all = (_a = this.config.mcpServers) != null ? _a : [];
+    const lower = mcpNames.map((n) => n.toLowerCase());
+    const matched = all.filter((s) => typeof s.name === "string" && lower.includes(s.name.toLowerCase()));
+    return matched;
+  }
   /** 子代理 JSON（对象）：转为 CLI --agents 启动旗标；解析失败保留旧值；空串清空 */
   setCustomAgentsJson(json) {
     const trimmed = json.trim();
@@ -1593,12 +1646,13 @@ var CodebuddyProvider = class {
     this.rejectPendingPermissions();
     this.client.dispose();
   }
-  async *sendMessage(sessionId, text, vaultPath, addDirs = [], permissionModeOverride, images) {
+  async *sendMessage(sessionId, text, vaultPath, addDirs = [], permissionModeOverride, images, mcpNames) {
     var _a;
     const session = this.registry.get(sessionId);
     try {
       await this.client.ensureStarted();
-      await session.ensureLoaded(vaultPath);
+      const mcpOverride = this.resolveMcpForMessage(mcpNames);
+      await session.ensureLoaded(vaultPath, mcpOverride);
     } catch (e) {
       throw new Error(this.startErrorMessage(e));
     }
@@ -2806,7 +2860,7 @@ function applyToolbarConfig(view, cfg) {
   }
   if (cfg.model && cfg.model !== view.settings.model) {
     view.settings.model = cfg.model;
-    (_a = view.containerEl.querySelector(".workbuddian-model-btn")) == null ? void 0 : _a.setText(cfg.model);
+    (_a = view.containerEl.querySelector(".workbuddian-model-btn")) == null ? void 0 : _a.setText(modelLabel(cfg.model));
     changed = true;
   }
   if (cfg.thoughtLevel && cfg.thoughtLevel !== view.settings.thoughtLevel) {
@@ -3007,12 +3061,13 @@ function openPermissionMenu(view, btn, evt) {
 }
 function openModelMenu(view, btn) {
   const menu = new import_obsidian5.Menu();
-  const models = [.../* @__PURE__ */ new Set(["auto", ...view.api.getAvailableModels()])];
+  const ids = [.../* @__PURE__ */ new Set(["auto", ...view.api.getAvailableModels()])];
+  const models = orderModels(ids);
   for (const id of models) {
-    menu.addItem((item) => item.setTitle(id).setChecked(view.settings.model === id).onClick(async () => {
+    menu.addItem((item) => item.setTitle(modelLabel(id)).setChecked(view.settings.model === id).onClick(async () => {
       view.settings.model = id;
       view.api.setModel(id);
-      btn.setText(id);
+      btn.setText(modelLabel(id));
       await view.saveSettingsCallback();
     }));
   }
@@ -3309,7 +3364,8 @@ async function sendText(view, text, permissionModeOverride) {
       renderContextUsage(view, size);
     });
     view.api.onConfigUpdate(sessionKey, (cfg) => applyToolbarConfig(view, cfg));
-    for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride, images)) {
+    const mcpNames = extractMcpNames(text);
+    for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride, images, mcpNames.length ? mcpNames : void 0)) {
       const bubble = streamingBubble;
       if (firstChunk) {
         firstChunk = false;
@@ -4168,7 +4224,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
       cls: "workbuddian-model-btn",
       attr: { "aria-label": t("settings.model"), title: t("settings.model"), role: "button", tabindex: "0" }
     });
-    modelBtn.setText(this.settings.model);
+    modelBtn.setText(modelLabel(this.settings.model));
     modelBtn.addEventListener("click", () => openModelMenu(this, modelBtn));
     modelBtn.addEventListener("keydown", (e) => {
       if (isActivationKey(e.key)) {
@@ -4565,7 +4621,62 @@ var McpServerModal = class extends import_obsidian10.Modal {
   }
 };
 
+// src/shared/codebuddyPlugins.ts
+var import_fs = require("fs");
+var import_path = require("path");
+function str(d, key) {
+  const v = d[key];
+  return typeof v === "string" ? v : "";
+}
+function discoverPlugins(pluginsRoot = codebuddyPluginsRoot()) {
+  const out = [];
+  const marketsDir = (0, import_path.join)(pluginsRoot, "marketplaces");
+  let markets;
+  try {
+    markets = (0, import_fs.readdirSync)(marketsDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.endsWith(".zip")).map((e) => e.name);
+  } catch (e) {
+    return [];
+  }
+  for (const market of markets) {
+    const pluginsDir = (0, import_path.join)(marketsDir, market, "plugins");
+    let pluginDirs;
+    try {
+      pluginDirs = (0, import_fs.readdirSync)(pluginsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+    } catch (e) {
+      continue;
+    }
+    for (const pdir of pluginDirs) {
+      const manifestPath = (0, import_path.join)(pluginsDir, pdir, ".codebuddy-plugin", "plugin.json");
+      let raw;
+      try {
+        raw = JSON.parse((0, import_fs.readFileSync)(manifestPath, "utf-8"));
+      } catch (e) {
+        continue;
+      }
+      if (!raw || typeof raw !== "object")
+        continue;
+      const rec = raw;
+      const name = str(rec, "name") || pdir;
+      out.push({
+        name,
+        description: str(rec, "description"),
+        marketplace: market,
+        dir: (0, import_path.join)(pluginsDir, pdir)
+      });
+    }
+  }
+  return out;
+}
+function codebuddyPluginsRoot() {
+  return (0, import_path.join)(homeDir(), ".codebuddy", "plugins");
+}
+function homeDir() {
+  var _a, _b;
+  return (_b = (_a = process.env.HOME) != null ? _a : process.env.USERPROFILE) != null ? _b : "";
+}
+
 // src/features/settings/tab.ts
+var import_child_process3 = require("child_process");
 var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
@@ -4727,6 +4838,8 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
         await this.plugin.saveSettings();
       }
     }));
+    new import_obsidian11.Setting(containerEl).setName("CodeBuddy \u63D2\u4EF6").setHeading();
+    this.renderCodebuddyPlugins(containerEl);
     new import_obsidian11.Setting(containerEl).setName(t("settings.appearance")).setHeading();
     new import_obsidian11.Setting(containerEl).setName(t("settings.language")).setDesc(t("settings.languageDesc")).addDropdown((dropdown) => dropdown.addOptions({ auto: t("settings.langAuto"), zh: t("settings.langZh"), en: t("settings.langEn") }).setValue(this.plugin.settings.language).onChange(async (value) => {
       this.plugin.settings.language = value;
@@ -4814,6 +4927,55 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
     new import_obsidian11.Setting(containerEl).setName(t("settings.viewLogs")).setDesc(t("settings.logsDesc")).addButton((btn) => btn.setButtonText(t("settings.viewLogs")).onClick(() => {
       new LogModal(this.app).open();
     }));
+  }
+  /** R7:CodeBuddy 插件管理——列出已发现插件 + 启停/更新操作(经 CLI 命令) */
+  renderCodebuddyPlugins(containerEl) {
+    var _a;
+    const codebuddyPath = this.plugin.settings.codebuddyPath || "codebuddy";
+    const plugins = discoverPlugins();
+    if (!plugins.length) {
+      new import_obsidian11.Setting(containerEl).setDesc("\u672A\u53D1\u73B0 CodeBuddy \u63D2\u4EF6\u5E02\u573A(\u9700\u5148\u5B89\u88C5 CodeBuddy CLI \u5E76\u914D\u7F6E\u63D2\u4EF6\u5E02\u573A)\u3002").setDisabled(true);
+      return;
+    }
+    const byMarket = /* @__PURE__ */ new Map();
+    for (const p of plugins) {
+      const arr = (_a = byMarket.get(p.marketplace)) != null ? _a : [];
+      arr.push(p);
+      byMarket.set(p.marketplace, arr);
+    }
+    const runPluginCmd = (name, args, btn, done) => {
+      btn.disabled = true;
+      btn.setText("\u5904\u7406\u4E2D\u2026");
+      (0, import_child_process3.execFile)(codebuddyPath, ["plugin", ...args, name], { timeout: 2e4 }, (err) => {
+        btn.disabled = false;
+        btn.setText(args[0] === "enable" ? "\u542F\u7528" : args[0] === "disable" ? "\u7981\u7528" : "\u66F4\u65B0");
+        if (err) {
+          new import_obsidian11.Notice(`\u63D2\u4EF6\u300C${name}\u300D\u64CD\u4F5C\u5931\u8D25: ${err.message}`);
+          done(false);
+        } else {
+          new import_obsidian11.Notice(`\u63D2\u4EF6\u300C${name}\u300D\u5DF2${args[0] === "enable" ? "\u542F\u7528" : args[0] === "disable" ? "\u7981\u7528" : "\u66F4\u65B0"}`);
+          done(true);
+        }
+      });
+    };
+    for (const [market, list] of byMarket) {
+      new import_obsidian11.Setting(containerEl).setName(`\u5E02\u573A: ${market}`).setHeading();
+      for (const plugin of list) {
+        const row = new import_obsidian11.Setting(containerEl).setName(plugin.name).setDesc(plugin.description || "(\u65E0\u63CF\u8FF0)");
+        row.addButton((btn) => btn.setButtonText("\u542F\u7528").onClick(() => {
+          runPluginCmd(plugin.name, ["enable"], btn.buttonEl, () => {
+          });
+        }));
+        row.addButton((btn) => btn.setButtonText("\u7981\u7528").onClick(() => {
+          runPluginCmd(plugin.name, ["disable"], btn.buttonEl, () => {
+          });
+        }));
+        row.addButton((btn) => btn.setButtonText("\u66F4\u65B0").onClick(() => {
+          runPluginCmd(plugin.name, ["update"], btn.buttonEl, () => {
+          });
+        }));
+      }
+    }
   }
 };
 

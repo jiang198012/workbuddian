@@ -67,6 +67,22 @@ export function activeMcpServers(servers: McpServerEntry[]): Array<Record<string
         .map((s) => ({ name: s.name, command: s.command, args: s.args, env: s.env }));
 }
 
+/** 从消息文本提取所有 @mcp/名称 引用（去重，按出现顺序）——R10 context-saving MCP */
+export function extractMcpNames(text: string): string[] {
+    const names: string[] = [];
+    for (const match of text.matchAll(/@mcp\/([A-Za-z0-9._-]+)/g)) {
+        if (!names.includes(match[1])) names.push(match[1]);
+    }
+    return names;
+}
+
+/** 从启用列表中筛出指定名称的服务器（保留原序）；名字不区分大小写 */
+export function filterMcpServersByNames(servers: McpServerEntry[], names: string[]): McpServerEntry[] {
+    if (!names.length) return [];
+    const lower = names.map((n) => n.toLowerCase());
+    return servers.filter((s) => lower.includes(s.name.toLowerCase()));
+}
+
 /** 从剪贴板文本解析：支持 {"mcpServers":{...}} 包装与单服务器 {name,command,...} 两种形态 */
 export function parseClipboardServers(text: string): McpServerEntry[] {
     let raw: unknown;

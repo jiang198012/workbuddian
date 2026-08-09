@@ -2,6 +2,7 @@ import { Menu, Notice, setIcon, setTooltip, TFile } from 'obsidian';
 import { getErrorMessage, DEFAULT_CONTEXT_WINDOW_SIZE } from '../../types';
 import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shared/atReferences';
 import { parseAgentNames, parseMcpServerNames } from '../../shared/mentionSources';
+import { extractMcpNames } from '../../shared/mcpServers';
 import { shouldSendMessage, isActivationKey, nextSuggestIndex } from '../../shared/inputKeys';
 import { assembleContextText } from '../../core/context/assembleContext';
 import type { WorkbuddianChatView } from './view';
@@ -21,7 +22,7 @@ import { buildSelectionBlock } from '../../shared/selection';
 import { pickFinalContent, appendTextChunk } from '../../shared/responseFinalize';
 import { confirmExternalAccess } from './externalAccessModal';
 import { sanitizeTitle, shouldApplyAutoTitle } from '../../shared/autoTitle';
-import { PERMISSION_MODE_CHOICES, isThoughtLevel, type PermissionMode } from '../../shared/cliOptions';
+import { PERMISSION_MODE_CHOICES, isThoughtLevel, orderModels, modelLabel, type PermissionMode } from '../../shared/cliOptions';
 import { contextPercent, usageTooltip, isUsageWarning } from '../../shared/contextUsage';
 import { emitConfigChanged } from '../../shared/configEvents';
 import { t } from '../../i18n';
@@ -356,7 +357,7 @@ function applyToolbarConfig(view: WorkbuddianChatView, cfg: { mode?: string; mod
     }
     if (cfg.model && cfg.model !== view.settings.model) {
         view.settings.model = cfg.model;
-        view.containerEl.querySelector('.workbuddian-model-btn')?.setText(cfg.model);
+        view.containerEl.querySelector('.workbuddian-model-btn')?.setText(modelLabel(cfg.model));
         changed = true;
     }
     if (cfg.thoughtLevel && cfg.thoughtLevel !== view.settings.thoughtLevel) {
@@ -607,15 +608,16 @@ export function openPermissionMenu(view: WorkbuddianChatView, btn: HTMLElement, 
 /** 弹出模型选择菜单（供悬停/点击触发），选中后写设置 + 灌 CLI + 更新按钮文字 + 持久化 */
 export function openModelMenu(view: WorkbuddianChatView, btn: HTMLElement) {
     const menu = new Menu();
-    const models = [...new Set(['auto', ...view.api.getAvailableModels()])]; // CLI 列表自带 auto，去重防双 auto（与 WorkBuddy 列表保持一致）
+    const ids = [...new Set(['auto', ...view.api.getAvailableModels()])]; // CLI 列表自带 auto，去重防双 auto
+    const models = orderModels(ids); // 国内模型优先排序
     for (const id of models) {
         menu.addItem(item => item
-            .setTitle(id)
+            .setTitle(modelLabel(id))
             .setChecked(view.settings.model === id)
             .onClick(async () => {
                 view.settings.model = id;
                 view.api.setModel(id);
-                btn.setText(id);
+                btn.setText(modelLabel(id));
                 await view.saveSettingsCallback();
             }));
     }
@@ -940,7 +942,9 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         });
         view.api.onConfigUpdate(sessionKey, (cfg) => applyToolbarConfig(view, cfg));
 
-        for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride, images)) {
+        // R10 context-saving MCP:本条消息里 @mcp/xxx 命中的服务器,按需注入本次会话加载
+        const mcpNames = extractMcpNames(text);
+        for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride, images, mcpNames.length ? mcpNames : undefined)) {
             const bubble = streamingBubble;
 
             if (firstChunk) {

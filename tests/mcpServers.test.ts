@@ -1,4 +1,4 @@
-import { parseMcpServers, serializeMcpServers, activeMcpServers, parseClipboardServers } from '../src/shared/mcpServers';
+import { parseMcpServers, serializeMcpServers, activeMcpServers, parseClipboardServers, extractMcpNames, filterMcpServersByNames } from '../src/shared/mcpServers';
 
 describe('parseMcpServers', () => {
     it('parses stdio servers with args and env record', () => {
@@ -33,5 +33,31 @@ describe('parseClipboardServers', () => {
     });
     it('rejects junk', () => {
         expect(parseClipboardServers('not json')).toEqual([]);
+    });
+});
+
+describe('extractMcpNames (R10 context-saving MCP)', () => {
+    it('extracts @mcp/name references from message text, deduped in order', () => {
+        expect(extractMcpNames('用 @mcp/filesystem 看文件，再 @mcp/fetch 取网页，重复 @mcp/filesystem'))
+            .toEqual(['filesystem', 'fetch']);
+    });
+    it('ignores @[[note]] and plain @ and /slash', () => {
+        expect(extractMcpNames('@[[笔记]] @mcp/fs /model @')).toEqual(['fs']);
+    });
+    it('returns empty for no references', () => {
+        expect(extractMcpNames('普通消息')).toEqual([]);
+        expect(extractMcpNames('')).toEqual([]);
+    });
+});
+
+describe('filterMcpServersByNames (R10 context-saving MCP)', () => {
+    const servers = parseMcpServers('[{"name":"fs","command":"c","args":[],"env":[]},{"name":"fetch","command":"d","args":[],"env":[]}]');
+    it('filters to matching names, case-insensitive, preserving order', () => {
+        expect(filterMcpServersByNames(servers, ['FETCH']).map((s) => s.name)).toEqual(['fetch']);
+        expect(filterMcpServersByNames(servers, ['fs', 'fetch']).map((s) => s.name)).toEqual(['fs', 'fetch']);
+    });
+    it('returns empty for no matches or empty names', () => {
+        expect(filterMcpServersByNames(servers, ['nope'])).toEqual([]);
+        expect(filterMcpServersByNames(servers, [])).toEqual([]);
     });
 });
