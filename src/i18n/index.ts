@@ -268,6 +268,8 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'slash.resume': { zh: '恢复历史会话', en: 'Resume a past session' },
     'resume.modalTitle': { zh: '选择要恢复的对话', en: 'Resume a conversation' },
     'resume.empty': { zh: '（还没有历史对话）', en: '(No conversations yet)' },
+    'resume.searchPlaceholder': { zh: '搜索会话…', en: 'Search conversations…' },
+    'resume.noResults': { zh: '（没有匹配的对话）', en: '(No matching conversations)' },
     'resume.justNow': { zh: '刚刚', en: 'just now' },
     'resume.minutesAgo': { zh: '分钟前', en: 'min ago' },
     'resume.hoursAgo': { zh: '小时前', en: 'h ago' },

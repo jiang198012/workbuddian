@@ -287,6 +287,8 @@ var init_i18n = __esm({
       "slash.resume": { zh: "\u6062\u590D\u5386\u53F2\u4F1A\u8BDD", en: "Resume a past session" },
       "resume.modalTitle": { zh: "\u9009\u62E9\u8981\u6062\u590D\u7684\u5BF9\u8BDD", en: "Resume a conversation" },
       "resume.empty": { zh: "\uFF08\u8FD8\u6CA1\u6709\u5386\u53F2\u5BF9\u8BDD\uFF09", en: "(No conversations yet)" },
+      "resume.searchPlaceholder": { zh: "\u641C\u7D22\u4F1A\u8BDD\u2026", en: "Search conversations\u2026" },
+      "resume.noResults": { zh: "\uFF08\u6CA1\u6709\u5339\u914D\u7684\u5BF9\u8BDD\uFF09", en: "(No matching conversations)" },
       "resume.justNow": { zh: "\u521A\u521A", en: "just now" },
       "resume.minutesAgo": { zh: "\u5206\u949F\u524D", en: "min ago" },
       "resume.hoursAgo": { zh: "\u5C0F\u65F6\u524D", en: "h ago" },
@@ -2570,20 +2572,39 @@ var ResumeModal = class extends import_obsidian3.Modal {
   constructor(view) {
     super(view.app);
     this.view = view;
+    this.filterEl = null;
+    this.listEl = null;
   }
   onOpen() {
     const { contentEl } = this;
     new import_obsidian3.Setting(contentEl).setName(t("resume.modalTitle")).setHeading();
-    const conversations = this.view.manager.getAll();
+    const searchSetting = new import_obsidian3.Setting(contentEl);
+    this.filterEl = searchSetting.addText((text) => {
+      text.setPlaceholder(t("resume.searchPlaceholder"));
+      text.onChange((value) => this.renderList(value.trim()));
+    }).controlEl.querySelector("input");
+    this.listEl = contentEl.createDiv({ cls: "workbuddian-resume-list" });
+    this.renderList("");
+    setTimeout(() => {
+      var _a;
+      return (_a = this.filterEl) == null ? void 0 : _a.focus();
+    }, 50);
+  }
+  /** 渲染会话列表(按搜索词过滤);空串显示全部 */
+  renderList(query) {
+    const listEl = this.listEl;
+    if (!listEl)
+      return;
+    listEl.empty();
+    const conversations = query ? this.view.manager.search(query) : this.view.manager.getAll();
     if (conversations.length === 0) {
-      contentEl.createEl("p", { text: t("resume.empty") });
+      listEl.createEl("p", { cls: "workbuddian-resume-empty", text: query ? t("resume.noResults") : t("resume.empty") });
       return;
     }
     const now = Date.now();
-    const list = contentEl.createDiv({ cls: "workbuddian-resume-list" });
     for (const conv of conversations) {
       const { title, meta } = formatConversationSummary(conv, now);
-      const item = list.createDiv({ cls: "workbuddian-resume-item", attr: { role: "button", tabindex: "0" } });
+      const item = listEl.createDiv({ cls: "workbuddian-resume-item", attr: { role: "button", tabindex: "0" } });
       item.createDiv({ cls: "workbuddian-resume-item-title", text: title });
       item.createDiv({ cls: "workbuddian-resume-item-meta", text: meta });
       const activate = async () => {
