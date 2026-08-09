@@ -10,9 +10,14 @@
 
 > **⚠️ Windows and macOS are supported** (Linux is not supported yet). **Requires Obsidian 1.7.2+.**
 
-![Workbuddian — chat panel](docs/images/screenshot.png)
+<p align="center">
+  <img src="docs/images/screenshot.png" alt="Workbuddian in your vault — reference a note with @, the agent reads it as context and answers from it" width="85%"/>
+</p>
 
-![Workbuddian demo](docs/images/workbuddian-intro.gif)
+<p align="center">
+  <img src="docs/images/chat-demo.png" alt="Streaming chat with Markdown rendering — tables, code, lists" width="49%"/>
+  <img src="docs/images/chat-atsuggest.png" alt="Type @ to reference any note or file in the vault" width="49%"/>
+</p>
 
 > **⭐ If Workbuddian is useful to you, please [star the repo](https://github.com/jiang198012/workbuddian) — it helps more people discover it.**
 
@@ -285,12 +290,6 @@ npm test       # 运行测试
 如果你在 **Obsidian** 里用 **Claude Code**，也许见过 **Claudian**——Workbuddian 就是面向 **WorkBuddy / CodeBuddy** CLI 的同类：把这个本地编程 agent 变成 vault 内的聊天面板。思路一致（让 CLI agent 住进笔记），后端不同。
 
 ---
-
-## Credits / 致谢
-
-UI references Claudian (MIT) for design patterns only — no code copied. See `LICENSE` / `NOTICE`. Maintained independently.
-
-UI 参考 Claudian（MIT，仅设计模式，无代码拷贝）。见 `LICENSE` / `NOTICE`。独立维护。
 
 ## License
 
