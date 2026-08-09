@@ -4,7 +4,9 @@
 
 <p align="center">
   <a href="https://github.com/jiang198012/workbuddian/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/jiang198012/workbuddian?sort=semver"></a>
+  <a href="https://github.com/jiang198012/workbuddian/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/jiang198012/workbuddian/total"></a>
   <a href="https://github.com/jiang198012/workbuddian/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jiang198012/workbuddian/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://obsidian.md/plugins?id=workbuddian"><img alt="Obsidian plugin" src="https://img.shields.io/badge/Obsidian-market-yellow"></a>
   <a href="https://github.com/jiang198012/workbuddian/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/jiang198012/workbuddian?style=flat&logo=github"></a>
   <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
 </p>
@@ -12,6 +14,15 @@
 <p align="center">
   <strong>简体中文</strong> | <a href="./README.en.md">English</a>
 </p>
+
+<!--
+project: Workbuddian
+domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent
+audience: Obsidian 中文用户(桌面端, Windows/macOS)
+runtime: Obsidian 1.7.2+, CodeBuddy CLI, Node.js
+status: stable (v2.1.0)
+license: MIT
+-->
 
 **Workbuddian** 是一个 **Obsidian 社区插件**，把本地 **CodeBuddy CLI** 变成你笔记里的 **AI 聊天助手**——不用切窗口，直接在 Vault 里聊天、`@` 引用笔记、流式回复、改稿。
 
