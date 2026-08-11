@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.2.3 — 2026-08-11
+
+修复：完全访问模式仍弹批准卡（WB-R2-001，历史 P0）。
+
+- 根因：CLI 侧 mode=bypassPermissions 已生效，但工具链仍发权限请求，插件无自动批准逻辑照样弹卡。
+- 修复：bypass 模式自动选 allow_always（无则 allow_once）响应，不再弹卡；rawInput 快照仍采集，diff/撤销不丢。
+- 新增 2 个测试；646 全绿；真实 CLI 实测（触发 Read 工具，批准卡 0）。
+
 ## v2.2.2 — 2026-08-11
 
 修复：manifest description 不合规（Obsidian 市场审核）。
