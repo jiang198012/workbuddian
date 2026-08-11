@@ -274,6 +274,21 @@ export class AcpSession {
             this.client.respond(requestId, buildPermissionResult(pickOptionId(data.options, 'reject') ?? 'reject'));
             return;
         }
+        // 完全访问（bypassPermissions）：CLI 侧 mode 虽已生效，但部分工具链仍会发权限请求
+        // （历史 WB-R2-001：完全访问仍弹 Write/Edit 批准卡）。这里兜底自动选 allow_always，
+        // 不再弹卡；rawInput 快照已在上方采集，diff/撤销数据不受影响。
+        if (this.config.mode === 'bypassPermissions') {
+            const allowAlways = pickOptionId(data.options, 'allow_always');
+            if (allowAlways) {
+                this.client.respond(requestId, buildPermissionResult(allowAlways));
+                return;
+            }
+            const allowOnce = pickOptionId(data.options, 'allow_once');
+            if (allowOnce) {
+                this.client.respond(requestId, buildPermissionResult(allowOnce));
+                return;
+            }
+        }
         this.pendingPermissions.set(requestId, data);
         this.status = 'awaitingPermission';
         handlers.onPermissionRequest(data);

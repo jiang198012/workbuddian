@@ -1365,6 +1365,18 @@ var AcpSession = class {
       this.client.respond(requestId, buildPermissionResult((_a = pickOptionId(data.options, "reject")) != null ? _a : "reject"));
       return;
     }
+    if (this.config.mode === "bypassPermissions") {
+      const allowAlways = pickOptionId(data.options, "allow_always");
+      if (allowAlways) {
+        this.client.respond(requestId, buildPermissionResult(allowAlways));
+        return;
+      }
+      const allowOnce = pickOptionId(data.options, "allow_once");
+      if (allowOnce) {
+        this.client.respond(requestId, buildPermissionResult(allowOnce));
+        return;
+      }
+    }
     this.pendingPermissions.set(requestId, data);
     this.status = "awaitingPermission";
     handlers.onPermissionRequest(data);

@@ -648,4 +648,48 @@ describe('AcpSession.prompt images', () => {
         const call = client.request.mock.calls.find((c) => c[0] === 'session/prompt');
         expect(call![1].prompt).toEqual([{ type: 'text', text: '纯文本' }]);
     });
+
+    it('bypassPermissions auto-approves permission requests (allow_always, no card)', async () => {
+        // WB-R2-001：完全访问仍弹 Write/Edit 批准卡。bypass 模式应自动 allow_always，不弹卡。
+        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
+        const s = new AcpSession('k', client, lookup, { model: '', mode: 'bypassPermissions' });
+        await s.ensureLoaded('/v');
+        const handlers = makeHandlers();
+        const done = s.prompt('write file', handlers);
+        s.handlePermissionRequest(0, {
+            sessionId: 'acp-stored',
+            options: [
+                { kind: 'allow_always', name: 'Always Allow', optionId: 'allow_always' },
+                { kind: 'reject', name: 'Reject', optionId: 'reject' },
+            ],
+            toolCall: { toolCallId: 'c1', rawInput: { file_path: 'a.md', content: 'x' } },
+        });
+        // 不弹卡:onPermissionRequest 不被调用
+        expect(handlers.onPermissionRequest).not.toHaveBeenCalled();
+        // 自动应答 allow_always
+        const respond = client.respond.mock.calls.find((c) => c[0] === 0);
+        expect(respond).toBeTruthy();
+        expect(respond![1]).toEqual({ outcome: { outcome: 'selected', optionId: 'allow_always' } });
+        // 状态不进入 awaitingPermission
+        expect(s.status).not.toBe('awaitingPermission');
+        // rawInput 快照仍采集(diff 数据不丢)
+        await done; // prompt 正常结束
+    });
+
+    it('bypassPermissions falls back to allow_once when no allow_always option', async () => {
+        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
+        const s = new AcpSession('k', client, lookup, { model: '', mode: 'bypassPermissions' });
+        await s.ensureLoaded('/v');
+        const handlers = makeHandlers();
+        void s.prompt('bash', handlers);
+        s.handlePermissionRequest(0, {
+            sessionId: 'acp-stored',
+            options: [{ kind: 'allow_once', name: 'Allow', optionId: 'allow' }, { kind: 'reject', name: 'Reject', optionId: 'reject' }],
+        });
+        expect(handlers.onPermissionRequest).not.toHaveBeenCalled();
+        const respond = client.respond.mock.calls.find((c) => c[0] === 0);
+        expect(respond![1]).toEqual({ outcome: { outcome: 'selected', optionId: 'allow' } });
+    });
 });
