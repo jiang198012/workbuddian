@@ -6,7 +6,7 @@ import { extractMcpNames } from '../../shared/mcpServers';
 import { shouldSendMessage, isActivationKey, nextSuggestIndex } from '../../shared/inputKeys';
 import { assembleContextText } from '../../core/context/assembleContext';
 import type { WorkbuddianChatView } from './view';
-import { renderMessages, renderMarkdownContent, scrollToBottom } from './render';
+import { renderMessages, renderMarkdownContent, scrollToBottom, renderCopyButton } from './render';
 import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
 import { findTemplate, filterTemplates } from '../../shared/promptTemplates';
@@ -1245,6 +1245,13 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         // 兜底、拒绝终态或上面的空态兜底文案时，bubble 里还没有对应内容，才需要在这里补渲染一次。
         if (!textContent) {
             await renderMarkdownContent(view, streamingBubble, displayContent);
+        }
+
+        // 补复制按钮：本行是 isWaiting=true 时创建的（不渲染按钮），C1 又跳过了 renderMessages 整体重建，
+        // 流式结束后这里补上，与其它消息一致（已存在则不重复添加）
+        const msgRow = streamingBubble.closest('.workbuddian-message-assistant') as HTMLElement | null;
+        if (msgRow && !msgRow.querySelector('.workbuddian-message-actions')) {
+            renderCopyButton(msgRow, displayContent);
         }
 
         // 清理占位的思考指示器：正常情况下已在首个 chunk 到达时移除（见上方 firstChunk 分支），

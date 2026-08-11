@@ -104,7 +104,7 @@ function renderNameChip(chip: HTMLElement, name: string) {
 }
 
 /** 在消息行底部加「复制」按钮（默认隐藏，hover 行浮出）；点击复制该消息原始文本 */
-function renderCopyButton(row: HTMLElement, content: string) {
+export function renderCopyButton(row: HTMLElement, content: string) {
     const actions = row.createDiv({ cls: 'workbuddian-message-actions' });
     const copyBtn = actions.createEl('button', {
         cls: 'workbuddian-message-action-btn',

@@ -3780,6 +3780,10 @@ async function sendText(view, text, permissionModeOverride) {
     if (!textContent) {
       await renderMarkdownContent(view, streamingBubble, displayContent);
     }
+    const msgRow = streamingBubble.closest(".workbuddian-message-assistant");
+    if (msgRow && !msgRow.querySelector(".workbuddian-message-actions")) {
+      renderCopyButton(msgRow, displayContent);
+    }
     const thinkingPlaceholder = streamingBubble.querySelector(".workbuddian-thinking");
     if (thinkingPlaceholder instanceof HTMLElement) {
       thinkingPlaceholder.remove();
