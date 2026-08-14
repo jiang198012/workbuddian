@@ -269,6 +269,7 @@ var init_i18n = __esm({
       "cmd.openChat": { zh: "\u6253\u5F00\u804A\u5929\u9762\u677F", en: "Open chat panel" },
       "cmd.openChatMainPane": { zh: "\u5728\u4E3B\u7F16\u8F91\u533A\u6253\u5F00\u5927\u9762\u677F", en: "Open large panel in main area" },
       "cmd.inlineEdit": { zh: "\u7528 CodeBuddy \u7F16\u8F91\u9009\u533A", en: "Edit selection with CodeBuddy" },
+      "cmd.inlineEditFloating": { zh: "\u6D6E\u52A8\u5185\u8054\u7F16\u8F91\u9009\u533A", en: "Floating inline edit selection" },
       "cmd.newChat": { zh: "\u65B0\u5EFA\u5BF9\u8BDD", en: "New conversation" },
       "cmd.editInstruction": { zh: "\u7F16\u8F91\u5E38\u9A7B\u6307\u4EE4", en: "Edit persistent instruction" },
       "cmd.openSettings": { zh: "\u6253\u5F00 Workbuddian \u8BBE\u7F6E", en: "Open Workbuddian settings" },
@@ -353,7 +354,7 @@ __export(main_exports, {
   default: () => WorkbuddianPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian13 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 
 // src/shared/cliOptions.ts
 var MODEL_OPTIONS = {
@@ -5587,9 +5588,133 @@ function runInlineEdit(app, api, editor, vaultPath) {
   }).open();
 }
 
+// src/features/inline-edit/floatingEdit.ts
+var import_obsidian13 = require("obsidian");
+init_i18n();
+function getCMView(editor) {
+  const cm = editor.cm;
+  return cm && typeof cm.coordsAtPos === "function" ? cm : null;
+}
+async function collectEditResult2(api, sessionId, prompt, vaultPath) {
+  let text = "";
+  for await (const chunk of api.sendMessage(sessionId, prompt, vaultPath)) {
+    if (chunk.type === "text")
+      text += chunk.content;
+    if (chunk.type === "error")
+      throw new Error(chunk.content);
+  }
+  return text.trim();
+}
+var FloatingInlineEdit = class {
+  constructor(api, editor, vaultPath) {
+    this.api = api;
+    this.editor = editor;
+    this.vaultPath = vaultPath;
+    this.el = null;
+    this.diffEl = null;
+  }
+  /** 在当前选区上方打开浮动工具条;无选区则不动作 */
+  open() {
+    const selection = this.editor.getSelection();
+    if (!selection.trim()) {
+      new import_obsidian13.Notice(t("inline.selectFirst"));
+      return false;
+    }
+    const cm = getCMView(this.editor);
+    if (!cm) {
+      new import_obsidian13.Notice(t("inline.editFailed"));
+      return false;
+    }
+    const from = this.editor.getCursor("from");
+    const pos = cm.state.doc.length === 0 ? 0 : Math.min(this.cursorToPos(from), cm.state.doc.length);
+    const coords = cm.coordsAtPos(pos, 1);
+    if (!coords) {
+      new import_obsidian13.Notice(t("inline.editFailed"));
+      return false;
+    }
+    this.close();
+    this.el = document.body.createDiv({ cls: "workbuddian-floating-edit" });
+    this.el.style.left = `${coords.left}px`;
+    this.el.style.top = `${coords.top - 40}px`;
+    const input = this.el.createEl("input", {
+      type: "text",
+      cls: "workbuddian-floating-edit-input",
+      attr: { placeholder: t("inline.instructionPlaceholder") }
+    });
+    const confirmBtn = this.el.createEl("button", { text: t("inline.editBtn"), cls: "workbuddian-floating-edit-btn mod-cta" });
+    const cancelBtn = this.el.createEl("button", { text: t("inline.reject"), cls: "workbuddian-floating-edit-btn" });
+    confirmBtn.onclick = () => void this.run(selection, input.value.trim());
+    cancelBtn.onclick = () => this.close();
+    input.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        void this.run(selection, input.value.trim());
+      }
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        this.close();
+      }
+    };
+    setTimeout(() => input.focus(), 50);
+    return true;
+  }
+  /** 调 CLI 编辑,完成后就地显示 diff 预览 */
+  async run(selection, instruction) {
+    if (!instruction) {
+      new import_obsidian13.Notice(t("inline.instructionRequired"));
+      return;
+    }
+    if (!this.el)
+      return;
+    this.el.empty();
+    this.el.createSpan({ text: t("inline.editing"), cls: "workbuddian-floating-edit-loading" });
+    try {
+      const edited = await collectEditResult2(this.api, this.api.generateId(), buildEditPrompt(selection, instruction), this.vaultPath);
+      if (!edited) {
+        this.close();
+        new import_obsidian13.Notice(t("inline.noResult"));
+        return;
+      }
+      this.showDiff(selection, edited);
+    } catch (e) {
+      this.close();
+      new import_obsidian13.Notice(t("inline.editFailed") + (e instanceof Error ? e.message : String(e)));
+    }
+  }
+  /** 就地 diff 预览:选区上方显示 diff,确认接受则替换选区 */
+  showDiff(selection, edited) {
+    if (!this.el)
+      return;
+    this.el.empty();
+    this.diffEl = this.el.createDiv({ cls: "workbuddian-floating-edit-diff" });
+    renderDiffRows(this.diffEl, lineDiff(selection, edited));
+    const row = this.el.createDiv({ cls: "workbuddian-floating-edit-actions" });
+    row.createEl("button", { text: t("inline.accept"), cls: "mod-cta" }).onclick = () => {
+      this.editor.replaceSelection(edited);
+      this.close();
+    };
+    row.createEl("button", { text: t("inline.reject") }).onclick = () => this.close();
+  }
+  close() {
+    var _a;
+    (_a = this.el) == null ? void 0 : _a.remove();
+    this.el = null;
+    this.diffEl = null;
+  }
+  /** 把 Obsidian EditorPosition 转 CM 文档偏移(line/ch 线性化) */
+  cursorToPos(pos) {
+    var _a, _b;
+    let offset = 0;
+    for (let i = 0; i < pos.line; i++) {
+      offset += ((_b = (_a = this.editor.getLine(i)) == null ? void 0 : _a.length) != null ? _b : 0) + 1;
+    }
+    return offset + pos.ch;
+  }
+};
+
 // src/main.ts
 init_i18n();
-var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
+var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
   constructor() {
     super(...arguments);
     this.chatView = null;
@@ -5621,7 +5746,7 @@ var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
       this.addSettingTab(new WorkbuddianSettingTab(this.app, this));
     } catch (e) {
       bbError("[WB] \u63D2\u4EF6\u52A0\u8F7D\u5931\u8D25:", e);
-      new import_obsidian13.Notice(t("cmd.loadFailed"));
+      new import_obsidian14.Notice(t("cmd.loadFailed"));
     }
   }
   onunload() {
@@ -5652,6 +5777,14 @@ var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
       editorCallback: (editor) => {
         const basePath = this.app.vault.adapter.basePath;
         runInlineEdit(this.app, this.api, editor, basePath);
+      }
+    });
+    this.addCommand({
+      id: "inline-edit-floating",
+      name: t("cmd.inlineEditFloating"),
+      editorCallback: (editor) => {
+        const basePath = this.app.vault.adapter.basePath;
+        new FloatingInlineEdit(this.api, editor, basePath).open();
       }
     });
     this.addCommand({
@@ -5698,7 +5831,7 @@ var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
         const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
         const view = leaf == null ? void 0 : leaf.view;
         if (!view) {
-          new import_obsidian13.Notice(t("cmd.openChatFirst"));
+          new import_obsidian14.Notice(t("cmd.openChatFirst"));
           return;
         }
         void this.exportCurrentChat(view);
@@ -5723,21 +5856,21 @@ var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
   async exportCurrentChat(view) {
     const conv = view.getActiveConversation();
     if (!conv || conv.messages.length === 0) {
-      new import_obsidian13.Notice(t("tabs.nothingToExport"));
+      new import_obsidian14.Notice(t("tabs.nothingToExport"));
       return;
     }
     const { formatConversationAsMarkdown: formatConversationAsMarkdown2 } = await Promise.resolve().then(() => (init_export(), export_exports));
     const markdown = formatConversationAsMarkdown2(conv);
     if (!markdown) {
-      new import_obsidian13.Notice(t("tabs.nothingToExport"));
+      new import_obsidian14.Notice(t("tabs.nothingToExport"));
       return;
     }
     const fileName = `${conv.title.replace(/[\\/:*?"<>|]/g, " ")}.md`;
     try {
       await this.app.vault.create(fileName, markdown);
-      new import_obsidian13.Notice(t("tabs.exportedAs").replace("{name}", fileName));
+      new import_obsidian14.Notice(t("tabs.exportedAs").replace("{name}", fileName));
     } catch (err) {
-      new import_obsidian13.Notice(t("tabs.exportFailed").replace("{err}", getErrorMessage(err)));
+      new import_obsidian14.Notice(t("tabs.exportFailed").replace("{err}", getErrorMessage(err)));
     }
   }
   /** 会话持久化单点：读出旧数据、换掉会话段、整体写回（管理器回调唯一入口） */
@@ -5778,11 +5911,11 @@ var WorkbuddianPlugin = class extends import_obsidian13.Plugin {
         await workspace.revealLeaf(leaf);
         workspace.setActiveLeaf(leaf, { focus: true });
       } else {
-        new import_obsidian13.Notice(t("cmd.cannotCreatePanel"));
+        new import_obsidian14.Notice(t("cmd.cannotCreatePanel"));
       }
     } catch (e) {
       bbError("[WB] \u6253\u5F00\u804A\u5929\u9762\u677F\u5931\u8D25:", e);
-      new import_obsidian13.Notice(errNotice);
+      new import_obsidian14.Notice(errNotice);
     }
   }
   async activateView() {

@@ -7,6 +7,7 @@ import { WorkbuddianSettingTab } from './features/settings/tab';
 import { registerWorkbuddianIcon, WORKBUDDIAN_ICON_ID } from './shared/icon';
 import { applyPrimaryColor } from './shared/primaryColor';
 import { runInlineEdit } from './features/inline-edit';
+import { FloatingInlineEdit } from './features/inline-edit/floatingEdit';
 import { createNewChat } from './features/chat/tabs';
 import { openInstructionModal } from './features/chat/instructionModal';
 import { applyLang, t } from './i18n';
@@ -86,6 +87,15 @@ export default class WorkbuddianPlugin extends Plugin {
             editorCallback: (editor) => {
                 const basePath = (this.app.vault.adapter as { basePath?: string }).basePath;
                 runInlineEdit(this.app, this.api, editor, basePath);
+            },
+        });
+        // 浮动内联编辑:选区上方出浮动工具条,就地改不弹窗
+        this.addCommand({
+            id: 'inline-edit-floating',
+            name: t('cmd.inlineEditFloating'),
+            editorCallback: (editor) => {
+                const basePath = (this.app.vault.adapter as { basePath?: string }).basePath;
+                new FloatingInlineEdit(this.api, editor, basePath).open();
             },
         });
 
