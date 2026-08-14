@@ -238,6 +238,9 @@ var init_i18n = __esm({
       "render.copyCode": { zh: "\u590D\u5236\u4EE3\u7801", en: "Copy code" },
       "render.copied": { zh: "\u5DF2\u590D\u5236", en: "Copied" },
       "render.copyFailed": { zh: "\u590D\u5236\u5931\u8D25", en: "Copy failed" },
+      "render.edit": { zh: "\u7F16\u8F91\u5E76\u91CD\u53D1", en: "Edit and resend" },
+      "render.regenerate": { zh: "\u91CD\u65B0\u751F\u6210", en: "Regenerate" },
+      "render.editResendHint": { zh: "\u5DF2\u8F7D\u5165\u539F\u6D88\u606F\uFF0C\u7F16\u8F91\u540E\u53D1\u9001", en: "Original loaded; edit and send" },
       "tabs.close": { zh: "\u5173\u95ED\u5BF9\u8BDD", en: "Close chat" },
       "tabs.searchPlaceholder": { zh: "\u641C\u7D22\u4F1A\u8BDD\u2026", en: "Search chats\u2026" },
       "tabs.rename": { zh: "\u91CD\u547D\u540D", en: "Rename" },
@@ -3867,6 +3870,44 @@ async function retryLastMessage(view) {
   await renderMessages(view);
   await sendText(view, text);
 }
+async function editAndResendMessage(view, msg) {
+  if (view.isStreaming)
+    return;
+  const conv = view.getActiveConversation();
+  if (!conv)
+    return;
+  view.manager.truncateToMessage(conv.id, msg.id, false);
+  await renderMessages(view);
+  view.inputEl.value = msg.content;
+  adjustTextareaHeight(view);
+  renderReferenceChips(view);
+  view.inputEl.focus();
+  new import_obsidian5.Notice(t("render.editResendHint"));
+}
+async function regenerateMessage(view, msg) {
+  if (view.isStreaming)
+    return;
+  const conv = view.getActiveConversation();
+  if (!conv)
+    return;
+  const messages = conv.messages;
+  const idx = messages.findIndex((m) => m.id === msg.id);
+  if (idx < 0)
+    return;
+  let userIdx = -1;
+  for (let i = idx - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      userIdx = i;
+      break;
+    }
+  }
+  if (userIdx < 0)
+    return;
+  const userText = messages[userIdx].content;
+  view.manager.truncateToMessage(conv.id, messages[userIdx].id, false);
+  await renderMessages(view);
+  await sendText(view, userText);
+}
 function openWorkbuddianSettings(view) {
   var _a, _b;
   const setting = view.app.setting;
@@ -3967,7 +4008,7 @@ async function renderMessage(view, msg) {
     bubble.createSpan({ text: msg.content });
   }
   if (!isWaiting && !msg.isError && msg.content) {
-    renderCopyButton(row, msg.content);
+    renderMessageActions(view, row, msg);
   }
   return row;
 }
@@ -4020,6 +4061,42 @@ function renderCopyButton(row, content) {
     }
   };
 }
+function renderMessageActions(view, row, msg) {
+  const actions = row.createDiv({ cls: "workbuddian-message-actions" });
+  const copyBtn = actions.createEl("button", {
+    cls: "workbuddian-message-action-btn",
+    attr: { "aria-label": t("render.copy"), title: t("render.copy") }
+  });
+  (0, import_obsidian6.setIcon)(copyBtn, "copy");
+  copyBtn.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(msg.content);
+      (0, import_obsidian6.setIcon)(copyBtn, "check");
+      copyBtn.setAttribute("title", t("render.copied"));
+      window.setTimeout(() => {
+        (0, import_obsidian6.setIcon)(copyBtn, "copy");
+        copyBtn.setAttribute("title", t("render.copy"));
+      }, 1500);
+    } catch (e) {
+      new import_obsidian6.Notice(t("render.copyFailed"));
+    }
+  };
+  if (msg.role === "user") {
+    const editBtn = actions.createEl("button", {
+      cls: "workbuddian-message-action-btn",
+      attr: { "aria-label": t("render.edit"), title: t("render.edit") }
+    });
+    (0, import_obsidian6.setIcon)(editBtn, "pencil");
+    editBtn.onclick = () => editAndResendMessage(view, msg);
+  } else {
+    const regenBtn = actions.createEl("button", {
+      cls: "workbuddian-message-action-btn",
+      attr: { "aria-label": t("render.regenerate"), title: t("render.regenerate") }
+    });
+    (0, import_obsidian6.setIcon)(regenBtn, "refresh-cw");
+    regenBtn.onclick = () => regenerateMessage(view, msg);
+  }
+}
 function renderThinkingIndicator(bubble) {
   const thinking = bubble.createDiv({ cls: "workbuddian-thinking" });
   thinking.createSpan({ cls: "workbuddian-thinking-text", text: t("render.thinking") });
@@ -4048,8 +4125,6 @@ function renderErrorCard(view, bubble, msg) {
 async function renderMarkdownContent(view, bubble, content) {
   if (!content)
     return;
-  const thinkingBlock = bubble.querySelector(".workbuddian-thinking-block");
-  const toolsBlock = bubble.querySelector(".workbuddian-tools-block");
   let markdownContainer = bubble.querySelector(".workbuddian-markdown-content");
   if (!(markdownContainer instanceof HTMLElement)) {
     markdownContainer = bubble.createDiv({ cls: "workbuddian-markdown-content" });
@@ -4829,6 +4904,24 @@ var ConversationManager = class {
     conv.updatedAt = Date.now();
     this.commit();
     return prev.content;
+  }
+  /**
+   * 截断会话到某条消息为止（含该条），删除其后的所有消息。
+   * 用于消息级操作：编辑已发（改完该条重发）/ 重新生成（截到该条前一条让 AI 重答）。
+   * 返回截断后的消息数；目标 id 不存在返回 null。
+   */
+  truncateToMessage(convId, msgId, inclusive = true) {
+    const conv = this.conversations.get(convId);
+    const messages = conv == null ? void 0 : conv.messages;
+    if (!conv || !messages)
+      return null;
+    const idx = messages.findIndex((m) => m.id === msgId);
+    if (idx < 0)
+      return null;
+    messages.length = inclusive ? idx + 1 : idx;
+    conv.updatedAt = Date.now();
+    this.commit();
+    return messages.length;
   }
   // ---- 持久化 ----
   setPersistCallback(callback) {

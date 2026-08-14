@@ -211,6 +211,23 @@ export class ConversationManager {
         return prev.content;
     }
 
+    /**
+     * 截断会话到某条消息为止（含该条），删除其后的所有消息。
+     * 用于消息级操作：编辑已发（改完该条重发）/ 重新生成（截到该条前一条让 AI 重答）。
+     * 返回截断后的消息数；目标 id 不存在返回 null。
+     */
+    truncateToMessage(convId: string, msgId: string, inclusive = true): number | null {
+        const conv = this.conversations.get(convId);
+        const messages = conv?.messages;
+        if (!conv || !messages) return null;
+        const idx = messages.findIndex((m) => m.id === msgId);
+        if (idx < 0) return null;
+        messages.length = inclusive ? idx + 1 : idx;
+        conv.updatedAt = Date.now();
+        this.commit();
+        return messages.length;
+    }
+
     // ---- 持久化 ----
 
     setPersistCallback(callback: (convs: Conversation[]) => Promise<void>) {

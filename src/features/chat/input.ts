@@ -1,5 +1,5 @@
 import { Menu, Notice, setIcon, setTooltip, TFile } from 'obsidian';
-import { getErrorMessage, DEFAULT_CONTEXT_WINDOW_SIZE } from '../../types';
+import { getErrorMessage, DEFAULT_CONTEXT_WINDOW_SIZE, type ChatMessage } from '../../types';
 import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shared/atReferences';
 import { parseAgentNames, parseMcpServerNames } from '../../shared/mentionSources';
 import { extractMcpNames } from '../../shared/mcpServers';
@@ -1329,6 +1329,47 @@ export async function retryLastMessage(view: WorkbuddianChatView) {
     if (!text) return;
     await renderMessages(view);
     await sendText(view, text);
+}
+
+/**
+ * 编辑已发的 user 消息并重发：截断该条及之后消息,把该条文本填入输入框等待编辑,用户改完发送。
+ * 不重发自动——用户先改再手动发(可调整/取消)。
+ */
+export async function editAndResendMessage(view: WorkbuddianChatView, msg: ChatMessage) {
+    if (view.isStreaming) return;
+    const conv = view.getActiveConversation();
+    if (!conv) return;
+    // 截断到该条(不含该条):删掉这条及之后,用户重新编辑这条的文本再发
+    view.manager.truncateToMessage(conv.id, msg.id, false);
+    await renderMessages(view);
+    // 把原文填入输入框等待编辑
+    view.inputEl.value = msg.content;
+    adjustTextareaHeight(view);
+    renderReferenceChips(view);
+    view.inputEl.focus();
+    new Notice(t('render.editResendHint'));
+}
+
+/** 重新生成某条 assistant 消息:截到该条前一条,基于上文让 AI 重答 */
+export async function regenerateMessage(view: WorkbuddianChatView, msg: ChatMessage) {
+    if (view.isStreaming) return;
+    const conv = view.getActiveConversation();
+    if (!conv) return;
+    // 找到该 assistant 消息前最近的 user 消息,截断到 user 消息(含),让 AI 重答
+    const messages = conv.messages;
+    const idx = messages.findIndex((m) => m.id === msg.id);
+    if (idx < 0) return;
+    // 从目标 assistant 往前找最近的 user 消息
+    let userIdx = -1;
+    for (let i = idx - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') { userIdx = i; break; }
+    }
+    if (userIdx < 0) return; // 没有上文 user 消息,无法重新生成
+    const userText = messages[userIdx].content;
+    // 截断到 user 消息(不含该条之后的),然后用该 user 文本重发
+    view.manager.truncateToMessage(conv.id, messages[userIdx].id, false);
+    await renderMessages(view);
+    await sendText(view, userText);
 }
 
 /** 打开 Workbuddian 设置页（Obsidian 私有 API，缺失时静默） */

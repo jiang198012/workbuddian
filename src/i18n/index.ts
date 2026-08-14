@@ -215,6 +215,9 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'render.copyCode': { zh: '复制代码', en: 'Copy code' },
     'render.copied': { zh: '已复制', en: 'Copied' },
     'render.copyFailed': { zh: '复制失败', en: 'Copy failed' },
+    'render.edit': { zh: '编辑并重发', en: 'Edit and resend' },
+    'render.regenerate': { zh: '重新生成', en: 'Regenerate' },
+    'render.editResendHint': { zh: '已载入原消息，编辑后发送', en: 'Original loaded; edit and send' },
 
     'tabs.close': { zh: '关闭对话', en: 'Close chat' },
     'tabs.searchPlaceholder': { zh: '搜索会话…', en: 'Search chats…' },

@@ -1,7 +1,7 @@
 import { MarkdownRenderer, Notice, setIcon } from 'obsidian';
 import type { ChatMessage } from '../../types';
 import type { WorkbuddianChatView } from './view';
-import { retryLastMessage, openWorkbuddianSettings, thumbSrc, renderContextUsage, adjustTextareaHeight } from './input';
+import { retryLastMessage, openWorkbuddianSettings, thumbSrc, renderContextUsage, adjustTextareaHeight, editAndResendMessage, regenerateMessage } from './input';
 import { ensureTableBlankLines } from '../../shared/tableNormalize';
 import { fileBasename, isAbsolutePath } from '../../shared/attachments';
 import { isImagePath } from '../../shared/imageStore';
@@ -64,9 +64,9 @@ export async function renderMessage(view: WorkbuddianChatView, msg: ChatMessage)
         bubble.createSpan({ text: msg.content });
     }
 
-    // 复制按钮：有内容且非等待/错误的消息，hover 整行时浮出
+    // 消息操作区：复制 + 编辑(user)/ 重新生成(assistant)，hover 整行时浮出
     if (!isWaiting && !msg.isError && msg.content) {
-        renderCopyButton(row, msg.content);
+        renderMessageActions(view, row, msg);
     }
     return row;
 }
@@ -126,6 +126,51 @@ export function renderCopyButton(row: HTMLElement, content: string) {
     };
 }
 
+/**
+ * 消息操作区：复制 + 编辑(user)/ 重新生成(assistant)。
+ * 编辑:弹编辑框改文本,确认后截断该条及之后消息并重发;重生成:截到该条前,基于上文重答。
+ */
+export function renderMessageActions(view: WorkbuddianChatView, row: HTMLElement, msg: ChatMessage) {
+    const actions = row.createDiv({ cls: 'workbuddian-message-actions' });
+
+    // 复制
+    const copyBtn = actions.createEl('button', {
+        cls: 'workbuddian-message-action-btn',
+        attr: { 'aria-label': t('render.copy'), title: t('render.copy') }
+    });
+    setIcon(copyBtn, 'copy');
+    copyBtn.onclick = async () => {
+        try {
+            await navigator.clipboard.writeText(msg.content);
+            setIcon(copyBtn, 'check');
+            copyBtn.setAttribute('title', t('render.copied'));
+            window.setTimeout(() => {
+                setIcon(copyBtn, 'copy');
+                copyBtn.setAttribute('title', t('render.copy'));
+            }, 1500);
+        } catch {
+            new Notice(t('render.copyFailed'));
+        }
+    };
+
+    // user 消息:编辑(改完截断重发);assistant 消息:重新生成
+    if (msg.role === 'user') {
+        const editBtn = actions.createEl('button', {
+            cls: 'workbuddian-message-action-btn',
+            attr: { 'aria-label': t('render.edit'), title: t('render.edit') }
+        });
+        setIcon(editBtn, 'pencil');
+        editBtn.onclick = () => editAndResendMessage(view, msg);
+    } else {
+        const regenBtn = actions.createEl('button', {
+            cls: 'workbuddian-message-action-btn',
+            attr: { 'aria-label': t('render.regenerate'), title: t('render.regenerate') }
+        });
+        setIcon(regenBtn, 'refresh-cw');
+        regenBtn.onclick = () => regenerateMessage(view, msg);
+    }
+}
+
 export function renderThinkingIndicator(bubble: HTMLElement) {
     const thinking = bubble.createDiv({ cls: 'workbuddian-thinking' });
     thinking.createSpan({ cls: 'workbuddian-thinking-text', text: t('render.thinking') });
@@ -156,10 +201,6 @@ export function renderErrorCard(view: WorkbuddianChatView, bubble: HTMLElement, 
 
 export async function renderMarkdownContent(view: WorkbuddianChatView, bubble: HTMLElement, content: string): Promise<void> {
     if (!content) return;
-
-    // 保留已有的思考块和工具块
-    const thinkingBlock = bubble.querySelector('.workbuddian-thinking-block');
-    const toolsBlock = bubble.querySelector('.workbuddian-tools-block');
 
     // 查找或创建 Markdown 容器（复用已有容器避免频繁 DOM 创建）
     let markdownContainer = bubble.querySelector('.workbuddian-markdown-content');
