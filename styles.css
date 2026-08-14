@@ -874,6 +874,21 @@
     font-size: var(--font-ui-smaller);
     cursor: pointer;
 }
+.workbuddian-floating-edit-send {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    border-radius: var(--workbuddian-radius-sm);
+    background: var(--workbuddian-accent, var(--interactive-accent));
+    color: var(--text-on-accent);
+    cursor: pointer;
+}
+.workbuddian-floating-edit-send:hover { filter: brightness(1.1); }
+.workbuddian-floating-edit-send svg { width: 14px; height: 14px; }
 .workbuddian-floating-edit-loading { color: var(--text-muted); font-size: var(--font-ui-smaller); }
 .workbuddian-floating-edit-diff {
     max-height: 300px;

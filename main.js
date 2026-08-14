@@ -5612,6 +5612,7 @@ var FloatingInlineEdit = class {
     this.vaultPath = vaultPath;
     this.el = null;
     this.diffEl = null;
+    this.outsideClickHandler = null;
     /** 保存的选区(右键菜单触发时编辑器失焦选区被清,先存下来) */
     this.savedSel = null;
     this.savedSel = savedSel != null ? savedSel : null;
@@ -5639,6 +5640,7 @@ var FloatingInlineEdit = class {
       new import_obsidian13.Notice(t("inline.editFailed"));
       return false;
     }
+    this.editor.focus();
     this.close();
     this.el = document.body.createDiv({ cls: "workbuddian-floating-edit" });
     this.el.style.left = `${coords.left}px`;
@@ -5648,10 +5650,12 @@ var FloatingInlineEdit = class {
       cls: "workbuddian-floating-edit-input",
       attr: { placeholder: t("inline.instructionPlaceholder") }
     });
-    const confirmBtn = this.el.createEl("button", { text: t("inline.editBtn"), cls: "workbuddian-floating-edit-btn mod-cta" });
-    const cancelBtn = this.el.createEl("button", { text: t("inline.reject"), cls: "workbuddian-floating-edit-btn" });
-    confirmBtn.onclick = () => void this.run(selection, input.value.trim());
-    cancelBtn.onclick = () => this.close();
+    const sendBtn = this.el.createEl("button", {
+      cls: "workbuddian-floating-edit-send",
+      attr: { "aria-label": t("inline.editBtn"), title: t("inline.editBtn") }
+    });
+    (0, import_obsidian13.setIcon)(sendBtn, "send");
+    sendBtn.onclick = () => void this.run(selection, input.value.trim());
     input.onkeydown = (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -5662,6 +5666,11 @@ var FloatingInlineEdit = class {
         this.close();
       }
     };
+    this.outsideClickHandler = (e) => {
+      if (this.el && !this.el.contains(e.target))
+        this.close();
+    };
+    setTimeout(() => document.addEventListener("mousedown", this.outsideClickHandler), 100);
     setTimeout(() => input.focus(), 50);
     return true;
   }
@@ -5704,6 +5713,10 @@ var FloatingInlineEdit = class {
   }
   close() {
     var _a;
+    if (this.outsideClickHandler) {
+      document.removeEventListener("mousedown", this.outsideClickHandler);
+      this.outsideClickHandler = null;
+    }
     (_a = this.el) == null ? void 0 : _a.remove();
     this.el = null;
     this.diffEl = null;

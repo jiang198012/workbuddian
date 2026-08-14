@@ -4,7 +4,7 @@
  *
  * 复用现有 inline-edit 的 buildEditPrompt/lineDiff/renderDiffRows,只是交互从弹窗改浮动。
  */
-import { Editor, Notice } from 'obsidian';
+import { Editor, Notice, setIcon } from 'obsidian';
 import type { CodebuddyProvider } from '../../providers/codebuddy';
 import { lineDiff } from '../../shared/lineDiff';
 import { renderDiffRows } from '../../shared/diffRows';
@@ -35,6 +35,7 @@ async function collectEditResult(api: CodebuddyProvider, sessionId: string, prom
 export class FloatingInlineEdit {
     private el: HTMLElement | null = null;
     private diffEl: HTMLElement | null = null;
+    private outsideClickHandler: ((e: MouseEvent) => void) | null = null;
     /** 保存的选区(右键菜单触发时编辑器失焦选区被清,先存下来) */
     private savedSel: { from: { line: number; ch: number }; to: { line: number; ch: number }; text: string } | null = null;
 
@@ -66,6 +67,9 @@ export class FloatingInlineEdit {
         const coords = cm.coordsAtPos(pos, 1);
         if (!coords) { new Notice(t('inline.editFailed')); return false; }
 
+        // 恢复选区后强制聚焦编辑器,让选区真正高亮可见(失焦时 setSelection 不更新视觉)
+        this.editor.focus();
+
         this.close(); // 清掉已有工具条
         this.el = document.body.createDiv({ cls: 'workbuddian-floating-edit' });
         this.el.style.left = `${coords.left}px`;
@@ -76,15 +80,23 @@ export class FloatingInlineEdit {
             cls: 'workbuddian-floating-edit-input',
             attr: { placeholder: t('inline.instructionPlaceholder') },
         });
-        const confirmBtn = this.el.createEl('button', { text: t('inline.editBtn'), cls: 'workbuddian-floating-edit-btn mod-cta' });
-        const cancelBtn = this.el.createEl('button', { text: t('inline.reject'), cls: 'workbuddian-floating-edit-btn' });
+        // 纸飞机发送按钮(代替文字按钮,更简洁);Esc/点击外部关闭,无需「拒绝」
+        const sendBtn = this.el.createEl('button', {
+            cls: 'workbuddian-floating-edit-send',
+            attr: { 'aria-label': t('inline.editBtn'), title: t('inline.editBtn') },
+        });
+        setIcon(sendBtn, 'send');
 
-        confirmBtn.onclick = () => void this.run(selection, input.value.trim());
-        cancelBtn.onclick = () => this.close();
+        sendBtn.onclick = () => void this.run(selection, input.value.trim());
         input.onkeydown = (e) => {
             if (e.key === 'Enter') { e.preventDefault(); void this.run(selection, input.value.trim()); }
             if (e.key === 'Escape') { e.stopPropagation(); this.close(); }
         };
+        // 点击工具条外部关闭(无需「拒绝」按钮)
+        this.outsideClickHandler = (e: MouseEvent) => {
+            if (this.el && !this.el.contains(e.target as Node)) this.close();
+        };
+        setTimeout(() => document.addEventListener('mousedown', this.outsideClickHandler), 100);
         setTimeout(() => input.focus(), 50);
         return true;
     }
@@ -120,6 +132,10 @@ export class FloatingInlineEdit {
     }
 
     close() {
+        if (this.outsideClickHandler) {
+            document.removeEventListener('mousedown', this.outsideClickHandler);
+            this.outsideClickHandler = null;
+        }
         this.el?.remove();
         this.el = null;
         this.diffEl = null;
