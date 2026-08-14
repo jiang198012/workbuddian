@@ -220,6 +220,13 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'render.edit': { zh: '编辑并重发', en: 'Edit and resend' },
     'render.regenerate': { zh: '重新生成', en: 'Regenerate' },
     'render.editResendHint': { zh: '已载入原消息，编辑后发送', en: 'Original loaded; edit and send' },
+    'render.insertToNote': { zh: '插入到当前笔记', en: 'Insert into current note' },
+    'render.noActiveNote': { zh: '没有打开的笔记', en: 'No note open' },
+    'render.inserted': { zh: '已插入', en: 'Inserted' },
+    'render.insertFailed': { zh: '插入失败：', en: 'Insert failed: ' },
+    'render.saveAsNote': { zh: '保存为新笔记', en: 'Save as new note' },
+    'render.savedAs': { zh: '已保存为 {name}', en: 'Saved as {name}' },
+    'render.saveFailed': { zh: '保存失败：', en: 'Save failed: ' },
 
     'tabs.close': { zh: '关闭对话', en: 'Close chat' },
     'tabs.searchPlaceholder': { zh: '搜索会话…', en: 'Search chats…' },

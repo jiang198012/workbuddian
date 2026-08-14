@@ -254,13 +254,15 @@ export async function renderMarkdownContent(view: WorkbuddianChatView, bubble: H
         pre.before(wrap); // 把 pre 移进 wrap
         wrap.appendChild(pre);
 
+        const code = pre.textContent ?? '';
+
+        // 复制按钮
         const btn = wrap.createEl('button', {
             cls: 'workbuddian-code-copy-btn',
             attr: { 'aria-label': t('render.copyCode'), title: t('render.copyCode') }
         });
         setIcon(btn, 'copy');
         btn.onclick = async () => {
-            const code = pre.textContent ?? '';
             try {
                 await navigator.clipboard.writeText(code);
                 setIcon(btn, 'check');
@@ -271,6 +273,45 @@ export async function renderMarkdownContent(view: WorkbuddianChatView, bubble: H
                 }, 1500);
             } catch {
                 new Notice(t('render.copyFailed'));
+            }
+        };
+
+        // 插入到当前笔记(追加到当前打开的笔记末尾)
+        const insertBtn = wrap.createEl('button', {
+            cls: 'workbuddian-code-copy-btn workbuddian-code-insert-btn',
+            attr: { 'aria-label': t('render.insertToNote'), title: t('render.insertToNote') }
+        });
+        setIcon(insertBtn, 'file-input');
+        insertBtn.onclick = async () => {
+            const file = view.app.workspace.getActiveFile();
+            if (!file) { new Notice(t('render.noActiveNote')); return; }
+            try {
+                await view.app.vault.append(file, `\n\n${code}\n`);
+                setIcon(insertBtn, 'check');
+                insertBtn.setAttribute('title', t('render.inserted'));
+                window.setTimeout(() => {
+                    setIcon(insertBtn, 'file-input');
+                    insertBtn.setAttribute('title', t('render.insertToNote'));
+                }, 1500);
+            } catch (e) {
+                new Notice(t('render.insertFailed') + (e instanceof Error ? e.message : String(e)));
+            }
+        };
+
+        // 保存为新笔记
+        const saveBtn = wrap.createEl('button', {
+            cls: 'workbuddian-code-copy-btn workbuddian-code-save-btn',
+            attr: { 'aria-label': t('render.saveAsNote'), title: t('render.saveAsNote') }
+        });
+        setIcon(saveBtn, 'file-plus');
+        saveBtn.onclick = async () => {
+            const date = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+            const fileName = `workbuddian-代码-${date}.md`;
+            try {
+                await view.app.vault.create(fileName, code);
+                new Notice(t('render.savedAs').replace('{name}', fileName));
+            } catch (e) {
+                new Notice(t('render.saveFailed') + (e instanceof Error ? e.message : String(e)));
             }
         };
     });

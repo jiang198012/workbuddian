@@ -385,6 +385,10 @@
 .workbuddian-code-copy-btn:hover { color: var(--text-normal); }
 .workbuddian-code-copy-btn .svg-icon { width: 13px; height: 13px; }
 
+/* 插入/保存按钮:排在复制按钮左边 */
+.workbuddian-code-insert-btn { right: 32px; }
+.workbuddian-code-save-btn { right: 59px; }
+
 .workbuddian-message-action-btn {
     display: inline-flex;
     align-items: center;

@@ -243,6 +243,13 @@ var init_i18n = __esm({
       "render.edit": { zh: "\u7F16\u8F91\u5E76\u91CD\u53D1", en: "Edit and resend" },
       "render.regenerate": { zh: "\u91CD\u65B0\u751F\u6210", en: "Regenerate" },
       "render.editResendHint": { zh: "\u5DF2\u8F7D\u5165\u539F\u6D88\u606F\uFF0C\u7F16\u8F91\u540E\u53D1\u9001", en: "Original loaded; edit and send" },
+      "render.insertToNote": { zh: "\u63D2\u5165\u5230\u5F53\u524D\u7B14\u8BB0", en: "Insert into current note" },
+      "render.noActiveNote": { zh: "\u6CA1\u6709\u6253\u5F00\u7684\u7B14\u8BB0", en: "No note open" },
+      "render.inserted": { zh: "\u5DF2\u63D2\u5165", en: "Inserted" },
+      "render.insertFailed": { zh: "\u63D2\u5165\u5931\u8D25\uFF1A", en: "Insert failed: " },
+      "render.saveAsNote": { zh: "\u4FDD\u5B58\u4E3A\u65B0\u7B14\u8BB0", en: "Save as new note" },
+      "render.savedAs": { zh: "\u5DF2\u4FDD\u5B58\u4E3A {name}", en: "Saved as {name}" },
+      "render.saveFailed": { zh: "\u4FDD\u5B58\u5931\u8D25\uFF1A", en: "Save failed: " },
       "tabs.close": { zh: "\u5173\u95ED\u5BF9\u8BDD", en: "Close chat" },
       "tabs.searchPlaceholder": { zh: "\u641C\u7D22\u4F1A\u8BDD\u2026", en: "Search chats\u2026" },
       "tabs.rename": { zh: "\u91CD\u547D\u540D", en: "Rename" },
@@ -2539,6 +2546,7 @@ async function renderMarkdownContent(view, bubble, content) {
     view.markdownComponent
   );
   markdownContainer.querySelectorAll("pre").forEach((pre) => {
+    var _a;
     if (!(pre instanceof HTMLElement))
       return;
     if (pre.querySelector(".workbuddian-code-copy-wrap"))
@@ -2546,14 +2554,13 @@ async function renderMarkdownContent(view, bubble, content) {
     const wrap = pre.createDiv({ cls: "workbuddian-code-copy-wrap" });
     pre.before(wrap);
     wrap.appendChild(pre);
+    const code = (_a = pre.textContent) != null ? _a : "";
     const btn = wrap.createEl("button", {
       cls: "workbuddian-code-copy-btn",
       attr: { "aria-label": t("render.copyCode"), title: t("render.copyCode") }
     });
     (0, import_obsidian2.setIcon)(btn, "copy");
     btn.onclick = async () => {
-      var _a;
-      const code = (_a = pre.textContent) != null ? _a : "";
       try {
         await navigator.clipboard.writeText(code);
         (0, import_obsidian2.setIcon)(btn, "check");
@@ -2564,6 +2571,47 @@ async function renderMarkdownContent(view, bubble, content) {
         }, 1500);
       } catch (e) {
         new import_obsidian2.Notice(t("render.copyFailed"));
+      }
+    };
+    const insertBtn = wrap.createEl("button", {
+      cls: "workbuddian-code-copy-btn workbuddian-code-insert-btn",
+      attr: { "aria-label": t("render.insertToNote"), title: t("render.insertToNote") }
+    });
+    (0, import_obsidian2.setIcon)(insertBtn, "file-input");
+    insertBtn.onclick = async () => {
+      const file = view.app.workspace.getActiveFile();
+      if (!file) {
+        new import_obsidian2.Notice(t("render.noActiveNote"));
+        return;
+      }
+      try {
+        await view.app.vault.append(file, `
+
+${code}
+`);
+        (0, import_obsidian2.setIcon)(insertBtn, "check");
+        insertBtn.setAttribute("title", t("render.inserted"));
+        window.setTimeout(() => {
+          (0, import_obsidian2.setIcon)(insertBtn, "file-input");
+          insertBtn.setAttribute("title", t("render.insertToNote"));
+        }, 1500);
+      } catch (e) {
+        new import_obsidian2.Notice(t("render.insertFailed") + (e instanceof Error ? e.message : String(e)));
+      }
+    };
+    const saveBtn = wrap.createEl("button", {
+      cls: "workbuddian-code-copy-btn workbuddian-code-save-btn",
+      attr: { "aria-label": t("render.saveAsNote"), title: t("render.saveAsNote") }
+    });
+    (0, import_obsidian2.setIcon)(saveBtn, "file-plus");
+    saveBtn.onclick = async () => {
+      const date = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      const fileName = `workbuddian-\u4EE3\u7801-${date}.md`;
+      try {
+        await view.app.vault.create(fileName, code);
+        new import_obsidian2.Notice(t("render.savedAs").replace("{name}", fileName));
+      } catch (e) {
+        new import_obsidian2.Notice(t("render.saveFailed") + (e instanceof Error ? e.message : String(e)));
       }
     };
   });
