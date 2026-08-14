@@ -248,7 +248,7 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'cmd.openChat': { zh: '打开聊天面板', en: 'Open chat panel' },
     'cmd.openChatMainPane': { zh: '在主编辑区打开大面板', en: 'Open large panel in main area' },
     'cmd.inlineEdit': { zh: '用 CodeBuddy 编辑选区', en: 'Edit selection with CodeBuddy' },
-    'cmd.inlineEditFloating': { zh: '浮动内联编辑选区', en: 'Floating inline edit selection' },
+    'cmd.inlineEditFloating': { zh: 'Workbuddian编辑', en: 'Workbuddian Edit' },
     'cmd.newChat': { zh: '新建对话', en: 'New conversation' },
     'cmd.editInstruction': { zh: '编辑常驻指令', en: 'Edit persistent instruction' },
     'cmd.openSettings': { zh: '打开 Workbuddian 设置', en: 'Open Workbuddian settings' },

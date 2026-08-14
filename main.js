@@ -269,7 +269,7 @@ var init_i18n = __esm({
       "cmd.openChat": { zh: "\u6253\u5F00\u804A\u5929\u9762\u677F", en: "Open chat panel" },
       "cmd.openChatMainPane": { zh: "\u5728\u4E3B\u7F16\u8F91\u533A\u6253\u5F00\u5927\u9762\u677F", en: "Open large panel in main area" },
       "cmd.inlineEdit": { zh: "\u7528 CodeBuddy \u7F16\u8F91\u9009\u533A", en: "Edit selection with CodeBuddy" },
-      "cmd.inlineEditFloating": { zh: "\u6D6E\u52A8\u5185\u8054\u7F16\u8F91\u9009\u533A", en: "Floating inline edit selection" },
+      "cmd.inlineEditFloating": { zh: "Workbuddian\u7F16\u8F91", en: "Workbuddian Edit" },
       "cmd.newChat": { zh: "\u65B0\u5EFA\u5BF9\u8BDD", en: "New conversation" },
       "cmd.editInstruction": { zh: "\u7F16\u8F91\u5E38\u9A7B\u6307\u4EE4", en: "Edit persistent instruction" },
       "cmd.openSettings": { zh: "\u6253\u5F00 Workbuddian \u8BBE\u7F6E", en: "Open Workbuddian settings" },
