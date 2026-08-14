@@ -93,11 +93,24 @@ export default class WorkbuddianPlugin extends Plugin {
         this.addCommand({
             id: 'inline-edit-floating',
             name: t('cmd.inlineEditFloating'),
+            // 快捷键:Cmd/Ctrl+Shift+E(可在 Obsidian 设置改)
+            hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'E' }],
             editorCallback: (editor) => {
                 const basePath = (this.app.vault.adapter as { basePath?: string }).basePath;
                 new FloatingInlineEdit(this.api, editor, basePath).open();
             },
         });
+
+        // 编辑器右键菜单:选中文字 → 右键 →「浮动内联编辑」(更人性化,不用开命令面板)
+        this.registerEvent(this.app.workspace.on('editor-menu', (menu, editor) => {
+            if (!editor.getSelection().trim()) return; // 无选区不加项
+            menu.addItem((item) =>
+                item.setTitle(t('cmd.inlineEditFloating')).setIcon('wand-2').onClick(() => {
+                    const basePath = (this.app.vault.adapter as { basePath?: string }).basePath;
+                    new FloatingInlineEdit(this.api, editor, basePath).open();
+                })
+            );
+        }));
 
         // 命令面板增强：常用操作快捷键级入口（A2）
         this.addCommand({

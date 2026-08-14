@@ -5782,11 +5782,23 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
     this.addCommand({
       id: "inline-edit-floating",
       name: t("cmd.inlineEditFloating"),
+      // 快捷键:Cmd/Ctrl+Shift+E(可在 Obsidian 设置改)
+      hotkeys: [{ modifiers: ["Mod", "Shift"], key: "E" }],
       editorCallback: (editor) => {
         const basePath = this.app.vault.adapter.basePath;
         new FloatingInlineEdit(this.api, editor, basePath).open();
       }
     });
+    this.registerEvent(this.app.workspace.on("editor-menu", (menu, editor) => {
+      if (!editor.getSelection().trim())
+        return;
+      menu.addItem(
+        (item) => item.setTitle(t("cmd.inlineEditFloating")).setIcon("wand-2").onClick(() => {
+          const basePath = this.app.vault.adapter.basePath;
+          new FloatingInlineEdit(this.api, editor, basePath).open();
+        })
+      );
+    }));
     this.addCommand({
       id: "new-chat",
       name: t("cmd.newChat"),
