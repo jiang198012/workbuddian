@@ -289,7 +289,7 @@ var init_i18n = __esm({
       "inline.accept": { zh: "\u63A5\u53D7", en: "Accept" },
       "inline.reject": { zh: "\u62D2\u7EDD", en: "Reject" },
       "inline.selectFirst": { zh: "\u8BF7\u5148\u9009\u4E2D\u4E00\u6BB5\u6587\u672C", en: "Please select some text first" },
-      "inline.editing": { zh: "CodeBuddy \u7F16\u8F91\u4E2D\u2026", en: "CodeBuddy is editing\u2026" },
+      "inline.editing": { zh: "AI \u7F16\u8F91\u4E2D\u2026", en: "AI is editing\u2026" },
       "inline.noResult": { zh: "\u672A\u83B7\u5F97\u7F16\u8F91\u7ED3\u679C", en: "No edit result returned" },
       "inline.editFailed": { zh: "\u7F16\u8F91\u5931\u8D25\uFF1A", en: "Edit failed: " },
       "slash.clear": { zh: "\u6E05\u7A7A\u5E76\u65B0\u5EFA\u5BF9\u8BDD\uFF08\u672C\u5730\uFF09", en: "Clear and start a new chat (local)" },

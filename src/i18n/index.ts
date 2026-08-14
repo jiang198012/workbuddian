@@ -269,7 +269,7 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'inline.accept': { zh: '接受', en: 'Accept' },
     'inline.reject': { zh: '拒绝', en: 'Reject' },
     'inline.selectFirst': { zh: '请先选中一段文本', en: 'Please select some text first' },
-    'inline.editing': { zh: 'CodeBuddy 编辑中…', en: 'CodeBuddy is editing…' },
+    'inline.editing': { zh: 'AI 编辑中…', en: 'AI is editing…' },
     'inline.noResult': { zh: '未获得编辑结果', en: 'No edit result returned' },
     'inline.editFailed': { zh: '编辑失败：', en: 'Edit failed: ' },
 
