@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI, Node.js
-status: stable (v2.3.0)
+status: stable (v2.3.1)
 license: MIT
 -->
 
@@ -191,8 +191,12 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 v2.3.0**
+**最新版本 v2.3.1**
 
+- **v2.3.1** — 批量导出 + 代码块进笔记 + 斜杠命令清理:
+  - 命令面板「导出所有会话为笔记」,一键备份全部对话
+  - 代码块 hover 出三按钮:复制 / 插入到当前笔记 / 保存为新笔记
+  - 斜杠命令删重复入口,CLI 透传命令补全带 `(CLI)` 标注
 - **v2.3.0** — 消息级操作 + 会话模板 + 浮动内联编辑:
   - 消息行 hover 出操作菜单:user「编辑并重发」/ assistant「重新生成」
   - 新建对话可选预设场景(写作/翻译/代码审查/笔记整理),自动带常驻指令 + 开场白
