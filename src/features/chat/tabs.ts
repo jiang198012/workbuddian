@@ -2,6 +2,8 @@ import { Notice, setIcon, Menu } from 'obsidian';
 import { getErrorMessage } from '../../types';
 import { formatConversationAsMarkdown } from '../../shared/export';
 import { isActivationKey } from '../../shared/inputKeys';
+import { CHAT_TEMPLATES, type ChatTemplate } from '../../shared/chatTemplates';
+import { adjustTextareaHeight } from './input';
 import { t } from '../../i18n';
 import type { WorkbuddianChatView } from './view';
 import { renderMessages } from './render';
@@ -11,6 +13,35 @@ export async function createNewChat(view: WorkbuddianChatView) {
     view.activeConvId = conv.id;
     renderTabs(view);
     await renderMessages(view);
+}
+
+/** 模板新建菜单:选中模板后新建会话,应用预设常驻指令 + 预填开场白 */
+export function openTemplateMenu(view: WorkbuddianChatView, anchorEl: HTMLElement) {
+    const menu = new Menu();
+    for (const tpl of CHAT_TEMPLATES) {
+        menu.addItem((item) =>
+            item.setTitle(tpl.name).onClick(async () => {
+                await applyChatTemplate(view, tpl);
+            })
+        );
+    }
+    menu.showAtPosition({ x: anchorEl.getBoundingClientRect().left, y: anchorEl.getBoundingClientRect().bottom + 4 });
+}
+
+/** 应用会话模板:新建会话,设常驻指令,预填开场白 */
+export async function applyChatTemplate(view: WorkbuddianChatView, tpl: ChatTemplate) {
+    const conv = view.manager.createConversation();
+    view.activeConvId = conv.id;
+    // 应用预设常驻指令(system prompt)
+    view.settings.customInstruction = tpl.instruction;
+    await view.saveSettingsCallback();
+    // 预填开场白到输入框
+    view.inputEl.value = tpl.opener;
+    adjustTextareaHeight(view);
+    renderTabs(view);
+    await renderMessages(view);
+    view.inputEl.focus();
+    new Notice(t('view.templateApplied').replace('{name}', tpl.name));
 }
 
 export async function switchToChat(view: WorkbuddianChatView, id: string) {

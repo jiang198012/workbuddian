@@ -4,7 +4,7 @@ import { ConversationManager } from '../../core/session/manager';
 import { CodebuddyProvider } from '../../providers/codebuddy';
 import { type Conversation, type WorkbuddianSettings } from '../../types';
 import { WORKBUDDIAN_ICON_ID } from '../../shared/icon';
-import { renderTabs, createNewChat } from './tabs';
+import { renderTabs, createNewChat, openTemplateMenu } from './tabs';
 import { renderMessages } from './render';
 import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, openAttachmentPicker, openPermissionMenu, openModelMenu, permissionIcon, captureNoteSelection, handlePaste, handleDrop } from './input';
 import { openInstructionModal } from './instructionModal';
@@ -167,6 +167,18 @@ export class WorkbuddianChatView extends ItemView {
         return btn;
     }
 
+    /** 创建"模板新建"按钮:点击弹模板选择菜单,选中后新建会话+应用预设 instruction+opener */
+    private createTemplateChatBtn(parent: HTMLElement): HTMLButtonElement {
+        const btn = parent.createEl('button', {
+            text: '',
+            cls: 'workbuddian-new-chat-btn',
+            attr: { title: t('view.newChatFromTemplate'), 'aria-label': t('view.newChatFromTemplate') },
+        });
+        setIcon(btn, 'layout-template');
+        btn.onclick = () => openTemplateMenu(this, btn);
+        return btn;
+    }
+
     /** 构建/重建整个面板 DOM（用当前语言的 t() 文案）。语言切换时可重复调用刷新界面语言。 */
     private buildUI() {
         // 每次重建时重新判断位置(leaf 此时已就位,refreshUI/语言切换也走这里)
@@ -182,16 +194,18 @@ export class WorkbuddianChatView extends ItemView {
         // 主面板(dual-pane):左侧常驻会话列表栏 + 右侧聊天区;侧栏窄面板:保持顶部标签
         const mainPane = this.isMainPane ? container.createDiv({ cls: 'workbuddian-main-pane' }) : container;
         if (this.isMainPane) {
-            // 左侧会话列表栏:header(新建+搜索) + tabBar(竖向会话列表)
+            // 左侧会话列表栏:header(新建+模板+搜索) + tabBar(竖向会话列表)
             const sidebar = container.createDiv({ cls: 'workbuddian-sidebar' });
             const header = sidebar.createDiv({ cls: 'workbuddian-sidebar-header' });
             this.createNewChatBtn(header);
+            this.createTemplateChatBtn(header);
             this.searchInputEl = this.createSearchInput(header);
             this.tabBar = sidebar.createDiv({ cls: 'workbuddian-tab-bar workbuddian-tab-bar-vertical', attr: { role: 'tablist' } });
         } else {
             // 顶部标签栏(侧栏面板现状)
             this.tabBar = mainPane.createDiv({ cls: 'workbuddian-tab-bar', attr: { role: 'tablist' } });
             this.createNewChatBtn(this.tabBar);
+            this.createTemplateChatBtn(this.tabBar);
             this.searchInputEl = this.createSearchInput(this.tabBar);
         }
 

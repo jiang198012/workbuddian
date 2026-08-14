@@ -197,6 +197,8 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
 
     'view.displayText': { zh: 'Workbuddian 聊天', en: 'Workbuddian Chat' },
     'view.newChat': { zh: '新建对话', en: 'New chat' },
+    'view.newChatFromTemplate': { zh: '用模板新建', en: 'New from template' },
+    'view.templateApplied': { zh: '已应用模板「{name}」', en: 'Template "{name}" applied' },
     'view.inputPlaceholder': { zh: '输入消息... (Shift+Enter 换行，Enter 发送)', en: 'Type a message... (Shift+Enter for newline, Enter to send)' },
     'view.send': { zh: '发送', en: 'Send' },
 
