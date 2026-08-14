@@ -5606,16 +5606,23 @@ async function collectEditResult2(api, sessionId, prompt, vaultPath) {
   return text.trim();
 }
 var FloatingInlineEdit = class {
-  constructor(api, editor, vaultPath) {
+  constructor(api, editor, vaultPath, savedSel) {
     this.api = api;
     this.editor = editor;
     this.vaultPath = vaultPath;
     this.el = null;
     this.diffEl = null;
+    /** 保存的选区(右键菜单触发时编辑器失焦选区被清,先存下来) */
+    this.savedSel = null;
+    this.savedSel = savedSel != null ? savedSel : null;
   }
   /** 在当前选区上方打开浮动工具条;无选区则不动作 */
   open() {
-    const selection = this.editor.getSelection();
+    let selection = this.editor.getSelection();
+    if (!selection.trim() && this.savedSel) {
+      this.editor.setSelection(this.savedSel.from, this.savedSel.to);
+      selection = this.editor.getSelection();
+    }
     if (!selection.trim()) {
       new import_obsidian13.Notice(t("inline.selectFirst"));
       return false;
@@ -5792,10 +5799,15 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
     this.registerEvent(this.app.workspace.on("editor-menu", (menu, editor) => {
       if (!editor.getSelection().trim())
         return;
+      const savedSel = {
+        from: editor.getCursor("from"),
+        to: editor.getCursor("to"),
+        text: editor.getSelection()
+      };
       menu.addItem(
         (item) => item.setTitle(t("cmd.inlineEditFloating")).setIcon("wand-2").onClick(() => {
           const basePath = this.app.vault.adapter.basePath;
-          new FloatingInlineEdit(this.api, editor, basePath).open();
+          new FloatingInlineEdit(this.api, editor, basePath, savedSel).open();
         })
       );
     }));

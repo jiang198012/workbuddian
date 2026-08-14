@@ -35,16 +35,26 @@ async function collectEditResult(api: CodebuddyProvider, sessionId: string, prom
 export class FloatingInlineEdit {
     private el: HTMLElement | null = null;
     private diffEl: HTMLElement | null = null;
+    /** 保存的选区(右键菜单触发时编辑器失焦选区被清,先存下来) */
+    private savedSel: { from: { line: number; ch: number }; to: { line: number; ch: number }; text: string } | null = null;
 
     constructor(
         private api: CodebuddyProvider,
         private editor: Editor,
         private vaultPath?: string,
-    ) {}
+        savedSel?: { from: { line: number; ch: number }; to: { line: number; ch: number }; text: string } | null,
+    ) {
+        this.savedSel = savedSel ?? null;
+    }
 
     /** 在当前选区上方打开浮动工具条;无选区则不动作 */
     open(): boolean {
-        const selection = this.editor.getSelection();
+        // 优先用保存的选区(右键菜单触发时编辑器失焦,选区被清,需先恢复)
+        let selection = this.editor.getSelection();
+        if (!selection.trim() && this.savedSel) {
+            this.editor.setSelection(this.savedSel.from, this.savedSel.to);
+            selection = this.editor.getSelection();
+        }
         if (!selection.trim()) { new Notice(t('inline.selectFirst')); return false; }
 
         const cm = getCMView(this.editor);

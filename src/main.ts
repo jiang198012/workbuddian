@@ -101,13 +101,19 @@ export default class WorkbuddianPlugin extends Plugin {
             },
         });
 
-        // 编辑器右键菜单:选中文字 → 右键 →「浮动内联编辑」(更人性化,不用开命令面板)
+        // 编辑器右键菜单:选中文字 → 右键 →「Workbuddian编辑」(更人性化,不用开命令面板)
         this.registerEvent(this.app.workspace.on('editor-menu', (menu, editor) => {
             if (!editor.getSelection().trim()) return; // 无选区不加项
+            // 保存选区:点菜单项时编辑器失焦,选区会被清,先存下来触发时恢复
+            const savedSel = {
+                from: editor.getCursor('from'),
+                to: editor.getCursor('to'),
+                text: editor.getSelection(),
+            };
             menu.addItem((item) =>
                 item.setTitle(t('cmd.inlineEditFloating')).setIcon('wand-2').onClick(() => {
                     const basePath = (this.app.vault.adapter as { basePath?: string }).basePath;
-                    new FloatingInlineEdit(this.api, editor, basePath).open();
+                    new FloatingInlineEdit(this.api, editor, basePath, savedSel).open();
                 })
             );
         }));
