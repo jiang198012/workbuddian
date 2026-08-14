@@ -164,6 +164,14 @@ export default class WorkbuddianPlugin extends Plugin {
                 void this.exportCurrentChat(view);
             },
         });
+        // 批量导出:把所有会话合并成一个 Markdown 笔记
+        this.addCommand({
+            id: 'export-all-chats',
+            name: t('cmd.exportAllChats'),
+            callback: () => {
+                void this.exportAllChats();
+            },
+        });
         this.addCommand({
             id: 'search-chats',
             name: t('cmd.searchChats'),
@@ -189,6 +197,22 @@ export default class WorkbuddianPlugin extends Plugin {
         const markdown = formatConversationAsMarkdown(conv);
         if (!markdown) { new Notice(t('tabs.nothingToExport')); return; }
         const fileName = `${conv.title.replace(/[\\/:*?"<>|]/g, ' ')}.md`;
+        try {
+            await this.app.vault.create(fileName, markdown);
+            new Notice(t('tabs.exportedAs').replace('{name}', fileName));
+        } catch (err) {
+            new Notice(t('tabs.exportFailed').replace('{err}', getErrorMessage(err)));
+        }
+    }
+
+    /** 批量导出所有会话为一个 Markdown 笔记(带分隔线) */
+    private async exportAllChats(): Promise<void> {
+        const convs = this.manager.getAll();
+        const { formatConversationsAsMarkdown } = await import('./shared/export');
+        const markdown = formatConversationsAsMarkdown(convs);
+        if (!markdown) { new Notice(t('tabs.nothingToExport')); return; }
+        const date = new Date().toISOString().slice(0, 10);
+        const fileName = `workbuddian-导出-${date}.md`;
         try {
             await this.app.vault.create(fileName, markdown);
             new Notice(t('tabs.exportedAs').replace('{name}', fileName));

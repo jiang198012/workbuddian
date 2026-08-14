@@ -274,6 +274,7 @@ var init_i18n = __esm({
       "cmd.editInstruction": { zh: "\u7F16\u8F91\u5E38\u9A7B\u6307\u4EE4", en: "Edit persistent instruction" },
       "cmd.openSettings": { zh: "\u6253\u5F00 Workbuddian \u8BBE\u7F6E", en: "Open Workbuddian settings" },
       "cmd.exportChat": { zh: "\u5BFC\u51FA\u5F53\u524D\u4F1A\u8BDD\u4E3A\u7B14\u8BB0", en: "Export current conversation as note" },
+      "cmd.exportAllChats": { zh: "\u5BFC\u51FA\u6240\u6709\u4F1A\u8BDD\u4E3A\u7B14\u8BB0", en: "Export all conversations as note" },
       "cmd.openChatFirst": { zh: "\u8BF7\u5148\u6253\u5F00\u804A\u5929\u9762\u677F", en: "Please open the chat panel first" },
       "cmd.searchChats": { zh: "\u641C\u7D22\u4F1A\u8BDD", en: "Search conversations" },
       "cmd.loadFailed": { zh: "Workbuddian \u52A0\u8F7D\u5931\u8D25\uFF0C\u8BF7\u67E5\u770B Console", en: "Workbuddian failed to load, check the Console" },
@@ -317,7 +318,8 @@ var init_i18n = __esm({
 // src/shared/export.ts
 var export_exports = {};
 __export(export_exports, {
-  formatConversationAsMarkdown: () => formatConversationAsMarkdown
+  formatConversationAsMarkdown: () => formatConversationAsMarkdown,
+  formatConversationsAsMarkdown: () => formatConversationsAsMarkdown
 });
 function formatTime(ts) {
   const d = new Date(ts);
@@ -341,6 +343,13 @@ function formatConversationAsMarkdown(conv) {
     }
   }
   return lines.join("\n").trimEnd();
+}
+function formatConversationsAsMarkdown(convs) {
+  const nonEmpty = convs.filter((c) => c.messages.length > 0);
+  if (nonEmpty.length === 0)
+    return "";
+  const parts = nonEmpty.map((c) => formatConversationAsMarkdown(c));
+  return parts.join("\n\n---\n\n").trimEnd();
 }
 var init_export = __esm({
   "src/shared/export.ts"() {
@@ -5875,6 +5884,13 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
       }
     });
     this.addCommand({
+      id: "export-all-chats",
+      name: t("cmd.exportAllChats"),
+      callback: () => {
+        void this.exportAllChats();
+      }
+    });
+    this.addCommand({
       id: "search-chats",
       name: t("cmd.searchChats"),
       callback: () => {
@@ -5903,6 +5919,24 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
       return;
     }
     const fileName = `${conv.title.replace(/[\\/:*?"<>|]/g, " ")}.md`;
+    try {
+      await this.app.vault.create(fileName, markdown);
+      new import_obsidian14.Notice(t("tabs.exportedAs").replace("{name}", fileName));
+    } catch (err) {
+      new import_obsidian14.Notice(t("tabs.exportFailed").replace("{err}", getErrorMessage(err)));
+    }
+  }
+  /** 批量导出所有会话为一个 Markdown 笔记(带分隔线) */
+  async exportAllChats() {
+    const convs = this.manager.getAll();
+    const { formatConversationsAsMarkdown: formatConversationsAsMarkdown2 } = await Promise.resolve().then(() => (init_export(), export_exports));
+    const markdown = formatConversationsAsMarkdown2(convs);
+    if (!markdown) {
+      new import_obsidian14.Notice(t("tabs.nothingToExport"));
+      return;
+    }
+    const date = new Date().toISOString().slice(0, 10);
+    const fileName = `workbuddian-\u5BFC\u51FA-${date}.md`;
     try {
       await this.app.vault.create(fileName, markdown);
       new import_obsidian14.Notice(t("tabs.exportedAs").replace("{name}", fileName));

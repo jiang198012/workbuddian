@@ -1,4 +1,4 @@
-import { formatConversationAsMarkdown } from '../src/shared/export';
+import { formatConversationAsMarkdown, formatConversationsAsMarkdown } from '../src/shared/export';
 import type { Conversation } from '../src/types';
 
 function makeConv(messages: Conversation['messages']): Conversation {
@@ -35,5 +35,25 @@ describe('formatConversationAsMarkdown', () => {
     it('returns an empty string for a conversation with no messages', () => {
         const conv: Conversation = { id: '2', title: 'Empty', sessionId: '', messages: [], createdAt: 0, updatedAt: 0 };
         expect(formatConversationAsMarkdown(conv)).toBe('');
+    });
+});
+
+describe('formatConversationsAsMarkdown (批量导出)', () => {
+    it('merges multiple conversations with separator', () => {
+        const c1 = makeConv([{ id: 'm1', role: 'user', content: 'q1', timestamp: 1 }]);
+        const c2 = makeConv([{ id: 'm2', role: 'user', content: 'q2', timestamp: 2 }]);
+        const out = formatConversationsAsMarkdown([c1, c2]);
+        expect(out).toContain('# Test Chat');
+        expect(out).toContain('---'); // 分隔线
+        expect(out.split('---').length).toBe(2);
+    });
+    it('skips empty conversations', () => {
+        const c1 = makeConv([]);
+        const c2 = makeConv([{ id: 'm1', role: 'user', content: 'q', timestamp: 1 }]);
+        const out = formatConversationsAsMarkdown([c1, c2]);
+        expect(out.split('# ').length).toBe(2); // 只有一个标题
+    });
+    it('returns empty for all-empty', () => {
+        expect(formatConversationsAsMarkdown([makeConv([])])).toBe('');
     });
 });

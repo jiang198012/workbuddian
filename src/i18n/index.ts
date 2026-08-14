@@ -253,6 +253,7 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'cmd.editInstruction': { zh: '编辑常驻指令', en: 'Edit persistent instruction' },
     'cmd.openSettings': { zh: '打开 Workbuddian 设置', en: 'Open Workbuddian settings' },
     'cmd.exportChat': { zh: '导出当前会话为笔记', en: 'Export current conversation as note' },
+    'cmd.exportAllChats': { zh: '导出所有会话为笔记', en: 'Export all conversations as note' },
     'cmd.openChatFirst': { zh: '请先打开聊天面板', en: 'Please open the chat panel first' },
     'cmd.searchChats': { zh: '搜索会话', en: 'Search conversations' },
     'cmd.loadFailed': { zh: 'Workbuddian 加载失败，请查看 Console', en: 'Workbuddian failed to load, check the Console' },

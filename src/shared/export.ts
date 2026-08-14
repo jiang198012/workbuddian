@@ -31,3 +31,14 @@ export function formatConversationAsMarkdown(conv: Conversation): string {
     }
     return lines.join('\n').trimEnd();
 }
+
+/**
+ * 批量导出:把多个会话合并成一个 Markdown 文件(带分隔线)。
+ * 用于"导出所有会话"命令;空数组返回空字符串。
+ */
+export function formatConversationsAsMarkdown(convs: Conversation[]): string {
+    const nonEmpty = convs.filter((c) => c.messages.length > 0);
+    if (nonEmpty.length === 0) return '';
+    const parts = nonEmpty.map((c) => formatConversationAsMarkdown(c));
+    return parts.join('\n\n---\n\n').trimEnd();
+}
