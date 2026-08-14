@@ -304,8 +304,7 @@ var init_i18n = __esm({
       "slash.compact": { zh: "\u538B\u7F29\u4E0A\u4E0B\u6587", en: "Compact context" },
       "slash.context": { zh: "\u67E5\u770B\u4E0A\u4E0B\u6587\u7528\u91CF", en: "Show context usage" },
       "slash.cost": { zh: "\u67E5\u770B\u672C\u6B21\u82B1\u8D39", en: "Show session cost" },
-      "slash.model": { zh: "\u5207\u6362\u6A21\u578B", en: "Switch model" },
-      "slash.permissions": { zh: "\u67E5\u770B/\u7BA1\u7406\u6743\u9650", en: "View/manage permissions" },
+      "slash.effort": { zh: "\u8BBE\u7F6E\u601D\u8003\u529B\u5EA6", en: "Set thinking effort" },
       "slash.resume": { zh: "\u6062\u590D\u5386\u53F2\u4F1A\u8BDD", en: "Resume a past session" },
       "resume.modalTitle": { zh: "\u9009\u62E9\u8981\u6062\u590D\u7684\u5BF9\u8BDD", en: "Resume a conversation" },
       "resume.empty": { zh: "\uFF08\u8FD8\u6CA1\u6709\u5386\u53F2\u5BF9\u8BDD\uFF09", en: "(No conversations yet)" },
@@ -316,7 +315,6 @@ var init_i18n = __esm({
       "resume.hoursAgo": { zh: "\u5C0F\u65F6\u524D", en: "h ago" },
       "resume.daysAgo": { zh: "\u5929\u524D", en: "d ago" },
       "resume.messageCount": { zh: "\u6761", en: "msgs" },
-      "slash.export": { zh: "\u5BFC\u51FA\u5BF9\u8BDD", en: "Export conversation" },
       "slash.status": { zh: "\u67E5\u770B\u72B6\u6001", en: "Show status" }
     };
   }
@@ -2629,15 +2627,15 @@ function parseSlashCommand(text) {
     return null;
   return { name: m[1], rest: m[2].trim() };
 }
+var CLI_PASSTHROUGH = /* @__PURE__ */ new Set(["context", "cost", "status", "compact"]);
 var BUILTIN_SLASH_COMMANDS = [
   { name: "clear", descKey: "slash.clear" },
+  { name: "resume", descKey: "slash.resume" },
+  { name: "effort", descKey: "slash.effort" },
+  // 透传 CLI 的交互式命令(CLI 侧处理,补全里标注)
   { name: "compact", descKey: "slash.compact" },
   { name: "context", descKey: "slash.context" },
   { name: "cost", descKey: "slash.cost" },
-  { name: "model", descKey: "slash.model" },
-  { name: "permissions", descKey: "slash.permissions" },
-  { name: "resume", descKey: "slash.resume" },
-  { name: "export", descKey: "slash.export" },
   { name: "status", descKey: "slash.status" }
 ];
 function extractSlashQuery(value, cursor) {
@@ -2653,7 +2651,11 @@ function extractSlashQuery(value, cursor) {
 }
 function filterSlashCommands(query) {
   const q = query.toLowerCase();
-  return BUILTIN_SLASH_COMMANDS.filter((c) => c.name.toLowerCase().startsWith(q)).map((c) => ({ name: c.name, desc: t(c.descKey) }));
+  return BUILTIN_SLASH_COMMANDS.filter((c) => c.name.toLowerCase().startsWith(q)).map((c) => ({
+    name: c.name,
+    // 透传 CLI 的命令加 '(CLI)' 标注,区分插件本地命令
+    desc: CLI_PASSTHROUGH.has(c.name) ? `${t(c.descKey)} (CLI)` : t(c.descKey)
+  }));
 }
 function commandNameFromPath(relPath) {
   return relPath.replace(/\.md$/, "").split("/").join(":");

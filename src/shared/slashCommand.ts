@@ -15,15 +15,17 @@ export function parseSlashCommand(text: string): SlashCommand | null {
 
 export interface SlashCommandInfo { name: string; desc: string; }
 
+/** 透传给 CLI 的命令(加 '(CLI)' 标注,区分插件本地命令) */
+const CLI_PASSTHROUGH = new Set(['context', 'cost', 'status', 'compact']);
+
 export const BUILTIN_SLASH_COMMANDS: { name: string; descKey: string }[] = [
     { name: 'clear', descKey: 'slash.clear' },
+    { name: 'resume', descKey: 'slash.resume' },
+    { name: 'effort', descKey: 'slash.effort' },
+    // 透传 CLI 的交互式命令(CLI 侧处理,补全里标注)
     { name: 'compact', descKey: 'slash.compact' },
     { name: 'context', descKey: 'slash.context' },
     { name: 'cost', descKey: 'slash.cost' },
-    { name: 'model', descKey: 'slash.model' },
-    { name: 'permissions', descKey: 'slash.permissions' },
-    { name: 'resume', descKey: 'slash.resume' },
-    { name: 'export', descKey: 'slash.export' },
     { name: 'status', descKey: 'slash.status' },
 ];
 
@@ -41,7 +43,11 @@ export function filterSlashCommands(query: string): SlashCommandInfo[] {
     const q = query.toLowerCase();
     return BUILTIN_SLASH_COMMANDS
         .filter(c => c.name.toLowerCase().startsWith(q))
-        .map(c => ({ name: c.name, desc: t(c.descKey) }));
+        .map(c => ({
+            name: c.name,
+            // 透传 CLI 的命令加 '(CLI)' 标注,区分插件本地命令
+            desc: CLI_PASSTHROUGH.has(c.name) ? `${t(c.descKey)} (CLI)` : t(c.descKey),
+        }));
 }
 
 /** `.codebuddy/commands/` 下的相对路径 → 命令名（去 .md，子目录用 : 连接） */

@@ -285,8 +285,7 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'slash.compact': { zh: '压缩上下文', en: 'Compact context' },
     'slash.context': { zh: '查看上下文用量', en: 'Show context usage' },
     'slash.cost': { zh: '查看本次花费', en: 'Show session cost' },
-    'slash.model': { zh: '切换模型', en: 'Switch model' },
-    'slash.permissions': { zh: '查看/管理权限', en: 'View/manage permissions' },
+    'slash.effort': { zh: '设置思考力度', en: 'Set thinking effort' },
     'slash.resume': { zh: '恢复历史会话', en: 'Resume a past session' },
     'resume.modalTitle': { zh: '选择要恢复的对话', en: 'Resume a conversation' },
     'resume.empty': { zh: '（还没有历史对话）', en: '(No conversations yet)' },
@@ -297,7 +296,6 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'resume.hoursAgo': { zh: '小时前', en: 'h ago' },
     'resume.daysAgo': { zh: '天前', en: 'd ago' },
     'resume.messageCount': { zh: '条', en: 'msgs' },
-    'slash.export': { zh: '导出对话', en: 'Export conversation' },
     'slash.status': { zh: '查看状态', en: 'Show status' },
 };
 
