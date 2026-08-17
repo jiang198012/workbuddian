@@ -4642,7 +4642,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
   createSearchInput(parent) {
     const el = parent.createEl("input", {
       type: "text",
-      cls: "workbuddian-search-input",
+      cls: "workbuddian-search-input workbuddian-hidden",
       attr: { placeholder: t("tabs.searchPlaceholder"), "aria-label": t("tabs.searchPlaceholder") }
     });
     el.oninput = () => {
@@ -4652,12 +4652,36 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     el.onkeydown = (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        el.value = "";
-        this.searchQuery = "";
-        renderTabs(this);
+        this.closeSearch();
       }
     };
     return el;
+  }
+  /** 放大镜搜索按钮:点击展开搜索框(聚焦),Esc/再点/清空后收起 */
+  createSearchToggle(parent) {
+    const btn = parent.createEl("button", {
+      text: "",
+      cls: "workbuddian-new-chat-btn",
+      attr: { title: t("tabs.searchPlaceholder"), "aria-label": t("tabs.searchPlaceholder") }
+    });
+    (0, import_obsidian8.setIcon)(btn, "search");
+    btn.onclick = () => {
+      const hidden = this.searchInputEl.classList.contains("workbuddian-hidden");
+      if (hidden) {
+        this.searchInputEl.removeClass("workbuddian-hidden");
+        this.searchInputEl.focus();
+      } else {
+        this.closeSearch();
+      }
+    };
+    return btn;
+  }
+  /** 收起搜索:清空查询并隐藏搜索框 */
+  closeSearch() {
+    this.searchInputEl.value = "";
+    this.searchQuery = "";
+    this.searchInputEl.addClass("workbuddian-hidden");
+    renderTabs(this);
   }
   /** 创建新建对话按钮(挂到指定容器) */
   createNewChatBtn(parent) {
@@ -4668,17 +4692,6 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     });
     (0, import_obsidian8.setIcon)(btn, "plus");
     btn.onclick = () => createNewChat(this);
-    return btn;
-  }
-  /** 创建"模板新建"按钮:点击弹模板选择菜单,选中后新建会话+应用预设 instruction+opener */
-  createTemplateChatBtn(parent) {
-    const btn = parent.createEl("button", {
-      text: "",
-      cls: "workbuddian-new-chat-btn",
-      attr: { title: t("view.newChatFromTemplate"), "aria-label": t("view.newChatFromTemplate") }
-    });
-    (0, import_obsidian8.setIcon)(btn, "layout-template");
-    btn.onclick = () => openTemplateMenu(this, btn);
     return btn;
   }
   /** 构建/重建整个面板 DOM（用当前语言的 t() 文案）。语言切换时可重复调用刷新界面语言。 */
@@ -4697,13 +4710,13 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
       const sidebar = container.createDiv({ cls: "workbuddian-sidebar" });
       const header = sidebar.createDiv({ cls: "workbuddian-sidebar-header" });
       this.createNewChatBtn(header);
-      this.createTemplateChatBtn(header);
+      this.createSearchToggle(header);
       this.searchInputEl = this.createSearchInput(header);
       this.tabBar = sidebar.createDiv({ cls: "workbuddian-tab-bar workbuddian-tab-bar-vertical", attr: { role: "tablist" } });
     } else {
       this.tabBar = mainPane.createDiv({ cls: "workbuddian-tab-bar", attr: { role: "tablist" } });
       this.createNewChatBtn(this.tabBar);
-      this.createTemplateChatBtn(this.tabBar);
+      this.createSearchToggle(this.tabBar);
       this.searchInputEl = this.createSearchInput(this.tabBar);
     }
     this.messageContainer = mainPane.createDiv({ cls: "workbuddian-messages" });
@@ -4761,6 +4774,12 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     (0, import_obsidian8.setIcon)(attachBtn, "paperclip");
     attachBtn.onclick = () => openAttachmentPicker(this);
     const rightGroup = toolbar.createDiv({ cls: "workbuddian-toolbar-right" });
+    const tplBtn = rightGroup.createEl("button", {
+      cls: "workbuddian-toolbar-btn",
+      attr: { "aria-label": t("view.newChatFromTemplate"), title: t("view.newChatFromTemplate") }
+    });
+    (0, import_obsidian8.setIcon)(tplBtn, "layout-template");
+    tplBtn.onclick = () => openTemplateMenu(this, tplBtn);
     const permBtn = rightGroup.createEl("button", {
       cls: "workbuddian-toolbar-btn",
       attr: { "aria-label": t("input.permission") }

@@ -137,7 +137,7 @@ export class WorkbuddianChatView extends ItemView {
     private createSearchInput(parent: HTMLElement): HTMLInputElement {
         const el = parent.createEl('input', {
             type: 'text',
-            cls: 'workbuddian-search-input',
+            cls: 'workbuddian-search-input workbuddian-hidden',
             attr: { placeholder: t('tabs.searchPlaceholder'), 'aria-label': t('tabs.searchPlaceholder') },
         });
         el.oninput = () => {
@@ -147,12 +147,38 @@ export class WorkbuddianChatView extends ItemView {
         el.onkeydown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 e.stopPropagation();
-                el.value = '';
-                this.searchQuery = '';
-                renderTabs(this);
+                this.closeSearch();
             }
         };
         return el;
+    }
+
+    /** 放大镜搜索按钮:点击展开搜索框(聚焦),Esc/再点/清空后收起 */
+    private createSearchToggle(parent: HTMLElement): HTMLButtonElement {
+        const btn = parent.createEl('button', {
+            text: '',
+            cls: 'workbuddian-new-chat-btn',
+            attr: { title: t('tabs.searchPlaceholder'), 'aria-label': t('tabs.searchPlaceholder') },
+        });
+        setIcon(btn, 'search');
+        btn.onclick = () => {
+            const hidden = this.searchInputEl.classList.contains('workbuddian-hidden');
+            if (hidden) {
+                this.searchInputEl.removeClass('workbuddian-hidden');
+                this.searchInputEl.focus();
+            } else {
+                this.closeSearch();
+            }
+        };
+        return btn;
+    }
+
+    /** 收起搜索:清空查询并隐藏搜索框 */
+    private closeSearch(): void {
+        this.searchInputEl.value = '';
+        this.searchQuery = '';
+        this.searchInputEl.addClass('workbuddian-hidden');
+        renderTabs(this);
     }
 
     /** 创建新建对话按钮(挂到指定容器) */
@@ -164,18 +190,6 @@ export class WorkbuddianChatView extends ItemView {
         });
         setIcon(btn, 'plus');
         btn.onclick = () => createNewChat(this);
-        return btn;
-    }
-
-    /** 创建"模板新建"按钮:点击弹模板选择菜单,选中后新建会话+应用预设 instruction+opener */
-    private createTemplateChatBtn(parent: HTMLElement): HTMLButtonElement {
-        const btn = parent.createEl('button', {
-            text: '',
-            cls: 'workbuddian-new-chat-btn',
-            attr: { title: t('view.newChatFromTemplate'), 'aria-label': t('view.newChatFromTemplate') },
-        });
-        setIcon(btn, 'layout-template');
-        btn.onclick = () => openTemplateMenu(this, btn);
         return btn;
     }
 
@@ -194,18 +208,18 @@ export class WorkbuddianChatView extends ItemView {
         // 主面板(dual-pane):左侧常驻会话列表栏 + 右侧聊天区;侧栏窄面板:保持顶部标签
         const mainPane = this.isMainPane ? container.createDiv({ cls: 'workbuddian-main-pane' }) : container;
         if (this.isMainPane) {
-            // 左侧会话列表栏:header(新建+模板+搜索) + tabBar(竖向会话列表)
+            // 左侧会话列表栏:header(新建 + 放大镜搜索) + tabBar(竖向会话列表)
             const sidebar = container.createDiv({ cls: 'workbuddian-sidebar' });
             const header = sidebar.createDiv({ cls: 'workbuddian-sidebar-header' });
             this.createNewChatBtn(header);
-            this.createTemplateChatBtn(header);
+            this.createSearchToggle(header);
             this.searchInputEl = this.createSearchInput(header);
             this.tabBar = sidebar.createDiv({ cls: 'workbuddian-tab-bar workbuddian-tab-bar-vertical', attr: { role: 'tablist' } });
         } else {
             // 顶部标签栏(侧栏面板现状)
             this.tabBar = mainPane.createDiv({ cls: 'workbuddian-tab-bar', attr: { role: 'tablist' } });
             this.createNewChatBtn(this.tabBar);
-            this.createTemplateChatBtn(this.tabBar);
+            this.createSearchToggle(this.tabBar);
             this.searchInputEl = this.createSearchInput(this.tabBar);
         }
 
@@ -278,6 +292,14 @@ export class WorkbuddianChatView extends ItemView {
 
         // 右组：会话控制
         const rightGroup = toolbar.createDiv({ cls: 'workbuddian-toolbar-right' });
+
+        // 模板新建(# 的左边):弹模板选择菜单,选中后新建会话+应用预设
+        const tplBtn = rightGroup.createEl('button', {
+            cls: 'workbuddian-toolbar-btn',
+            attr: { 'aria-label': t('view.newChatFromTemplate'), title: t('view.newChatFromTemplate') }
+        });
+        setIcon(tplBtn, 'layout-template');
+        tplBtn.onclick = () => openTemplateMenu(this, tplBtn);
 
         // 授权（permission 模式）
         const permBtn = rightGroup.createEl('button', {
