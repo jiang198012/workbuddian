@@ -35,6 +35,7 @@
 }
 .workbuddian-sidebar-header {
     flex-shrink: 0;
+    position: relative;
     display: flex;
     align-items: center;
     gap: var(--workbuddian-gap-xs);
@@ -85,12 +86,23 @@
 /* ==================== 标签栏 ==================== */
 .workbuddian-tab-bar {
     flex-shrink: 0;
+    position: relative;
     display: flex;
     align-items: center;
     gap: var(--workbuddian-gap-xs);
     padding: var(--workbuddian-gap-md) var(--workbuddian-gap-lg);
     border-bottom: 1px solid var(--background-modifier-border);
     overflow-x: auto;
+}
+
+/* 标签栏里搜索框:下浮式(浮在消息区上方,不占文档流) */
+.workbuddian-tab-bar .workbuddian-search-input {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: var(--workbuddian-gap-lg);
+    width: 240px;
+    z-index: 20;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
 }
 
 /* 标签栏横向滚动：细滚动条（hover 才明显），不占高度；标签多时当前对话靠
@@ -111,7 +123,7 @@
     display: flex;
     align-items: center;
     gap: var(--workbuddian-gap-sm);
-    max-width: 150px;
+    max-width: 90px;
     padding: var(--workbuddian-gap-sm) 11px;
     border-radius: var(--workbuddian-radius-md);
     background: var(--background-secondary);
@@ -160,14 +172,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 17px;
-    height: 17px;
+    width: 14px;
+    height: 14px;
     border-radius: var(--workbuddian-radius-sm);
-    font-size: 14px;
-    font-weight: bold;
-    opacity: 0.5;
+    opacity: 0.4;
     transition: opacity 0.18s ease, background-color 0.18s ease;
 }
+.workbuddian-tab-close svg { width: 10px; height: 10px; }
 
 .workbuddian-tab-close:hover {
     opacity: 1;
@@ -216,11 +227,15 @@
     color: var(--text-normal);
     font-size: var(--font-ui-smaller);
 }
-/* dual-pane 侧栏 header 里搜索框填满 */
+/* dual-pane 侧栏 header 里搜索框:下浮式(浮在会话列表上方,不占文档流) */
 .workbuddian-sidebar-header .workbuddian-search-input {
-    flex: 1;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: var(--workbuddian-gap-md);
+    right: var(--workbuddian-gap-md);
     width: auto;
-    min-width: 0;
+    z-index: 20;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
 }
 
 /* 搜索命中标题高亮 */
