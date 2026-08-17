@@ -30,6 +30,23 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
         const { containerEl } = this;
         containerEl.empty();
 
+        // ===== 通用(语言置顶,基础设置最优先) =====
+        new Setting(containerEl).setName(t('settings.general')).setHeading();
+        new Setting(containerEl)
+            .setName(t('settings.language'))
+            .setDesc(t('settings.languageDesc'))
+            .addDropdown(dropdown => dropdown
+                .addOptions({ auto: t('settings.langAuto'), zh: t('settings.langZh'), en: t('settings.langEn') })
+                .setValue(this.plugin.settings.language)
+                .onChange(async (value) => {
+                    this.plugin.settings.language = value as 'auto' | 'zh' | 'en';
+                    applyLang(this.plugin.settings.language);
+                    await this.plugin.saveSettings();
+                    this.plugin.refreshOpenViews(); // 已打开的聊天面板就地刷新语言
+                    this.display();
+                    new Notice(t('settings.langReload'));
+                }));
+
         // ===== CodeBuddy 连接 =====
         new Setting(containerEl).setName(t('settings.conn')).setHeading();
 
@@ -254,27 +271,8 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                     }
                 }));
 
-        // ===== CodeBuddy 插件管理（R7）=====
-        new Setting(containerEl).setName('CodeBuddy 插件').setHeading();
-        this.renderCodebuddyPlugins(containerEl);
-
         // ===== 外观 =====
         new Setting(containerEl).setName(t('settings.appearance')).setHeading();
-
-        new Setting(containerEl)
-            .setName(t('settings.language'))
-            .setDesc(t('settings.languageDesc'))
-            .addDropdown(dropdown => dropdown
-                .addOptions({ auto: t('settings.langAuto'), zh: t('settings.langZh'), en: t('settings.langEn') })
-                .setValue(this.plugin.settings.language)
-                .onChange(async (value) => {
-                    this.plugin.settings.language = value as 'auto' | 'zh' | 'en';
-                    applyLang(this.plugin.settings.language);
-                    await this.plugin.saveSettings();
-                    this.plugin.refreshOpenViews(); // 已打开的聊天面板就地刷新语言
-                    this.display();
-                    new Notice(t('settings.langReload'));
-                }));
 
         new Setting(containerEl)
             .setName(t('settings.primary'))
@@ -391,20 +389,29 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
             .addButton(btn => btn.setButtonText(t('settings.viewLogs')).onClick(() => {
                 new LogModal(this.app).open();
             }));
+
+        // ===== CodeBuddy 插件管理(沉底:清单类内容不再拦腰截断设置页) =====
+        new Setting(containerEl).setName(t('plugins.title')).setHeading();
+        this.renderCodebuddyPlugins(containerEl);
     }
 
-    /** R7:CodeBuddy 插件管理——列出已发现插件 + 启停/更新操作(经 CLI 命令) */
+    /** R7:CodeBuddy 插件管理——市场默认折叠 + 紧凑行 + 过滤(清单不再撑爆设置页) */
     private renderCodebuddyPlugins(containerEl: HTMLElement): void {
         const codebuddyPath = this.plugin.settings.codebuddyPath || 'codebuddy';
         const plugins = discoverPlugins();
         if (!plugins.length) {
             new Setting(containerEl)
-                .setDesc('未发现 CodeBuddy 插件市场(需先安装 CodeBuddy CLI 并配置插件市场)。')
+                .setDesc(t('plugins.empty'))
                 .setDisabled(true);
             return;
         }
 
-        // 按市场分组渲染
+        // 过滤框:输入实时过滤插件名(复用会话搜索思路)
+        const filterEl = new Setting(containerEl)
+            .addText(text => text.setPlaceholder(t('plugins.filterPlaceholder')))
+            .controlEl.querySelector('input') as HTMLInputElement;
+
+        // 按市场分组
         const byMarket = new Map<string, CodebuddyPluginInfo[]>();
         for (const p of plugins) {
             const arr = byMarket.get(p.marketplace) ?? [];
@@ -412,38 +419,64 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
             byMarket.set(p.marketplace, arr);
         }
 
-        const runPluginCmd = (name: string, args: string[], btn: HTMLButtonElement, done: (ok: boolean) => void) => {
+        const listEl = containerEl.createDiv({ cls: 'workbuddian-plugins-list' });
+        const renderList = (filter: string) => {
+            listEl.empty();
+            const q = filter.trim().toLowerCase();
+            for (const [market, list] of byMarket) {
+                const filtered = q ? list.filter((p) => p.name.toLowerCase().includes(q)) : list;
+                if (!filtered.length) continue;
+                // 市场折叠区:标题行(市场名 + 数量 + 展开箭头),默认收起
+                const sectionEl = listEl.createDiv({ cls: 'workbuddian-plugin-market' });
+                const headerEl = sectionEl.createDiv({ cls: 'workbuddian-plugin-market-header' });
+                headerEl.createSpan({ cls: 'workbuddian-plugin-market-chevron', text: '▸' });
+                headerEl.createSpan({ cls: 'workbuddian-plugin-market-name', text: market });
+                headerEl.createSpan({ cls: 'workbuddian-plugin-market-count', text: `${filtered.length}` });
+                const bodyEl = sectionEl.createDiv({ cls: 'workbuddian-plugin-market-body workbuddian-hidden' });
+                headerEl.onclick = () => {
+                    const collapsed = bodyEl.classList.contains('workbuddian-hidden');
+                    bodyEl.toggleClass('workbuddian-hidden', !collapsed);
+                    const chevron = headerEl.querySelector('.workbuddian-plugin-market-chevron');
+                    if (chevron) chevron.textContent = collapsed ? '▾' : '▸';
+                };
+                for (const plugin of filtered) {
+                    bodyEl.appendChild(this.createPluginRow(plugin, codebuddyPath));
+                }
+            }
+        };
+        filterEl.oninput = () => renderList(filterEl.value);
+        renderList('');
+    }
+
+    /** 紧凑插件行:名称(描述 tooltip)+ 右侧小按钮组(启用/禁用/更新) */
+    private createPluginRow(plugin: CodebuddyPluginInfo, codebuddyPath: string): HTMLElement {
+        const row = createDiv({ cls: 'workbuddian-plugin-row' });
+        const nameEl = row.createSpan({ cls: 'workbuddian-plugin-name', text: plugin.name });
+        nameEl.setAttribute('title', plugin.description || t('plugins.noDesc'));
+
+        const actions = row.createDiv({ cls: 'workbuddian-plugin-actions' });
+        const runPluginCmd = (args: string[], btn: HTMLButtonElement) => {
+            const label = t(args[0] === 'enable' ? 'plugins.enable' : args[0] === 'disable' ? 'plugins.disable' : 'plugins.update');
             btn.disabled = true;
-            btn.setText('处理中…');
-            execFile(codebuddyPath, ['plugin', ...args, name], { timeout: 20_000 }, (err) => {
+            btn.setText(t('plugins.working'));
+            execFile(codebuddyPath, ['plugin', ...args, plugin.name], { timeout: 20_000 }, (err) => {
                 btn.disabled = false;
-                btn.setText(args[0] === 'enable' ? '启用' : args[0] === 'disable' ? '禁用' : '更新');
+                btn.setText(label);
                 if (err) {
-                    new Notice(`插件「${name}」操作失败: ${err.message}`);
-                    done(false);
+                    new Notice(t('plugins.opFailed').replace('{name}', plugin.name).replace('{err}', err.message));
                 } else {
-                    new Notice(`插件「${name}」已${args[0] === 'enable' ? '启用' : args[0] === 'disable' ? '禁用' : '更新'}`);
-                    done(true);
+                    const action = t(args[0] === 'enable' ? 'plugins.enable' : args[0] === 'disable' ? 'plugins.disable' : 'plugins.update');
+                    new Notice(t('plugins.opDone').replace('{name}', plugin.name).replace('{action}', action));
                 }
             });
         };
-
-        for (const [market, list] of byMarket) {
-            new Setting(containerEl).setName(`市场: ${market}`).setHeading();
-            for (const plugin of list) {
-                const row = new Setting(containerEl)
-                    .setName(plugin.name)
-                    .setDesc(plugin.description || '(无描述)');
-                row.addButton(btn => btn.setButtonText('启用').onClick(() => {
-                    runPluginCmd(plugin.name, ['enable'], btn.buttonEl, () => {});
-                }));
-                row.addButton(btn => btn.setButtonText('禁用').onClick(() => {
-                    runPluginCmd(plugin.name, ['disable'], btn.buttonEl, () => {});
-                }));
-                row.addButton(btn => btn.setButtonText('更新').onClick(() => {
-                    runPluginCmd(plugin.name, ['update'], btn.buttonEl, () => {});
-                }));
-            }
+        for (const action of ['enable', 'disable', 'update'] as const) {
+            const btn = actions.createEl('button', {
+                cls: 'workbuddian-plugin-action-btn',
+                text: t(`plugins.${action}`),
+            });
+            btn.onclick = () => runPluginCmd([action], btn);
         }
+        return row;
     }
 }

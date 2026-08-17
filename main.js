@@ -84,6 +84,18 @@ var init_i18n = __esm({
       "export.metaExportedAt": { zh: "\u5BFC\u51FA\u65F6\u95F4", en: "Exported" },
       "export.metaMessages": { zh: "\u6D88\u606F\u6570", en: "messages" },
       "settings.conn": { zh: "CodeBuddy \u8FDE\u63A5", en: "CodeBuddy Connection" },
+      "settings.general": { zh: "\u901A\u7528", en: "General" },
+      // CodeBuddy 插件管理（i18n 补齐,原为硬编码中文）
+      "plugins.title": { zh: "CodeBuddy \u63D2\u4EF6", en: "CodeBuddy Plugins" },
+      "plugins.empty": { zh: "\u672A\u53D1\u73B0 CodeBuddy \u63D2\u4EF6\u5E02\u573A(\u9700\u5148\u5B89\u88C5 CodeBuddy CLI \u5E76\u914D\u7F6E\u63D2\u4EF6\u5E02\u573A)\u3002", en: "No CodeBuddy plugin marketplaces found (install CodeBuddy CLI and configure a marketplace first)." },
+      "plugins.filterPlaceholder": { zh: "\u8FC7\u6EE4\u63D2\u4EF6\u2026", en: "Filter plugins\u2026" },
+      "plugins.enable": { zh: "\u542F\u7528", en: "Enable" },
+      "plugins.disable": { zh: "\u7981\u7528", en: "Disable" },
+      "plugins.update": { zh: "\u66F4\u65B0", en: "Update" },
+      "plugins.working": { zh: "\u5904\u7406\u4E2D\u2026", en: "Working\u2026" },
+      "plugins.opFailed": { zh: "\u63D2\u4EF6\u300C{name}\u300D\u64CD\u4F5C\u5931\u8D25: {err}", en: 'Operation on plugin "{name}" failed: {err}' },
+      "plugins.opDone": { zh: "\u63D2\u4EF6\u300C{name}\u300D\u5DF2{action}", en: 'Plugin "{name}" {action}' },
+      "plugins.noDesc": { zh: "(\u65E0\u63CF\u8FF0)", en: "(No description)" },
       "settings.path": { zh: "CodeBuddy \u8DEF\u5F84", en: "CodeBuddy path" },
       "settings.pathDesc": { zh: "codebuddy \u53EF\u6267\u884C\u6587\u4EF6\u8DEF\u5F84\u3002\u5982 WorkBuddy \u81EA\u5B9A\u4E49\u5B89\u88C5\uFF0C\u8DEF\u5F84\u901A\u5E38\u4E3A\uFF1A\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy\uFF08\u53F3\u952E WorkBuddy \u5FEB\u6377\u65B9\u5F0F \u2192 \u6253\u5F00\u6587\u4EF6\u4F4D\u7F6E \u53EF\u627E\u5230\u5B89\u88C5\u76EE\u5F55\uFF09", en: "Path to the codebuddy executable. For a custom WorkBuddy install it is usually: <InstallDir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy (right-click the WorkBuddy shortcut \u2192 Open file location)." },
       "settings.pathPlaceholder": { zh: "WorkBuddy\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy", en: "<WorkBuddy install dir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy" },
@@ -5267,6 +5279,15 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
+    new import_obsidian11.Setting(containerEl).setName(t("settings.general")).setHeading();
+    new import_obsidian11.Setting(containerEl).setName(t("settings.language")).setDesc(t("settings.languageDesc")).addDropdown((dropdown) => dropdown.addOptions({ auto: t("settings.langAuto"), zh: t("settings.langZh"), en: t("settings.langEn") }).setValue(this.plugin.settings.language).onChange(async (value) => {
+      this.plugin.settings.language = value;
+      applyLang(this.plugin.settings.language);
+      await this.plugin.saveSettings();
+      this.plugin.refreshOpenViews();
+      this.display();
+      new import_obsidian11.Notice(t("settings.langReload"));
+    }));
     new import_obsidian11.Setting(containerEl).setName(t("settings.conn")).setHeading();
     let pathInput;
     new import_obsidian11.Setting(containerEl).setName(t("settings.path")).setDesc(t("settings.pathDesc")).addText((text) => {
@@ -5414,17 +5435,7 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian11.Setting(containerEl).setName("CodeBuddy \u63D2\u4EF6").setHeading();
-    this.renderCodebuddyPlugins(containerEl);
     new import_obsidian11.Setting(containerEl).setName(t("settings.appearance")).setHeading();
-    new import_obsidian11.Setting(containerEl).setName(t("settings.language")).setDesc(t("settings.languageDesc")).addDropdown((dropdown) => dropdown.addOptions({ auto: t("settings.langAuto"), zh: t("settings.langZh"), en: t("settings.langEn") }).setValue(this.plugin.settings.language).onChange(async (value) => {
-      this.plugin.settings.language = value;
-      applyLang(this.plugin.settings.language);
-      await this.plugin.saveSettings();
-      this.plugin.refreshOpenViews();
-      this.display();
-      new import_obsidian11.Notice(t("settings.langReload"));
-    }));
     new import_obsidian11.Setting(containerEl).setName(t("settings.primary")).setDesc(t("settings.primaryDesc")).addColorPicker((picker) => {
       const current = this.plugin.settings.primaryColor || "#C8B487";
       picker.setValue(current).onChange(async (value) => {
@@ -5503,55 +5514,83 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
     new import_obsidian11.Setting(containerEl).setName(t("settings.viewLogs")).setDesc(t("settings.logsDesc")).addButton((btn) => btn.setButtonText(t("settings.viewLogs")).onClick(() => {
       new LogModal(this.app).open();
     }));
+    new import_obsidian11.Setting(containerEl).setName(t("plugins.title")).setHeading();
+    this.renderCodebuddyPlugins(containerEl);
   }
-  /** R7:CodeBuddy 插件管理——列出已发现插件 + 启停/更新操作(经 CLI 命令) */
+  /** R7:CodeBuddy 插件管理——市场默认折叠 + 紧凑行 + 过滤(清单不再撑爆设置页) */
   renderCodebuddyPlugins(containerEl) {
     var _a;
     const codebuddyPath = this.plugin.settings.codebuddyPath || "codebuddy";
     const plugins = discoverPlugins();
     if (!plugins.length) {
-      new import_obsidian11.Setting(containerEl).setDesc("\u672A\u53D1\u73B0 CodeBuddy \u63D2\u4EF6\u5E02\u573A(\u9700\u5148\u5B89\u88C5 CodeBuddy CLI \u5E76\u914D\u7F6E\u63D2\u4EF6\u5E02\u573A)\u3002").setDisabled(true);
+      new import_obsidian11.Setting(containerEl).setDesc(t("plugins.empty")).setDisabled(true);
       return;
     }
+    const filterEl = new import_obsidian11.Setting(containerEl).addText((text) => text.setPlaceholder(t("plugins.filterPlaceholder"))).controlEl.querySelector("input");
     const byMarket = /* @__PURE__ */ new Map();
     for (const p of plugins) {
       const arr = (_a = byMarket.get(p.marketplace)) != null ? _a : [];
       arr.push(p);
       byMarket.set(p.marketplace, arr);
     }
-    const runPluginCmd = (name, args, btn, done) => {
+    const listEl = containerEl.createDiv({ cls: "workbuddian-plugins-list" });
+    const renderList = (filter) => {
+      listEl.empty();
+      const q = filter.trim().toLowerCase();
+      for (const [market, list] of byMarket) {
+        const filtered = q ? list.filter((p) => p.name.toLowerCase().includes(q)) : list;
+        if (!filtered.length)
+          continue;
+        const sectionEl = listEl.createDiv({ cls: "workbuddian-plugin-market" });
+        const headerEl = sectionEl.createDiv({ cls: "workbuddian-plugin-market-header" });
+        headerEl.createSpan({ cls: "workbuddian-plugin-market-chevron", text: "\u25B8" });
+        headerEl.createSpan({ cls: "workbuddian-plugin-market-name", text: market });
+        headerEl.createSpan({ cls: "workbuddian-plugin-market-count", text: `${filtered.length}` });
+        const bodyEl = sectionEl.createDiv({ cls: "workbuddian-plugin-market-body workbuddian-hidden" });
+        headerEl.onclick = () => {
+          const collapsed = bodyEl.classList.contains("workbuddian-hidden");
+          bodyEl.toggleClass("workbuddian-hidden", !collapsed);
+          const chevron = headerEl.querySelector(".workbuddian-plugin-market-chevron");
+          if (chevron)
+            chevron.textContent = collapsed ? "\u25BE" : "\u25B8";
+        };
+        for (const plugin of filtered) {
+          bodyEl.appendChild(this.createPluginRow(plugin, codebuddyPath));
+        }
+      }
+    };
+    filterEl.oninput = () => renderList(filterEl.value);
+    renderList("");
+  }
+  /** 紧凑插件行:名称(描述 tooltip)+ 右侧小按钮组(启用/禁用/更新) */
+  createPluginRow(plugin, codebuddyPath) {
+    const row = createDiv({ cls: "workbuddian-plugin-row" });
+    const nameEl = row.createSpan({ cls: "workbuddian-plugin-name", text: plugin.name });
+    nameEl.setAttribute("title", plugin.description || t("plugins.noDesc"));
+    const actions = row.createDiv({ cls: "workbuddian-plugin-actions" });
+    const runPluginCmd = (args, btn) => {
+      const label = t(args[0] === "enable" ? "plugins.enable" : args[0] === "disable" ? "plugins.disable" : "plugins.update");
       btn.disabled = true;
-      btn.setText("\u5904\u7406\u4E2D\u2026");
-      (0, import_child_process3.execFile)(codebuddyPath, ["plugin", ...args, name], { timeout: 2e4 }, (err) => {
+      btn.setText(t("plugins.working"));
+      (0, import_child_process3.execFile)(codebuddyPath, ["plugin", ...args, plugin.name], { timeout: 2e4 }, (err) => {
         btn.disabled = false;
-        btn.setText(args[0] === "enable" ? "\u542F\u7528" : args[0] === "disable" ? "\u7981\u7528" : "\u66F4\u65B0");
+        btn.setText(label);
         if (err) {
-          new import_obsidian11.Notice(`\u63D2\u4EF6\u300C${name}\u300D\u64CD\u4F5C\u5931\u8D25: ${err.message}`);
-          done(false);
+          new import_obsidian11.Notice(t("plugins.opFailed").replace("{name}", plugin.name).replace("{err}", err.message));
         } else {
-          new import_obsidian11.Notice(`\u63D2\u4EF6\u300C${name}\u300D\u5DF2${args[0] === "enable" ? "\u542F\u7528" : args[0] === "disable" ? "\u7981\u7528" : "\u66F4\u65B0"}`);
-          done(true);
+          const action = t(args[0] === "enable" ? "plugins.enable" : args[0] === "disable" ? "plugins.disable" : "plugins.update");
+          new import_obsidian11.Notice(t("plugins.opDone").replace("{name}", plugin.name).replace("{action}", action));
         }
       });
     };
-    for (const [market, list] of byMarket) {
-      new import_obsidian11.Setting(containerEl).setName(`\u5E02\u573A: ${market}`).setHeading();
-      for (const plugin of list) {
-        const row = new import_obsidian11.Setting(containerEl).setName(plugin.name).setDesc(plugin.description || "(\u65E0\u63CF\u8FF0)");
-        row.addButton((btn) => btn.setButtonText("\u542F\u7528").onClick(() => {
-          runPluginCmd(plugin.name, ["enable"], btn.buttonEl, () => {
-          });
-        }));
-        row.addButton((btn) => btn.setButtonText("\u7981\u7528").onClick(() => {
-          runPluginCmd(plugin.name, ["disable"], btn.buttonEl, () => {
-          });
-        }));
-        row.addButton((btn) => btn.setButtonText("\u66F4\u65B0").onClick(() => {
-          runPluginCmd(plugin.name, ["update"], btn.buttonEl, () => {
-          });
-        }));
-      }
+    for (const action of ["enable", "disable", "update"]) {
+      const btn = actions.createEl("button", {
+        cls: "workbuddian-plugin-action-btn",
+        text: t(`plugins.${action}`)
+      });
+      btn.onclick = () => runPluginCmd([action], btn);
     }
+    return row;
   }
 };
 

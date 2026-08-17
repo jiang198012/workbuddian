@@ -55,6 +55,18 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'export.metaMessages': { zh: '消息数', en: 'messages' },
 
     'settings.conn': { zh: 'CodeBuddy 连接', en: 'CodeBuddy Connection' },
+    'settings.general': { zh: '通用', en: 'General' },
+    // CodeBuddy 插件管理（i18n 补齐,原为硬编码中文）
+    'plugins.title': { zh: 'CodeBuddy 插件', en: 'CodeBuddy Plugins' },
+    'plugins.empty': { zh: '未发现 CodeBuddy 插件市场(需先安装 CodeBuddy CLI 并配置插件市场)。', en: 'No CodeBuddy plugin marketplaces found (install CodeBuddy CLI and configure a marketplace first).' },
+    'plugins.filterPlaceholder': { zh: '过滤插件…', en: 'Filter plugins…' },
+    'plugins.enable': { zh: '启用', en: 'Enable' },
+    'plugins.disable': { zh: '禁用', en: 'Disable' },
+    'plugins.update': { zh: '更新', en: 'Update' },
+    'plugins.working': { zh: '处理中…', en: 'Working…' },
+    'plugins.opFailed': { zh: '插件「{name}」操作失败: {err}', en: 'Operation on plugin "{name}" failed: {err}' },
+    'plugins.opDone': { zh: '插件「{name}」已{action}', en: 'Plugin "{name}" {action}' },
+    'plugins.noDesc': { zh: '(无描述)', en: '(No description)' },
     'settings.path': { zh: 'CodeBuddy 路径', en: 'CodeBuddy path' },
     'settings.pathDesc': { zh: 'codebuddy 可执行文件路径。如 WorkBuddy 自定义安装，路径通常为：安装目录\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy（右键 WorkBuddy 快捷方式 → 打开文件位置 可找到安装目录）', en: 'Path to the codebuddy executable. For a custom WorkBuddy install it is usually: <InstallDir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy (right-click the WorkBuddy shortcut → Open file location).' },
     'settings.pathPlaceholder': { zh: 'WorkBuddy安装目录\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy', en: '<WorkBuddy install dir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy' },

@@ -404,6 +404,56 @@
 .workbuddian-code-insert-btn { right: 32px; }
 .workbuddian-code-save-btn { right: 59px; }
 
+/* ==================== CodeBuddy 插件清单(折叠紧凑) ==================== */
+.workbuddian-plugins-list { padding: 0 var(--workbuddian-gap-lg); }
+.workbuddian-plugin-market { margin-bottom: var(--workbuddian-gap-xs); }
+.workbuddian-plugin-market-header {
+    display: flex;
+    align-items: center;
+    gap: var(--workbuddian-gap-sm);
+    padding: var(--workbuddian-gap-sm) var(--workbuddian-gap-md);
+    border-radius: var(--workbuddian-radius-md);
+    background: var(--background-secondary);
+    cursor: pointer;
+    user-select: none;
+}
+.workbuddian-plugin-market-header:hover { background: var(--background-modifier-hover); }
+.workbuddian-plugin-market-chevron { color: var(--text-muted); font-size: var(--font-ui-small); width: 12px; }
+.workbuddian-plugin-market-name { flex: 1; font-weight: 600; font-size: var(--font-ui-small); }
+.workbuddian-plugin-market-count {
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    background: var(--background-modifier-border);
+    border-radius: 8px;
+    padding: 0 6px;
+}
+.workbuddian-plugin-market-body { padding: var(--workbuddian-gap-xs) 0 0 20px; }
+.workbuddian-plugin-market-body.workbuddian-hidden { display: none; }
+.workbuddian-plugin-row {
+    display: flex;
+    align-items: center;
+    gap: var(--workbuddian-gap-sm);
+    padding: 3px var(--workbuddian-gap-sm);
+    border-radius: var(--workbuddian-radius-sm);
+    font-size: var(--font-ui-smaller);
+}
+.workbuddian-plugin-row:hover { background: var(--background-modifier-hover); }
+.workbuddian-plugin-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workbuddian-plugin-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s ease; }
+.workbuddian-plugin-row:hover .workbuddian-plugin-actions,
+.workbuddian-plugin-action-btn:focus-visible { opacity: 1; }
+.workbuddian-plugin-action-btn {
+    padding: 1px 8px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--workbuddian-radius-sm);
+    background: var(--background-primary);
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    cursor: pointer;
+}
+.workbuddian-plugin-action-btn:hover { color: var(--text-normal); background: var(--background-secondary); }
+.workbuddian-plugin-action-btn:disabled { opacity: 0.5; cursor: default; }
+
 .workbuddian-message-action-btn {
     display: inline-flex;
     align-items: center;
