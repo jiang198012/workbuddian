@@ -153,7 +153,7 @@ export class WorkbuddianChatView extends ItemView {
         return el;
     }
 
-    /** 放大镜搜索按钮:点击展开搜索框(聚焦),Esc/再点/清空后收起 */
+    /** 放大镜搜索按钮:点击下拉出搜索框(浮层,不占布局),Esc/再点收起 */
     private createSearchToggle(parent: HTMLElement): HTMLButtonElement {
         const btn = parent.createEl('button', {
             text: '',
@@ -164,13 +164,25 @@ export class WorkbuddianChatView extends ItemView {
         btn.onclick = () => {
             const hidden = this.searchInputEl.classList.contains('workbuddian-hidden');
             if (hidden) {
-                this.searchInputEl.removeClass('workbuddian-hidden');
-                this.searchInputEl.focus();
+                this.openSearchDropdown(parent);
             } else {
                 this.closeSearch();
             }
         };
         return btn;
+    }
+
+    /**
+     * 下拉出搜索框(浮层):搜索框挂在非滚动祖先上(dual-pane=sidebar,侧栏=container),
+     * 按顶栏底部计算 top,浮在内容上方——绝不被 tab-bar 的 overflow 裁剪出滚动条。
+     */
+    private openSearchDropdown(barEl: HTMLElement): void {
+        const input = this.searchInputEl;
+        // top = 顶栏在祖先里的底部 + 4px 间隙
+        const top = barEl.offsetTop + barEl.offsetHeight + 4;
+        input.style.top = `${top}px`;
+        input.removeClass('workbuddian-hidden');
+        input.focus();
     }
 
     /** 收起搜索:清空查询并隐藏搜索框 */
@@ -208,19 +220,21 @@ export class WorkbuddianChatView extends ItemView {
         // 主面板(dual-pane):左侧常驻会话列表栏 + 右侧聊天区;侧栏窄面板:保持顶部标签
         const mainPane = this.isMainPane ? container.createDiv({ cls: 'workbuddian-main-pane' }) : container;
         if (this.isMainPane) {
-            // 左侧会话列表栏:header(新建 + 放大镜搜索) + tabBar(竖向会话列表)
+            // 左侧会话列表栏:header(新建 + 放大镜) + tabBar(竖向会话列表)
             const sidebar = container.createDiv({ cls: 'workbuddian-sidebar' });
             const header = sidebar.createDiv({ cls: 'workbuddian-sidebar-header' });
             this.createNewChatBtn(header);
             this.createSearchToggle(header);
-            this.searchInputEl = this.createSearchInput(header);
             this.tabBar = sidebar.createDiv({ cls: 'workbuddian-tab-bar workbuddian-tab-bar-vertical', attr: { role: 'tablist' } });
+            // 搜索框挂在 sidebar(非滚动容器),下拉时浮在会话列表上方,不被 tab-bar 裁剪
+            this.searchInputEl = this.createSearchInput(sidebar);
         } else {
             // 顶部标签栏(侧栏面板现状)
             this.tabBar = mainPane.createDiv({ cls: 'workbuddian-tab-bar', attr: { role: 'tablist' } });
             this.createNewChatBtn(this.tabBar);
             this.createSearchToggle(this.tabBar);
-            this.searchInputEl = this.createSearchInput(this.tabBar);
+            // 搜索框挂在 container(非滚动容器),下拉时浮在消息区上方,不被 tab-bar 裁剪
+            this.searchInputEl = this.createSearchInput(mainPane);
         }
 
         this.messageContainer = mainPane.createDiv({ cls: 'workbuddian-messages' });

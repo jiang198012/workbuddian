@@ -16,6 +16,7 @@
 /* ==================== 布局骨架 ==================== */
 .workbuddian-chat-container {
     height: 100%;
+    position: relative;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -35,7 +36,6 @@
 }
 .workbuddian-sidebar-header {
     flex-shrink: 0;
-    position: relative;
     display: flex;
     align-items: center;
     gap: var(--workbuddian-gap-xs);
@@ -95,15 +95,7 @@
     overflow-x: auto;
 }
 
-/* 标签栏里搜索框:下浮式(浮在消息区上方,不占文档流) */
-.workbuddian-tab-bar .workbuddian-search-input {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: var(--workbuddian-gap-lg);
-    width: 240px;
-    z-index: 20;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
-}
+/* 标签栏本身不产生纵向滚动;横向滚动条保留(tab 多时) */
 
 /* 标签栏横向滚动：细滚动条（hover 才明显），不占高度；标签多时当前对话靠
    scrollIntoView 自动滚入可视区（见 tabs.ts），无需额外滚动按钮挤占窄面板 */
@@ -228,12 +220,22 @@
     font-size: var(--font-ui-smaller);
 }
 /* dual-pane 侧栏 header 里搜索框:下浮式(浮在会话列表上方,不占文档流) */
-.workbuddian-sidebar-header .workbuddian-search-input {
+.workbuddian-sidebar {
+    position: relative;
+}
+.workbuddian-sidebar .workbuddian-search-input {
     position: absolute;
-    top: calc(100% + 4px);
     left: var(--workbuddian-gap-md);
     right: var(--workbuddian-gap-md);
     width: auto;
+    z-index: 20;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+}
+/* 侧栏面板:搜索框挂在 container 上,下拉浮在消息区上方 */
+.workbuddian-chat-container .workbuddian-search-input {
+    position: absolute;
+    left: var(--workbuddian-gap-lg);
+    width: 240px;
     z-index: 20;
     box-shadow: 0 4px 12px rgba(0,0,0,0.18);
 }
@@ -432,14 +434,34 @@
 .workbuddian-plugin-row {
     display: flex;
     align-items: center;
-    gap: var(--workbuddian-gap-sm);
-    padding: 3px var(--workbuddian-gap-sm);
+    gap: var(--workbuddian-gap-md);
+    padding: var(--workbuddian-gap-sm) var(--workbuddian-gap-md);
     border-radius: var(--workbuddian-radius-sm);
-    font-size: var(--font-ui-smaller);
 }
 .workbuddian-plugin-row:hover { background: var(--background-modifier-hover); }
-.workbuddian-plugin-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.workbuddian-plugin-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s ease; }
+.workbuddian-plugin-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: var(--workbuddian-gap-md);
+    overflow: hidden;
+}
+.workbuddian-plugin-name {
+    flex-shrink: 0;
+    font-size: var(--font-ui-medium);
+    font-weight: 600;
+}
+.workbuddian-plugin-desc {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-ui-small);
+    color: var(--text-muted);
+}
+.workbuddian-plugin-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s ease; flex-shrink: 0; }
 .workbuddian-plugin-row:hover .workbuddian-plugin-actions,
 .workbuddian-plugin-action-btn:focus-visible { opacity: 1; }
 .workbuddian-plugin-action-btn {

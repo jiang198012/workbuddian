@@ -4669,7 +4669,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     };
     return el;
   }
-  /** 放大镜搜索按钮:点击展开搜索框(聚焦),Esc/再点/清空后收起 */
+  /** 放大镜搜索按钮:点击下拉出搜索框(浮层,不占布局),Esc/再点收起 */
   createSearchToggle(parent) {
     const btn = parent.createEl("button", {
       text: "",
@@ -4680,13 +4680,23 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     btn.onclick = () => {
       const hidden = this.searchInputEl.classList.contains("workbuddian-hidden");
       if (hidden) {
-        this.searchInputEl.removeClass("workbuddian-hidden");
-        this.searchInputEl.focus();
+        this.openSearchDropdown(parent);
       } else {
         this.closeSearch();
       }
     };
     return btn;
+  }
+  /**
+   * 下拉出搜索框(浮层):搜索框挂在非滚动祖先上(dual-pane=sidebar,侧栏=container),
+   * 按顶栏底部计算 top,浮在内容上方——绝不被 tab-bar 的 overflow 裁剪出滚动条。
+   */
+  openSearchDropdown(barEl) {
+    const input = this.searchInputEl;
+    const top = barEl.offsetTop + barEl.offsetHeight + 4;
+    input.style.top = `${top}px`;
+    input.removeClass("workbuddian-hidden");
+    input.focus();
   }
   /** 收起搜索:清空查询并隐藏搜索框 */
   closeSearch() {
@@ -4723,13 +4733,13 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
       const header = sidebar.createDiv({ cls: "workbuddian-sidebar-header" });
       this.createNewChatBtn(header);
       this.createSearchToggle(header);
-      this.searchInputEl = this.createSearchInput(header);
       this.tabBar = sidebar.createDiv({ cls: "workbuddian-tab-bar workbuddian-tab-bar-vertical", attr: { role: "tablist" } });
+      this.searchInputEl = this.createSearchInput(sidebar);
     } else {
       this.tabBar = mainPane.createDiv({ cls: "workbuddian-tab-bar", attr: { role: "tablist" } });
       this.createNewChatBtn(this.tabBar);
       this.createSearchToggle(this.tabBar);
-      this.searchInputEl = this.createSearchInput(this.tabBar);
+      this.searchInputEl = this.createSearchInput(mainPane);
     }
     this.messageContainer = mainPane.createDiv({ cls: "workbuddian-messages" });
     this.liveRegionEl = mainPane.createDiv({
@@ -5562,11 +5572,12 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
     filterEl.oninput = () => renderList(filterEl.value);
     renderList("");
   }
-  /** 紧凑插件行:名称(描述 tooltip)+ 右侧小按钮组(启用/禁用/更新) */
+  /** 插件行:名称 + 描述一行展示(饱满),右侧 hover 出操作按钮(启用/禁用/更新) */
   createPluginRow(plugin, codebuddyPath) {
     const row = createDiv({ cls: "workbuddian-plugin-row" });
-    const nameEl = row.createSpan({ cls: "workbuddian-plugin-name", text: plugin.name });
-    nameEl.setAttribute("title", plugin.description || t("plugins.noDesc"));
+    const infoEl = row.createDiv({ cls: "workbuddian-plugin-info" });
+    infoEl.createSpan({ cls: "workbuddian-plugin-name", text: plugin.name });
+    infoEl.createSpan({ cls: "workbuddian-plugin-desc", text: plugin.description || t("plugins.noDesc") });
     const actions = row.createDiv({ cls: "workbuddian-plugin-actions" });
     const runPluginCmd = (args, btn) => {
       const label = t(args[0] === "enable" ? "plugins.enable" : args[0] === "disable" ? "plugins.disable" : "plugins.update");

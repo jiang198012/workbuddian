@@ -448,11 +448,12 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
         renderList('');
     }
 
-    /** 紧凑插件行:名称(描述 tooltip)+ 右侧小按钮组(启用/禁用/更新) */
+    /** 插件行:名称 + 描述一行展示(饱满),右侧 hover 出操作按钮(启用/禁用/更新) */
     private createPluginRow(plugin: CodebuddyPluginInfo, codebuddyPath: string): HTMLElement {
         const row = createDiv({ cls: 'workbuddian-plugin-row' });
-        const nameEl = row.createSpan({ cls: 'workbuddian-plugin-name', text: plugin.name });
-        nameEl.setAttribute('title', plugin.description || t('plugins.noDesc'));
+        const infoEl = row.createDiv({ cls: 'workbuddian-plugin-info' });
+        infoEl.createSpan({ cls: 'workbuddian-plugin-name', text: plugin.name });
+        infoEl.createSpan({ cls: 'workbuddian-plugin-desc', text: plugin.description || t('plugins.noDesc') });
 
         const actions = row.createDiv({ cls: 'workbuddian-plugin-actions' });
         const runPluginCmd = (args: string[], btn: HTMLButtonElement) => {
