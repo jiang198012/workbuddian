@@ -448,7 +448,11 @@
     overflow: hidden;
 }
 .workbuddian-plugin-name {
-    flex-shrink: 0;
+    flex: 0 0 320px;
+    width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: var(--font-ui-medium);
     font-weight: 600;
 }
