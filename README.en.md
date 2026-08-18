@@ -14,12 +14,13 @@
 
 > **Primary audience is Chinese-speaking Obsidian users. The canonical README is in Simplified Chinese ([中文](./README.md)); this English page is a condensed entry point.**
 
-**Workbuddian** is an **Obsidian community plugin** that turns your local **CodeBuddy CLI** into an **AI chat agent** living inside your vault — chat, reference notes with `@`, stream replies, and edit your writing without ever switching windows.
+**Workbuddian** is an **Obsidian community plugin** that turns your local **CodeBuddy CLI** or **Hermes agent** into an **AI chat agent** living inside your vault — chat, reference notes with `@`, stream replies, and edit your writing without ever switching windows. Dual backends, one panel.
 
 > ⚠️ **Desktop only** (Windows / macOS), requires Obsidian 1.7.2+. Linux is not supported yet.
 
 ## Features
 
+- **Dual backends** — local CodeBuddy CLI (full agent features) or **Hermes agent gateway** (plain chat). Auto-discovers Hermes gateway URL + API key from `~/.hermes`; model list matches Hermes Desktop.
 - **Streaming chat** in the sidebar or a full-width main-area tab, with collapsible thinking / tool-call cards and Markdown rendering.
 - **`@` references anything** — subagents (`@Agent`), MCP servers (`@mcp`), notes (`@[[note]]`), or any file, from one dropdown.
 - **Approvals in the bubble** — Write / Edit / Bash / MCP tools ask permission on a card; plan mode continues in the same turn.

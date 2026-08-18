@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.5.1 — 2026-08-18
+
+**Hermes 后端支持(MVP)** + 设置页体验优化。668 项单测全绿。
+
+### 新增
+- **Hermes 后端**:支持本地 Hermes gateway 作为对话后端(设置 → 后端选择)。纯对话走 OpenAI 兼容流式,工具/批准卡等留完整版。
+- **Hermes 自动发现**:免配置——自动从 `~/.hermes/config.yaml`(Win 为 `%USERPROFILE%\.hermes`)读 gateway 地址与 API key;模型列表与 Hermes Desktop 一致(从 `/api/model/options` 拉当前 provider 真实模型)。
+
+### 改进
+- **设置页重排**:语言设置置顶为「通用」组;CodeBuddy 插件清单沉底。
+- **插件清单折叠紧凑化**:市场默认折叠(点击展开)、名称 320px + 描述同行、过滤框、hover 出操作按钮;全部文案进 i18n。
+- **搜索框下浮式**:点放大镜浮层下拉,不再撑高顶栏/出滚动条;tab 标签缩至 60%,x 按钮更小。
+
 ## v2.3.1 — 2026-08-14
 
 批量导出 + 代码块进笔记 + 斜杠命令清理。

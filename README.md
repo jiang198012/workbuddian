@@ -15,14 +15,14 @@
 
 <!--
 project: Workbuddian
-domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent
+domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
-runtime: Obsidian 1.7.2+, CodeBuddy CLI, Node.js
-status: stable (v2.3.1)
+runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
+status: stable (v2.5.1)
 license: MIT
 -->
 
-**Workbuddian** 是一个 **Obsidian 社区插件**，把本地 **CodeBuddy CLI** 变成你笔记里的 **AI 聊天助手**——不用切窗口，直接在 Vault 里聊天、`@` 引用笔记、流式回复、改稿。
+**Workbuddian** 是一个 **Obsidian 社区插件**，把本地 **CodeBuddy CLI** 或 **Hermes agent** 变成你笔记里的 **AI 聊天助手**——不用切窗口，直接在 Vault 里聊天、`@` 引用笔记、流式回复、改稿。双后端支持,自由切换。
 
 > ⚠️ **仅桌面端**（Windows / macOS），需 Obsidian 1.7.2+。Linux 暂不支持。
 
@@ -41,6 +41,7 @@ license: MIT
 
 | 能力 | 能带来什么 |
 | --- | --- |
+| **双后端** | 本地 **CodeBuddy CLI**(完整能力)或 **Hermes agent**(gateway 纯对话)自由切换;Hermes 免配置自动发现,模型列表与 Desktop 一致 |
 | **流式对话** | 侧边栏或主编辑区全宽标签;可折叠的思考过程与工具调用卡片;Markdown 渲染(代码/表格/列表/引用) |
 | **图片视觉** | 粘贴 / 拖拽截图或图片,直接交给 AI 分析 |
 | **`@` 四源聚合引用** | 一条消息同时带上子代理(`@Agent`)、MCP 服务器(`@mcp`)、笔记(`@[[笔记]]`)、任意文件,不用手动拼上下文 |
@@ -191,8 +192,12 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 v2.3.1**
+**最新版本 v2.5.1**
 
+- **v2.5.1** — **Hermes agent 后端支持(新)**:
+  - 本地 Hermes gateway 作为第二后端,与 CodeBuddy CLI 自由切换
+  - **免配置自动发现**:自动从 `~/.hermes` 读 gateway 地址与 API key,模型列表与 Hermes Desktop 一致
+  - 设置页优化:语言置顶「通用」组、插件清单折叠沉底、搜索框浮层下拉、插件行饱满化
 - **v2.3.1** — 批量导出 + 代码块进笔记 + 斜杠命令清理:
   - 命令面板「导出所有会话为笔记」,一键备份全部对话
   - 代码块 hover 出三按钮:复制 / 插入到当前笔记 / 保存为新笔记
