@@ -431,9 +431,26 @@ var init_hermes = __esm({
       setModel(model) {
         this.model = model;
       }
-      /** 拉模型列表(Gateway /v1/models);失败返回空数组 */
+      /** 拉模型列表:优先 /api/model/options(当前 provider 的真实模型,与 Hermes Desktop 一致),回退 /v1/models */
       async listModels() {
-        var _a;
+        var _a, _b, _c, _d;
+        try {
+          const res = await fetch(`${this.baseUrl}/api/model/options`, {
+            headers: this.authHeaders(),
+            signal: timeoutSignal(1e4)
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const providers = (_a = data == null ? void 0 : data.providers) != null ? _a : [];
+            const current = (_b = providers.find((p) => p.is_current)) != null ? _b : providers.find((p) => Array.isArray(p.models) && p.models.length);
+            const models = (_c = current == null ? void 0 : current.models) != null ? _c : [];
+            const ids = models.filter((m) => typeof m === "string");
+            if (ids.length)
+              return ids;
+          }
+        } catch (e) {
+          bbLog("[WB] hermes /api/model/options \u5931\u8D25,\u56DE\u9000 /v1/models:", e);
+        }
         try {
           const res = await fetch(`${this.baseUrl}/v1/models`, {
             headers: this.authHeaders(),
@@ -442,7 +459,7 @@ var init_hermes = __esm({
           if (!res.ok)
             return [];
           const data = await res.json();
-          const list = (_a = data == null ? void 0 : data.data) != null ? _a : [];
+          const list = (_d = data == null ? void 0 : data.data) != null ? _d : [];
           return list.map((m) => m.id).filter((x) => typeof x === "string");
         } catch (e) {
           bbLog("[WB] hermes \u62C9\u6A21\u578B\u5931\u8D25:", e);

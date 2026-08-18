@@ -54,8 +54,26 @@ export class HermesProvider {
     setTimeout(ms: number): void { this.timeout = ms; }
     setModel(model: string): void { this.model = model; }
 
-    /** 拉模型列表(Gateway /v1/models);失败返回空数组 */
+    /** 拉模型列表:优先 /api/model/options(当前 provider 的真实模型,与 Hermes Desktop 一致),回退 /v1/models */
     async listModels(): Promise<string[]> {
+        try {
+            // /api/model/options:当前 provider(is_current)的 models 是真实可用列表
+            const res = await fetch(`${this.baseUrl}/api/model/options`, {
+                headers: this.authHeaders(),
+                signal: timeoutSignal(10_000),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const providers = (data?.providers ?? []) as Array<{ is_current?: boolean; models?: unknown }>;
+                const current = providers.find((p) => p.is_current) ?? providers.find((p) => Array.isArray(p.models) && p.models.length);
+                const models = (current?.models ?? []) as unknown[];
+                const ids = models.filter((m): m is string => typeof m === 'string');
+                if (ids.length) return ids;
+            }
+        } catch (e) {
+            bbLog('[WB] hermes /api/model/options 失败,回退 /v1/models:', e);
+        }
+        // 回退:/v1/models(只有聚合名 hermes-agent)
         try {
             const res = await fetch(`${this.baseUrl}/v1/models`, {
                 headers: this.authHeaders(),
