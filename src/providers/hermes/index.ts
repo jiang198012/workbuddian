@@ -36,10 +36,20 @@ export class HermesProvider {
     private apiKey = '';
     private model = 'auto';
     private abortController: AbortController | null = null;
+    private availableModels: string[] = [];
 
     setGateway(baseUrl: string, apiKey: string): void {
+        const changed = this.baseUrl !== (baseUrl || DEFAULT_BASE).replace(/\/$/, '') || this.apiKey !== apiKey.trim();
         this.baseUrl = (baseUrl || DEFAULT_BASE).replace(/\/$/, '');
         this.apiKey = apiKey.trim();
+        // gateway 变了就重拉模型列表(异步,不阻塞)
+        if (changed) void this.refreshModels();
+    }
+
+    /** 拉取并缓存模型列表;供外部主动刷新 */
+    async refreshModels(): Promise<void> {
+        const models = await this.listModels();
+        if (models.length) this.availableModels = models;
     }
     setTimeout(ms: number): void { this.timeout = ms; }
     setModel(model: string): void { this.model = model; }
@@ -154,7 +164,7 @@ export class HermesProvider {
     setPermissionMode(_mode: PermissionMode): void {}
     setThoughtLevel(_level: string): void {}
     setAvailableModels(_m: string[]): void {}
-    getAvailableModels(): string[] { return []; }
+    getAvailableModels(): string[] { return [...this.availableModels]; }
     getScriptPath(): string { return ''; }
     setConversationLookup(_l: unknown): void {}
     setMcpServersJson(_j: string): void {}

@@ -410,10 +410,20 @@ var init_hermes = __esm({
         this.apiKey = "";
         this.model = "auto";
         this.abortController = null;
+        this.availableModels = [];
       }
       setGateway(baseUrl, apiKey) {
+        const changed = this.baseUrl !== (baseUrl || DEFAULT_BASE).replace(/\/$/, "") || this.apiKey !== apiKey.trim();
         this.baseUrl = (baseUrl || DEFAULT_BASE).replace(/\/$/, "");
         this.apiKey = apiKey.trim();
+        if (changed)
+          void this.refreshModels();
+      }
+      /** 拉取并缓存模型列表;供外部主动刷新 */
+      async refreshModels() {
+        const models = await this.listModels();
+        if (models.length)
+          this.availableModels = models;
       }
       setTimeout(ms) {
         this.timeout = ms;
@@ -537,7 +547,7 @@ var init_hermes = __esm({
       setAvailableModels(_m) {
       }
       getAvailableModels() {
-        return [];
+        return [...this.availableModels];
       }
       getScriptPath() {
         return "";
