@@ -56,6 +56,19 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
 
     'settings.conn': { zh: 'CodeBuddy 连接', en: 'CodeBuddy Connection' },
     'settings.general': { zh: '通用', en: 'General' },
+    // Hermes 后端
+    'backend.title': { zh: '后端', en: 'Backend' },
+    'backend.desc': { zh: '对话后端:本地 CodeBuddy CLI(完整能力)或 Hermes gateway(纯对话,需 gateway 运行中)', en: 'Chat backend: local CodeBuddy CLI (full features) or Hermes gateway (plain chat, gateway must be running)' },
+    'backend.codebuddy': { zh: 'CodeBuddy CLI', en: 'CodeBuddy CLI' },
+    'backend.hermes': { zh: 'Hermes gateway', en: 'Hermes gateway' },
+    'hermes.gatewayUrl': { zh: 'Gateway 地址', en: 'Gateway URL' },
+    'hermes.gatewayUrlDesc': { zh: 'Hermes gateway 的 HTTP 地址,默认 http://127.0.0.1:8642', en: 'Hermes gateway HTTP address, default http://127.0.0.1:8642' },
+    'hermes.apiKey': { zh: 'API Key', en: 'API Key' },
+    'hermes.apiKeyDesc': { zh: 'Hermes gateway 的 API_SERVER_KEY(~/.hermes/.env)', en: 'Hermes gateway API_SERVER_KEY (~/.hermes/.env)' },
+    'hermes.test': { zh: '测试连接', en: 'Test connection' },
+    'hermes.testOk': { zh: '连接成功', en: 'Connected' },
+    'hermes.testFail': { zh: '连接失败:', en: 'Connection failed: ' },
+    'hermes.needRestart': { zh: '切换后端需重载插件生效(Cmd+R)', en: 'Backend switch takes effect after reload (Cmd+R)' },
     // CodeBuddy 插件管理（i18n 补齐,原为硬编码中文）
     'plugins.title': { zh: 'CodeBuddy 插件', en: 'CodeBuddy Plugins' },
     'plugins.empty': { zh: '未发现 CodeBuddy 插件市场(需先安装 CodeBuddy CLI 并配置插件市场)。', en: 'No CodeBuddy plugin marketplaces found (install CodeBuddy CLI and configure a marketplace first).' },

@@ -85,6 +85,19 @@ var init_i18n = __esm({
       "export.metaMessages": { zh: "\u6D88\u606F\u6570", en: "messages" },
       "settings.conn": { zh: "CodeBuddy \u8FDE\u63A5", en: "CodeBuddy Connection" },
       "settings.general": { zh: "\u901A\u7528", en: "General" },
+      // Hermes 后端
+      "backend.title": { zh: "\u540E\u7AEF", en: "Backend" },
+      "backend.desc": { zh: "\u5BF9\u8BDD\u540E\u7AEF:\u672C\u5730 CodeBuddy CLI(\u5B8C\u6574\u80FD\u529B)\u6216 Hermes gateway(\u7EAF\u5BF9\u8BDD,\u9700 gateway \u8FD0\u884C\u4E2D)", en: "Chat backend: local CodeBuddy CLI (full features) or Hermes gateway (plain chat, gateway must be running)" },
+      "backend.codebuddy": { zh: "CodeBuddy CLI", en: "CodeBuddy CLI" },
+      "backend.hermes": { zh: "Hermes gateway", en: "Hermes gateway" },
+      "hermes.gatewayUrl": { zh: "Gateway \u5730\u5740", en: "Gateway URL" },
+      "hermes.gatewayUrlDesc": { zh: "Hermes gateway \u7684 HTTP \u5730\u5740,\u9ED8\u8BA4 http://127.0.0.1:8642", en: "Hermes gateway HTTP address, default http://127.0.0.1:8642" },
+      "hermes.apiKey": { zh: "API Key", en: "API Key" },
+      "hermes.apiKeyDesc": { zh: "Hermes gateway \u7684 API_SERVER_KEY(~/.hermes/.env)", en: "Hermes gateway API_SERVER_KEY (~/.hermes/.env)" },
+      "hermes.test": { zh: "\u6D4B\u8BD5\u8FDE\u63A5", en: "Test connection" },
+      "hermes.testOk": { zh: "\u8FDE\u63A5\u6210\u529F", en: "Connected" },
+      "hermes.testFail": { zh: "\u8FDE\u63A5\u5931\u8D25:", en: "Connection failed: " },
+      "hermes.needRestart": { zh: "\u5207\u6362\u540E\u7AEF\u9700\u91CD\u8F7D\u63D2\u4EF6\u751F\u6548(Cmd+R)", en: "Backend switch takes effect after reload (Cmd+R)" },
       // CodeBuddy 插件管理（i18n 补齐,原为硬编码中文）
       "plugins.title": { zh: "CodeBuddy \u63D2\u4EF6", en: "CodeBuddy Plugins" },
       "plugins.empty": { zh: "\u672A\u53D1\u73B0 CodeBuddy \u63D2\u4EF6\u5E02\u573A(\u9700\u5148\u5B89\u88C5 CodeBuddy CLI \u5E76\u914D\u7F6E\u63D2\u4EF6\u5E02\u573A)\u3002", en: "No CodeBuddy plugin marketplaces found (install CodeBuddy CLI and configure a marketplace first)." },
@@ -332,6 +345,232 @@ var init_i18n = __esm({
   }
 });
 
+// src/shared/logBuffer.ts
+function stamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function safeStringify(v) {
+  if (typeof v === "string")
+    return v;
+  try {
+    return JSON.stringify(v);
+  } catch (e) {
+    return String(v);
+  }
+}
+function push(line) {
+  buffer.push(line);
+  if (buffer.length > MAX_ENTRIES)
+    buffer.splice(0, buffer.length - MAX_ENTRIES);
+}
+function bbLog(...args) {
+  push(`[${stamp()}] ${args.map(safeStringify).join(" ")}`);
+}
+function bbError(...args) {
+  push(`[${stamp()}] ERR ${args.map(safeStringify).join(" ")}`);
+  console.error(...args);
+}
+function getLogs() {
+  return buffer.slice();
+}
+function clearLogs() {
+  buffer.length = 0;
+}
+var MAX_ENTRIES, buffer;
+var init_logBuffer = __esm({
+  "src/shared/logBuffer.ts"() {
+    MAX_ENTRIES = 300;
+    buffer = [];
+  }
+});
+
+// src/providers/hermes/index.ts
+var hermes_exports = {};
+__export(hermes_exports, {
+  HermesProvider: () => HermesProvider
+});
+function timeoutSignal(ms) {
+  var _a;
+  const c = new AbortController();
+  const timer = setTimeout(() => c.abort(), ms);
+  (_a = timer.unref) == null ? void 0 : _a.call(timer);
+  return c.signal;
+}
+var DEFAULT_BASE, HermesProvider;
+var init_hermes = __esm({
+  "src/providers/hermes/index.ts"() {
+    init_logBuffer();
+    DEFAULT_BASE = "http://127.0.0.1:8642";
+    HermesProvider = class {
+      constructor() {
+        this.timeout = 3e5;
+        this.baseUrl = DEFAULT_BASE;
+        this.apiKey = "";
+        this.model = "auto";
+        this.abortController = null;
+      }
+      setGateway(baseUrl, apiKey) {
+        this.baseUrl = (baseUrl || DEFAULT_BASE).replace(/\/$/, "");
+        this.apiKey = apiKey.trim();
+      }
+      setTimeout(ms) {
+        this.timeout = ms;
+      }
+      setModel(model) {
+        this.model = model;
+      }
+      /** 拉模型列表(Gateway /v1/models);失败返回空数组 */
+      async listModels() {
+        var _a;
+        try {
+          const res = await fetch(`${this.baseUrl}/v1/models`, {
+            headers: this.authHeaders(),
+            signal: timeoutSignal(1e4)
+          });
+          if (!res.ok)
+            return [];
+          const data = await res.json();
+          const list = (_a = data == null ? void 0 : data.data) != null ? _a : [];
+          return list.map((m) => m.id).filter((x) => typeof x === "string");
+        } catch (e) {
+          bbLog("[WB] hermes \u62C9\u6A21\u578B\u5931\u8D25:", e);
+          return [];
+        }
+      }
+      /** 发送消息:OpenAI 兼容流式,逐 chunk yield text;done 收尾(多余参数仅签名兼容,忽略) */
+      async *sendMessage(sessionKey, text, vaultPath, addDirs, permissionModeOverride, images, mcpNames) {
+        var _a, _b, _c;
+        this.abortController = new AbortController();
+        const timer = setTimeout(() => {
+          var _a2;
+          return (_a2 = this.abortController) == null ? void 0 : _a2.abort();
+        }, this.timeout);
+        try {
+          const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...this.authHeaders() },
+            body: JSON.stringify({
+              model: this.model === "auto" ? void 0 : this.model,
+              messages: [{ role: "user", content: text }],
+              stream: true
+            }),
+            signal: this.abortController.signal
+          });
+          if (!res.ok || !res.body) {
+            const errText = await res.text().catch(() => "");
+            throw new Error(`Hermes \u8BF7\u6C42\u5931\u8D25: HTTP ${res.status}${errText ? ` ${errText.slice(0, 120)}` : ""}`);
+          }
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer2 = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done)
+              break;
+            buffer2 += decoder.decode(value, { stream: true });
+            let idx;
+            while ((idx = buffer2.indexOf("\n")) >= 0) {
+              const line = buffer2.slice(0, idx).trim();
+              buffer2 = buffer2.slice(idx + 1);
+              if (!line.startsWith("data:"))
+                continue;
+              const payload = line.slice(5).trim();
+              if (payload === "[DONE]")
+                break;
+              try {
+                const obj = JSON.parse(payload);
+                const delta = (_c = (_b = (_a = obj.choices) == null ? void 0 : _a[0]) == null ? void 0 : _b.delta) == null ? void 0 : _c.content;
+                if (delta)
+                  yield { type: "text", content: delta };
+              } catch (e) {
+              }
+            }
+          }
+          yield { type: "done", content: "" };
+        } catch (e) {
+          if (e.name === "AbortError") {
+            yield { type: "done", content: "" };
+          } else {
+            bbError("[WB] hermes \u53D1\u9001\u5931\u8D25:", e);
+            throw e;
+          }
+        } finally {
+          clearTimeout(timer);
+          this.abortController = null;
+        }
+      }
+      /** 取消在飞请求 */
+      cancel(_sessionKey) {
+        var _a;
+        (_a = this.abortController) == null ? void 0 : _a.abort();
+      }
+      /** 连接测试(设置页用):/v1/models 通则连得上 */
+      async testConnection() {
+        try {
+          const res = await fetch(`${this.baseUrl}/v1/models`, {
+            headers: this.authHeaders(),
+            signal: timeoutSignal(1e4)
+          });
+          if (res.status === 401 || res.status === 403)
+            return { ok: false, error: "API key \u4E0D\u5339\u914D(401/403)" };
+          if (!res.ok)
+            return { ok: false, error: `HTTP ${res.status}` };
+          return { ok: true };
+        } catch (e) {
+          return { ok: false, error: `\u8FDE\u4E0D\u4E0A gateway(${this.baseUrl}):${e.message}` };
+        }
+      }
+      authHeaders() {
+        return this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {};
+      }
+      // ---- 契约兼容:Hermes MVP 不支持的能力,空实现/简化 ----
+      setCodebuddyPath(_p) {
+      }
+      setNodePath(_p) {
+      }
+      setPermissionMode(_mode) {
+      }
+      setThoughtLevel(_level) {
+      }
+      setAvailableModels(_m) {
+      }
+      getAvailableModels() {
+        return [];
+      }
+      getScriptPath() {
+        return "";
+      }
+      setConversationLookup(_l) {
+      }
+      setMcpServersJson(_j) {
+      }
+      setCustomAgentsJson(_j) {
+      }
+      generateId() {
+        return `hermes-${Math.random().toString(36).slice(2, 10)}`;
+      }
+      onPermissionRequest(_k, _cb) {
+      }
+      onUsage(_k, _cb) {
+      }
+      onConfigUpdate(_k, _cb) {
+      }
+      respondPermission(_id, _optionId) {
+      }
+      rejectPendingPermissions(_k) {
+      }
+      async forkSession(_k, _n, _v) {
+        throw new Error("Hermes \u4E0D\u652F\u6301\u4F1A\u8BDD\u5206\u53C9");
+      }
+      dispose() {
+        this.cancel();
+      }
+    };
+  }
+});
+
 // src/shared/export.ts
 var export_exports = {};
 __export(export_exports, {
@@ -442,42 +681,7 @@ function isPermissionMode(value) {
 
 // src/providers/codebuddy/index.ts
 init_i18n();
-
-// src/shared/logBuffer.ts
-var MAX_ENTRIES = 300;
-var buffer = [];
-function stamp() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, "0");
-  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-}
-function safeStringify(v) {
-  if (typeof v === "string")
-    return v;
-  try {
-    return JSON.stringify(v);
-  } catch (e) {
-    return String(v);
-  }
-}
-function push(line) {
-  buffer.push(line);
-  if (buffer.length > MAX_ENTRIES)
-    buffer.splice(0, buffer.length - MAX_ENTRIES);
-}
-function bbLog(...args) {
-  push(`[${stamp()}] ${args.map(safeStringify).join(" ")}`);
-}
-function bbError(...args) {
-  push(`[${stamp()}] ERR ${args.map(safeStringify).join(" ")}`);
-  console.error(...args);
-}
-function getLogs() {
-  return buffer.slice();
-}
-function clearLogs() {
-  buffer.length = 0;
-}
+init_logBuffer();
 
 // src/providers/codebuddy/acp/client.ts
 var import_child_process2 = require("child_process");
@@ -486,6 +690,7 @@ var import_child_process2 = require("child_process");
 var path = __toESM(require("path"));
 var fs = __toESM(require("fs"));
 var import_child_process = require("child_process");
+init_logBuffer();
 var isWin = () => process.platform === "win32";
 var home = () => process.env.HOME || process.env.USERPROFILE || "";
 var nodeBinName = () => isWin() ? "node.exe" : "node";
@@ -634,6 +839,7 @@ function needsWindowsShell(scriptPath) {
 }
 
 // src/providers/codebuddy/acp/client.ts
+init_logBuffer();
 var AcpStartError = class extends Error {
   constructor(tier, message) {
     super(message);
@@ -1161,6 +1367,7 @@ function appendTextChunk(accumulated, incoming) {
 }
 
 // src/providers/codebuddy/acp/session.ts
+init_logBuffer();
 var AcpSession = class {
   // 排队/在飞轮次被取消：到队首直接作废，不再占用 CLI
   constructor(key, client, lookup, config, activation = { current: null }) {
@@ -1928,6 +2135,9 @@ var CodebuddyProvider = class {
   }
 };
 
+// src/main.ts
+init_hermes();
+
 // src/features/chat/view.ts
 var import_obsidian8 = require("obsidian");
 
@@ -1974,7 +2184,7 @@ function getErrorMessage(error) {
   }
   return t("common.unknownError");
 }
-var CURRENT_SETTINGS_VERSION = 12;
+var CURRENT_SETTINGS_VERSION = 13;
 var DEFAULT_CONTEXT_WINDOW_SIZE = 2e5;
 var DEFAULT_PASTED_IMAGE_KEEP = 20;
 var MAX_PASTED_IMAGE_KEEP = 500;
@@ -1995,6 +2205,9 @@ var DEFAULT_SETTINGS = {
   customAgentsJson: "",
   thoughtLevel: "enabled",
   autoTitle: true,
+  backend: "codebuddy",
+  hermesGatewayUrl: "",
+  hermesApiKey: "",
   allowedExternalPaths: [],
   version: CURRENT_SETTINGS_VERSION
 };
@@ -2030,6 +2243,12 @@ var FIELD_RULES = [
   { key: "customAgentsJson", read: (s) => getString(s, "customAgentsJson") },
   { key: "thoughtLevel", read: (s) => getString(s, "thoughtLevel") },
   { key: "autoTitle", read: (s) => getBoolean(s, "autoTitle") },
+  { key: "backend", read: (s) => {
+    const v = getString(s, "backend");
+    return v === "hermes" ? "hermes" : v === "codebuddy" ? "codebuddy" : void 0;
+  } },
+  { key: "hermesGatewayUrl", read: (s) => getString(s, "hermesGatewayUrl") },
+  { key: "hermesApiKey", read: (s) => getString(s, "hermesApiKey") },
   {
     key: "allowedExternalPaths",
     read: (s) => Array.isArray(s.allowedExternalPaths) ? s.allowedExternalPaths.filter((p) => typeof p === "string") : void 0
@@ -3129,6 +3348,7 @@ function onConfigChanged(app, cb) {
 
 // src/features/chat/input.ts
 init_i18n();
+init_logBuffer();
 function suggestItems(view) {
   return Array.from(view.atSuggestEl.querySelectorAll(".workbuddian-at-suggest-item"));
 }
@@ -4563,6 +4783,7 @@ function showTabContextMenu(view, e, convId, tab, titleSpan) {
 
 // src/features/chat/view.ts
 init_i18n();
+init_logBuffer();
 var VIEW_TYPE_CHAT = "workbuddian-panel";
 var WorkbuddianChatView = class extends import_obsidian8.ItemView {
   constructor(leaf, api, manager, settings, loadDataCallback, saveSettingsCallback) {
@@ -4870,6 +5091,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
 
 // src/core/session/manager.ts
 init_i18n();
+init_logBuffer();
 function newConversation(title) {
   const now = Date.now();
   return {
@@ -5122,6 +5344,7 @@ init_i18n();
 
 // src/features/settings/logModal.ts
 var import_obsidian9 = require("obsidian");
+init_logBuffer();
 init_i18n();
 var LogModal = class extends import_obsidian9.Modal {
   constructor(app) {
@@ -5299,6 +5522,31 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
       new import_obsidian11.Notice(t("settings.langReload"));
     }));
     new import_obsidian11.Setting(containerEl).setName(t("settings.conn")).setHeading();
+    new import_obsidian11.Setting(containerEl).setName(t("backend.title")).setDesc(t("backend.desc")).addDropdown((dropdown) => dropdown.addOptions({ codebuddy: t("backend.codebuddy"), hermes: t("backend.hermes") }).setValue(this.plugin.settings.backend).onChange(async (value) => {
+      this.plugin.settings.backend = value;
+      await this.plugin.saveSettings();
+      new import_obsidian11.Notice(t("hermes.needRestart"));
+      this.display();
+    }));
+    if (this.plugin.settings.backend === "hermes") {
+      new import_obsidian11.Setting(containerEl).setName(t("hermes.gatewayUrl")).setDesc(t("hermes.gatewayUrlDesc")).addText((text) => text.setPlaceholder("http://127.0.0.1:8642").setValue(this.plugin.settings.hermesGatewayUrl).onChange(async (value) => {
+        this.plugin.settings.hermesGatewayUrl = value.trim();
+        await this.plugin.saveSettings();
+      }));
+      new import_obsidian11.Setting(containerEl).setName(t("hermes.apiKey")).setDesc(t("hermes.apiKeyDesc")).addText((text) => {
+        text.inputEl.type = "password";
+        text.setValue(this.plugin.settings.hermesApiKey).onChange(async (value) => {
+          this.plugin.settings.hermesApiKey = value.trim();
+          await this.plugin.saveSettings();
+        });
+      }).addButton((btn) => btn.setButtonText(t("hermes.test")).onClick(async () => {
+        const { HermesProvider: HermesProvider2 } = await Promise.resolve().then(() => (init_hermes(), hermes_exports));
+        const p = new HermesProvider2();
+        p.setGateway(this.plugin.settings.hermesGatewayUrl, this.plugin.settings.hermesApiKey);
+        const r = await p.testConnection();
+        new import_obsidian11.Notice(r.ok ? t("hermes.testOk") : `${t("hermes.testFail")}${r.error}`);
+      }));
+    }
     let pathInput;
     new import_obsidian11.Setting(containerEl).setName(t("settings.path")).setDesc(t("settings.pathDesc")).addText((text) => {
       pathInput = text;
@@ -5862,6 +6110,7 @@ var FloatingInlineEdit = class {
 
 // src/main.ts
 init_i18n();
+init_logBuffer();
 var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
   constructor() {
     super(...arguments);
@@ -5873,7 +6122,7 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
       applyLang(this.settings.language);
       registerWorkbuddianIcon();
       applyPrimaryColor(this.settings.primaryColor);
-      this.api = new CodebuddyProvider();
+      this.api = this.settings.backend === "hermes" ? new HermesProvider() : new CodebuddyProvider();
       this.applySettingsToApi();
       this.manager = new ConversationManager();
       this.manager.setPersistCallback((conversations) => this.persistConversations(conversations));
@@ -6086,6 +6335,9 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
     this.api.setMcpServersJson(this.settings.mcpServersJson);
     this.api.setCustomAgentsJson(this.settings.customAgentsJson);
     this.api.setThoughtLevel(this.settings.thoughtLevel);
+    if (this.api instanceof HermesProvider) {
+      this.api.setGateway(this.settings.hermesGatewayUrl, this.settings.hermesApiKey);
+    }
   }
   /** 复用已有 leaf 或新建右侧 leaf，然后 reveal + focus；失败给分级 Notice */
   async openPanel(createLeaf, errNotice) {

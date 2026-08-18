@@ -1,5 +1,6 @@
 import { Notice, Plugin, WorkspaceLeaf } from 'obsidian';
 import { CodebuddyProvider } from './providers/codebuddy';
+import { HermesProvider } from './providers/hermes';
 import { WorkbuddianChatView, VIEW_TYPE_CHAT } from './features/chat/view';
 import { ConversationManager } from './core/session/manager';
 import { migrateSettings, normalizePersistedData, getErrorMessage, type WorkbuddianSettings, type PersistedData } from './types';
@@ -21,7 +22,7 @@ import { bbError } from './shared/logBuffer';
  */
 export default class WorkbuddianPlugin extends Plugin {
     settings: WorkbuddianSettings;
-    api: CodebuddyProvider;
+    api: CodebuddyProvider | HermesProvider;
     chatView: WorkbuddianChatView | null = null;
     manager: ConversationManager;
 
@@ -32,7 +33,7 @@ export default class WorkbuddianPlugin extends Plugin {
             registerWorkbuddianIcon(); // 品牌图标须在使用该 id 之前注册
             applyPrimaryColor(this.settings.primaryColor);
 
-            this.api = new CodebuddyProvider();
+            this.api = this.settings.backend === 'hermes' ? new HermesProvider() : new CodebuddyProvider();
             this.applySettingsToApi();
 
             // 所有聊天视图共享同一个 ConversationManager：避免侧边栏 + 主编辑区
@@ -245,6 +246,10 @@ export default class WorkbuddianPlugin extends Plugin {
         this.api.setMcpServersJson(this.settings.mcpServersJson);
         this.api.setCustomAgentsJson(this.settings.customAgentsJson);
         this.api.setThoughtLevel(this.settings.thoughtLevel);
+        // Hermes 后端:灌 gateway 地址 + API key
+        if (this.api instanceof HermesProvider) {
+            this.api.setGateway(this.settings.hermesGatewayUrl, this.settings.hermesApiKey);
+        }
     }
 
     /** 复用已有 leaf 或新建右侧 leaf，然后 reveal + focus；失败给分级 Notice */

@@ -96,10 +96,16 @@ export interface WorkbuddianSettings {
     autoTitle: boolean;
     /** 已授权"总是允许读取"的 vault 外附件绝对路径（逐项精确匹配） */
     allowedExternalPaths: string[];
+    /** 后端:codebuddy(本地 CLI)或 hermes(本地 gateway) */
+    backend: 'codebuddy' | 'hermes';
+    /** Hermes gateway 地址(空=默认 http://127.0.0.1:8642) */
+    hermesGatewayUrl: string;
+    /** Hermes API key(API_SERVER_KEY) */
+    hermesApiKey: string;
     version: number;
 }
 
-const CURRENT_SETTINGS_VERSION = 12;
+const CURRENT_SETTINGS_VERSION = 13;
 export const DEFAULT_CONTEXT_WINDOW_SIZE = 200000;
 const DEFAULT_PASTED_IMAGE_KEEP = 20;
 /** 粘贴图保留数量上限；0 表示不限制 */
@@ -122,6 +128,9 @@ export const DEFAULT_SETTINGS: WorkbuddianSettings = {
     customAgentsJson: '',
     thoughtLevel: 'enabled',
     autoTitle: true,
+    backend: 'codebuddy',
+    hermesGatewayUrl: '',
+    hermesApiKey: '',
     allowedExternalPaths: [],
     version: CURRENT_SETTINGS_VERSION
 };
@@ -158,6 +167,9 @@ const FIELD_RULES: FieldRule[] = [
     { key: 'customAgentsJson', read: (s) => getString(s, 'customAgentsJson') },
     { key: 'thoughtLevel', read: (s) => getString(s, 'thoughtLevel') },
     { key: 'autoTitle', read: (s) => getBoolean(s, 'autoTitle') },
+    { key: 'backend', read: (s) => { const v = getString(s, 'backend'); return v === 'hermes' ? 'hermes' : v === 'codebuddy' ? 'codebuddy' : undefined; } },
+    { key: 'hermesGatewayUrl', read: (s) => getString(s, 'hermesGatewayUrl') },
+    { key: 'hermesApiKey', read: (s) => getString(s, 'hermesApiKey') },
     {
         key: 'allowedExternalPaths',
         read: (s) => Array.isArray(s.allowedExternalPaths)

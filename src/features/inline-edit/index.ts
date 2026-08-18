@@ -1,11 +1,12 @@
 import { App, Editor, Modal, Notice, Setting } from 'obsidian';
 import { CodebuddyProvider } from '../../providers/codebuddy';
+import { HermesProvider } from '../../providers/hermes';
 import { lineDiff, type DiffLine } from '../../shared/lineDiff';
 import { renderDiffRows } from '../../shared/diffRows';
 import { buildEditPrompt } from '../../shared/editPrompt';
 import { t } from '../../i18n';
 
-async function collectEditResult(api: CodebuddyProvider, sessionId: string, prompt: string, vaultPath?: string): Promise<string> {
+async function collectEditResult(api: CodebuddyProvider | HermesProvider, sessionId: string, prompt: string, vaultPath?: string): Promise<string> {
     let text = '';
     for await (const chunk of api.sendMessage(sessionId, prompt, vaultPath)) {
         if (chunk.type === 'text') text += chunk.content;
@@ -49,7 +50,7 @@ class DiffModal extends Modal {
     }
 }
 
-export function runInlineEdit(app: App, api: CodebuddyProvider, editor: Editor, vaultPath?: string) {
+export function runInlineEdit(app: App, api: CodebuddyProvider | HermesProvider, editor: Editor, vaultPath?: string) {
     const selection = editor.getSelection();
     if (!selection.trim()) { new Notice(t('inline.selectFirst')); return; }
     new InstructionModal(app, async (instruction) => {

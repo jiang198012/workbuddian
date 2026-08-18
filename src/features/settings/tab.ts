@@ -50,6 +50,53 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
         // ===== CodeBuddy 连接 =====
         new Setting(containerEl).setName(t('settings.conn')).setHeading();
 
+        // 后端选择:CodeBuddy CLI(完整能力)或 Hermes gateway(纯对话);切换需重载插件
+        new Setting(containerEl)
+            .setName(t('backend.title'))
+            .setDesc(t('backend.desc'))
+            .addDropdown(dropdown => dropdown
+                .addOptions({ codebuddy: t('backend.codebuddy'), hermes: t('backend.hermes') })
+                .setValue(this.plugin.settings.backend)
+                .onChange(async (value) => {
+                    this.plugin.settings.backend = value as 'codebuddy' | 'hermes';
+                    await this.plugin.saveSettings();
+                    new Notice(t('hermes.needRestart'));
+                    this.display();
+                }));
+
+        // Hermes 配置(仅 hermes 后端显示)
+        if (this.plugin.settings.backend === 'hermes') {
+            new Setting(containerEl)
+                .setName(t('hermes.gatewayUrl'))
+                .setDesc(t('hermes.gatewayUrlDesc'))
+                .addText(text => text
+                    .setPlaceholder('http://127.0.0.1:8642')
+                    .setValue(this.plugin.settings.hermesGatewayUrl)
+                    .onChange(async (value) => {
+                        this.plugin.settings.hermesGatewayUrl = value.trim();
+                        await this.plugin.saveSettings();
+                    }));
+            new Setting(containerEl)
+                .setName(t('hermes.apiKey'))
+                .setDesc(t('hermes.apiKeyDesc'))
+                .addText(text => {
+                    text.inputEl.type = 'password';
+                    text
+                        .setValue(this.plugin.settings.hermesApiKey)
+                        .onChange(async (value) => {
+                            this.plugin.settings.hermesApiKey = value.trim();
+                            await this.plugin.saveSettings();
+                        });
+                })
+                .addButton(btn => btn.setButtonText(t('hermes.test')).onClick(async () => {
+                    const { HermesProvider } = await import('../../providers/hermes');
+                    const p = new HermesProvider();
+                    p.setGateway(this.plugin.settings.hermesGatewayUrl, this.plugin.settings.hermesApiKey);
+                    const r = await p.testConnection();
+                    new Notice(r.ok ? t('hermes.testOk') : `${t('hermes.testFail')}${r.error}`);
+                }));
+        }
+
         let pathInput: TextComponent;
         new Setting(containerEl)
             .setName(t('settings.path'))

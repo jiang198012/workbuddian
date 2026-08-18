@@ -6,6 +6,7 @@
  */
 import { Editor, Notice, setIcon } from 'obsidian';
 import type { CodebuddyProvider } from '../../providers/codebuddy';
+import type { HermesProvider } from '../../providers/hermes';
 import { lineDiff } from '../../shared/lineDiff';
 import { renderDiffRows } from '../../shared/diffRows';
 import { buildEditPrompt } from '../../shared/editPrompt';
@@ -22,7 +23,7 @@ function getCMView(editor: Editor): CMView | null {
     return cm && typeof cm.coordsAtPos === 'function' ? cm : null;
 }
 
-async function collectEditResult(api: CodebuddyProvider, sessionId: string, prompt: string, vaultPath?: string): Promise<string> {
+async function collectEditResult(api: CodebuddyProvider | HermesProvider, sessionId: string, prompt: string, vaultPath?: string): Promise<string> {
     let text = '';
     for await (const chunk of api.sendMessage(sessionId, prompt, vaultPath)) {
         if (chunk.type === 'text') text += chunk.content;
@@ -40,7 +41,7 @@ export class FloatingInlineEdit {
     private savedSel: { from: { line: number; ch: number }; to: { line: number; ch: number }; text: string } | null = null;
 
     constructor(
-        private api: CodebuddyProvider,
+        private api: CodebuddyProvider | HermesProvider,
         private editor: Editor,
         private vaultPath?: string,
         savedSel?: { from: { line: number; ch: number }; to: { line: number; ch: number }; text: string } | null,

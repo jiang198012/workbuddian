@@ -2,6 +2,7 @@ import { ItemView, Component, MarkdownView, setIcon } from 'obsidian';
 import type { WorkspaceLeaf } from 'obsidian';
 import { ConversationManager } from '../../core/session/manager';
 import { CodebuddyProvider } from '../../providers/codebuddy';
+import { HermesProvider } from '../../providers/hermes';
 import { type Conversation, type WorkbuddianSettings } from '../../types';
 import { WORKBUDDIAN_ICON_ID } from '../../shared/icon';
 import { renderTabs, createNewChat, openTemplateMenu } from './tabs';
@@ -18,7 +19,7 @@ export const VIEW_TYPE_CHAT = "workbuddian-panel";
 
 export class WorkbuddianChatView extends ItemView {
     manager: ConversationManager;
-    api: CodebuddyProvider;
+    api: CodebuddyProvider | HermesProvider;
     settings: WorkbuddianSettings;
     messageContainer!: HTMLElement;
     inputEl!: HTMLTextAreaElement;
@@ -63,7 +64,7 @@ export class WorkbuddianChatView extends ItemView {
         return adapter.basePath;
     }
 
-    constructor(leaf: WorkspaceLeaf, api: CodebuddyProvider, manager: ConversationManager, settings: WorkbuddianSettings, loadDataCallback: () => Promise<Conversation[]>, saveSettingsCallback: () => Promise<void>) {
+    constructor(leaf: WorkspaceLeaf, api: CodebuddyProvider | HermesProvider, manager: ConversationManager, settings: WorkbuddianSettings, loadDataCallback: () => Promise<Conversation[]>, saveSettingsCallback: () => Promise<void>) {
         super(leaf);
         this.api = api;
         this.loadDataCallback = loadDataCallback;
