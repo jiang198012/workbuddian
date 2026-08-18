@@ -59,6 +59,15 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                 .setValue(this.plugin.settings.backend)
                 .onChange(async (value) => {
                     this.plugin.settings.backend = value as 'codebuddy' | 'hermes';
+                    // 切到 hermes 时自动探测本机配置(地址/key 预填)
+                    if (value === 'hermes') {
+                        const { discoverHermes } = await import('../../shared/hermesDiscover');
+                        const d = discoverHermes();
+                        if (d) {
+                            if (!this.plugin.settings.hermesGatewayUrl) this.plugin.settings.hermesGatewayUrl = d.gatewayUrl;
+                            if (!this.plugin.settings.hermesApiKey && d.apiKey) this.plugin.settings.hermesApiKey = d.apiKey;
+                        }
+                    }
                     await this.plugin.saveSettings();
                     new Notice(t('hermes.needRestart'));
                     this.display();

@@ -598,6 +598,54 @@ var init_hermes = __esm({
   }
 });
 
+// src/shared/hermesDiscover.ts
+var hermesDiscover_exports = {};
+__export(hermesDiscover_exports, {
+  discoverHermes: () => discoverHermes
+});
+function envVal(text, key) {
+  var _a;
+  const m = text.match(new RegExp(`^\\s*${key}\\s*=\\s*(.+?)\\s*$`, "m"));
+  return (_a = m == null ? void 0 : m[1]) != null ? _a : "";
+}
+function yamlApiServer(text, key) {
+  var _a;
+  const m = text.match(new RegExp(`api_server:[\\s\\S]*?\\n\\s+${key}:\\s*(\\S+)`, "i"));
+  return (_a = m == null ? void 0 : m[1]) != null ? _a : "";
+}
+function discoverHermes(rootDir) {
+  const home2 = rootDir != null ? rootDir : (0, import_path.join)((0, import_os.homedir)(), ".hermes");
+  let configText = "";
+  let envText = "";
+  try {
+    configText = (0, import_fs.readFileSync)((0, import_path.join)(home2, "config.yaml"), "utf-8");
+  } catch (e) {
+  }
+  try {
+    envText = (0, import_fs.readFileSync)((0, import_path.join)(home2, ".env"), "utf-8");
+  } catch (e) {
+  }
+  if (!configText && !envText)
+    return null;
+  const enabled = /api_server:[\s\S]*?\n\s+enabled:\s*true/i.test(configText);
+  const host = yamlApiServer(configText, "host") || "127.0.0.1";
+  const port = yamlApiServer(configText, "port") || envVal(envText, "API_SERVER_PORT") || "8642";
+  const key = yamlApiServer(configText, "key") || envVal(envText, "API_SERVER_KEY");
+  return {
+    gatewayUrl: `http://${host}:${port}`,
+    apiKey: key,
+    enabled
+  };
+}
+var import_fs, import_path, import_os;
+var init_hermesDiscover = __esm({
+  "src/shared/hermesDiscover.ts"() {
+    import_fs = require("fs");
+    import_path = require("path");
+    import_os = require("os");
+  }
+});
+
 // src/shared/export.ts
 var export_exports = {};
 __export(export_exports, {
@@ -2164,6 +2212,7 @@ var CodebuddyProvider = class {
 
 // src/main.ts
 init_hermes();
+init_hermesDiscover();
 
 // src/features/chat/view.ts
 var import_obsidian8 = require("obsidian");
@@ -5470,34 +5519,34 @@ var McpServerModal = class extends import_obsidian10.Modal {
 };
 
 // src/shared/codebuddyPlugins.ts
-var import_fs = require("fs");
-var import_path = require("path");
+var import_fs2 = require("fs");
+var import_path2 = require("path");
 function str(d, key) {
   const v = d[key];
   return typeof v === "string" ? v : "";
 }
 function discoverPlugins(pluginsRoot = codebuddyPluginsRoot()) {
   const out = [];
-  const marketsDir = (0, import_path.join)(pluginsRoot, "marketplaces");
+  const marketsDir = (0, import_path2.join)(pluginsRoot, "marketplaces");
   let markets;
   try {
-    markets = (0, import_fs.readdirSync)(marketsDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.endsWith(".zip")).map((e) => e.name);
+    markets = (0, import_fs2.readdirSync)(marketsDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.endsWith(".zip")).map((e) => e.name);
   } catch (e) {
     return [];
   }
   for (const market of markets) {
-    const pluginsDir = (0, import_path.join)(marketsDir, market, "plugins");
+    const pluginsDir = (0, import_path2.join)(marketsDir, market, "plugins");
     let pluginDirs;
     try {
-      pluginDirs = (0, import_fs.readdirSync)(pluginsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+      pluginDirs = (0, import_fs2.readdirSync)(pluginsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
     } catch (e) {
       continue;
     }
     for (const pdir of pluginDirs) {
-      const manifestPath = (0, import_path.join)(pluginsDir, pdir, ".codebuddy-plugin", "plugin.json");
+      const manifestPath = (0, import_path2.join)(pluginsDir, pdir, ".codebuddy-plugin", "plugin.json");
       let raw;
       try {
-        raw = JSON.parse((0, import_fs.readFileSync)(manifestPath, "utf-8"));
+        raw = JSON.parse((0, import_fs2.readFileSync)(manifestPath, "utf-8"));
       } catch (e) {
         continue;
       }
@@ -5509,14 +5558,14 @@ function discoverPlugins(pluginsRoot = codebuddyPluginsRoot()) {
         name,
         description: str(rec, "description"),
         marketplace: market,
-        dir: (0, import_path.join)(pluginsDir, pdir)
+        dir: (0, import_path2.join)(pluginsDir, pdir)
       });
     }
   }
   return out;
 }
 function codebuddyPluginsRoot() {
-  return (0, import_path.join)(homeDir(), ".codebuddy", "plugins");
+  return (0, import_path2.join)(homeDir(), ".codebuddy", "plugins");
 }
 function homeDir() {
   var _a, _b;
@@ -5551,6 +5600,16 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
     new import_obsidian11.Setting(containerEl).setName(t("settings.conn")).setHeading();
     new import_obsidian11.Setting(containerEl).setName(t("backend.title")).setDesc(t("backend.desc")).addDropdown((dropdown) => dropdown.addOptions({ codebuddy: t("backend.codebuddy"), hermes: t("backend.hermes") }).setValue(this.plugin.settings.backend).onChange(async (value) => {
       this.plugin.settings.backend = value;
+      if (value === "hermes") {
+        const { discoverHermes: discoverHermes2 } = await Promise.resolve().then(() => (init_hermesDiscover(), hermesDiscover_exports));
+        const d = discoverHermes2();
+        if (d) {
+          if (!this.plugin.settings.hermesGatewayUrl)
+            this.plugin.settings.hermesGatewayUrl = d.gatewayUrl;
+          if (!this.plugin.settings.hermesApiKey && d.apiKey)
+            this.plugin.settings.hermesApiKey = d.apiKey;
+        }
+      }
       await this.plugin.saveSettings();
       new import_obsidian11.Notice(t("hermes.needRestart"));
       this.display();
@@ -6363,6 +6422,15 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
     this.api.setCustomAgentsJson(this.settings.customAgentsJson);
     this.api.setThoughtLevel(this.settings.thoughtLevel);
     if (this.api instanceof HermesProvider) {
+      if (!this.settings.hermesGatewayUrl || !this.settings.hermesApiKey) {
+        const discovered = discoverHermes();
+        if (discovered) {
+          if (!this.settings.hermesGatewayUrl)
+            this.settings.hermesGatewayUrl = discovered.gatewayUrl;
+          if (!this.settings.hermesApiKey && discovered.apiKey)
+            this.settings.hermesApiKey = discovered.apiKey;
+        }
+      }
       this.api.setGateway(this.settings.hermesGatewayUrl, this.settings.hermesApiKey);
     }
   }

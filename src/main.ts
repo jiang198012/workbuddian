@@ -1,6 +1,7 @@
 import { Notice, Plugin, WorkspaceLeaf } from 'obsidian';
 import { CodebuddyProvider } from './providers/codebuddy';
 import { HermesProvider } from './providers/hermes';
+import { discoverHermes } from './shared/hermesDiscover';
 import { WorkbuddianChatView, VIEW_TYPE_CHAT } from './features/chat/view';
 import { ConversationManager } from './core/session/manager';
 import { migrateSettings, normalizePersistedData, getErrorMessage, type WorkbuddianSettings, type PersistedData } from './types';
@@ -246,8 +247,15 @@ export default class WorkbuddianPlugin extends Plugin {
         this.api.setMcpServersJson(this.settings.mcpServersJson);
         this.api.setCustomAgentsJson(this.settings.customAgentsJson);
         this.api.setThoughtLevel(this.settings.thoughtLevel);
-        // Hermes 后端:灌 gateway 地址 + API key
+        // Hermes 后端:灌 gateway 地址 + API key(缺省时自动从 ~/.hermes 探测)
         if (this.api instanceof HermesProvider) {
+            if (!this.settings.hermesGatewayUrl || !this.settings.hermesApiKey) {
+                const discovered = discoverHermes();
+                if (discovered) {
+                    if (!this.settings.hermesGatewayUrl) this.settings.hermesGatewayUrl = discovered.gatewayUrl;
+                    if (!this.settings.hermesApiKey && discovered.apiKey) this.settings.hermesApiKey = discovered.apiKey;
+                }
+            }
             this.api.setGateway(this.settings.hermesGatewayUrl, this.settings.hermesApiKey);
         }
     }
