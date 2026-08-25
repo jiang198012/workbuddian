@@ -1,4 +1,4 @@
-import { mapPermissionRequest, buildPermissionResult, pickOptionId } from '../src/providers/codebuddy/acp/permission';
+import { mapPermissionRequest, buildPermissionResult, pickOptionId } from '../src/providers/acp/permission';
 
 const OPTIONS = [
     { kind: 'allow_always', name: 'Always Allow', optionId: 'allow_always' },

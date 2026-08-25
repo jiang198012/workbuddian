@@ -1,9 +1,9 @@
-import type { AcpClient, AcpClientEvents } from '../../src/providers/codebuddy/acp/client';
+import type { AcpClient, AcpClientEvents } from '../../src/providers/acp/client';
 import type { StreamChunk } from '../../src/providers/codebuddy';
 
 /**
  * fake AcpClient harness：provider 层测试共享。
- * 调用方需先 `jest.mock('../src/providers/codebuddy/acp/client', ...)`（partial mock，AcpClient 换 jest.fn），
+ * 调用方需先 `jest.mock('../src/providers/acp/client', ...)`（partial mock，AcpClient 换 jest.fn），
  * 再把 mock 后的类传进来。
  */
 export type FakeRequest = jest.Mock<Promise<unknown>, [string, Record<string, unknown>]>;

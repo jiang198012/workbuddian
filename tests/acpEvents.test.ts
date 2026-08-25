@@ -1,7 +1,7 @@
 import {
     mapSessionUpdate, mapToolCallUpdate, mapUsageUpdate, mapConfigUpdate,
     extractToolName, summarizeRawInput, isReplayUpdate,
-} from '../src/providers/codebuddy/acp/events';
+} from '../src/providers/acp/events';
 
 describe('mapSessionUpdate', () => {
     it('maps agent_thought_chunk to thinking chunk', () => {

@@ -758,7 +758,7 @@ function isPermissionMode(value) {
 init_i18n();
 init_logBuffer();
 
-// src/providers/codebuddy/acp/client.ts
+// src/providers/acp/client.ts
 var import_child_process2 = require("child_process");
 
 // src/utils/cliPath.ts
@@ -913,7 +913,7 @@ function needsWindowsShell(scriptPath) {
   return isWin() && (ext === ".cmd" || ext === ".bat");
 }
 
-// src/providers/codebuddy/acp/client.ts
+// src/providers/acp/client.ts
 init_logBuffer();
 var AcpStartError = class extends Error {
   constructor(tier, message) {
@@ -1249,7 +1249,7 @@ var AcpClient = class {
   }
 };
 
-// src/providers/codebuddy/acp/events.ts
+// src/providers/acp/events.ts
 function textOf(update) {
   const content = update.content;
   if ((content == null ? void 0 : content.type) === "text" && typeof content.text === "string")
@@ -1358,7 +1358,7 @@ function isReplayUpdate(update) {
   return (cb == null ? void 0 : cb.mode) === "history";
 }
 
-// src/providers/codebuddy/acp/permission.ts
+// src/providers/acp/permission.ts
 function asRecord(v) {
   return v && typeof v === "object" && !Array.isArray(v) ? v : {};
 }
@@ -1441,7 +1441,7 @@ function appendTextChunk(accumulated, incoming) {
   return accumulated + incoming;
 }
 
-// src/providers/codebuddy/acp/session.ts
+// src/providers/acp/session.ts
 init_logBuffer();
 var AcpSession = class {
   // 排队/在飞轮次被取消：到队首直接作废，不再占用 CLI

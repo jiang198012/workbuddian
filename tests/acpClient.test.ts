@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { AcpClient, buildSpawnCommand, classifyHandshakeFailure, isAuthError, type AcpClientEvents } from '../src/providers/codebuddy/acp/client';
+import { AcpClient, buildSpawnCommand, classifyHandshakeFailure, isAuthError, type AcpClientEvents } from '../src/providers/acp/client';
 
 jest.mock('child_process');
 const mockedSpawn = spawn as jest.MockedFunction<typeof spawn>;

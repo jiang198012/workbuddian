@@ -1,4 +1,4 @@
-import type { StreamChunk } from '../index';
+import type { StreamChunk } from '../codebuddy/index';
 
 export interface AcpUpdate {
     sessionUpdate?: string;

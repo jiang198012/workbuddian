@@ -2,12 +2,12 @@ import { FALLBACK_MODEL_OPTIONS, type PermissionMode } from '../../shared/cliOpt
 import { t } from '../../i18n';
 import { bbLog, bbError } from '../../shared/logBuffer';
 import type { UsageInfo } from '../../types';
-import { AcpClient, AcpStartError, type AcpStartTier } from './acp/client';
+import { AcpClient, AcpStartError, type AcpStartTier } from '../acp/client';
 import {
     SessionRegistry, type ConversationLookup, type SessionConfig, type TurnHandlers,
-} from './acp/session';
-import { mapConfigUpdate, isReplayUpdate, type AcpUpdate } from './acp/events';
-import type { PermissionCardData } from './acp/permission';
+} from '../acp/session';
+import { mapConfigUpdate, isReplayUpdate, type AcpUpdate } from '../acp/events';
+import type { PermissionCardData } from '../acp/permission';
 import { activeMcpServers, parseMcpServers } from '../../shared/mcpServers';
 
 // 供测试与外部消费方沿用 v1 的 re-export 路径

@@ -1,5 +1,5 @@
 import { CodebuddyProvider, isWindowsWrapper, isBareFallback, needsWindowsShell, type StreamChunk } from '../src/providers/codebuddy';
-import { AcpClient, AcpStartError } from '../src/providers/codebuddy/acp/client';
+import { AcpClient, AcpStartError } from '../src/providers/acp/client';
 import { resolveCodebuddyPath, findNodeExecutable } from '../src/utils/cliPath';
 import { t } from '../src/i18n';
 import { makeFakeClient, deferred, flush, consume } from './helpers/fakeAcpClient';
@@ -7,8 +7,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-jest.mock('../src/providers/codebuddy/acp/client', () => {
-    const actual = jest.requireActual('../src/providers/codebuddy/acp/client');
+jest.mock('../src/providers/acp/client', () => {
+    const actual = jest.requireActual('../src/providers/acp/client');
     return { ...actual, AcpClient: jest.fn() };
 });
 const MockAcpClient = AcpClient as jest.MockedClass<typeof AcpClient>;

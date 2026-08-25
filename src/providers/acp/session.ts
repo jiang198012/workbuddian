@@ -1,12 +1,12 @@
-import type { StreamChunk } from '../index';
+import type { StreamChunk } from '../codebuddy/index';
 import {
     mapSessionUpdate, mapToolCallUpdate, mapUsageUpdate, mapConfigUpdate, isReplayUpdate, type AcpUpdate,
 } from './events';
 import {
     mapPermissionRequest, buildPermissionResult, pickOptionId, type PermissionCardData,
 } from './permission';
-import { appendTextChunk } from '../../../shared/responseFinalize';
-import { bbLog } from '../../../shared/logBuffer';
+import { appendTextChunk } from '../../shared/responseFinalize';
+import { bbLog } from '../../shared/logBuffer';
 
 /** session 层对传输层的最小依赖（AcpClient 天然满足；测试用 fake） */
 export interface AcpClientFacade {

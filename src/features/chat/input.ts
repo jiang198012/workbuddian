@@ -15,7 +15,7 @@ import { fileBasename, buildAttachmentBlock, attachmentDirs, isAbsolutePath } fr
 import { parseFileChange, type FileEdit, type FileWrite } from '../../shared/toolDetail';
 import { lineDiff, type DiffLine } from '../../shared/lineDiff';
 import { renderDiffRows } from '../../shared/diffRows';
-import { pickOptionId, type PermissionCardData, type PermissionDetail } from '../../providers/codebuddy/acp/permission';
+import { pickOptionId, type PermissionCardData, type PermissionDetail } from '../../providers/acp/permission';
 import { extForMime, mimeForExt, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
 import { parseInstructionInput } from '../../shared/instruction';
 import { openInstructionModal } from './instructionModal';

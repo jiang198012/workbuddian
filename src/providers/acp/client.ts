@@ -1,8 +1,8 @@
 import { spawn } from 'child_process';
 import {
     findNodeExecutable, isBareFallback, isWindowsWrapper, needsWindowsShell, resolveCodebuddyPath,
-} from '../../../utils/cliPath';
-import { bbLog, bbError } from '../../../shared/logBuffer';
+} from '../../utils/cliPath';
+import { bbLog, bbError } from '../../shared/logBuffer';
 import type { AcpUpdate } from './events';
 
 export type AcpStartTier = 'cli-not-found' | 'acp-unsupported' | 'auth-required' | 'handshake-failed';

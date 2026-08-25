@@ -1,8 +1,8 @@
 import {
     AcpSession, SessionRegistry,
     type AcpClientFacade, type ConversationLookup, type TurnHandlers,
-} from '../src/providers/codebuddy/acp/session';
-import type { PermissionCardData } from '../src/providers/codebuddy/acp/permission';
+} from '../src/providers/acp/session';
+import type { PermissionCardData } from '../src/providers/acp/permission';
 
 type FakeClient = AcpClientFacade & {
     request: jest.Mock; notify: jest.Mock; respond: jest.Mock; enqueuePrompt: jest.Mock; rawRequest: jest.Mock;

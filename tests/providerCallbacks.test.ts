@@ -1,12 +1,12 @@
 import { CodebuddyProvider } from '../src/providers/codebuddy';
-import { AcpClient } from '../src/providers/codebuddy/acp/client';
-import type { PermissionCardData } from '../src/providers/codebuddy/acp/permission';
+import { AcpClient } from '../src/providers/acp/client';
+import type { PermissionCardData } from '../src/providers/acp/permission';
 import { t } from '../src/i18n';
 import { getLogs, clearLogs } from '../src/shared/logBuffer';
 import { makeFakeClient, deferred, flush, consume, PERMISSION_PARAMS } from './helpers/fakeAcpClient';
 
-jest.mock('../src/providers/codebuddy/acp/client', () => {
-    const actual = jest.requireActual('../src/providers/codebuddy/acp/client');
+jest.mock('../src/providers/acp/client', () => {
+    const actual = jest.requireActual('../src/providers/acp/client');
     return { ...actual, AcpClient: jest.fn() };
 });
 const MockAcpClient = AcpClient as jest.MockedClass<typeof AcpClient>;
