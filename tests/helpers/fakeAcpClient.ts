@@ -23,6 +23,7 @@ export interface FakeClientKit {
 export function makeFakeClient(MockAcpClient: jest.MockedClass<typeof AcpClient>): FakeClientKit {
     let captured: AcpClientEvents | null = null;
     let newCount = 0;
+    let forkCount = 0;
     const fake = {
         setCliPath: jest.fn(),
         loadInFlight: jest.fn((_id: string) => false),
@@ -33,6 +34,7 @@ export function makeFakeClient(MockAcpClient: jest.MockedClass<typeof AcpClient>
         ensureStarted: jest.fn(async () => {}),
         request: jest.fn(async (method: string, _params: Record<string, unknown>) => {
             if (method === 'session/new') return { sessionId: `acp-${++newCount}` };
+            if (method === 'session/fork') return { sessionId: `forked-${++forkCount}` };
             if (method === 'session/load') throw new Error('session not found');
             if (method === 'session/prompt') return { stopReason: 'end_turn' };
             return {};
