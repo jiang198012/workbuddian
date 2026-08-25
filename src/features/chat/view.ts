@@ -7,11 +7,10 @@ import { type Conversation, type WorkbuddianSettings } from '../../types';
 import { WORKBUDDIAN_ICON_ID } from '../../shared/icon';
 import { renderTabs, createNewChat, openTemplateMenu } from './tabs';
 import { renderMessages } from './render';
-import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, openAttachmentPicker, openPermissionMenu, openModelMenu, permissionIcon, captureNoteSelection, handlePaste, handleDrop } from './input';
+import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, openAttachmentPicker, openPermissionMenu, openModelMenu, modelDisplayLabel, permissionIcon, captureNoteSelection, handlePaste, handleDrop } from './input';
 import { openInstructionModal } from './instructionModal';
 import type { SlashCommandInfo } from '../../shared/slashCommand';
 import { isActivationKey } from '../../shared/inputKeys';
-import { modelLabel } from '../../shared/cliOptions';
 import { t } from '../../i18n';
 import { bbError } from '../../shared/logBuffer';
 
@@ -34,6 +33,8 @@ export class WorkbuddianChatView extends ItemView {
     searchQuery: string = '';
     /** 上下文用量预警条(用量 ≥80% 显示,提示压缩/新建) */
     usageBannerEl!: HTMLElement;
+    /** Hermes 轻量模式顶条(http 降级时显示,工具/批准卡不可用提示) */
+    liteBannerEl!: HTMLElement;
     isStreaming: boolean = false;
     streamingMsgId: string | null = null;
     /** 本面板悬挂的批准卡：requestId → 兜底 reject optionId（关面板/切会话/卸载时统一答 reject） */
@@ -67,6 +68,8 @@ export class WorkbuddianChatView extends ItemView {
     constructor(leaf: WorkspaceLeaf, api: CodebuddyProvider | HermesProvider, manager: ConversationManager, settings: WorkbuddianSettings, loadDataCallback: () => Promise<Conversation[]>, saveSettingsCallback: () => Promise<void>) {
         super(leaf);
         this.api = api;
+        // ACP↔HTTP 模式翻转时就地刷新降级顶条（init 异步落锤/粘性降级都会触发）
+        if (api instanceof HermesProvider) api.onModeChange(() => this.refreshHermesLiteBanner());
         this.loadDataCallback = loadDataCallback;
         this.saveSettingsCallback = saveSettingsCallback;
         this.manager = manager;
@@ -238,6 +241,7 @@ export class WorkbuddianChatView extends ItemView {
             this.searchInputEl = this.createSearchInput(mainPane);
         }
 
+        this.liteBannerEl = mainPane.createDiv({ cls: 'wb-hermes-lite-banner workbuddian-hidden' });
         this.messageContainer = mainPane.createDiv({ cls: 'workbuddian-messages' });
 
         // 屏幕阅读器播报区：renderMessages 每次都会清空重建 messageContainer，若把 aria-live 挂在
@@ -287,7 +291,7 @@ export class WorkbuddianChatView extends ItemView {
             cls: 'workbuddian-model-btn',
             attr: { 'aria-label': t('settings.model'), title: t('settings.model'), role: 'button', tabindex: '0' }
         });
-        modelBtn.setText(modelLabel(this.settings.model));
+        modelBtn.setText(modelDisplayLabel(this, this.settings.model));
         modelBtn.addEventListener('click', () => openModelMenu(this, modelBtn));
         // role="button" 的 div 没有原生键盘激活行为，手动补上 Enter/Space
         modelBtn.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -350,6 +354,7 @@ export class WorkbuddianChatView extends ItemView {
         };
 
         void loadCustomCommands(this); // 预加载 .codebuddy/commands 自定义命令
+        this.refreshHermesLiteBanner(); // 重建后顶条是新元素，按当前模式重刷
     }
 
     /** 语言切换后重建面板 DOM 并保持当前活跃对话与已渲染内容 */
@@ -359,6 +364,15 @@ export class WorkbuddianChatView extends ItemView {
         this.activeConvId = keepActive;
         renderTabs(this);
         await renderMessages(this);
+    }
+
+    /** Hermes http 轻量模式时显示降级顶条；codebuddy/ACP 模式恒隐藏 */
+    refreshHermesLiteBanner() {
+        if (!this.liteBannerEl) return;
+        const lite = this.settings.backend === 'hermes'
+            && this.api instanceof HermesProvider && this.api.mode === 'http';
+        this.liteBannerEl.toggleClass('workbuddian-hidden', !lite);
+        if (lite) this.liteBannerEl.setText(t('hermes.liteBanner'));
     }
 
     /** 按 settings.customInstruction 刷新工具栏 # 指示按钮的高亮与提示 */

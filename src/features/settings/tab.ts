@@ -9,10 +9,12 @@ import { McpServerModal } from './mcpModal';
 import { parseMcpServers, serializeMcpServers, parseClipboardServers, type McpServerEntry } from '../../shared/mcpServers';
 import { discoverPlugins, type CodebuddyPluginInfo } from '../../shared/codebuddyPlugins';
 import { execFile } from 'child_process';
+import { HermesProvider, isLocalHermesGateway } from '../../providers/hermes';
 
 export class WorkbuddianSettingTab extends PluginSettingTab {
     plugin: WorkbuddianPlugin;
     private thoughtDropdown: DropdownComponent | null = null;
+    private hermesModeWired = false;
 
     constructor(app: App, plugin: WorkbuddianPlugin) {
         super(app, plugin);
@@ -73,9 +75,45 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                     this.display();
                 }));
 
-        // Hermes 配置(仅 hermes 后端显示)
+        // Hermes 配置(仅 hermes 后端显示)——方案一：模式行 + CLI 路径为主，gateway 折进高级组
         if (this.plugin.settings.backend === 'hermes') {
-            new Setting(containerEl)
+            const api = this.plugin.api;
+            if (api instanceof HermesProvider) {
+                const modeSetting = new Setting(containerEl).setName(t('hermes.mode'));
+                const paintMode = () => {
+                    if (api.mode === 'acp') {
+                        modeSetting.setDesc(t('hermes.modeAcp'));
+                    } else {
+                        const why = isLocalHermesGateway(this.plugin.settings.hermesGatewayUrl)
+                            ? t('hermes.acpMissing') : t('hermes.remoteHttp');
+                        modeSetting.setDesc(`${t('hermes.modeHttp')} · ${why}`);
+                    }
+                };
+                paintMode();
+                // 探测是异步的：init 落锤/粘性降级时就地刷新本行（只接线一次，display 反复重建不累积）
+                if (!this.hermesModeWired) {
+                    this.hermesModeWired = true;
+                    api.onModeChange(() => paintMode());
+                }
+
+                new Setting(containerEl)
+                    .setName(t('hermes.cliPath'))
+                    .setDesc(t('hermes.cliPathDesc'))
+                    .addText(text => text
+                        .setPlaceholder('~/.local/bin/hermes')
+                        .setValue(this.plugin.settings.hermesCliPath)
+                        .onChange(async (value) => {
+                            this.plugin.settings.hermesCliPath = value.trim();
+                            api.setHermesCliPath(value);
+                            void api.init(); // 改路径即重探（用户动作=显式重试信号）
+                            await this.plugin.saveSettings();
+                        }));
+            }
+
+            const adv = containerEl.createEl('details', { cls: 'wb-hermes-advanced' });
+            adv.createEl('summary', { text: t('hermes.advanced') });
+            adv.createDiv({ cls: 'wb-hermes-advanced-desc', text: t('hermes.advancedDesc') });
+            new Setting(adv)
                 .setName(t('hermes.gatewayUrl'))
                 .setDesc(t('hermes.gatewayUrlDesc'))
                 .addText(text => text
@@ -83,9 +121,13 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                     .setValue(this.plugin.settings.hermesGatewayUrl)
                     .onChange(async (value) => {
                         this.plugin.settings.hermesGatewayUrl = value.trim();
+                        if (api instanceof HermesProvider) {
+                            api.setGateway(value.trim(), this.plugin.settings.hermesApiKey);
+                            void api.init(); // 远程↔本机切换立即重定模式
+                        }
                         await this.plugin.saveSettings();
                     }));
-            new Setting(containerEl)
+            new Setting(adv)
                 .setName(t('hermes.apiKey'))
                 .setDesc(t('hermes.apiKeyDesc'))
                 .addText(text => {
@@ -94,11 +136,13 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                         .setValue(this.plugin.settings.hermesApiKey)
                         .onChange(async (value) => {
                             this.plugin.settings.hermesApiKey = value.trim();
+                            if (api instanceof HermesProvider) {
+                                api.setGateway(this.plugin.settings.hermesGatewayUrl, value.trim());
+                            }
                             await this.plugin.saveSettings();
                         });
                 })
                 .addButton(btn => btn.setButtonText(t('hermes.test')).onClick(async () => {
-                    const { HermesProvider } = await import('../../providers/hermes');
                     const p = new HermesProvider();
                     p.setGateway(this.plugin.settings.hermesGatewayUrl, this.plugin.settings.hermesApiKey);
                     const r = await p.testConnection();
@@ -167,7 +211,7 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
 
         // 模型 / 授权已移到聊天工具栏前台，设置页不再重复
 
-        new Setting(containerEl)
+        const thoughtSetting = new Setting(containerEl)
             .setName(t('settings.thoughtLevel'))
             .setDesc(t('settings.thoughtLevelDesc'))
             .addDropdown(dropdown => {
@@ -184,6 +228,11 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     });
             });
+        if (this.plugin.settings.backend === 'hermes') {
+            // hermes 的 set_config_option 收下不执行（探针实证）→ 置灰并说明
+            this.thoughtDropdown?.setDisabled(true);
+            thoughtSetting.setDesc(t('hermes.thoughtUnsupported'));
+        }
 
         // MCP 可视化列表（单一真相仍是 mcpServersJson；下方 textarea 为原始编辑器）
         let mcpTextarea: TextAreaComponent | null = null;

@@ -20,6 +20,9 @@ function isLocalGateway(url: string): boolean {
     try { return LOCAL_HOSTS.has(new URL(url).hostname); } catch { return false; }
 }
 
+/** 设置页/视图层复用：填了非本机 gateway 地址即远程场景（路由器同口径） */
+export function isLocalHermesGateway(url: string): boolean { return isLocalGateway(url); }
+
 export class HermesProvider {
     private readonly acp = new HermesAcpProvider();
     private readonly http = new HermesHttpProvider();
@@ -64,10 +67,12 @@ export class HermesProvider {
     setHermesCliPath(p: string): void {
         this.cliPath = p.trim();
         this.acp.setCliPath(p);
+        this.demoted = false; // 用户改配置 = 显式重试信号，解除粘性降级
     }
     setGateway(url: string, key: string): void {
         this.gatewayUrl = url;
         this.http.setGateway(url, key);
+        this.demoted = false;
     }
     setModel(m: string): void { this.acp.setModel(m); this.http.setModel(m); }
     setTimeout(ms: number): void { this.acp.setTimeout(ms); this.http.setTimeout(ms); }
@@ -81,6 +86,11 @@ export class HermesProvider {
     setNodePath(_p: string): void {}
     setAvailableModels(m: string[]): void { this.acp.setAvailableModels(m); this.http.setAvailableModels(m); }
     getAvailableModels(): string[] { return this.active().getAvailableModels(); }
+    /** 模型显示名（ACP 握手 name 字段）：HTTP 模式或无 name 时回落 id */
+    getAvailableModelLabels(): Array<{ id: string; label: string }> {
+        if (this.modeValue === 'acp') return this.acp.getAvailableModelLabels();
+        return this.http.getAvailableModels().map((id) => ({ id, label: id }));
+    }
     getScriptPath(): string { return this.active().getScriptPath(); }
     setConversationLookup(l: Parameters<HermesAcpProvider['setConversationLookup']>[0]): void {
         this.acp.setConversationLookup(l); this.http.setConversationLookup(l);

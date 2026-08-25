@@ -13,7 +13,7 @@ const execFileMock = execFile as unknown as jest.Mock;
 
 function contractStub() {
     return {
-        setGateway: jest.fn(), setModel: jest.fn(), setTimeout: jest.fn(),
+        setGateway: jest.fn(), setModel: jest.fn(), setTimeout: jest.fn(), setCliPath: jest.fn(),
         setPermissionMode: jest.fn(), setThoughtLevel: jest.fn(), setMcpServersJson: jest.fn(),
         setCustomAgentsJson: jest.fn(), setConversationLookup: jest.fn(), setAvailableModels: jest.fn(),
         onPermissionRequest: jest.fn(), onUsage: jest.fn(), onConfigUpdate: jest.fn(),
@@ -61,6 +61,10 @@ describe('HermesProvider 路由器', () => {
         // 粘性：再次 init 探测成功也不再回到 acp
         await p.init();
         expect(p.mode).toBe('http');
+        // 但用户改 CLI 路径 = 显式重试信号：解除粘性，init 可重回 acp
+        p.setHermesCliPath('/fake/hermes');
+        await p.init();
+        expect(p.mode).toBe('acp');
     });
     it('空 gateway = 本机自动发现，会探测 CLI', async () => {
         execFileMock.mockImplementation((_c: string, _a: string[], _o: object, cb: Function) => cb(null, 'ok', ''));
