@@ -257,6 +257,8 @@ export default class WorkbuddianPlugin extends Plugin {
                 }
             }
             this.api.setGateway(this.settings.hermesGatewayUrl, this.settings.hermesApiKey);
+            this.api.setHermesCliPath(this.settings.hermesCliPath);
+            void this.api.init(); // 探测一次定 ACP/HTTP 模式（异步，不阻塞设置灌入）
         }
     }
 

@@ -2692,7 +2692,7 @@ function getErrorMessage(error) {
   }
   return t("common.unknownError");
 }
-var CURRENT_SETTINGS_VERSION = 13;
+var CURRENT_SETTINGS_VERSION = 14;
 var DEFAULT_CONTEXT_WINDOW_SIZE = 2e5;
 var DEFAULT_PASTED_IMAGE_KEEP = 20;
 var MAX_PASTED_IMAGE_KEEP = 500;
@@ -2716,6 +2716,7 @@ var DEFAULT_SETTINGS = {
   backend: "codebuddy",
   hermesGatewayUrl: "",
   hermesApiKey: "",
+  hermesCliPath: "",
   allowedExternalPaths: [],
   version: CURRENT_SETTINGS_VERSION
 };
@@ -2757,6 +2758,7 @@ var FIELD_RULES = [
   } },
   { key: "hermesGatewayUrl", read: (s) => getString(s, "hermesGatewayUrl") },
   { key: "hermesApiKey", read: (s) => getString(s, "hermesApiKey") },
+  { key: "hermesCliPath", read: (s) => getString(s, "hermesCliPath") },
   {
     key: "allowedExternalPaths",
     read: (s) => Array.isArray(s.allowedExternalPaths) ? s.allowedExternalPaths.filter((p) => typeof p === "string") : void 0
@@ -6881,6 +6883,8 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
         }
       }
       this.api.setGateway(this.settings.hermesGatewayUrl, this.settings.hermesApiKey);
+      this.api.setHermesCliPath(this.settings.hermesCliPath);
+      void this.api.init();
     }
   }
   /** 复用已有 leaf 或新建右侧 leaf，然后 reveal + focus；失败给分级 Notice */

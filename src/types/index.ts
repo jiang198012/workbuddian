@@ -102,10 +102,12 @@ export interface WorkbuddianSettings {
     hermesGatewayUrl: string;
     /** Hermes API key(API_SERVER_KEY) */
     hermesApiKey: string;
+    /** Hermes CLI 自定义路径(空=自动发现 ~/.local/bin/hermes 等) */
+    hermesCliPath: string;
     version: number;
 }
 
-const CURRENT_SETTINGS_VERSION = 13;
+const CURRENT_SETTINGS_VERSION = 14;
 export const DEFAULT_CONTEXT_WINDOW_SIZE = 200000;
 const DEFAULT_PASTED_IMAGE_KEEP = 20;
 /** 粘贴图保留数量上限；0 表示不限制 */
@@ -131,6 +133,7 @@ export const DEFAULT_SETTINGS: WorkbuddianSettings = {
     backend: 'codebuddy',
     hermesGatewayUrl: '',
     hermesApiKey: '',
+    hermesCliPath: '',
     allowedExternalPaths: [],
     version: CURRENT_SETTINGS_VERSION
 };
@@ -170,6 +173,7 @@ const FIELD_RULES: FieldRule[] = [
     { key: 'backend', read: (s) => { const v = getString(s, 'backend'); return v === 'hermes' ? 'hermes' : v === 'codebuddy' ? 'codebuddy' : undefined; } },
     { key: 'hermesGatewayUrl', read: (s) => getString(s, 'hermesGatewayUrl') },
     { key: 'hermesApiKey', read: (s) => getString(s, 'hermesApiKey') },
+    { key: 'hermesCliPath', read: (s) => getString(s, 'hermesCliPath') },
     {
         key: 'allowedExternalPaths',
         read: (s) => Array.isArray(s.allowedExternalPaths)

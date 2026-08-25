@@ -31,14 +31,30 @@ describe('DEFAULT_SETTINGS', () => {
     it('should default language to auto', () => {
         expect(DEFAULT_SETTINGS.language).toBe('auto');
     });
-    it('should have settings version 13', () => {
-        expect(DEFAULT_SETTINGS.version).toBe(13);
+    it('should have settings version 14', () => {
+        expect(DEFAULT_SETTINGS.version).toBe(14);
     });
     it('should default customInstruction to empty string', () => {
         expect(DEFAULT_SETTINGS.customInstruction).toBe('');
     });
     it('should default pastedImageKeep to 20', () => {
         expect(DEFAULT_SETTINGS.pastedImageKeep).toBe(20);
+    });
+});
+
+describe('hermesCliPath 迁移（v13 → v14）', () => {
+    it('hermesCliPath 缺省补空串，其余字段保留', () => {
+        const migrated = migrateSettings({ backend: 'hermes' } as never);
+        expect(migrated.hermesCliPath).toBe('');
+        expect(migrated.backend).toBe('hermes');
+    });
+    it('hermesCliPath 非法类型回落默认', () => {
+        const migrated = migrateSettings({ hermesCliPath: 42 } as never);
+        expect(migrated.hermesCliPath).toBe('');
+    });
+    it('hermesCliPath 合法字符串保留', () => {
+        const migrated = migrateSettings({ hermesCliPath: '/opt/hermes/bin/hermes' } as never);
+        expect(migrated.hermesCliPath).toBe('/opt/hermes/bin/hermes');
     });
 });
 
@@ -140,8 +156,8 @@ describe('migrateSettings', () => {
         expect(migrateSettings({ language: 'fr' }).language).toBe('auto');
         expect(migrateSettings({ language: 5 }).language).toBe('auto');
     });
-    it('should migrate an older stored version up to 13', () => {
-        expect(migrateSettings({ version: 4 }).version).toBe(13);
+    it('should migrate an older stored version up to 14', () => {
+        expect(migrateSettings({ version: 4 }).version).toBe(14);
     });
     it('should default customInstruction to empty when missing', () => {
         expect(migrateSettings({}).customInstruction).toBe('');
@@ -268,7 +284,7 @@ describe('v11+ MCP/agents settings', () => {
         const s = migrateSettings({});
         expect(s.mcpServersJson).toBe('');
         expect(s.customAgentsJson).toBe('');
-        expect(s.version).toBe(13);
+        expect(s.version).toBe(14);
     });
     it('defaults allowedExternalPaths to empty and filters non-strings (WB-002)', () => {
         expect(migrateSettings({}).allowedExternalPaths).toEqual([]);
