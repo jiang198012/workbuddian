@@ -1,4 +1,5 @@
 import type { UsageInfo } from '../../types';
+import { ACP_DEFAULT_PROFILE, type AcpBackendProfile } from './profile';
 
 /** v1 契约 chunk：provider → view 的流式事件单元（引擎词表类型,各后端共用） */
 export interface StreamChunk {
@@ -28,10 +29,21 @@ function textOf(update: AcpUpdate): string | null {
 }
 
 /** 工具名以 _meta['codebuddy.ai/toolName'] 为准，title 兜底（实测 tool_call 事件两者都有，title 可能是通用名） */
-export function extractToolName(toolCall: { title?: unknown; _meta?: unknown; [key: string]: unknown }): string {
+/**
+ * 工具名判别顺序：① profile.normalizeToolCall 的机器名（hermes 取 rawInput.tool）→
+ * ② profile.toolNameMetaKeys 命中的 _meta 键（codebuddy 的 codebuddy.ai/toolName）→ ③ title 兜底。
+ */
+export function extractToolName(
+    toolCall: { title?: unknown; _meta?: unknown; [key: string]: unknown },
+    profile: AcpBackendProfile = ACP_DEFAULT_PROFILE,
+): string {
+    const norm = profile.normalizeToolCall(toolCall);
+    if (norm.toolName) return norm.toolName;
     const meta = toolCall._meta as Record<string, unknown> | undefined;
-    const metaName = meta?.['codebuddy.ai/toolName'];
-    if (typeof metaName === 'string' && metaName) return metaName;
+    for (const key of profile.toolNameMetaKeys) {
+        const metaName = meta?.[key];
+        if (typeof metaName === 'string' && metaName) return metaName;
+    }
     if (typeof toolCall.title === 'string' && toolCall.title) return toolCall.title;
     return 'tool';
 }
@@ -53,7 +65,8 @@ export function summarizeRawInput(rawInput: unknown): string {
     }
 }
 
-export function mapSessionUpdate(update: AcpUpdate): StreamChunk | null {    switch (update.sessionUpdate) {
+export function mapSessionUpdate(update: AcpUpdate, profile: AcpBackendProfile = ACP_DEFAULT_PROFILE): StreamChunk | null {
+    switch (update.sessionUpdate) {
         case 'agent_thought_chunk': {
             const text = textOf(update);
             return text === null ? null : { type: 'thinking', content: text };
@@ -63,9 +76,10 @@ export function mapSessionUpdate(update: AcpUpdate): StreamChunk | null {    swi
             return text === null ? null : { type: 'text', content: text };
         }
         case 'tool_call': {
-            const toolName = extractToolName(update);
+            const toolName = extractToolName(update, profile);
             const toolCallId = typeof update.toolCallId === 'string' ? update.toolCallId : undefined;
-            return { type: 'tool', content: '', toolName, toolCallId, toolDetail: summarizeRawInput(update.rawInput) };
+            const rawInput = profile.normalizeToolCall(update).rawInput ?? update.rawInput;
+            return { type: 'tool', content: '', toolName, toolCallId, toolDetail: summarizeRawInput(rawInput) };
         }
         // usage/config 走旁路；info/checkpoint/commands/user echo 不进 UI；
         // tool_call_update 由 mapToolCallUpdate 处理（需要调用方的快照累积）
@@ -78,11 +92,15 @@ export function mapSessionUpdate(update: AcpUpdate): StreamChunk | null {    swi
  * tool_call_update 映射：snapshot 为该 toolCallId 的最新 rawInput 快照（调用方负责替换式累积）。
  * 流式中（无 status）出摘要 chunk；status:'completed' 出 JSON 快照 chunk 供 diff/撤销。
  */
-export function mapToolCallUpdate(update: AcpUpdate, snapshot: unknown): StreamChunk | null {
+export function mapToolCallUpdate(
+    update: AcpUpdate,
+    snapshot: unknown,
+    profile: AcpBackendProfile = ACP_DEFAULT_PROFILE,
+): StreamChunk | null {
     if (update.sessionUpdate !== 'tool_call_update') return null;
     const toolCallId = typeof update.toolCallId === 'string' ? update.toolCallId : '';
     if (!toolCallId) return null;
-    const toolName = extractToolName(update);
+    const toolName = extractToolName(update, profile);
     if (update.status === 'completed') {
         let toolDetail = '';
         try {
@@ -124,7 +142,8 @@ export function mapConfigUpdate(update: AcpUpdate): { mode?: string; model?: str
     return null;
 }
 
-/** session/load 回放事件的判别：_meta['codebuddy.ai'].mode === 'history'（实测于 user_message_chunk 回放） */
+/** session/load 回放事件的判别：_meta['codebuddy.ai'].mode === 'history'（实测于 user_message_chunk 回放）。
+ * 引擎内已由 profile.isReplayUpdate 承接；本导出保留给测试与外部调用方。 */
 export function isReplayUpdate(update: AcpUpdate): boolean {
     const meta = update._meta as Record<string, unknown> | undefined;
     const cb = meta?.['codebuddy.ai'] as { mode?: unknown } | undefined;

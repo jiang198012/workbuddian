@@ -5,7 +5,8 @@ import { AcpClient, AcpStartError, type AcpStartTier } from './client';
 import {
     SessionRegistry, type ConversationLookup, type SessionConfig, type TurnHandlers,
 } from './session';
-import { mapConfigUpdate, isReplayUpdate, type AcpUpdate } from './events';
+import { mapConfigUpdate, type AcpUpdate } from './events';
+import { ACP_DEFAULT_PROFILE, type AcpBackendProfile } from './profile';
 import type { StreamChunk } from './events';
 import type { PermissionCardData } from './permission';
 import { activeMcpServers, parseMcpServers } from '../../shared/mcpServers';
@@ -36,14 +37,17 @@ export class AcpProvider {
     private availableModels: string[] = Object.keys(FALLBACK_MODEL_OPTIONS);
     private callbacks = new Map<string, SessionCallbacks>();
 
-    constructor(timeout: number = TIMEOUT) {
+    constructor(
+        protected readonly profile: AcpBackendProfile = ACP_DEFAULT_PROFILE,
+        timeout: number = TIMEOUT,
+    ) {
         this.client = new AcpClient({
             onSessionUpdate: (acpSessionId, update) => this.routeSessionUpdate(acpSessionId, update),
             onPermissionRequest: (requestId, params) => this.routePermissionRequest(requestId, params),
             onAgentNotification: (method) => bbLog('[WB] acp 通知:', method),
             onModels: (models) => this.onModels(models),
             onExit: (code, signal) => this.handleProcessExit(code, signal),
-        });
+        }, profile);
         this.registry = new SessionRegistry(
             this.client,
             {
@@ -51,6 +55,7 @@ export class AcpProvider {
                 setAcpSessionId: (k, id) => this.lookup.setAcpSessionId(k, id),
             },
             this.config,
+            profile,
         );
         this.setTimeout(timeout);
     }
@@ -79,7 +84,9 @@ export class AcpProvider {
     setAvailableModels(models: string[]): void { this.availableModels = models; }
     getAvailableModels(): string[] { return [...this.availableModels]; }
     /** client onModels 事件入口：子类可覆写以保留更多字段（hermes 存 name） */
-    protected onModels(models: string[]): void { this.availableModels = models; }
+    protected onModels(models: Array<{ id: string; name?: string }>): void {
+        this.availableModels = models.map((m) => m.id);
+    }
     getScriptPath(): string { return this.client.getScriptPath(); }
 
     /** main.ts 注入：Conversation.acpSessionId 的读写桥（懒加载与回写的唯一通道） */
@@ -299,7 +306,7 @@ export class AcpProvider {
         if (target) {
             // 轮外（无轮次 handlers）的 config 更新会在 session 层被丢弃：provider 旁路直推给注册方，
             // /effort 之类的 CLI 侧变更才能回流到设置（WB-007）；回放事件不直推（与 session 层口径一致）
-            if (!isReplayUpdate(update)) {
+            if (!this.profile.isReplayUpdate(update) && !this.client.loadInFlight(acpSessionId)) {
                 const cfg = mapConfigUpdate(update);
                 if (cfg) this.callbacks.get(target.key)?.onConfigUpdate?.(cfg);
             }
@@ -307,7 +314,7 @@ export class AcpProvider {
             return;
         }
         // load 回放事件到达时 acpSessionId 可能尚未回写，属预期，不算无归属（WB-RT-008 噪音）
-        if (!isReplayUpdate(update)) {
+        if (!this.profile.isReplayUpdate(update) && !this.client.loadInFlight(acpSessionId)) {
             bbLog('[WB] acp update 无归属会话，已丢弃:', acpSessionId, update.sessionUpdate ?? '(unknown)');
         }
     }

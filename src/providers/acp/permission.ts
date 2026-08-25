@@ -1,3 +1,5 @@
+import { ACP_DEFAULT_PROFILE, type AcpBackendProfile } from './profile';
+
 export interface PermissionOptionData {
     optionId: string;
     kind: string;
@@ -37,7 +39,8 @@ function buildDetail(toolName: string, rawInput: Record<string, unknown>, isPlan
     if (isPlan) return { kind: 'plan' };
     const path = typeof rawInput.file_path === 'string' ? rawInput.file_path
         : typeof rawInput.path === 'string' ? rawInput.path : '';
-    if (toolName === 'Write' && typeof rawInput.content === 'string') {
+    // hermes write_file 与 codebuddy Write 同构（归一化后 arguments 平铺为 {path, content}，探针实证）
+    if ((toolName === 'Write' || toolName === 'write_file') && typeof rawInput.content === 'string') {
         return { kind: 'write', path, lines: rawInput.content.split('\n').length };
     }
     if (toolName === 'Edit' || toolName === 'MultiEdit') {
@@ -54,17 +57,23 @@ function buildDetail(toolName: string, rawInput: Record<string, unknown>, isPlan
 }
 
 /** session/request_permission 的 params → 批准卡数据；DeferExecuteTool（rawInput.toolName==='ExitPlanMode'）特化为计划批准 */
-export function mapPermissionRequest(requestId: number, params: unknown): PermissionCardData {
+export function mapPermissionRequest(
+    requestId: number,
+    params: unknown,
+    profile: AcpBackendProfile = ACP_DEFAULT_PROFILE,
+): PermissionCardData {
     const p = asRecord(params);
     const toolCall = asRecord(p.toolCall);
     const meta = asRecord(toolCall._meta);
-    const rawInput = asRecord(toolCall.rawInput);
+    // hermes 的 rawInput 是 {tool, arguments} 嵌套（探针实证）：归一化后 toolName 取机器名、rawInput 取平铺参数
+    const norm = profile.normalizeToolCall(toolCall);
+    const rawInput = norm.rawInput ?? asRecord(toolCall.rawInput);
     const metaName = meta['codebuddy.ai/toolName'];
     const rawToolName = typeof rawInput.toolName === 'string' ? rawInput.toolName : '';
     // DeferExecuteTool 是委托包装器：展示名取内层工具（rawInput.toolName），如 mcp__fake__echo
-    const toolName = typeof metaName === 'string' && metaName
+    const toolName = norm.toolName ?? (typeof metaName === 'string' && metaName
         ? (metaName === 'DeferExecuteTool' && rawToolName ? rawToolName : metaName)
-        : rawToolName || (typeof toolCall.title === 'string' ? toolCall.title : 'tool');
+        : rawToolName || (typeof toolCall.title === 'string' ? toolCall.title : 'tool'));
     // 计划批准特化只看内层工具：rawInput.toolName === 'ExitPlanMode'
     // （DeferExecuteTool 也会包装普通 MCP/委托调用——2026-08-03 实测 mcp__fake__echo 走同一包装器）
     const isPlan = rawToolName === 'ExitPlanMode';

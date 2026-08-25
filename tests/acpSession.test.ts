@@ -59,6 +59,10 @@ const PERMISSION_PARAMS = {
     toolCall: { toolCallId: 'c1', rawInput: { file_path: 'a.md', content: 'x' }, _meta: { 'codebuddy.ai/toolName': 'Write' } },
 };
 
+/** 双端活探针实证：load 成功响应必带 models/modes 键；{} 会被引擎判为 miss（hermes 方言） */
+const LOAD_OK: { models: { availableModels: unknown[] }; modes: { availableModes: unknown[] } } =
+    { models: { availableModels: [] }, modes: { availableModes: [] } };
+
 describe('AcpSession.ensureLoaded', () => {
     it('creates new session and writes back acpSessionId when nothing stored and old-uuid load fails', async () => {
         const client = makeFakeClient();
@@ -71,8 +75,20 @@ describe('AcpSession.ensureLoaded', () => {
         expect(lookup.setAcpSessionId).toHaveBeenCalledWith('v1-uuid', 'acp-new-1');
     });
 
-    it('loads stored acpSessionId directly', async () => {
+    it('treats empty-object load result as miss and falls back to session/new (hermes 方言 {})', async () => {
+        // hermes load-miss 返回 {} 不抛错（探针实证）：无 models/modes 键 → miss → session/new 回写新 id
         const client = makeFakeClient((m) => m === 'session/load' ? {} : undefined);
+        const lookup = makeLookup();
+        const s = new AcpSession('conv-1', client, lookup, { model: '', mode: '' });
+        await s.ensureLoaded('/vault');
+        expect(client.request).toHaveBeenCalledWith('session/load', expect.objectContaining({ sessionId: 'conv-1' }));
+        expect(client.request).toHaveBeenCalledWith('session/new', expect.objectContaining({ cwd: '/vault', mcpServers: [] }));
+        expect(s.acpSessionId).toBe('acp-new-1');
+        expect(lookup.setAcpSessionId).toHaveBeenCalledWith('conv-1', 'acp-new-1');
+    });
+
+    it('loads stored acpSessionId directly', async () => {
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : undefined);
         const lookup = makeLookup();
         lookup.getAcpSessionId.mockReturnValue('acp-stored');
         const s = new AcpSession('v1-uuid', client, lookup, { model: '', mode: '' });
@@ -83,7 +99,7 @@ describe('AcpSession.ensureLoaded', () => {
     });
 
     it('keeps v1 uuid as acpSessionId when CLI still has that session (v1 --session-id 兼容)', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : undefined);
         const lookup = makeLookup();
         const s = new AcpSession('v1-uuid', client, lookup, { model: '', mode: '' });
         await s.ensureLoaded('/vault');
@@ -92,7 +108,7 @@ describe('AcpSession.ensureLoaded', () => {
     });
 
     it('applies mode/model config after load (set_config_option for model, set_mode for mode)', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : undefined);
         const lookup = makeLookup();
         lookup.getAcpSessionId.mockReturnValue('acp-stored');
         const s = new AcpSession('k', client, lookup, { model: 'glm-5.2', mode: 'plan' });
@@ -105,7 +121,7 @@ describe('AcpSession.ensureLoaded', () => {
 
     it('falls back to set_config_option when set_mode is rejected', async () => {
         const client = makeFakeClient((m) => {
-            if (m === 'session/load') return {};
+            if (m === 'session/load') return LOAD_OK;
             if (m === 'session/set_mode') throw new Error('method not found');
             return undefined;
         });
@@ -118,7 +134,7 @@ describe('AcpSession.ensureLoaded', () => {
     });
 
     it('skips second load once loaded, but reloads after markStale (进程死亡恢复)', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : undefined);
         const lookup = makeLookup();
         lookup.getAcpSessionId.mockReturnValue('acp-stored');
         const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
@@ -145,7 +161,7 @@ describe('AcpSession.prompt + updates', () => {
     }
 
     it('maps updates to chunks during prompting and resolves on end_turn', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const s = await loadedSession(client);
         const handlers = makeHandlers();
         const done = s.prompt('hi', handlers);
@@ -159,7 +175,7 @@ describe('AcpSession.prompt + updates', () => {
     });
 
     it('forwards config updates to onConfigUpdate', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const s = await loadedSession(client);
         const handlers = makeHandlers();
         const done = s.prompt('hi', handlers);
@@ -169,7 +185,7 @@ describe('AcpSession.prompt + updates', () => {
     });
 
     it('replaces rawInput snapshot and emits streaming + completed chunks', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const s = await loadedSession(client);
         const handlers = makeHandlers();
         const done = s.prompt('hi', handlers);
@@ -193,7 +209,7 @@ describe('AcpSession.prompt + updates', () => {
     });
 
     it('falls back to cached toolName when update lacks _meta', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const s = await loadedSession(client);
         const handlers = makeHandlers();
         const done = s.prompt('hi', handlers);
@@ -206,7 +222,7 @@ describe('AcpSession.prompt + updates', () => {
     });
 
     it('keeps the accumulated rawInput snapshot when a later update carries none (WB-003)', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const s = await loadedSession(client);
         const handlers = makeHandlers();
         const done = s.prompt('hi', handlers);
@@ -223,7 +239,7 @@ describe('AcpSession.prompt + updates', () => {
     it('hydrates rawInput from the permission request so a rawInput-less completed still diffs (WB-003)', async () => {
         const gate = deferred<{ stopReason: string }>();
         const client = makeFakeClient((m) => {
-            if (m === 'session/load') return {};
+            if (m === 'session/load') return LOAD_OK;
             if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
             return undefined;
         });
@@ -246,7 +262,7 @@ describe('AcpSession.prompt + updates', () => {
         // acp-probe write-perm 实测序列：两个 tool_call（空→全量）+ 批准 + 无 rawInput 的 completed
         const gate = deferred<{ stopReason: string }>();
         const client = makeFakeClient((m) => {
-            if (m === 'session/load') return {};
+            if (m === 'session/load') return LOAD_OK;
             if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
             return undefined;
         });
@@ -272,7 +288,7 @@ describe('AcpSession.prompt + updates', () => {
     it('routes text chunks during an Agent call window into the row output, not the main stream (WB-RT-007)', async () => {
         const gate = deferred<{ stopReason: string }>();
         const client = makeFakeClient((m) => {
-            if (m === 'session/load') return {};
+            if (m === 'session/load') return LOAD_OK;
             if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
             return undefined;
         });
@@ -297,7 +313,7 @@ describe('AcpSession.prompt + updates', () => {
     });
 
     it('drops replay-flagged updates during prompting', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const s = await loadedSession(client);
         const handlers = makeHandlers();
         const done = s.prompt('hi', handlers);
@@ -312,7 +328,7 @@ describe('AcpSession.prompt + updates', () => {
     it('rejects a second prompt while busy', async () => {
         const gate = deferred<{ stopReason: string }>();
         const client = makeFakeClient((m) => {
-            if (m === 'session/load') return {};
+            if (m === 'session/load') return LOAD_OK;
             if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
             return undefined;
         });
@@ -350,7 +366,7 @@ describe('AcpSession.prompt + updates', () => {
     });
 
     it('does not re-load when the session is still the active one', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const s = await loadedSession(client);
         await s.prompt('one', makeHandlers());
         await s.prompt('two', makeHandlers());
@@ -393,7 +409,7 @@ describe('AcpSession permission', () => {
     it('parks permission request, forwards card data, responds on respondPermission', async () => {
         const gate = deferred<{ stopReason: string }>();
         const client = makeFakeClient((m) => {
-            if (m === 'session/load') return {};
+            if (m === 'session/load') return LOAD_OK;
             if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
             return undefined;
         });
@@ -418,7 +434,7 @@ describe('AcpSession permission', () => {
     it('auto-rejects when no handler registered', async () => {
         const gate = deferred<{ stopReason: string }>();
         const client = makeFakeClient((m) => {
-            if (m === 'session/load') return {};
+            if (m === 'session/load') return LOAD_OK;
             if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
             return undefined;
         });
@@ -434,7 +450,7 @@ describe('AcpSession permission', () => {
     it('rejectPendingPermissions answers reject for all parked requests', async () => {
         const gate = deferred<{ stopReason: string }>();
         const client = makeFakeClient((m) => {
-            if (m === 'session/load') return {};
+            if (m === 'session/load') return LOAD_OK;
             if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
             return undefined;
         });
@@ -456,7 +472,7 @@ describe('AcpSession cancel & failure', () => {
     it('cancelTurn notifies session/cancel and status stays prompting until cancelled result lands (spike 瑕疵⑤)', async () => {
         const gate = deferred<{ stopReason: string }>();
         const client = makeFakeClient((m) => {
-            if (m === 'session/load') return {};
+            if (m === 'session/load') return LOAD_OK;
             if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
             return undefined;
         });
@@ -477,7 +493,7 @@ describe('AcpSession cancel & failure', () => {
     it('cancelTurn rejects parked permission before notifying', async () => {
         const gate = deferred<{ stopReason: string }>();
         const client = makeFakeClient((m) => {
-            if (m === 'session/load') return {};
+            if (m === 'session/load') return LOAD_OK;
             if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
             return undefined;
         });
@@ -495,7 +511,7 @@ describe('AcpSession cancel & failure', () => {
     });
 
     it('skips a prompt cancelled while still queued, freeing the slot immediately (标题轮被用户消息抢占)', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : undefined);
         // enqueuePrompt 挂起闭包，模拟"还在排队"
         let release!: () => void;
         const hold = new Promise<void>((r) => { release = r; });
@@ -519,7 +535,7 @@ describe('AcpSession cancel & failure', () => {
     it('failTurn pushes error to the active turn', async () => {
         const gate = deferred<{ stopReason: string }>();
         const client = makeFakeClient((m) => {
-            if (m === 'session/load') return {};
+            if (m === 'session/load') return LOAD_OK;
             if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
             return undefined;
         });
@@ -554,7 +570,7 @@ describe('SessionRegistry', () => {
 
 describe('AcpSession.fork', () => {
     it('sends /branch prompt and returns the captured newSessionId', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
         const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
         await s.ensureLoaded('/v');
@@ -576,7 +592,7 @@ describe('AcpSession.fork', () => {
     });
 
     it('throws fork failed when no newSessionId arrives', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
         const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
         await s.ensureLoaded('/v');
@@ -588,7 +604,7 @@ describe('AcpSession.fork', () => {
         try {
             const gate = deferred<{ stopReason: string }>();
             const client = makeFakeClient((m) => {
-                if (m === 'session/load') return {};
+                if (m === 'session/load') return LOAD_OK;
                 if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
                 return undefined;
             });
@@ -628,7 +644,7 @@ describe('AcpSession mcpServers injection', () => {
 
 describe('AcpSession.prompt images', () => {
     it('prepends image blocks before the text block', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
         const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
         await s.ensureLoaded('/v');
@@ -640,7 +656,7 @@ describe('AcpSession.prompt images', () => {
         ]);
     });
     it('omits image blocks when no images given', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
         const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
         await s.ensureLoaded('/v');
@@ -651,7 +667,7 @@ describe('AcpSession.prompt images', () => {
 
     it('bypassPermissions auto-approves permission requests (allow_always, no card)', async () => {
         // WB-R2-001：完全访问仍弹 Write/Edit 批准卡。bypass 模式应自动 allow_always，不弹卡。
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
         const s = new AcpSession('k', client, lookup, { model: '', mode: 'bypassPermissions' });
         await s.ensureLoaded('/v');
@@ -678,7 +694,7 @@ describe('AcpSession.prompt images', () => {
     });
 
     it('bypassPermissions falls back to allow_once when no allow_always option', async () => {
-        const client = makeFakeClient((m) => m === 'session/load' ? {} : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
         const lookup = makeLookup(); lookup.getAcpSessionId.mockReturnValue('acp-stored');
         const s = new AcpSession('k', client, lookup, { model: '', mode: 'bypassPermissions' });
         await s.ensureLoaded('/v');

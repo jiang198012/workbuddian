@@ -1,9 +1,10 @@
 import { spawn } from 'child_process';
 import {
-    findNodeExecutable, isBareFallback, isWindowsWrapper, needsWindowsShell, resolveCodebuddyPath,
+    findNodeExecutable, isBareFallback, isWindowsWrapper, needsWindowsShell,
 } from '../../utils/cliPath';
 import { bbLog, bbError } from '../../shared/logBuffer';
 import type { AcpUpdate } from './events';
+import { ACP_DEFAULT_PROFILE, type AcpBackendProfile } from './profile';
 
 export type AcpStartTier = 'cli-not-found' | 'acp-unsupported' | 'auth-required' | 'handshake-failed';
 
@@ -18,7 +19,7 @@ export interface AcpClientEvents {
     onSessionUpdate(sessionId: string, update: AcpUpdate): void;
     onPermissionRequest(requestId: number, params: unknown): void;
     onAgentNotification(method: string, params: unknown): void;
-    onModels(models: string[]): void;
+    onModels(models: Array<{ id: string; name?: string }>): void;
     onExit(code: number | null, signal: string | null): void;
 }
 
@@ -71,7 +72,7 @@ function summarizeRpcParams(method: string, params: Record<string, unknown>): st
 export class AcpClient {
     private scriptPath = '';
     private nodePath = '';
-    private extraArgs: string[] = []; // 追加在 --acp 之后的 CLI 旗标（如 --agents）
+    private extraArgs: string[] = []; // 追加在 acpArgs 之后的 CLI 旗标（如 --agents）
     private proc: ReturnType<typeof spawn> | null = null;
     private nextId = 1;
     private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
@@ -80,17 +81,24 @@ export class AcpClient {
     private startPromise: Promise<void> | null = null;
     private disposed = false;
     private handshakeDone = false;
-    private promptChain: Promise<void> = Promise.resolve(); // session/prompt 串行队列
+    private promptChain: Promise<void> = Promise.resolve();
+    /** session/load 在途窗口：hermes 无回放 meta 标记，回放事件只能靠"load 响应到达前的窗口"判别 */
+    private loadingSessions = new Set<string>();
+    loadInFlight(sessionId: string): boolean { return this.loadingSessions.has(sessionId); }
+ // session/prompt 串行队列
     private promptQueued = 0; // 队列中未落账的 prompt 数（>0 时后续 prompt 记排队日志）
     /** prompt 挂死兜底（provider 轮级超时 + 宽限）：CLI 连 cancel 都不应答时由此断链，队列才能放行后续 prompt */
     promptTimeoutMs = 6 * 60_000;
 
-    constructor(private readonly events: AcpClientEvents) {
-        this.scriptPath = resolveCodebuddyPath('');
+    constructor(
+        private readonly events: AcpClientEvents,
+        private readonly profile: AcpBackendProfile = ACP_DEFAULT_PROFILE,
+    ) {
+        this.scriptPath = this.profile.resolveCliPath('');
     }
 
-    setCodebuddyPath(p: string): void {
-        const next = resolveCodebuddyPath(p);
+    setCliPath(p: string): void {
+        const next = this.profile.resolveCliPath(p);
         if (next === this.scriptPath) return;
         this.scriptPath = next;
         if (this.proc) this.dispose(); // 变更即重启：下次 ensureStarted 用新路径，会话经 load 恢复
@@ -153,6 +161,9 @@ export class AcpClient {
 
     private doRequest<T = unknown>(method: string, params: Record<string, unknown>, timeoutMs: number): Promise<T> {
         if (!this.proc) return Promise.reject(new Error('acp client not started'));
+        const loadKey = method === 'session/load' && typeof params.sessionId === 'string'
+            ? params.sessionId : '';
+        if (loadKey) this.loadingSessions.add(loadKey);
         const id = this.nextId++;
         this.write({ jsonrpc: '2.0', id, method, params });
         bbLog('[WB] acp 请求:', method, summarizeRpcParams(method, params));
@@ -162,9 +173,10 @@ export class AcpClient {
                 bbError('[WB] acp 请求超时:', method);
                 reject(new Error(`acp request timeout: ${method}`));
             }, timeoutMs);
+            const settle = () => { if (loadKey) this.loadingSessions.delete(loadKey); };
             this.pending.set(id, {
-                resolve: (v) => { clearTimeout(timer); resolve(v as T); },
-                reject: (e) => { clearTimeout(timer); reject(e); },
+                resolve: (v) => { clearTimeout(timer); settle(); resolve(v as T); },
+                reject: (e) => { clearTimeout(timer); settle(); reject(e); },
             });
         });
     }
@@ -254,16 +266,21 @@ export class AcpClient {
     }
 
     private reportModels(result: unknown): void {
-        const models = (result as { models?: { availableModels?: Array<{ modelId?: unknown }> } })
+        const models = (result as { models?: { availableModels?: Array<{ modelId?: unknown; name?: unknown }> } })
             ?.models?.availableModels;
         if (Array.isArray(models) && models.length) {
-            this.events.onModels(models.map((m) => String(m.modelId)).filter(Boolean));
+            this.events.onModels(models
+                .filter((m) => m.modelId != null && String(m.modelId) !== '')
+                .map((m) => ({
+                    id: String(m.modelId),
+                    ...(typeof m.name === 'string' && m.name ? { name: m.name } : {}),
+                })));
         }
     }
 
     private spawnAndHandshake(): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            const { command, args, shell } = buildSpawnCommand(this.scriptPath, this.nodePath, ['--acp', ...this.extraArgs]);
+            const { command, args, shell } = buildSpawnCommand(this.scriptPath, this.nodePath, [...this.profile.acpArgs, ...this.extraArgs]);
             let proc: ReturnType<typeof spawn>;
             try {
                 proc = spawn(command, args, { shell });

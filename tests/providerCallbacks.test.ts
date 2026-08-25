@@ -306,7 +306,7 @@ describe('models & config sync', () => {
         const kit = makeFakeClient(MockAcpClient);
         const api = new CodebuddyProvider();
         expect(api.getAvailableModels()).toContain('hy3'); // FALLBACK_MODEL_OPTIONS
-        kit.events().onModels(['auto', 'hy3', 'glm-5.2']);
+        kit.events().onModels([{ id: 'auto' }, { id: 'hy3' }, { id: 'glm-5.2' }]);
         expect(api.getAvailableModels()).toEqual(['auto', 'hy3', 'glm-5.2']);
     });
 

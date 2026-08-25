@@ -915,6 +915,34 @@ function needsWindowsShell(scriptPath) {
 
 // src/providers/acp/client.ts
 init_logBuffer();
+
+// src/providers/acp/profile.ts
+init_logBuffer();
+var ACP_DEFAULT_PROFILE = {
+  id: "codebuddy",
+  resolveCliPath: resolveCodebuddyPath,
+  acpArgs: ["--acp"],
+  mapOutgoingMode: (m) => m,
+  mapIncomingMode: (id) => id,
+  async applyRemoteModel(client, sessionId, model) {
+    try {
+      await client.request("session/set_config_option", { sessionId, configId: "model", value: model });
+    } catch (e) {
+      bbLog("[WB] acp \u8BBE\u7F6E\u6A21\u578B\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
+    }
+  },
+  supportsThoughtLevel: true,
+  isReplayUpdate: (update) => {
+    const meta = update._meta;
+    const cb = meta == null ? void 0 : meta["codebuddy.ai"];
+    return (cb == null ? void 0 : cb.mode) === "history";
+  },
+  toolNameMetaKeys: ["codebuddy.ai/toolName"],
+  forkMode: "branch-prompt",
+  normalizeToolCall: () => ({})
+};
+
+// src/providers/acp/client.ts
 var AcpStartError = class extends Error {
   constructor(tier, message) {
     super(message);
@@ -952,12 +980,13 @@ function summarizeRpcParams(method, params) {
   }
 }
 var AcpClient = class {
-  constructor(events) {
+  constructor(events, profile = ACP_DEFAULT_PROFILE) {
     this.events = events;
+    this.profile = profile;
     this.scriptPath = "";
     this.nodePath = "";
     this.extraArgs = [];
-    // 追加在 --acp 之后的 CLI 旗标（如 --agents）
+    // 追加在 acpArgs 之后的 CLI 旗标（如 --agents）
     this.proc = null;
     this.nextId = 1;
     this.pending = /* @__PURE__ */ new Map();
@@ -967,15 +996,20 @@ var AcpClient = class {
     this.disposed = false;
     this.handshakeDone = false;
     this.promptChain = Promise.resolve();
+    /** session/load 在途窗口：hermes 无回放 meta 标记，回放事件只能靠"load 响应到达前的窗口"判别 */
+    this.loadingSessions = /* @__PURE__ */ new Set();
     // session/prompt 串行队列
     this.promptQueued = 0;
     // 队列中未落账的 prompt 数（>0 时后续 prompt 记排队日志）
     /** prompt 挂死兜底（provider 轮级超时 + 宽限）：CLI 连 cancel 都不应答时由此断链，队列才能放行后续 prompt */
     this.promptTimeoutMs = 6 * 6e4;
-    this.scriptPath = resolveCodebuddyPath("");
+    this.scriptPath = this.profile.resolveCliPath("");
   }
-  setCodebuddyPath(p) {
-    const next = resolveCodebuddyPath(p);
+  loadInFlight(sessionId) {
+    return this.loadingSessions.has(sessionId);
+  }
+  setCliPath(p) {
+    const next = this.profile.resolveCliPath(p);
     if (next === this.scriptPath)
       return;
     this.scriptPath = next;
@@ -1051,6 +1085,9 @@ var AcpClient = class {
   doRequest(method, params, timeoutMs) {
     if (!this.proc)
       return Promise.reject(new Error("acp client not started"));
+    const loadKey = method === "session/load" && typeof params.sessionId === "string" ? params.sessionId : "";
+    if (loadKey)
+      this.loadingSessions.add(loadKey);
     const id = this.nextId++;
     this.write({ jsonrpc: "2.0", id, method, params });
     bbLog("[WB] acp \u8BF7\u6C42:", method, summarizeRpcParams(method, params));
@@ -1060,13 +1097,19 @@ var AcpClient = class {
         bbError("[WB] acp \u8BF7\u6C42\u8D85\u65F6:", method);
         reject(new Error(`acp request timeout: ${method}`));
       }, timeoutMs);
+      const settle = () => {
+        if (loadKey)
+          this.loadingSessions.delete(loadKey);
+      };
       this.pending.set(id, {
         resolve: (v) => {
           clearTimeout(timer);
+          settle();
           resolve(v);
         },
         reject: (e) => {
           clearTimeout(timer);
+          settle();
           reject(e);
         }
       });
@@ -1163,12 +1206,15 @@ var AcpClient = class {
     var _a;
     const models = (_a = result == null ? void 0 : result.models) == null ? void 0 : _a.availableModels;
     if (Array.isArray(models) && models.length) {
-      this.events.onModels(models.map((m) => String(m.modelId)).filter(Boolean));
+      this.events.onModels(models.filter((m) => m.modelId != null && String(m.modelId) !== "").map((m) => ({
+        id: String(m.modelId),
+        ...typeof m.name === "string" && m.name ? { name: m.name } : {}
+      })));
     }
   }
   spawnAndHandshake() {
     return new Promise((resolve, reject) => {
-      const { command, args, shell } = buildSpawnCommand(this.scriptPath, this.nodePath, ["--acp", ...this.extraArgs]);
+      const { command, args, shell } = buildSpawnCommand(this.scriptPath, this.nodePath, [...this.profile.acpArgs, ...this.extraArgs]);
       let proc;
       try {
         proc = (0, import_child_process2.spawn)(command, args, { shell });
@@ -1256,11 +1302,16 @@ function textOf(update) {
     return content.text;
   return null;
 }
-function extractToolName(toolCall) {
+function extractToolName(toolCall, profile = ACP_DEFAULT_PROFILE) {
+  const norm = profile.normalizeToolCall(toolCall);
+  if (norm.toolName)
+    return norm.toolName;
   const meta = toolCall._meta;
-  const metaName = meta == null ? void 0 : meta["codebuddy.ai/toolName"];
-  if (typeof metaName === "string" && metaName)
-    return metaName;
+  for (const key of profile.toolNameMetaKeys) {
+    const metaName = meta == null ? void 0 : meta[key];
+    if (typeof metaName === "string" && metaName)
+      return metaName;
+  }
   if (typeof toolCall.title === "string" && toolCall.title)
     return toolCall.title;
   return "tool";
@@ -1283,7 +1334,8 @@ function summarizeRawInput(rawInput) {
     return "";
   }
 }
-function mapSessionUpdate(update) {
+function mapSessionUpdate(update, profile = ACP_DEFAULT_PROFILE) {
+  var _a;
   switch (update.sessionUpdate) {
     case "agent_thought_chunk": {
       const text = textOf(update);
@@ -1294,22 +1346,23 @@ function mapSessionUpdate(update) {
       return text === null ? null : { type: "text", content: text };
     }
     case "tool_call": {
-      const toolName = extractToolName(update);
+      const toolName = extractToolName(update, profile);
       const toolCallId = typeof update.toolCallId === "string" ? update.toolCallId : void 0;
-      return { type: "tool", content: "", toolName, toolCallId, toolDetail: summarizeRawInput(update.rawInput) };
+      const rawInput = (_a = profile.normalizeToolCall(update).rawInput) != null ? _a : update.rawInput;
+      return { type: "tool", content: "", toolName, toolCallId, toolDetail: summarizeRawInput(rawInput) };
     }
     default:
       return null;
   }
 }
-function mapToolCallUpdate(update, snapshot) {
+function mapToolCallUpdate(update, snapshot, profile = ACP_DEFAULT_PROFILE) {
   var _a;
   if (update.sessionUpdate !== "tool_call_update")
     return null;
   const toolCallId = typeof update.toolCallId === "string" ? update.toolCallId : "";
   if (!toolCallId)
     return null;
-  const toolName = extractToolName(update);
+  const toolName = extractToolName(update, profile);
   if (update.status === "completed") {
     let toolDetail = "";
     try {
@@ -1352,11 +1405,6 @@ function mapConfigUpdate(update) {
   }
   return null;
 }
-function isReplayUpdate(update) {
-  const meta = update._meta;
-  const cb = meta == null ? void 0 : meta["codebuddy.ai"];
-  return (cb == null ? void 0 : cb.mode) === "history";
-}
 
 // src/providers/acp/permission.ts
 function asRecord(v) {
@@ -1374,7 +1422,7 @@ function buildDetail(toolName, rawInput, isPlan) {
   if (isPlan)
     return { kind: "plan" };
   const path3 = typeof rawInput.file_path === "string" ? rawInput.file_path : typeof rawInput.path === "string" ? rawInput.path : "";
-  if (toolName === "Write" && typeof rawInput.content === "string") {
+  if ((toolName === "Write" || toolName === "write_file") && typeof rawInput.content === "string") {
     return { kind: "write", path: path3, lines: rawInput.content.split("\n").length };
   }
   if (toolName === "Edit" || toolName === "MultiEdit") {
@@ -1390,14 +1438,16 @@ function buildDetail(toolName, rawInput, isPlan) {
   }
   return { kind: "generic", summary: summarize(rawInput) };
 }
-function mapPermissionRequest(requestId, params) {
+function mapPermissionRequest(requestId, params, profile = ACP_DEFAULT_PROFILE) {
+  var _a, _b;
   const p = asRecord(params);
   const toolCall = asRecord(p.toolCall);
   const meta = asRecord(toolCall._meta);
-  const rawInput = asRecord(toolCall.rawInput);
+  const norm = profile.normalizeToolCall(toolCall);
+  const rawInput = (_a = norm.rawInput) != null ? _a : asRecord(toolCall.rawInput);
   const metaName = meta["codebuddy.ai/toolName"];
   const rawToolName = typeof rawInput.toolName === "string" ? rawInput.toolName : "";
-  const toolName = typeof metaName === "string" && metaName ? metaName === "DeferExecuteTool" && rawToolName ? rawToolName : metaName : rawToolName || (typeof toolCall.title === "string" ? toolCall.title : "tool");
+  const toolName = (_b = norm.toolName) != null ? _b : typeof metaName === "string" && metaName ? metaName === "DeferExecuteTool" && rawToolName ? rawToolName : metaName : rawToolName || (typeof toolCall.title === "string" ? toolCall.title : "tool");
   const isPlan = rawToolName === "ExitPlanMode";
   const options = (Array.isArray(p.options) ? p.options : []).map((o) => {
     const rec = asRecord(o);
@@ -1445,11 +1495,12 @@ function appendTextChunk(accumulated, incoming) {
 init_logBuffer();
 var AcpSession = class {
   // 排队/在飞轮次被取消：到队首直接作废，不再占用 CLI
-  constructor(key, client, lookup, config, activation = { current: null }) {
+  constructor(key, client, lookup, config, profile = ACP_DEFAULT_PROFILE, activation = { current: null }) {
     this.key = key;
     this.client = client;
     this.lookup = lookup;
     this.config = config;
+    this.profile = profile;
     this.activation = activation;
     this.acpSessionId = null;
     this.status = "idle";
@@ -1490,15 +1541,19 @@ var AcpSession = class {
     try {
       if (!this.acpSessionId) {
         const candidate = (_b = this.lookup.getAcpSessionId(this.key)) != null ? _b : this.key;
-        try {
-          await this.client.request("session/load", { sessionId: candidate, cwd: vaultPath != null ? vaultPath : "", mcpServers });
-          this.acpSessionId = candidate;
-        } catch (e) {
+        const loaded = await this.client.request(
+          "session/load",
+          { sessionId: candidate, cwd: vaultPath != null ? vaultPath : "", mcpServers }
+        ).catch(() => null);
+        const isMiss = loaded == null || typeof loaded === "object" && !Array.isArray(loaded) && !("models" in loaded) && !("modes" in loaded);
+        if (isMiss) {
           const result = await this.client.request(
             "session/new",
             { cwd: vaultPath != null ? vaultPath : "", mcpServers }
           );
           this.acpSessionId = result.sessionId;
+        } else {
+          this.acpSessionId = candidate;
         }
         this.lookup.setAcpSessionId(this.key, this.acpSessionId);
       } else {
@@ -1532,24 +1587,25 @@ var AcpSession = class {
       return;
     try {
       if (this.config.model) {
-        await this.client.request("session/set_config_option", { sessionId, configId: "model", value: this.config.model });
+        await this.profile.applyRemoteModel(this.client, sessionId, this.config.model);
       }
     } catch (e) {
       bbLog("[WB] acp \u8BBE\u7F6E\u6A21\u578B\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
     }
     try {
       if (this.config.mode) {
+        const modeId = this.profile.mapOutgoingMode(this.config.mode);
         try {
-          await this.client.request("session/set_mode", { sessionId, modeId: this.config.mode });
+          await this.client.request("session/set_mode", { sessionId, modeId });
         } catch (e) {
-          await this.client.request("session/set_config_option", { sessionId, configId: "mode", value: this.config.mode });
+          await this.client.request("session/set_config_option", { sessionId, configId: "mode", value: modeId });
         }
       }
     } catch (e) {
       bbLog("[WB] acp \u8BBE\u7F6E\u6743\u9650\u6A21\u5F0F\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
     }
     try {
-      if (this.config.thoughtLevel) {
+      if (this.config.thoughtLevel && this.profile.supportsThoughtLevel) {
         await this.client.request("session/set_config_option", { sessionId, configId: "thought_level", value: this.config.thoughtLevel });
       }
     } catch (e) {
@@ -1603,8 +1659,8 @@ var AcpSession = class {
     }
   }
   handleUpdate(update) {
-    var _a, _b, _c, _d, _e;
-    if (this.status === "loading" || isReplayUpdate(update))
+    var _a, _b, _c, _d, _e, _f, _g;
+    if (this.status === "loading" || this.profile.isReplayUpdate(update))
       return;
     if (update.sessionUpdate === "session_info_update") {
       const meta = update._meta;
@@ -1620,14 +1676,16 @@ var AcpSession = class {
       const id = typeof update.toolCallId === "string" ? update.toolCallId : "";
       if (!id)
         return;
-      if (update.rawInput !== void 0)
-        this.toolInputs.set(id, update.rawInput);
-      const chunk2 = mapToolCallUpdate(update, this.toolInputs.get(id));
+      if (update.rawInput !== void 0) {
+        const norm = this.profile.normalizeToolCall(update);
+        this.toolInputs.set(id, (_a = norm.rawInput) != null ? _a : update.rawInput);
+      }
+      const chunk2 = mapToolCallUpdate(update, this.toolInputs.get(id), this.profile);
       if (chunk2) {
         if (!update._meta && this.toolNames.has(id))
           chunk2.toolName = this.toolNames.get(id);
         if (update.status === "completed") {
-          bbLog("[WB] \u5DE5\u5177\u5B8C\u6210:", (_a = chunk2.toolName) != null ? _a : "?", "| \u5FEB\u7167:", this.toolInputs.has(id) ? "\u6709" : "\u65E0");
+          bbLog("[WB] \u5DE5\u5177\u5B8C\u6210:", (_b = chunk2.toolName) != null ? _b : "?", "| \u5FEB\u7167:", this.toolInputs.has(id) ? "\u6709" : "\u65E0");
           if (this.agentInFlight.delete(id) && this.agentRelay) {
             chunk2.toolOutput = this.agentRelay;
             this.agentRelay = "";
@@ -1640,19 +1698,22 @@ var AcpSession = class {
     const usage = mapUsageUpdate(update);
     if (usage) {
       this.lastUsage = usage;
-      (_b = handlers.onUsage) == null ? void 0 : _b.call(handlers, usage.used, usage.size);
+      (_c = handlers.onUsage) == null ? void 0 : _c.call(handlers, usage.used, usage.size);
       return;
     }
     const config = mapConfigUpdate(update);
     if (config) {
-      (_c = handlers.onConfigUpdate) == null ? void 0 : _c.call(handlers, config);
+      (_d = handlers.onConfigUpdate) == null ? void 0 : _d.call(handlers, config);
       return;
     }
-    const chunk = mapSessionUpdate(update);
+    const chunk = mapSessionUpdate(update, this.profile);
     if (chunk) {
       if (chunk.type === "tool" && typeof update.toolCallId === "string") {
-        this.toolNames.set(update.toolCallId, (_d = chunk.toolName) != null ? _d : "tool");
-        this.toolInputs.set(update.toolCallId, (_e = update.rawInput) != null ? _e : {});
+        this.toolNames.set(update.toolCallId, (_e = chunk.toolName) != null ? _e : "tool");
+        this.toolInputs.set(
+          update.toolCallId,
+          (_g = (_f = this.profile.normalizeToolCall(update).rawInput) != null ? _f : update.rawInput) != null ? _g : {}
+        );
         if (chunk.toolName === "Agent")
           this.agentInFlight.add(update.toolCallId);
       }
@@ -1664,19 +1725,20 @@ var AcpSession = class {
     }
   }
   handlePermissionRequest(requestId, params) {
-    var _a;
-    const data = mapPermissionRequest(requestId, params);
+    var _a, _b;
+    const data = mapPermissionRequest(requestId, params, this.profile);
     const toolCall = params == null ? void 0 : params.toolCall;
     const tc = toolCall && typeof toolCall === "object" && !Array.isArray(toolCall) ? toolCall : {};
     const toolCallId = typeof tc.toolCallId === "string" ? tc.toolCallId : "";
     if (toolCallId) {
-      if (tc.rawInput !== void 0)
-        this.toolInputs.set(toolCallId, tc.rawInput);
+      if (tc.rawInput !== void 0) {
+        this.toolInputs.set(toolCallId, (_a = this.profile.normalizeToolCall(tc).rawInput) != null ? _a : tc.rawInput);
+      }
       this.toolNames.set(toolCallId, data.toolName);
     }
     const handlers = this.handlers;
     if (!(handlers == null ? void 0 : handlers.onPermissionRequest)) {
-      this.client.respond(requestId, buildPermissionResult((_a = pickOptionId(data.options, "reject")) != null ? _a : "reject"));
+      this.client.respond(requestId, buildPermissionResult((_b = pickOptionId(data.options, "reject")) != null ? _b : "reject"));
       return;
     }
     if (this.config.mode === "bypassPermissions") {
@@ -1715,12 +1777,25 @@ var AcpSession = class {
     if (this.status === "awaitingPermission")
       this.status = "prompting";
   }
-  /** 会话级分叉：发 /branch prompt，从 session_info_update 捕获 newSessionId；fork 轮 chunk 全部丢弃 */
+  /** 会话级分叉：branch-prompt 方言发 /branch 捕获回报；native-rpc 方言直接 session/fork RPC（hermes） */
   async fork(name) {
+    var _a;
     if (this.status !== "idle")
       throw new Error("session busy");
     if (!this.acpSessionId)
       throw new Error("session not loaded");
+    if (this.profile.forkMode === "native-rpc") {
+      bbLog("[WB] fork \u5F00\u59CB(native-rpc):", this.acpSessionId, name);
+      const result = await this.client.request(
+        "session/fork",
+        { sessionId: this.acpSessionId, cwd: (_a = this.lastVaultPath) != null ? _a : "" }
+      );
+      const newId = typeof (result == null ? void 0 : result.sessionId) === "string" ? result.sessionId : "";
+      if (!newId)
+        throw new Error("fork failed: empty sessionId in session/fork result");
+      bbLog("[WB] fork \u6210\u529F:", this.acpSessionId, "\u2192", newId);
+      return newId;
+    }
     this.lastForkedSessionId = null;
     const sink = { onChunk: () => {
     }, onError: () => {
@@ -1761,10 +1836,11 @@ var AcpSession = class {
   }
 };
 var SessionRegistry = class {
-  constructor(client, lookup, config) {
+  constructor(client, lookup, config, profile = ACP_DEFAULT_PROFILE) {
     this.client = client;
     this.lookup = lookup;
     this.config = config;
+    this.profile = profile;
     this.sessions = /* @__PURE__ */ new Map();
     /** 全注册表共享的"CLI 当前活动会话"指针：任何 new/load 都会切换它（探针实证） */
     this.activation = { current: null };
@@ -1772,7 +1848,7 @@ var SessionRegistry = class {
   get(key) {
     let s = this.sessions.get(key);
     if (!s) {
-      s = new AcpSession(key, this.client, this.lookup, this.config, this.activation);
+      s = new AcpSession(key, this.client, this.lookup, this.config, this.profile, this.activation);
       this.sessions.set(key, s);
     }
     return s;
@@ -1880,7 +1956,8 @@ var TIMEOUT = 3e5;
 var NOOP_LOOKUP = { getAcpSessionId: () => void 0, setAcpSessionId: () => {
 } };
 var AcpProvider = class {
-  constructor(timeout = TIMEOUT) {
+  constructor(profile = ACP_DEFAULT_PROFILE, timeout = TIMEOUT) {
+    this.profile = profile;
     this.config = { model: "auto", mode: "default", mcpServers: [] };
     this.lookup = NOOP_LOOKUP;
     this.availableModels = Object.keys(FALLBACK_MODEL_OPTIONS);
@@ -1891,14 +1968,15 @@ var AcpProvider = class {
       onAgentNotification: (method) => bbLog("[WB] acp \u901A\u77E5:", method),
       onModels: (models) => this.onModels(models),
       onExit: (code, signal) => this.handleProcessExit(code, signal)
-    });
+    }, profile);
     this.registry = new SessionRegistry(
       this.client,
       {
         getAcpSessionId: (k) => this.lookup.getAcpSessionId(k),
         setAcpSessionId: (k, id) => this.lookup.setAcpSessionId(k, id)
       },
-      this.config
+      this.config,
+      profile
     );
     this.setTimeout(timeout);
   }
@@ -1929,7 +2007,7 @@ var AcpProvider = class {
   }
   /** client onModels 事件入口：子类可覆写以保留更多字段（hermes 存 name） */
   onModels(models) {
-    this.availableModels = models;
+    this.availableModels = models.map((m) => m.id);
   }
   getScriptPath() {
     return this.client.getScriptPath();
@@ -2136,7 +2214,7 @@ var AcpProvider = class {
       }
     }
     if (target) {
-      if (!isReplayUpdate(update)) {
+      if (!this.profile.isReplayUpdate(update) && !this.client.loadInFlight(acpSessionId)) {
         const cfg = mapConfigUpdate(update);
         if (cfg)
           (_c = (_b = this.callbacks.get(target.key)) == null ? void 0 : _b.onConfigUpdate) == null ? void 0 : _c.call(_b, cfg);
@@ -2144,7 +2222,7 @@ var AcpProvider = class {
       target.handleUpdate(update);
       return;
     }
-    if (!isReplayUpdate(update)) {
+    if (!this.profile.isReplayUpdate(update) && !this.client.loadInFlight(acpSessionId)) {
       bbLog("[WB] acp update \u65E0\u5F52\u5C5E\u4F1A\u8BDD\uFF0C\u5DF2\u4E22\u5F03:", acpSessionId, (_d = update.sessionUpdate) != null ? _d : "(unknown)");
     }
   }
@@ -2193,8 +2271,11 @@ var AcpProvider = class {
 // src/providers/codebuddy/index.ts
 init_logBuffer();
 var CodebuddyProvider = class extends AcpProvider {
+  constructor(timeout) {
+    super(ACP_DEFAULT_PROFILE, timeout);
+  }
   setCodebuddyPath(p) {
-    this.client.setCodebuddyPath(p);
+    this.client.setCliPath(p);
   }
   setNodePath(nodePath) {
     this.client.setNodePath(nodePath);

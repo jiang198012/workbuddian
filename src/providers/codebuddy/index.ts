@@ -1,4 +1,5 @@
 import { AcpProvider } from '../acp/provider';
+import { CODEBUDDY_PROFILE } from './profile';
 import { bbLog } from '../../shared/logBuffer';
 
 // 供测试与外部消费方沿用 v1 的 re-export 路径
@@ -11,7 +12,9 @@ export type { StreamChunk } from '../acp/events';
  * AcpProvider 基类（providers/acp/provider.ts），本类仅余 codebuddy 专属灌线。
  */
 export class CodebuddyProvider extends AcpProvider {
-    setCodebuddyPath(p: string): void { this.client.setCodebuddyPath(p); }
+    constructor(timeout?: number) { super(CODEBUDDY_PROFILE, timeout); }
+
+    setCodebuddyPath(p: string): void { this.client.setCliPath(p); }
     setNodePath(nodePath: string): void { this.client.setNodePath(nodePath); }
 
     /** 子代理 JSON（对象）：转为 CLI --agents 启动旗标；解析失败保留旧值；空串清空 */

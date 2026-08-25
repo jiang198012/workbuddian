@@ -10,7 +10,8 @@ export type FakeRequest = jest.Mock<Promise<unknown>, [string, Record<string, un
 
 export interface FakeClientKit {
     fake: {
-        setCodebuddyPath: jest.Mock; setNodePath: jest.Mock; getScriptPath: jest.Mock;
+        setCliPath: jest.Mock; setNodePath: jest.Mock; getScriptPath: jest.Mock;
+        loadInFlight: jest.Mock<boolean, [string]>;
         running: boolean; ensureStarted: jest.Mock; request: FakeRequest;
         enqueuePrompt: jest.Mock; rawRequest: jest.Mock;
         notify: jest.Mock; respond: jest.Mock; dispose: jest.Mock; setExtraArgs: jest.Mock;
@@ -23,7 +24,8 @@ export function makeFakeClient(MockAcpClient: jest.MockedClass<typeof AcpClient>
     let captured: AcpClientEvents | null = null;
     let newCount = 0;
     const fake = {
-        setCodebuddyPath: jest.fn(),
+        setCliPath: jest.fn(),
+        loadInFlight: jest.fn((_id: string) => false),
         setNodePath: jest.fn(),
         setExtraArgs: jest.fn(),
         getScriptPath: jest.fn(() => '/fake/codebuddy'),

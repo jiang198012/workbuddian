@@ -1,11 +1,13 @@
 import type { StreamChunk } from './events';
 import {
-    mapSessionUpdate, mapToolCallUpdate, mapUsageUpdate, mapConfigUpdate, isReplayUpdate, type AcpUpdate,
+    mapSessionUpdate, mapToolCallUpdate, mapUsageUpdate, mapConfigUpdate, type AcpUpdate,
 } from './events';
+import { ACP_DEFAULT_PROFILE, type AcpBackendProfile } from './profile';
 import {
     mapPermissionRequest, buildPermissionResult, pickOptionId, type PermissionCardData,
 } from './permission';
 import { appendTextChunk } from '../../shared/responseFinalize';
+import type { PermissionMode } from '../../shared/cliOptions';
 import { bbLog } from '../../shared/logBuffer';
 
 /** session 层对传输层的最小依赖（AcpClient 天然满足；测试用 fake） */
@@ -65,6 +67,7 @@ export class AcpSession {
         private readonly client: AcpClientFacade,
         private readonly lookup: ConversationLookup,
         private readonly config: SessionConfig,
+        private readonly profile: AcpBackendProfile = ACP_DEFAULT_PROFILE,
         // 全 registry 共享：CLI 当前活动会话（最近 new/load 者）。直构造函数（测试）时各持一份，不产生串扰
         private readonly activation: { current: string | null } = { current: null },
     ) {}
@@ -87,13 +90,19 @@ export class AcpSession {
             if (!this.acpSessionId) {
                 // 懒加载链：插件存的 acpSessionId → 先试 v1 uuid（--session-id 时代 CLI 侧可能真存着）→ session/new 回写
                 const candidate = this.lookup.getAcpSessionId(this.key) ?? this.key;
-                try {
-                    await this.client.request('session/load', { sessionId: candidate, cwd: vaultPath ?? '', mcpServers });
-                    this.acpSessionId = candidate;
-                } catch {
+                const loaded = await this.client.request<unknown>(
+                    'session/load', { sessionId: candidate, cwd: vaultPath ?? '', mcpServers }).catch(() => null);
+                // miss 判定（双端活探针 2026-08-25）：hermes 返回 {}；codebuddy 从不 miss（load 即建空会话，
+                // 响应带 models/modes 全量）；异常（超时/进程死）也按 miss 走 session/new 兜底
+                const isMiss = loaded == null
+                    || (typeof loaded === 'object' && !Array.isArray(loaded)
+                        && !('models' in loaded) && !('modes' in loaded));
+                if (isMiss) {
                     const result = await this.client.request<{ sessionId: string }>(
                         'session/new', { cwd: vaultPath ?? '', mcpServers });
                     this.acpSessionId = result.sessionId;
+                } else {
+                    this.acpSessionId = candidate;
                 }
                 this.lookup.setAcpSessionId(this.key, this.acpSessionId);
             } else {
@@ -126,20 +135,22 @@ export class AcpSession {
         if (!sessionId) return;
         try {
             if (this.config.model) {
-                await this.client.request('session/set_config_option', { sessionId, configId: 'model', value: this.config.model });
+                await this.profile.applyRemoteModel(this.client, sessionId, this.config.model);
             }
         } catch (e) { bbLog('[WB] acp 设置模型失败（忽略）:', e); }
         try {
             if (this.config.mode) {
+                const modeId = this.profile.mapOutgoingMode(this.config.mode as PermissionMode);
                 try {
-                    await this.client.request('session/set_mode', { sessionId, modeId: this.config.mode });
+                    await this.client.request('session/set_mode', { sessionId, modeId });
                 } catch {
-                    await this.client.request('session/set_config_option', { sessionId, configId: 'mode', value: this.config.mode });
+                    await this.client.request('session/set_config_option', { sessionId, configId: 'mode', value: modeId });
                 }
             }
         } catch (e) { bbLog('[WB] acp 设置权限模式失败（忽略）:', e); }
         try {
-            if (this.config.thoughtLevel) {
+            // hermes 的 set_config_option 收下不执行（探针实证）→ profile 声明不支持即跳过
+            if (this.config.thoughtLevel && this.profile.supportsThoughtLevel) {
                 await this.client.request('session/set_config_option', { sessionId, configId: 'thought_level', value: this.config.thoughtLevel });
             }
         } catch (e) { bbLog('[WB] acp 设置思考力度失败（忽略）:', e); }
@@ -195,7 +206,7 @@ export class AcpSession {
     }
 
     handleUpdate(update: AcpUpdate): void {
-        if (this.status === 'loading' || isReplayUpdate(update)) return;
+        if (this.status === 'loading' || this.profile.isReplayUpdate(update)) return;
         // 分叉回报须在 handlers 空检查之前捕获：fork 轮走丢弃 handlers，id 不能跟着被丢
         if (update.sessionUpdate === 'session_info_update') {
             const meta = update._meta as Record<string, unknown> | undefined;
@@ -211,8 +222,11 @@ export class AcpSession {
             if (!id) return;
             // 只在事件自带 rawInput 时更新快照：不带 rawInput 的更新（常见于 completed）不能冲掉已累积的数据，
             // 否则完成态丢失路径/diff 数据源（WB-003）
-            if (update.rawInput !== undefined) this.toolInputs.set(id, update.rawInput); // 快照替换，非合并
-            const chunk = mapToolCallUpdate(update, this.toolInputs.get(id));
+            if (update.rawInput !== undefined) {
+                const norm = this.profile.normalizeToolCall(update);
+                this.toolInputs.set(id, norm.rawInput ?? update.rawInput); // 快照替换，非合并
+            }
+            const chunk = mapToolCallUpdate(update, this.toolInputs.get(id), this.profile);
             if (chunk) {
                 if (!update._meta && this.toolNames.has(id)) chunk.toolName = this.toolNames.get(id)!;
                 if (update.status === 'completed') {
@@ -239,11 +253,12 @@ export class AcpSession {
             handlers.onConfigUpdate?.(config);
             return;
         }
-        const chunk = mapSessionUpdate(update);
+        const chunk = mapSessionUpdate(update, this.profile);
         if (chunk) {
             if (chunk.type === 'tool' && typeof update.toolCallId === 'string') {
                 this.toolNames.set(update.toolCallId, chunk.toolName ?? 'tool');
-                this.toolInputs.set(update.toolCallId, update.rawInput ?? {});
+                this.toolInputs.set(update.toolCallId,
+                    this.profile.normalizeToolCall(update).rawInput ?? update.rawInput ?? {});
                 if (chunk.toolName === 'Agent') this.agentInFlight.add(update.toolCallId);
             }
             if (chunk.type === 'text' && this.agentInFlight.size > 0) {
@@ -257,7 +272,7 @@ export class AcpSession {
     }
 
     handlePermissionRequest(requestId: number, params: unknown): void {
-        const data = mapPermissionRequest(requestId, params);
+        const data = mapPermissionRequest(requestId, params, this.profile);
         // 批准卡是 default 模式下 rawInput 最可靠的来源：按 toolCallId 水合快照与工具名，
         // completed 事件（常不带 rawInput）据此出 diff/撤销（WB-003）
         const toolCall = (params as { toolCall?: unknown } | undefined)?.toolCall;
@@ -265,7 +280,9 @@ export class AcpSession {
             ? toolCall as Record<string, unknown> : {};
         const toolCallId = typeof tc.toolCallId === 'string' ? tc.toolCallId : '';
         if (toolCallId) {
-            if (tc.rawInput !== undefined) this.toolInputs.set(toolCallId, tc.rawInput);
+            if (tc.rawInput !== undefined) {
+                this.toolInputs.set(toolCallId, this.profile.normalizeToolCall(tc).rawInput ?? tc.rawInput);
+            }
             this.toolNames.set(toolCallId, data.toolName);
         }
         const handlers = this.handlers;
@@ -311,10 +328,19 @@ export class AcpSession {
         if (this.status === 'awaitingPermission') this.status = 'prompting';
     }
 
-    /** 会话级分叉：发 /branch prompt，从 session_info_update 捕获 newSessionId；fork 轮 chunk 全部丢弃 */
+    /** 会话级分叉：branch-prompt 方言发 /branch 捕获回报；native-rpc 方言直接 session/fork RPC（hermes） */
     async fork(name: string): Promise<string> {
         if (this.status !== 'idle') throw new Error('session busy');
         if (!this.acpSessionId) throw new Error('session not loaded');
+        if (this.profile.forkMode === 'native-rpc') {
+            bbLog('[WB] fork 开始(native-rpc):', this.acpSessionId, name);
+            const result = await this.client.request<{ sessionId?: unknown }>(
+                'session/fork', { sessionId: this.acpSessionId, cwd: this.lastVaultPath ?? '' });
+            const newId = typeof result?.sessionId === 'string' ? result.sessionId : '';
+            if (!newId) throw new Error('fork failed: empty sessionId in session/fork result');
+            bbLog('[WB] fork 成功:', this.acpSessionId, '→', newId);
+            return newId;
+        }
         this.lastForkedSessionId = null;
         const sink: TurnHandlers = { onChunk: () => {}, onError: () => {} };
         let timer: ReturnType<typeof setTimeout>;
@@ -363,12 +389,13 @@ export class SessionRegistry {
         private readonly client: AcpClientFacade,
         private readonly lookup: ConversationLookup,
         private readonly config: SessionConfig,
+        private readonly profile: AcpBackendProfile = ACP_DEFAULT_PROFILE,
     ) {}
 
     get(key: string): AcpSession {
         let s = this.sessions.get(key);
         if (!s) {
-            s = new AcpSession(key, this.client, this.lookup, this.config, this.activation);
+            s = new AcpSession(key, this.client, this.lookup, this.config, this.profile, this.activation);
             this.sessions.set(key, s);
         }
         return s;

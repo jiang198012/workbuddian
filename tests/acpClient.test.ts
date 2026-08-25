@@ -61,7 +61,7 @@ function makeClient() {
         onExit: jest.fn(),
     };
     const client = new AcpClient(events);
-    client.setCodebuddyPath('C:\\fake\\codebuddy.exe'); // isWindowsWrapper 分支：直接 spawn
+    client.setCliPath('C:\\fake\\codebuddy.exe'); // isWindowsWrapper 分支：直接 spawn
     return { client, events };
 }
 
@@ -97,6 +97,29 @@ describe('AcpClient codec & dispatch', () => {
             method: 'initialize',
             params: { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false } },
         });
+    });
+
+    it('tracks session/load window via loadInFlight until the response lands', async () => {
+        // hermes 无回放 meta 标记：回放事件只能靠"load 请求发出到响应到达"的窗口判别
+        const { proc, emitJson } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client } = makeClient();
+        await startClient(client, emitJson);
+
+        expect(client.loadInFlight('s1')).toBe(false);
+        const req = client.request('session/load', { sessionId: 's1', cwd: '/v', mcpServers: [] });
+        expect(client.loadInFlight('s1')).toBe(true);
+        expect(client.loadInFlight('other')).toBe(false);
+        emitJson({ jsonrpc: '2.0', id: 2, result: {} });
+        await req;
+        expect(client.loadInFlight('s1')).toBe(false);
+
+        // 失败路径同样清窗口（否则后续事件永久被判成回放）
+        const failing = client.request('session/load', { sessionId: 's2', cwd: '/v', mcpServers: [] });
+        expect(client.loadInFlight('s2')).toBe(true);
+        emitJson({ jsonrpc: '2.0', id: 3, error: { code: -32000, message: 'nope' } });
+        await expect(failing).rejects.toThrow('nope');
+        expect(client.loadInFlight('s2')).toBe(false);
     });
 
     it('routes session/update notifications by sessionId', async () => {
@@ -156,7 +179,7 @@ describe('AcpClient codec & dispatch', () => {
             },
         });
         await req;
-        expect(events.onModels).toHaveBeenCalledWith(['auto', 'hy3']);
+        expect(events.onModels).toHaveBeenCalledWith([{ id: 'auto' }, { id: 'hy3' }]);
     });
 
     it('handles fragmented and batched stdout lines', async () => {
