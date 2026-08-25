@@ -1,4 +1,4 @@
-import type { StreamChunk } from '../codebuddy/index';
+import type { StreamChunk } from './events';
 import {
     mapSessionUpdate, mapToolCallUpdate, mapUsageUpdate, mapConfigUpdate, isReplayUpdate, type AcpUpdate,
 } from './events';

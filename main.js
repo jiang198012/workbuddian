@@ -754,7 +754,7 @@ function isPermissionMode(value) {
   return typeof value === "string" && PERMISSION_MODES.includes(value);
 }
 
-// src/providers/codebuddy/index.ts
+// src/providers/acp/provider.ts
 init_i18n();
 init_logBuffer();
 
@@ -1875,11 +1875,11 @@ function parseClipboardServers(text) {
   return parseMcpServers(text);
 }
 
-// src/providers/codebuddy/index.ts
+// src/providers/acp/provider.ts
 var TIMEOUT = 3e5;
 var NOOP_LOOKUP = { getAcpSessionId: () => void 0, setAcpSessionId: () => {
 } };
-var CodebuddyProvider = class {
+var AcpProvider = class {
   constructor(timeout = TIMEOUT) {
     this.config = { model: "auto", mode: "default", mcpServers: [] };
     this.lookup = NOOP_LOOKUP;
@@ -1889,9 +1889,7 @@ var CodebuddyProvider = class {
       onSessionUpdate: (acpSessionId, update) => this.routeSessionUpdate(acpSessionId, update),
       onPermissionRequest: (requestId, params) => this.routePermissionRequest(requestId, params),
       onAgentNotification: (method) => bbLog("[WB] acp \u901A\u77E5:", method),
-      onModels: (models) => {
-        this.availableModels = models;
-      },
+      onModels: (models) => this.onModels(models),
       onExit: (code, signal) => this.handleProcessExit(code, signal)
     });
     this.registry = new SessionRegistry(
@@ -1904,15 +1902,9 @@ var CodebuddyProvider = class {
     );
     this.setTimeout(timeout);
   }
-  setCodebuddyPath(p) {
-    this.client.setCodebuddyPath(p);
-  }
   setTimeout(ms) {
     this.timeout = ms;
     this.client.promptTimeoutMs = ms + 6e4;
-  }
-  setNodePath(nodePath) {
-    this.client.setNodePath(nodePath);
   }
   setModel(model) {
     this.config.model = model;
@@ -1934,6 +1926,10 @@ var CodebuddyProvider = class {
   }
   getAvailableModels() {
     return [...this.availableModels];
+  }
+  /** client onModels 事件入口：子类可覆写以保留更多字段（hermes 存 name） */
+  onModels(models) {
+    this.availableModels = models;
   }
   getScriptPath() {
     return this.client.getScriptPath();
@@ -1965,22 +1961,6 @@ var CodebuddyProvider = class {
     const lower = mcpNames.map((n) => n.toLowerCase());
     const matched = all.filter((s) => typeof s.name === "string" && lower.includes(s.name.toLowerCase()));
     return matched;
-  }
-  /** 子代理 JSON（对象）：转为 CLI --agents 启动旗标；解析失败保留旧值；空串清空 */
-  setCustomAgentsJson(json) {
-    const trimmed = json.trim();
-    if (!trimmed) {
-      this.client.setExtraArgs([]);
-      return;
-    }
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-        throw new Error("agents \u5FC5\u987B\u662F\u5BF9\u8C61");
-      this.client.setExtraArgs(["--agents", trimmed]);
-    } catch (e) {
-      bbLog("[WB] customAgentsJson \u89E3\u6790\u5931\u8D25\uFF0C\u4FDD\u7559\u65E7\u503C:", e);
-    }
   }
   generateId() {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -2207,6 +2187,33 @@ var CodebuddyProvider = class {
       return byTier[e.tier];
     }
     return e instanceof Error ? e.message : String(e);
+  }
+};
+
+// src/providers/codebuddy/index.ts
+init_logBuffer();
+var CodebuddyProvider = class extends AcpProvider {
+  setCodebuddyPath(p) {
+    this.client.setCodebuddyPath(p);
+  }
+  setNodePath(nodePath) {
+    this.client.setNodePath(nodePath);
+  }
+  /** 子代理 JSON（对象）：转为 CLI --agents 启动旗标；解析失败保留旧值；空串清空 */
+  setCustomAgentsJson(json) {
+    const trimmed = json.trim();
+    if (!trimmed) {
+      this.client.setExtraArgs([]);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        throw new Error("agents \u5FC5\u987B\u662F\u5BF9\u8C61");
+      this.client.setExtraArgs(["--agents", trimmed]);
+    } catch (e) {
+      bbLog("[WB] customAgentsJson \u89E3\u6790\u5931\u8D25\uFF0C\u4FDD\u7559\u65E7\u503C:", e);
+    }
   }
 };
 

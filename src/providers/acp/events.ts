@@ -1,4 +1,20 @@
-import type { StreamChunk } from '../codebuddy/index';
+import type { UsageInfo } from '../../types';
+
+/** v1 契约 chunk：provider → view 的流式事件单元（引擎词表类型,各后端共用） */
+export interface StreamChunk {
+    type: 'thinking' | 'text' | 'tool' | 'error' | 'done';
+    content: string;
+    toolName?: string;
+    toolDetail?: string;
+    /** ACP 工具调用 id：同 id 的后续 chunk 就地更新同一行（乙方案） */
+    toolCallId?: string;
+    /** 工具终态信号：仅 completed 时出现,携带 JSON 快照 detail 供 diff/撤销 */
+    toolStatus?: 'in_progress' | 'completed';
+    /** completed 工具的原始输出（rawOutput.text）,目前用于 Bash 终端块 */
+    toolOutput?: string;
+    usage?: UsageInfo;
+}
+
 
 export interface AcpUpdate {
     sessionUpdate?: string;

@@ -6,19 +6,10 @@
  * 不支持:工具块/批准卡/思考块/分叉(走 runs+events 才支持,留完整版)。
  */
 import { bbLog, bbError } from '../../shared/logBuffer';
-import type { UsageInfo } from '../../types';
 import type { PermissionMode } from '../../shared/cliOptions';
 
-export interface StreamChunk {
-    type: 'thinking' | 'text' | 'tool' | 'error' | 'done';
-    content: string;
-    toolName?: string;
-    toolDetail?: string;
-    toolCallId?: string;
-    toolStatus?: 'in_progress' | 'completed';
-    toolOutput?: string;
-    usage?: UsageInfo;
-}
+export type { StreamChunk } from '../acp/events';
+import type { StreamChunk } from '../acp/events';
 
 const DEFAULT_BASE = 'http://127.0.0.1:8642';
 
