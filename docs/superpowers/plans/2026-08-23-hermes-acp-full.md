@@ -1,6 +1,6 @@
 # Hermes ACP 完整版 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Hermes 后端从 OpenAI 兼容 HTTP 纯对话（MVP）升级为 ACP 全能力后端（工具/批准卡/thinking/usage/历史回放/fork/模型切换/图片/MCP），HTTP 保留为自动降级与远程兜底。
 
@@ -29,7 +29,7 @@
 - Create: `scripts/probe-hermes-acp.mjs`
 - Create: `docs/manual-test-2026-08-23-hermes-acp-probe.md`
 
-- [ ] **Step 1: 写探针脚本**
+- [x] **Step 1: 写探针脚本**
 
 参照 `scripts/acp-smoke.mjs` 的 AcpProc 骨架（spawn + ndjson 读写 + id 分发），probe 项：
 1. `initialize`（protocolVersion:1）→ 期望成功；
@@ -43,14 +43,14 @@
 9. `session/load` 不存在 id → 确认返回 null；
 10. `session/cancel`（prompt 中途 notify）→ 期望 stopReason cancelled。
 
-- [ ] **Step 2: 运行并记录**
+- [x] **Step 2: 运行并记录**
 
 ```bash
 node scripts/probe-hermes-acp.mjs /tmp/hermes-probe-vault
 ```
 期望：10 项全过；输出贴进 `docs/manual-test-2026-08-23-hermes-acp-probe.md`。**任一项与「方言事实」不符 → 停下回修 spec §1/§3 再继续。**
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add scripts/probe-hermes-acp.mjs docs/manual-test-2026-08-23-hermes-acp-probe.md
@@ -65,13 +65,13 @@ git commit -m "test: hermes ACP 活探针 — 握手/会话/权限/模型/fork/�
 - Move: `src/providers/codebuddy/acp/{client,session,events,permission}.ts` → `src/providers/acp/`
 - Modify: `src/providers/codebuddy/index.ts`、`src/features/chat/input.ts`、`tests/{acpClient,acpEvents,acpPermission,acpSession,api,providerCallbacks}.test.ts`、`tests/helpers/fakeAcpClient.ts`
 
-- [ ] **Step 1: git mv**
+- [x] **Step 1: git mv**
 
 ```bash
 git mv src/providers/codebuddy/acp src/providers/acp
 ```
 
-- [ ] **Step 2: 修 import（平移后深度少一层）**
+- [x] **Step 2: 修 import（平移后深度少一层）**
 
 `src/providers/acp/*.ts` 内：`../../../utils/cliPath` → `../../utils/cliPath`；`../../../shared/logBuffer` → `../../shared/logBuffer`；`../../../shared/responseFinalize` → `../../shared/responseFinalize`；`../index`（StreamChunk）暂改为 `../codebuddy/index`（Task 2 再内沉）。
 
@@ -97,7 +97,7 @@ print('done')
 EOF
 ```
 
-- [ ] **Step 3: 验证**
+- [x] **Step 3: 验证**
 
 ```bash
 npx jest tests/acpClient.test.ts tests/acpSession.test.ts tests/acpEvents.test.ts tests/acpPermission.test.ts tests/api.test.ts tests/providerCallbacks.test.ts --coverage=false 2>&1 | tail -5
@@ -105,7 +105,7 @@ npm run build 2>&1 | tail -3
 ```
 期望：测试全绿、build 过（tsc + esbuild）。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A && git commit -m "refactor: ACP 引擎平移 providers/acp — 为 hermes 复用铺路"
@@ -121,18 +121,18 @@ git add -A && git commit -m "refactor: ACP 引擎平移 providers/acp — 为 he
 - Modify: `src/providers/codebuddy/index.ts`（变薄壳）
 - Test: `tests/api.test.ts`、`tests/providerCallbacks.test.ts`（现有用例即行为钉）
 
-- [ ] **Step 1: StreamChunk 移入 events.ts**
+- [x] **Step 1: StreamChunk 移入 events.ts**
 
 把 `StreamChunk` 接口从 `codebuddy/index.ts` 剪切到 `src/providers/acp/events.ts` 顶部并 `export`；`codebuddy/index.ts` 改为 `export type { StreamChunk } from '../acp/events';`（re-export 保持 v1 路径兼容）；`hermes/index.ts` 的本地 StreamChunk 定义删除，同样 re-export（接口字段两者本就一致）。`acp/session.ts`、`acp/events.ts` 内 `from '../codebuddy/index'` 改 `from './events'`。
 
-- [ ] **Step 2: 跑测试确认类型平移无破坏**
+- [x] **Step 2: 跑测试确认类型平移无破坏**
 
 ```bash
 npx jest tests/acpEvents.test.ts tests/api.test.ts --coverage=false 2>&1 | tail -3
 ```
 期望：全绿。
 
-- [ ] **Step 3: 抽 AcpProvider 基类**
+- [x] **Step 3: 抽 AcpProvider 基类**
 
 把 `codebuddy/index.ts` 中后端无关部分整体移入 `src/providers/acp/provider.ts`：`SessionCallbacks`、`NOOP_LOOKUP`、`sendMessage` 全部队列管道、`routeSessionUpdate`、`routePermissionRequest`、`handleProcessExit`、`restartAfterDeadTurn`、旁路回调注册、`respondPermission`/`rejectPendingPermissions`/`cancel`/`forkSession`/`dispose`、`setModel/setPermissionMode/setThoughtLevel/setAvailableModels/getAvailableModels/getScriptPath/setConversationLookup/setMcpServersJson/setTimeout/generateId`、`resolveMcpForMessage`。签名：
 
@@ -147,14 +147,14 @@ export class AcpProvider {
 
 `codebuddy/index.ts` 变为：`export class CodebuddyProvider extends AcpProvider` + codebuddy 专属公共方法（`setCodebuddyPath`、`setNodePath`、`setCustomAgentsJson`、`startErrorMessage` 的文案分级留在基类，文案 key 不变）。
 
-- [ ] **Step 4: 验证**
+- [x] **Step 4: 验证**
 
 ```bash
 npx jest --coverage=false 2>&1 | tail -5 && npm run build 2>&1 | tail -3
 ```
 期望：668 项全绿、build 过。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A && git commit -m "refactor: AcpProvider 基类抽出 — provider 壳后端无关化"
@@ -170,7 +170,7 @@ git add -A && git commit -m "refactor: AcpProvider 基类抽出 — provider 壳
 - Modify: `src/providers/acp/client.ts`、`src/providers/acp/session.ts`、`src/providers/acp/events.ts`、`src/providers/acp/provider.ts`、`src/providers/codebuddy/index.ts`
 - Test: `tests/acpProfile.test.ts`（新）
 
-- [ ] **Step 1: 写失败测试 tests/acpProfile.test.ts**
+- [x] **Step 1: 写失败测试 tests/acpProfile.test.ts**
 
 ```ts
 import { CODEBUDDY_PROFILE } from '../src/providers/codebuddy/profile';
@@ -201,14 +201,14 @@ describe('codebuddy profile（行为钉：与现状一致）', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 npx jest tests/acpProfile.test.ts --coverage=false 2>&1 | tail -3
 ```
 期望：FAIL（模块不存在）。
 
-- [ ] **Step 3: 实现 profile.ts 接口 + codebuddy profile**
+- [x] **Step 3: 实现 profile.ts 接口 + codebuddy profile**
 
 `src/providers/acp/profile.ts`：
 
@@ -279,7 +279,7 @@ export const CODEBUDDY_PROFILE: AcpBackendProfile = {
 };
 ```
 
-- [ ] **Step 4: 引擎接线（行为不变）**
+- [x] **Step 4: 引擎接线（行为不变）**
 
 1. `client.ts`：构造函数第二参数收 `profile: AcpBackendProfile`；`this.scriptPath = profile.resolveCliPath('')`；`setCodebuddyPath` 改名 `setCliPath`（codebuddy/index.ts 的 `setCodebuddyPath` 公共方法保留，内部调 `client.setCliPath`）；spawn 行 `buildSpawnCommand(this.scriptPath, this.nodePath, [...this.profile.acpArgs, ...this.extraArgs])`；新增 load 窗口跟踪：
 
@@ -331,14 +331,14 @@ if (isMiss) {
 5. `provider.ts`（AcpProvider）：构造参数加 `profile`，传给 AcpClient/SessionRegistry；`routeSessionUpdate` 里 `!isReplayUpdate(update)` 改 `!this.profile.isReplayUpdate(update) && !this.client.loadInFlight(acpSessionId)`（两处：轮外 config 直推守卫、无归属噪音守卫）。
 6. `codebuddy/index.ts`：`super(CODEBUDDY_PROFILE, timeout)`。
 
-- [ ] **Step 5: 验证**
+- [x] **Step 5: 验证**
 
 ```bash
 npx jest --coverage=false 2>&1 | tail -5 && npm run build 2>&1 | tail -3
 ```
 期望：全绿（含新 acpProfile 5 例）、build 过。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A && git commit -m "refactor: AcpBackendProfile 方言抽象 — codebuddy profile 落地,行为不变"
@@ -352,7 +352,7 @@ git add -A && git commit -m "refactor: AcpBackendProfile 方言抽象 — codebu
 - Modify: `src/utils/cliPath.ts`
 - Test: `tests/cliPath.test.ts`（新）
 
-- [ ] **Step 1: 写失败测试 tests/cliPath.test.ts**
+- [x] **Step 1: 写失败测试 tests/cliPath.test.ts**
 
 ```ts
 import { resolveHermesPath } from '../src/utils/cliPath';
@@ -379,14 +379,14 @@ describe('resolveHermesPath', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 npx jest tests/cliPath.test.ts --coverage=false 2>&1 | tail -3
 ```
 期望：FAIL（导出不存在）。
 
-- [ ] **Step 3: 实现（镜像 resolveCodebuddyPath 的候选策略）**
+- [x] **Step 3: 实现（镜像 resolveCodebuddyPath 的候选策略）**
 
 `src/utils/cliPath.ts` 追加（复用文件内既有 `findOnPath`/`isWin` helper）：
 
@@ -408,7 +408,7 @@ export function resolveHermesPath(customPath: string): string {
 
 （若 cliPath.ts 内部 fs/os 导入形态不同，沿用该文件既有写法。）
 
-- [ ] **Step 4: 验证 + Commit**
+- [x] **Step 4: 验证 + Commit**
 
 ```bash
 npx jest tests/cliPath.test.ts --coverage=false 2>&1 | tail -3
@@ -426,7 +426,7 @@ git commit -m "feat: resolveHermesPath — hermes CLI 跨平台自动发现"
 - Test: `tests/hermesProfile.test.ts`（新）
 - Test: `tests/hermesAcpProvider.test.ts`（新，复用 tests/helpers/fakeAcpClient.ts）
 
-- [ ] **Step 1: 写失败测试 tests/hermesProfile.test.ts**
+- [x] **Step 1: 写失败测试 tests/hermesProfile.test.ts**
 
 ```ts
 import { HERMES_PROFILE } from '../src/providers/hermes/profile';
@@ -471,7 +471,7 @@ describe('hermes profile 方言', () => {
 });
 ```
 
-- [ ] **Step 2: 写失败测试 tests/hermesAcpProvider.test.ts**
+- [x] **Step 2: 写失败测试 tests/hermesAcpProvider.test.ts**
 
 复用 `tests/helpers/fakeAcpClient.ts`（参照 api.test.ts 的 mock 方式 `jest.mock('../src/providers/acp/client')`）：
 
@@ -496,14 +496,14 @@ describe('HermesAcpProvider', () => {
 
 （fake client 需要支持 `session/fork` 应答：按 api.test.ts 现有 fake 的扩展方式补 `session/fork → { sessionId: 'forked-xxx' }`。）
 
-- [ ] **Step 3: 跑测试确认失败**
+- [x] **Step 3: 跑测试确认失败**
 
 ```bash
 npx jest tests/hermesProfile.test.ts tests/hermesAcpProvider.test.ts --coverage=false 2>&1 | tail -3
 ```
 期望：FAIL（模块不存在）。
 
-- [ ] **Step 4: 实现 src/providers/hermes/profile.ts**
+- [x] **Step 4: 实现 src/providers/hermes/profile.ts**
 
 ```ts
 import { resolveHermesPath } from '../../utils/cliPath';
@@ -552,7 +552,7 @@ export const HERMES_PROFILE: AcpBackendProfile = {
 };
 ```
 
-- [ ] **Step 5: 实现 src/providers/hermes/acpProvider.ts**
+- [x] **Step 5: 实现 src/providers/hermes/acpProvider.ts**
 
 ```ts
 import { AcpProvider } from '../acp/provider';
@@ -582,7 +582,7 @@ export class HermesAcpProvider extends AcpProvider {
 
 （`onModels` 需在 `AcpProvider` 基类改为 `protected` 可覆写方法：基类构造的 client 事件回调从箭头属性改为调 `this.onModels(models)`；基类实现 `this.availableModels = models.map((m) => m.id)`。）
 
-- [ ] **Step 6: 验证**
+- [x] **Step 6: 验证**
 
 ```bash
 npx jest tests/hermesProfile.test.ts tests/hermesAcpProvider.test.ts --coverage=false 2>&1 | tail -3
@@ -590,7 +590,7 @@ npx jest --coverage=false 2>&1 | tail -4
 ```
 期望：新测试 PASS、全套绿。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A && git commit -m "feat: hermes ACP profile + provider — 方言映射/fork RPC/模型编解码"
@@ -606,7 +606,7 @@ git add -A && git commit -m "feat: hermes ACP profile + provider — 方言映�
 - Test: `tests/hermesRouter.test.ts`（新）
 - Modify: `tests/hermes.test.ts`（import 改 httpProvider 直测，或经路由器默认 http 模式原样跑——见 Step 1）
 
-- [ ] **Step 1: 平移 HTTP 实现**
+- [x] **Step 1: 平移 HTTP 实现**
 
 `git mv` 不可用于「同目录改名+新建同名文件」，手动：
 1. `cp src/providers/hermes/index.ts /tmp/hermes-http.bak`（保险）
@@ -618,7 +618,7 @@ npx jest tests/hermes.test.ts tests/hermesDiscover.test.ts --coverage=false 2>&1
 ```
 期望：全绿（纯改名）。
 
-- [ ] **Step 2: 写失败测试 tests/hermesRouter.test.ts**
+- [x] **Step 2: 写失败测试 tests/hermesRouter.test.ts**
 
 ```ts
 import { HermesProvider } from '../src/providers/hermes';
@@ -680,14 +680,14 @@ describe('HermesProvider 路由器', () => {
 });
 ```
 
-- [ ] **Step 3: 跑测试确认失败**
+- [x] **Step 3: 跑测试确认失败**
 
 ```bash
 npx jest tests/hermesRouter.test.ts --coverage=false 2>&1 | tail -3
 ```
 期望：FAIL（init/mode/demoteToHttp 不存在）。
 
-- [ ] **Step 4: 实现路由器 src/providers/hermes/index.ts**
+- [x] **Step 4: 实现路由器 src/providers/hermes/index.ts**
 
 ```ts
 import { execFile } from 'child_process';
@@ -786,14 +786,14 @@ export type { StreamChunk } from '../acp/events';
 
 注意：`sendMessage` 的 ACP 分支要把 `AcpStartError` 转成 `this.demoteToHttp(e)` + 重抛（view 出错误卡 + Notice），实现时在 sendMessage 外包一层 async generator try/catch（首轮 catch 到启动错误即 demote）。测试里 `demoteToHttp` 直调已钉行为。
 
-- [ ] **Step 5: 验证**
+- [x] **Step 5: 验证**
 
 ```bash
 npx jest --coverage=false 2>&1 | tail -4 && npm run build 2>&1 | tail -3
 ```
 期望：全绿、build 过。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A && git commit -m "feat: hermes 路由器 — ACP 完整版/HTTP 轻量自动选择 + 粘性降级"
@@ -808,7 +808,7 @@ git add -A && git commit -m "feat: hermes 路由器 — ACP 完整版/HTTP 轻�
 - Modify: `src/main.ts`
 - Test: `tests/types.test.ts`（追加用例）
 
-- [ ] **Step 1: 写失败测试（tests/types.test.ts 追加）**
+- [x] **Step 1: 写失败测试（tests/types.test.ts 追加）**
 
 ```ts
 it('v4 → v5: hermesCliPath 缺省补空串', () => {
@@ -824,14 +824,14 @@ it('hermesCliPath 非法类型回落默认', () => {
 
 （与文件内既有迁移用例同写法，`migrateSettings` 按现有 import。）
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 npx jest tests/types.test.ts -t "hermesCliPath" --coverage=false 2>&1 | tail -3
 ```
 期望：FAIL（属性不存在）。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `src/types/index.ts`：
 1. `CURRENT_SETTINGS_VERSION` 4 → 5；
@@ -846,7 +846,7 @@ this.api.setHermesCliPath(this.settings.hermesCliPath);
 void this.api.init(); // 探测一次定 ACP/HTTP 模式（异步,不阻塞设置灌入）
 ```
 
-- [ ] **Step 4: 验证 + Commit**
+- [x] **Step 4: 验证 + Commit**
 
 ```bash
 npx jest tests/types.test.ts --coverage=false 2>&1 | tail -3 && npm run build 2>&1 | tail -3
@@ -866,7 +866,7 @@ git commit -m "feat: settings v5 — hermesCliPath + 路由器 init 灌线"
 
 > obsidian 层无 jest（仓库约定）:验证 = build + 手测。文案 key 先行进 i18n（tests/i18n.test.ts 会卡中英 key 对齐）。
 
-- [ ] **Step 1: i18n 新增（中英双份）**
+- [x] **Step 1: i18n 新增（中英双份）**
 
 ```
 hermes.mode           = 运行模式
@@ -883,7 +883,7 @@ hermes.thoughtUnsupported = Hermes 暂不支持调节推理强度
 hermes.remoteHttp     = 检测到远程 gateway 地址,轻量模式生效中
 ```
 
-- [ ] **Step 2: 设置页重排（backend==='hermes' 分支）**
+- [x] **Step 2: 设置页重排（backend==='hermes' 分支）**
 
 把 tab.ts 现有 hermes 区块改为方案一布局：
 1. **运行模式行**:`new Setting(...).setName(t('hermes.mode'))`,desc 按 `plugin.api instanceof HermesProvider && plugin.api.mode` 显示 `modeAcp`/`modeHttp`（acp 且拿到版本时拼 `hermes.acpOk`）。
@@ -892,18 +892,18 @@ hermes.remoteHttp     = 检测到远程 gateway 地址,轻量模式生效中
 4. **「高级」折叠组**:`<details>` 包裹现有 gateway 地址/API key/测试连接三行 + `hermes.advancedDesc`。
 5. **thoughtLevel 下拉**:backend==='hermes' 时 `setDisabled(true)` + desc 用 `hermes.thoughtUnsupported`。
 
-- [ ] **Step 3: 降级顶条**
+- [x] **Step 3: 降级顶条**
 
 view.ts 消息区顶部加 `div.wb-hermes-lite-banner`(默认 `display:none`):`provider instanceof HermesProvider && provider.mode==='http'` 时显示 `t('hermes.liteBanner')`;构造时 `provider.onModeChange(() => this.refreshBanner())`;`refreshUI()` 里也调一次。styles.css 加 `.wb-hermes-lite-banner`（淡黄底、小字、圆角、底部 margin）。
 
-- [ ] **Step 4: 验证**
+- [x] **Step 4: 验证**
 
 ```bash
 npm run build 2>&1 | tail -3 && npx jest tests/i18n.test.ts --coverage=false 2>&1 | tail -3
 ```
 期望:build 过、i18n 测试绿。
 
-- [ ] **Step 5: 手测（demo-vault,禁动正式 vault）**
+- [x] **Step 5: 手测（demo-vault,禁动正式 vault）**
 
 手测清单（结果补进 `docs/manual-test-checklist.md`）:
 1. 设置 → Hermes:模式行显示 ACP 完整版 ✅;折叠组默认收起。
@@ -915,7 +915,7 @@ npm run build 2>&1 | tail -3 && npx jest tests/i18n.test.ts --coverage=false 2>&
 7. gateway 填 `http://10.100.0.1:8642` → init 后 http 模式(远程场景)。
 8. thoughtLevel 下拉置灰。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A && git commit -m "feat: 设置页 ACP 状态行+高级折叠 + 降级顶条 + thoughtLevel 置灰"
@@ -931,7 +931,7 @@ git add -A && git commit -m "feat: 设置页 ACP 状态行+高级折叠 + 降级
 - Modify: `README.md`、`README.en.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] **Step 1: hermes smoke 脚本**
+- [x] **Step 1: hermes smoke 脚本**
 
 镜像 `scripts/acp-smoke.mjs` 骨架,CLI 候选 `process.env.HERMES_PATH` → `~/.local/bin/hermes` → `hermes`;覆盖:握手、session/new(models/modes 非空)、prompt 流式有字、set_mode dont_ask 写文件无批准卡、default 写文件有批准卡(自动 allow_once)、fork 返新 id、load 回放不泄(回放事件计数>0 且全部在 load 响应前)、cancel。
 
@@ -940,19 +940,19 @@ node scripts/hermes-acp-smoke.mjs /tmp/hermes-smoke-vault
 ```
 期望:全项 PASS。
 
-- [ ] **Step 2: 手测清单增补**
+- [x] **Step 2: 手测清单增补**
 
 把 Task 8 Step 5 的 8 条 + smoke 结果补进 `docs/manual-test-checklist.md`（格式沿用该文件既有小节）。
 
-- [ ] **Step 3: README What's New + status（发版规矩）**
+- [x] **Step 3: README What's New + status（发版规矩）**
 
 README.md 顶部 What's New 加 v2.6.0 小节（Hermes ACP 完整版:工具/批准卡/thinking/usage/fork;HTTP 轻量自动降级;远程 gateway）,status 徽章/版本引用同步;README.en.md 同步英文版。
 
-- [ ] **Step 4: CHANGELOG 起草**
+- [x] **Step 4: CHANGELOG 起草**
 
 `## v2.6.0 — 未发布` 小节:新增(Hermes ACP 完整版/自动降级/远程兜底/设置页方案一)+ 已知缺口(thoughtLevel 不支持)。
 
-- [ ] **Step 5: 总验收**
+- [x] **Step 5: 总验收**
 
 ```bash
 npm test 2>&1 | tail -6
@@ -962,7 +962,7 @@ node scripts/hermes-acp-smoke.mjs /tmp/hermes-smoke-vault
 ```
 期望:jest 全绿、coverage 汇总不降;build 过;两个 smoke 全 PASS。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A && git commit -m "test+docs: hermes smoke/手测清单/README What's New v2.6.0 起草"
