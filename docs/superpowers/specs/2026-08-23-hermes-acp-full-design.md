@@ -23,6 +23,16 @@
 - 模型编码：`set_session_model` 接受 `custom:<provider>:<model>` 形态 id（`_resolve_model_selection` 解码）。
 - 现有 ACP 客户端耦合面：`acp/client.ts` 的 spawn 仅依赖 `scriptPath + extraArgs`（`buildSpawnCommand`），耦合浅。
 
+### 1.1 活探针修正（2026-08-23 `scripts/probe-hermes-acp.mjs` 8/10 通过,两项预期修正）
+
+> 全量证据：`docs/manual-test-2026-08-23-hermes-acp-probe.md`。以下修正覆盖 §1 静态读码结论：
+
+1. **load-miss 返回 `{}`**（空对象,非 null、不抛错）→ 引擎 miss 判定须为 `result == null || (object 且无 models/modes 键)`。
+2. **模型显示名用 `name` 字段**：availableModels 条目 = `{modelId, name, description}`（如 `custom:k3` ↔ `Custom endpoint · k3`）；modelId 无统一编码规则（`custom:<model>` / `<provider>:<model>` 并存）,**原样往返,不做解码**。
+3. **回放无 meta 标记确认**；load 响应后的 2 个调度更新（available_commands + usage）非回放,引擎按旁路正常路由。
+4. **批准卡 toolCall**：`rawInput` 为 `{tool, arguments}` 嵌套（codebuddy 为平铺）→ profile 归一化钩子;工具机器名取 `rawInput.tool`（title 是 "Approve edit: …" 句式）;options kind = `allow_once` / `reject_once`（reject 前缀兼容）。
+5. set_model 接受 `custom:k3` 形态 id;fork 返新 uuid;cancel → `cancelled`;dont_ask 免批准、default 触发批准——全部实测符合。
+
 ## 2. 总体架构：ACP 引擎提升为共享层
 
 ```
@@ -53,11 +63,12 @@ src/providers/
 | CLI 发现 | `resolveCodebuddyPath()` | 新增 `resolveHermesPath()`：设置覆盖 → `~/.local/bin/hermes` → PATH → Win 各安装位 | utils/cliPath.ts |
 | preflight | CLI 版本探测分级 | `hermes acp --check`（exit 0 即可用）+ `--version` 展示 | profile.preflight |
 | 权限模式 | permissionMode | session modes（edit approval policy 映射） | profile 映射 |
-| 模型列表 | session/new 结果 | SessionModelState（`custom:<provider>:<model>` 编码，解码显示/编码回传） | acpProvider 适配 |
+| 模型列表 | session/new 结果（id 字符串） | SessionModelState（条目含 `name` 显示名字段,modelId 原样往返不解码） | 引擎 onModels 扩为 id+name |
 | fork | `/branch` + newSessionId 捕获 | 原生 `fork_session` | profile.fork 两实现 |
 | thoughtLevel | set_config_option | hermes 收下不执行 → UI 置灰 | 设置页 |
 | MCP 注入 | mcpServersJson | `_register_session_mcp_servers`（同 ACP schema） | 直接透传 |
-| usage/thinking/工具/历史回放 | 已有 | 已有，事件形态一致 | 引擎原样复用 |
+| 批准卡/工具摘要输入 | rawInput 平铺（file_path/command） | rawInput 为 `{tool, arguments}` 嵌套 | profile 归一化钩子 `normalizeToolCall` |
+| usage/thinking/历史回放 | 已有 | 已有，事件形态一致 | 引擎原样复用 |
 
 ## 4. 路由器逻辑（providers/hermes/index.ts）
 

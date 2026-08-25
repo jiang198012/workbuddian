@@ -12,13 +12,14 @@
 
 **方言事实（2026-08-23 探针实证，实现以此为准）:**
 - hermes mode id：`default`(ask) / `accept_edits`(workspace_session) / `dont_ask`(session)；`session/set_mode` 原生支持。
-- 模型：`session/set_model {sessionId, modelId}`；modelId 可能是 `custom:<provider>:<model>` 编码，插件只做原样往返 + 显示解码。
+- 模型：`session/set_model {sessionId, modelId}`；modelId 原样往返（`custom:k3` / `opencode-free:x-preview-f-free` 等形态并存），显示名用 availableModels 条目的 `name` 字段。
 - fork：`session/fork {sessionId, cwd}` → `{sessionId: newId}`（无 name 参数）。
 - `session/load` 会话不存在时**返回 null 结果**（不抛错）→ 必须判空落回 `session/new`。
 - 历史回放**无 meta 标记**（codebuddy 的 `_meta['codebuddy.ai'].mode==='history'` 不存在）；回放按 ACP 规范发生在 load 响应之前 → 引擎用「load 窗口」通用判别。
 - `set_config_option` 对 hermes 是「收下不执行」→ thoughtLevel 不下发。
 - `session/new|load` 响应含 `models:{availableModels:[{modelId,name}],currentModelId}` 与 `modes:{availableModes,currentModeId}`（ACP 标准 camelCase，与 codebuddy 同形）。
-- hermes 工具名经 `_meta['codebuddy.ai/toolName']` 不存在 → 用 `title`（现有兜底已兼容）。
+- hermes 工具名经 `_meta` 不存在 → 机器名取 `rawInput.tool`（探针实证 rawInput 为 `{tool, arguments}` 嵌套，title 是 "Approve edit: …" 句式）。
+- load-miss 返回 **`{}`**（非 null）；回放无 meta 标记；load 响应后另有 2 个调度更新（usage/available_commands,非回放）。
 
 ---
 
@@ -241,6 +242,9 @@ export interface AcpBackendProfile {
     readonly toolNameMetaKeys: readonly string[];
     /** fork 机制：/branch prompt 捕获（codebuddy）| session/fork RPC（hermes） */
     readonly forkMode: 'branch-prompt' | 'native-rpc';
+    /** 工具事件归一化（探针实证 hermes rawInput 为 {tool, arguments} 嵌套）：返回平铺补丁,codebuddy 恒等 {} */
+    normalizeToolCall(update: { title?: unknown; rawInput?: unknown; _meta?: unknown }):
+        { toolName?: string; rawInput?: Record<string, unknown> };
 }
 ```
 
@@ -271,6 +275,7 @@ export const CODEBUDDY_PROFILE: AcpBackendProfile = {
     },
     toolNameMetaKeys: ['codebuddy.ai/toolName'],
     forkMode: 'branch-prompt',
+    normalizeToolCall: () => ({}),
 };
 ```
 
@@ -304,12 +309,15 @@ if (this.profile.forkMode === 'native-rpc') {
 // ……现有 /branch 逻辑原样保留
 ```
 
-`ensureLoaded()` 的 load-miss 判空（hermes 返回 null 不抛错，codebuddy 抛错走 catch，两态兼容）：
+`ensureLoaded()` 的 load-miss 判定（探针实证：hermes 返回 **`{}`** 不抛错；codebuddy 抛错走 catch，两态兼容）：
 
 ```ts
 const loaded = await this.client.request<unknown>(
     'session/load', { sessionId: candidate, cwd: vaultPath ?? '', mcpServers }).catch(() => null);
-if (loaded == null) {
+const isMiss = loaded == null
+    || (typeof loaded === 'object' && !Array.isArray(loaded)
+        && !('models' in loaded) && !('modes' in loaded));
+if (isMiss) {
     const result = await this.client.request<{ sessionId: string }>(
         'session/new', { cwd: vaultPath ?? '', mcpServers });
     this.acpSessionId = result.sessionId;
@@ -318,9 +326,10 @@ if (loaded == null) {
 }
 ```
 
-3. `events.ts`：`extractToolName(toolCall, metaKeys: readonly string[] = ['codebuddy.ai/toolName'])`——遍历 metaKeys 命中即返，再落 title 兜底；`mapSessionUpdate(update, metaKeys?)` / `mapToolCallUpdate(update, snapshot, metaKeys?)` 透传（默认参数保现有测试绿）；`isReplayUpdate` 函数保留（codebuddy profile 内部复用），引擎调用点改走 profile。
-4. `provider.ts`（AcpProvider）：构造参数加 `profile`，传给 AcpClient/SessionRegistry；`routeSessionUpdate` 里 `!isReplayUpdate(update)` 改 `!this.profile.isReplayUpdate(update) && !this.client.loadInFlight(acpSessionId)`（两处：轮外 config 直推守卫、无归属噪音守卫）。
-5. `codebuddy/index.ts`：`super(CODEBUDDY_PROFILE, timeout)`。
+3. `events.ts`：`extractToolName(toolCall, metaKeys: readonly string[] = ['codebuddy.ai/toolName'])`——遍历 metaKeys 命中即返，再落 title 兜底；`mapSessionUpdate(update, metaKeys?)` / `mapToolCallUpdate(update, snapshot, metaKeys?)` 透传（默认参数保现有测试绿）；`isReplayUpdate` 函数保留（codebuddy profile 内部复用），引擎调用点改走 profile。另：`mapSessionUpdate`/`mapToolCallUpdate`/`permission.ts mapPermissionRequest` 增加可选 `profile` 参数——存在时先经 `profile.normalizeToolCall(update)` 归一化（hermes 的 `{tool, arguments}` 嵌套 → 平铺），codebuddy profile 返回 `{}` 恒等不影响现状。
+4. `client.ts` `reportModels`：`AcpClientEvents.onModels` 签名由 `onModels(models: string[])` 扩为 `onModels(models: Array<{ id: string; name?: string }>)`（hermes 需要 name 做下拉显示，探针实证 availableModels 条目含 name）；`AcpProvider` 基类 `onModels` 回调内 `this.availableModels = models.map((m) => m.id)`（codebuddy 行为不变），hermes acpProvider（Task 5）覆写保留 name。
+5. `provider.ts`（AcpProvider）：构造参数加 `profile`，传给 AcpClient/SessionRegistry；`routeSessionUpdate` 里 `!isReplayUpdate(update)` 改 `!this.profile.isReplayUpdate(update) && !this.client.loadInFlight(acpSessionId)`（两处：轮外 config 直推守卫、无归属噪音守卫）。
+6. `codebuddy/index.ts`：`super(CODEBUDDY_PROFILE, timeout)`。
 
 - [ ] **Step 5: 验证**
 
@@ -420,7 +429,7 @@ git commit -m "feat: resolveHermesPath — hermes CLI 跨平台自动发现"
 - [ ] **Step 1: 写失败测试 tests/hermesProfile.test.ts**
 
 ```ts
-import { HERMES_PROFILE, hermesModelLabel } from '../src/providers/hermes/profile';
+import { HERMES_PROFILE } from '../src/providers/hermes/profile';
 
 describe('hermes profile 方言', () => {
     it('spawn 入口参数为 acp', () => {
@@ -450,9 +459,14 @@ describe('hermes profile 方言', () => {
         expect(HERMES_PROFILE.isReplayUpdate({ _meta: { hermes: { compactionSummary: true } } })).toBe(false);
         expect(HERMES_PROFILE.forkMode).toBe('native-rpc');
     });
-    it('hermesModelLabel 显示解码', () => {
-        expect(hermesModelLabel('custom:kimi:kimi-k3')).toBe('kimi-k3 (kimi)');
-        expect(hermesModelLabel('gpt-5')).toBe('gpt-5');
+    it('normalizeToolCall 解嵌套 {tool, arguments}（探针实证形态）', () => {
+        const out = HERMES_PROFILE.normalizeToolCall({
+            title: 'Approve edit: /tmp/x.txt',
+            rawInput: { tool: 'write_file', arguments: { path: '/tmp/x.txt', content: 'hi' } },
+        });
+        expect(out.toolName).toBe('write_file');
+        expect(out.rawInput).toEqual({ path: '/tmp/x.txt', content: 'hi' });
+        expect(HERMES_PROFILE.normalizeToolCall({ title: 't', rawInput: { path: '/a' } })).toEqual({});
     });
 });
 ```
@@ -509,12 +523,6 @@ const INCOMING_MODE: Record<string, PermissionMode> = {
     dont_ask: 'bypassPermissions',
 };
 
-/** 模型 id → 可读标签：custom:<provider>:<model> → "<model> (<provider>)"；其余原样 */
-export function hermesModelLabel(modelId: string): string {
-    const m = /^custom:([^:]+):(.+)$/.exec(modelId);
-    return m ? `${m[2]} (${m[1]})` : modelId;
-}
-
 export const HERMES_PROFILE: AcpBackendProfile = {
     id: 'hermes',
     resolveCliPath: resolveHermesPath,
@@ -531,6 +539,16 @@ export const HERMES_PROFILE: AcpBackendProfile = {
     isReplayUpdate: () => false, // hermes 回放无 meta 标记：由引擎 load 窗口通用判别
     toolNameMetaKeys: [],
     forkMode: 'native-rpc',
+    normalizeToolCall(update) {
+        const ri = update.rawInput;
+        if (ri && typeof ri === 'object' && !Array.isArray(ri) && 'arguments' in (ri as Record<string, unknown>)) {
+            const rec = ri as { tool?: unknown; arguments?: unknown };
+            const args = rec.arguments && typeof rec.arguments === 'object' && !Array.isArray(rec.arguments)
+                ? rec.arguments as Record<string, unknown> : {};
+            return { toolName: typeof rec.tool === 'string' ? rec.tool : undefined, rawInput: args };
+        }
+        return {};
+    },
 };
 ```
 
@@ -550,14 +568,19 @@ export class HermesAcpProvider extends AcpProvider {
     /** hermes acp 无 --agents 旗标：空操作（main.ts 会无条件灌 customAgentsJson） */
     setCustomAgentsJson(_json: string): void {}
 
-    /** 设置页模型下拉展示用：id → 可读标签 */
+    /** 设置页模型下拉展示用：label 来自握手 availableModels 的 name 字段（探针实证）,缺省回落 id */
     getAvailableModelLabels(): Array<{ id: string; label: string }> {
-        return this.getAvailableModels().map((id) => ({ id, label: hermesModelLabel(id) }));
+        return this.modelPairs.map((m) => ({ id: m.id, label: m.name ?? m.id }));
+    }
+    protected modelPairs: Array<{ id: string; name?: string }> = [];
+    protected override onModels(models: Array<{ id: string; name?: string }>): void {
+        this.modelPairs = models;
+        super.onModels(models);
     }
 }
 ```
 
-（`hermesModelLabel` 需在文件头 import。）
+（`onModels` 需在 `AcpProvider` 基类改为 `protected` 可覆写方法：基类构造的 client 事件回调从箭头属性改为调 `this.onModels(models)`；基类实现 `this.availableModels = models.map((m) => m.id)`。）
 
 - [ ] **Step 6: 验证**
 
