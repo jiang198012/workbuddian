@@ -155,6 +155,27 @@ export function resolveCodebuddyPath(customPath: string): string {
     return onPath ?? 'codebuddy';
 }
 
+/** Hermes CLI 发现：自定义覆盖（原样，不校验存在性）→ 常见安装位 → PATH → bare fallback（'hermes' 交 OS 解析） */
+export function resolveHermesPath(customPath: string): string {
+    const custom = customPath.trim();
+    if (custom) return custom;
+    const candidates = isWin()
+        ? [path.join(home(), '.local', 'bin', 'hermes.exe'), path.join(home(), '.hermes', 'bin', 'hermes.exe')]
+        : [
+            path.join(home(), '.local', 'bin', 'hermes'),
+            path.join(home(), '.hermes', 'bin', 'hermes'),
+            '/usr/local/bin/hermes',
+            '/opt/homebrew/bin/hermes',
+        ];
+    const hit = firstHit(candidates);
+    if (hit) {
+        bbLog('[WB] resolved hermes path:', hit);
+        return hit;
+    }
+    const onPath = findOnPath(isWin() ? ['hermes.exe', 'hermes.cmd', 'hermes'] : ['hermes']);
+    return onPath ?? 'hermes';
+}
+
 // ===== 跨平台 spawn 策略辅助函数 =====
 
 const WRAPPER_EXTS = new Set(['.cmd', '.exe', '.bat']);
