@@ -34,6 +34,69 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
+// src/shared/cliOptions.ts
+function modelLabel(id) {
+  var _a;
+  return (_a = MODEL_LABELS[id]) != null ? _a : id;
+}
+function orderModels(ids) {
+  const ranked = MODEL_ORDER.filter((m) => ids.includes(m));
+  const rest = ids.filter((m) => !MODEL_ORDER.includes(m));
+  return [...ranked, ...rest];
+}
+function isThoughtLevel(value) {
+  return typeof value === "string" && THOUGHT_LEVEL_CHOICES.includes(value);
+}
+function isPermissionMode(value) {
+  return typeof value === "string" && PERMISSION_MODES.includes(value);
+}
+var MODEL_OPTIONS, MODEL_LABELS, MODEL_ORDER, FALLBACK_MODEL_OPTIONS, PERMISSION_MODES, PERMISSION_MODE_CHOICES, THOUGHT_LEVEL_CHOICES;
+var init_cliOptions = __esm({
+  "src/shared/cliOptions.ts"() {
+    MODEL_OPTIONS = {
+      hy3: "hy3",
+      "glm-5.2": "glm-5.2",
+      "glm-5.1": "glm-5.1",
+      "glm-5v-turbo": "glm-5v-turbo",
+      "minimax-m3": "minimax-m3",
+      "kimi-k3-1": "kimi-k3-1",
+      "kimi-k2.7": "kimi-k2.7",
+      "kimi-k2.6": "kimi-k2.6",
+      "deepseek-v4-flash": "deepseek-v4-flash",
+      "deepseek-v4-pro": "deepseek-v4-pro"
+    };
+    MODEL_LABELS = {
+      hy3: "Hunyuan \u6DF7\u5143",
+      "glm-5.2": "GLM-5.2\uFF08\u667A\u8C31\uFF09",
+      "glm-5.1": "GLM-5.1\uFF08\u667A\u8C31\uFF09",
+      "glm-5v-turbo": "GLM-5V Turbo\uFF08\u667A\u8C31\xB7\u89C6\u89C9\uFF09",
+      "minimax-m3": "MiniMax-M3\uFF08\u7A00\u5B87\uFF09",
+      "kimi-k3-1": "Kimi K3\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
+      "kimi-k2.7": "Kimi K2.7\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
+      "kimi-k2.6": "Kimi K2.6\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
+      "deepseek-v4-flash": "DeepSeek V4 Flash\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
+      "deepseek-v4-pro": "DeepSeek V4 Pro\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
+      auto: "Auto\uFF08\u81EA\u52A8\u9009\u62E9\uFF09"
+    };
+    MODEL_ORDER = [
+      "glm-5.2",
+      "glm-5.1",
+      "glm-5v-turbo",
+      "deepseek-v4-pro",
+      "deepseek-v4-flash",
+      "kimi-k3-1",
+      "kimi-k2.7",
+      "kimi-k2.6",
+      "minimax-m3",
+      "hy3"
+    ];
+    FALLBACK_MODEL_OPTIONS = MODEL_OPTIONS;
+    PERMISSION_MODES = ["default", "plan", "acceptEdits", "bypassPermissions"];
+    PERMISSION_MODE_CHOICES = ["default", "plan", "bypassPermissions"];
+    THOUGHT_LEVEL_CHOICES = ["enabled", "minimal", "low", "medium", "high", "xhigh", "max"];
+  }
+});
+
 // src/i18n/index.ts
 function setLang(lang) {
   currentLang = lang;
@@ -386,11 +449,1677 @@ var init_logBuffer = __esm({
   }
 });
 
-// src/providers/hermes/index.ts
-var hermes_exports = {};
-__export(hermes_exports, {
-  HermesProvider: () => HermesProvider
+// src/utils/cliPath.ts
+function env(name) {
+  return process.env[name] || "";
+}
+function isFile(p) {
+  try {
+    return fs.statSync(p).isFile();
+  } catch (e) {
+    return false;
+  }
+}
+function firstHit(candidates) {
+  for (const p of candidates) {
+    if (p && fs.existsSync(p))
+      return p;
+  }
+  return null;
+}
+function findOnPath(names) {
+  const sep = isWin() ? ";" : ":";
+  for (const dir of env("PATH").split(sep)) {
+    if (!dir)
+      continue;
+    for (const name of names) {
+      const p = path.join(dir, name);
+      if (isFile(p))
+        return p;
+    }
+  }
+  return null;
+}
+function nodeCandidates() {
+  if (!isWin()) {
+    return [
+      path.join(home(), ".local", "bin"),
+      path.join(home(), ".npm-global", "bin"),
+      path.join(home(), ".volta", "bin"),
+      path.join(home(), "bin"),
+      "/usr/local/bin",
+      "/opt/homebrew/bin",
+      env("NVM_BIN")
+    ].map((dir) => dir && path.join(dir, nodeBinName()));
+  }
+  const dirs = [path.dirname(process.execPath)];
+  const appData = env("APPDATA");
+  if (appData)
+    dirs.push(appData, path.join(appData, "npm"));
+  const pf = env("ProgramFiles") || "C:\\Program Files";
+  const pf86 = env("ProgramFiles(x86)") || "C:\\Program Files (x86)";
+  dirs.push(path.join(pf, "nodejs"), path.join(pf86, "nodejs"));
+  const lad = env("LOCALAPPDATA");
+  if (lad)
+    dirs.push(path.join(lad, "Programs", "nodejs"));
+  if (env("NVM_SYMLINK"))
+    dirs.push(env("NVM_SYMLINK"));
+  if (home()) {
+    const versionsDir = path.join(home(), ".workbuddy", "binaries", "node", "versions");
+    try {
+      for (const v of fs.readdirSync(versionsDir))
+        dirs.push(path.join(versionsDir, v));
+    } catch (e) {
+    }
+  }
+  for (const drive of ["C:", "D:", "E:"]) {
+    if (`${drive}\\` !== path.parse(pf).root.toUpperCase()) {
+      dirs.push(path.join(`${drive}\\Program Files`, "nodejs"));
+    }
+  }
+  return dirs.map((dir) => dir && path.join(dir, nodeBinName()));
+}
+function findNodeExecutable() {
+  const hit = firstHit(nodeCandidates().filter(isFile));
+  if (hit) {
+    bbLog("[WB] found node at:", hit);
+    return hit;
+  }
+  bbLog("[WB] WARNING: node not found in any search path, falling back to 'node'");
+  return "node";
+}
+function codebuddyCandidates() {
+  if (!isWin()) {
+    return [
+      "/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy",
+      path.join(home(), "Applications", "WorkBuddy.app", "Contents", ...WB_CLI_REL, "codebuddy"),
+      path.join(home(), ".local", "bin", "codebuddy"),
+      path.join(home(), ".npm-global", "bin", "codebuddy"),
+      path.join(home(), ".volta", "bin", "codebuddy"),
+      path.join(home(), "bin", "codebuddy"),
+      "/usr/local/bin/codebuddy",
+      "/opt/homebrew/bin/codebuddy"
+    ];
+  }
+  const lad = env("LOCALAPPDATA");
+  const appData = env("APPDATA");
+  const pf = env("ProgramFiles") || "C:\\Program Files";
+  const pf86 = env("ProgramFiles(x86)") || "C:\\Program Files (x86)";
+  const list = [];
+  const wbExe = (root, names) => names.map((n) => path.join(root, ...WB_CLI_REL, n));
+  if (lad)
+    list.push(...wbExe(path.join(lad, "Programs", "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
+  if (appData)
+    list.push(path.join(appData, "npm", "codebuddy.cmd"), path.join(appData, "npm", "codebuddy"));
+  list.push(
+    path.join(pf, "nodejs", "codebuddy.cmd"),
+    path.join(pf, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
+    path.join(pf86, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
+    ...wbExe(path.join(pf, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]),
+    ...wbExe(path.join(pf86, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"])
+  );
+  for (const drive of ["C:", "D:", "E:"]) {
+    list.push(...wbExe(path.join(`${drive}\\Program Files`, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
+  }
+  return list;
+}
+function resolveCodebuddyPath(customPath) {
+  if (customPath && fs.existsSync(customPath))
+    return customPath;
+  const fromEnv = env("CODEBUDDY_PATH");
+  if (fromEnv && fs.existsSync(fromEnv))
+    return fromEnv;
+  const extra = [
+    env("NVM_BIN") && path.join(env("NVM_BIN"), "codebuddy"),
+    env("npm_config_prefix") && path.join(env("npm_config_prefix"), "bin", "codebuddy")
+  ];
+  const hit = firstHit([...codebuddyCandidates(), ...extra]);
+  if (hit) {
+    bbLog("[WB] resolved codebuddy path:", hit);
+    return hit;
+  }
+  const onPath = findOnPath(isWin() ? ["codebuddy.exe", "codebuddy.cmd", "codebuddy"] : ["codebuddy"]);
+  return onPath != null ? onPath : "codebuddy";
+}
+function resolveHermesPath(customPath) {
+  const custom = customPath.trim();
+  if (custom)
+    return custom;
+  const candidates = isWin() ? [path.join(home(), ".local", "bin", "hermes.exe"), path.join(home(), ".hermes", "bin", "hermes.exe")] : [
+    path.join(home(), ".local", "bin", "hermes"),
+    path.join(home(), ".hermes", "bin", "hermes"),
+    "/usr/local/bin/hermes",
+    "/opt/homebrew/bin/hermes"
+  ];
+  const hit = firstHit(candidates);
+  if (hit) {
+    bbLog("[WB] resolved hermes path:", hit);
+    return hit;
+  }
+  const onPath = findOnPath(isWin() ? ["hermes.exe", "hermes.cmd", "hermes"] : ["hermes"]);
+  return onPath != null ? onPath : "hermes";
+}
+function isWindowsWrapper(scriptPath) {
+  return WRAPPER_EXTS.has(path.extname(scriptPath).toLowerCase());
+}
+function isBareFallback(scriptPath) {
+  return scriptPath === "codebuddy" || !path.isAbsolute(scriptPath);
+}
+function needsWindowsShell(scriptPath) {
+  const ext = path.extname(scriptPath).toLowerCase();
+  return isWin() && (ext === ".cmd" || ext === ".bat");
+}
+var path, fs, import_child_process, isWin, home, nodeBinName, WB_CLI_REL, WRAPPER_EXTS;
+var init_cliPath = __esm({
+  "src/utils/cliPath.ts"() {
+    path = __toESM(require("path"));
+    fs = __toESM(require("fs"));
+    import_child_process = require("child_process");
+    init_logBuffer();
+    isWin = () => process.platform === "win32";
+    home = () => process.env.HOME || process.env.USERPROFILE || "";
+    nodeBinName = () => isWin() ? "node.exe" : "node";
+    WB_CLI_REL = ["Resources", "app.asar.unpacked", "cli", "bin"];
+    WRAPPER_EXTS = /* @__PURE__ */ new Set([".cmd", ".exe", ".bat"]);
+  }
 });
+
+// src/providers/acp/profile.ts
+var ACP_DEFAULT_PROFILE;
+var init_profile = __esm({
+  "src/providers/acp/profile.ts"() {
+    init_cliPath();
+    init_logBuffer();
+    ACP_DEFAULT_PROFILE = {
+      id: "codebuddy",
+      resolveCliPath: resolveCodebuddyPath,
+      acpArgs: ["--acp"],
+      mapOutgoingMode: (m) => m,
+      mapIncomingMode: (id) => id,
+      async applyRemoteModel(client, sessionId, model) {
+        try {
+          await client.request("session/set_config_option", { sessionId, configId: "model", value: model });
+        } catch (e) {
+          bbLog("[WB] acp \u8BBE\u7F6E\u6A21\u578B\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
+        }
+      },
+      supportsThoughtLevel: true,
+      isReplayUpdate: (update) => {
+        const meta = update._meta;
+        const cb = meta == null ? void 0 : meta["codebuddy.ai"];
+        return (cb == null ? void 0 : cb.mode) === "history";
+      },
+      toolNameMetaKeys: ["codebuddy.ai/toolName"],
+      forkMode: "branch-prompt",
+      normalizeToolCall: () => ({})
+    };
+  }
+});
+
+// src/providers/acp/client.ts
+function buildSpawnCommand(scriptPath, nodePathOverride, args) {
+  if (isWindowsWrapper(scriptPath) || isBareFallback(scriptPath)) {
+    return { command: scriptPath, args, shell: needsWindowsShell(scriptPath) };
+  }
+  const node = nodePathOverride || findNodeExecutable() || "node";
+  return { command: node, args: [scriptPath, ...args], shell: false };
+}
+function classifyHandshakeFailure(stderr) {
+  return /unrecogni[sz]ed|unknown (option|command|flag)|invalid option|unknown argument/i.test(stderr) ? "acp-unsupported" : "handshake-failed";
+}
+function isAuthError(message) {
+  return /auth|logged|login|unauthorized|登录|未登录/i.test(message);
+}
+function summarizeRpcParams(method, params) {
+  try {
+    let p = params;
+    if (method === "session/prompt" && Array.isArray(params.prompt)) {
+      const blocks = params.prompt;
+      const textLen = blocks.reduce((n, b) => n + (typeof (b == null ? void 0 : b.text) === "string" ? b.text.length : 0), 0);
+      p = { ...params, prompt: `<${blocks.length} blocks, ${textLen} chars>` };
+    }
+    const s = JSON.stringify(p);
+    return s.length > 300 ? s.slice(0, 297) + "..." : s;
+  } catch (e) {
+    return "";
+  }
+}
+var import_child_process2, AcpStartError, HANDSHAKE_TIMEOUT_MS, DEFAULT_REQUEST_TIMEOUT_MS, AcpClient;
+var init_client = __esm({
+  "src/providers/acp/client.ts"() {
+    import_child_process2 = require("child_process");
+    init_cliPath();
+    init_logBuffer();
+    init_profile();
+    AcpStartError = class extends Error {
+      constructor(tier, message) {
+        super(message);
+        this.tier = tier;
+        this.name = "AcpStartError";
+      }
+    };
+    HANDSHAKE_TIMEOUT_MS = 1e4;
+    DEFAULT_REQUEST_TIMEOUT_MS = 9e4;
+    AcpClient = class {
+      constructor(events, profile = ACP_DEFAULT_PROFILE) {
+        this.events = events;
+        this.profile = profile;
+        this.scriptPath = "";
+        this.nodePath = "";
+        this.extraArgs = [];
+        // 追加在 acpArgs 之后的 CLI 旗标（如 --agents）
+        this.proc = null;
+        this.nextId = 1;
+        this.pending = /* @__PURE__ */ new Map();
+        this.buffer = "";
+        this.stderrTail = "";
+        this.startPromise = null;
+        this.disposed = false;
+        this.handshakeDone = false;
+        this.promptChain = Promise.resolve();
+        /** session/load 在途窗口：hermes 无回放 meta 标记，回放事件只能靠"load 响应到达前的窗口"判别 */
+        this.loadingSessions = /* @__PURE__ */ new Set();
+        // session/prompt 串行队列
+        this.promptQueued = 0;
+        // 队列中未落账的 prompt 数（>0 时后续 prompt 记排队日志）
+        /** prompt 挂死兜底（provider 轮级超时 + 宽限）：CLI 连 cancel 都不应答时由此断链，队列才能放行后续 prompt */
+        this.promptTimeoutMs = 6 * 6e4;
+        this.scriptPath = this.profile.resolveCliPath("");
+      }
+      loadInFlight(sessionId) {
+        return this.loadingSessions.has(sessionId);
+      }
+      setCliPath(p) {
+        const next = this.profile.resolveCliPath(p);
+        if (next === this.scriptPath)
+          return;
+        this.scriptPath = next;
+        if (this.proc)
+          this.dispose();
+      }
+      setNodePath(p) {
+        if (p === this.nodePath)
+          return;
+        this.nodePath = p;
+        if (this.proc)
+          this.dispose();
+      }
+      setExtraArgs(args) {
+        if (args.join("\n") === this.extraArgs.join("\n"))
+          return;
+        this.extraArgs = args;
+        if (this.proc)
+          this.dispose();
+      }
+      getScriptPath() {
+        return this.scriptPath;
+      }
+      get running() {
+        return this.proc !== null;
+      }
+      ensureStarted() {
+        if (this.proc)
+          return Promise.resolve();
+        if (this.startPromise)
+          return this.startPromise;
+        this.disposed = false;
+        this.startPromise = this.spawnAndHandshake().then(
+          () => {
+            this.startPromise = null;
+          },
+          (e) => {
+            this.startPromise = null;
+            throw e;
+          }
+        );
+        return this.startPromise;
+      }
+      request(method, params) {
+        if (method === "session/prompt") {
+          return this.enqueuePrompt(() => this.doRequest(method, params, this.promptTimeoutMs));
+        }
+        return this.doRequest(method, params, DEFAULT_REQUEST_TIMEOUT_MS);
+      }
+      /**
+       * 把一组操作作为原子单元排进 prompt 串行队列（session 层用来把"再激活 load + prompt"绑在一起：
+       * 排队期间别的会话不会把 CLI 的活动会话指针抢走）。fn 内发 prompt 本体必须走 rawRequest，否则自排队死锁。
+       */
+      enqueuePrompt(fn) {
+        if (this.promptQueued > 0)
+          bbLog("[WB] prompt \u6392\u961F\u7B49\u5F85\uFF08\u524D\u9762\u6709\u672A\u843D\u8D26\u8F6E\u6B21\uFF09");
+        this.promptQueued++;
+        const run = this.promptChain.then(async () => {
+          try {
+            return await fn();
+          } finally {
+            this.promptQueued--;
+          }
+        });
+        this.promptChain = run.then(() => void 0, () => void 0);
+        return run;
+      }
+      /** 绕过串行队列直接发请求：仅供 enqueuePrompt 的 fn 内部使用（prompt 超时仍按 promptTimeoutMs） */
+      rawRequest(method, params) {
+        const timeout = method === "session/prompt" ? this.promptTimeoutMs : DEFAULT_REQUEST_TIMEOUT_MS;
+        return this.doRequest(method, params, timeout);
+      }
+      doRequest(method, params, timeoutMs) {
+        if (!this.proc)
+          return Promise.reject(new Error("acp client not started"));
+        const loadKey = method === "session/load" && typeof params.sessionId === "string" ? params.sessionId : "";
+        if (loadKey)
+          this.loadingSessions.add(loadKey);
+        const id = this.nextId++;
+        this.write({ jsonrpc: "2.0", id, method, params });
+        bbLog("[WB] acp \u8BF7\u6C42:", method, summarizeRpcParams(method, params));
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            this.pending.delete(id);
+            bbError("[WB] acp \u8BF7\u6C42\u8D85\u65F6:", method);
+            reject(new Error(`acp request timeout: ${method}`));
+          }, timeoutMs);
+          const settle = () => {
+            if (loadKey)
+              this.loadingSessions.delete(loadKey);
+          };
+          this.pending.set(id, {
+            resolve: (v) => {
+              clearTimeout(timer);
+              settle();
+              resolve(v);
+            },
+            reject: (e) => {
+              clearTimeout(timer);
+              settle();
+              reject(e);
+            }
+          });
+        });
+      }
+      notify(method, params) {
+        if (!this.proc) {
+          bbLog("[WB] acp notify \u65F6\u8FDB\u7A0B\u4E0D\u5728:", method);
+          return;
+        }
+        this.write({ jsonrpc: "2.0", method, params });
+        bbLog("[WB] acp \u901A\u77E5\u51FA\u7AD9:", method);
+      }
+      respond(requestId, result) {
+        if (!this.proc) {
+          bbLog("[WB] acp respond \u65F6\u8FDB\u7A0B\u4E0D\u5728:", requestId);
+          return;
+        }
+        this.write({ jsonrpc: "2.0", id: requestId, result });
+      }
+      /** 对 agent→client 请求的错误应答（未支持的方法）：防止 CLI 干等响应把 prompt 挂死 */
+      respondError(requestId, message) {
+        if (!this.proc)
+          return;
+        this.write({ jsonrpc: "2.0", id: requestId, error: { code: -32601, message } });
+      }
+      dispose() {
+        this.disposed = true;
+        const proc = this.proc;
+        this.proc = null;
+        this.startPromise = null;
+        this.failAllPending(new Error("acp client disposed"));
+        if (proc) {
+          try {
+            proc.kill();
+          } catch (e) {
+          }
+        }
+      }
+      // ---- 内部 ----
+      write(msg) {
+        var _a, _b;
+        (_b = (_a = this.proc) == null ? void 0 : _a.stdin) == null ? void 0 : _b.write(JSON.stringify(msg) + "\n");
+      }
+      failAllPending(err) {
+        for (const p of this.pending.values())
+          p.reject(err);
+        this.pending.clear();
+      }
+      handleLine(line) {
+        let msg;
+        try {
+          msg = JSON.parse(line);
+        } catch (e) {
+          bbLog("[WB] acp \u975E JSON \u884C:", line.slice(0, 200));
+          return;
+        }
+        if (typeof msg.method === "string" && msg.id !== void 0) {
+          if (msg.method === "session/request_permission" && typeof msg.id === "number") {
+            this.events.onPermissionRequest(msg.id, msg.params);
+          } else if (typeof msg.id === "number") {
+            bbLog("[WB] \u672A\u652F\u6301\u7684 agent \u8BF7\u6C42\uFF0C\u56DE method not found:", msg.method);
+            this.respondError(msg.id, `client does not support ${msg.method}`);
+          }
+          return;
+        }
+        if (typeof msg.method === "string") {
+          this.handleNotification(msg.method, msg.params);
+          return;
+        }
+        if (typeof msg.id === "number" && this.pending.has(msg.id)) {
+          const p = this.pending.get(msg.id);
+          this.pending.delete(msg.id);
+          if (msg.error) {
+            p.reject(new Error(msg.error.message || "acp rpc error"));
+            return;
+          }
+          this.reportModels(msg.result);
+          p.resolve(msg.result);
+        }
+      }
+      handleNotification(method, params) {
+        if (method === "session/update") {
+          const rec = params && typeof params === "object" ? params : {};
+          const sessionId = typeof rec.sessionId === "string" ? rec.sessionId : "";
+          const update = rec.update;
+          if (sessionId && update)
+            this.events.onSessionUpdate(sessionId, update);
+          return;
+        }
+        this.events.onAgentNotification(method, params);
+      }
+      reportModels(result) {
+        var _a;
+        const models = (_a = result == null ? void 0 : result.models) == null ? void 0 : _a.availableModels;
+        if (Array.isArray(models) && models.length) {
+          this.events.onModels(models.filter((m) => m.modelId != null && String(m.modelId) !== "").map((m) => ({
+            id: String(m.modelId),
+            ...typeof m.name === "string" && m.name ? { name: m.name } : {}
+          })));
+        }
+      }
+      spawnAndHandshake() {
+        return new Promise((resolve, reject) => {
+          const { command, args, shell } = buildSpawnCommand(this.scriptPath, this.nodePath, [...this.profile.acpArgs, ...this.extraArgs]);
+          let proc;
+          try {
+            proc = (0, import_child_process2.spawn)(command, args, { shell });
+          } catch (e) {
+            reject(new AcpStartError("cli-not-found", String(e)));
+            return;
+          }
+          this.proc = proc;
+          this.buffer = "";
+          this.stderrTail = "";
+          let settled = false;
+          const fail = (err) => {
+            if (settled)
+              return;
+            settled = true;
+            clearTimeout(timer);
+            this.proc = null;
+            try {
+              proc.kill();
+            } catch (e) {
+            }
+            this.failAllPending(err);
+            reject(err);
+          };
+          const timer = setTimeout(() => {
+            fail(new AcpStartError("handshake-failed", `handshake timeout after ${HANDSHAKE_TIMEOUT_MS}ms`));
+          }, HANDSHAKE_TIMEOUT_MS);
+          proc.stdout.on("data", (data) => {
+            this.buffer += data.toString("utf8");
+            let idx;
+            while ((idx = this.buffer.indexOf("\n")) >= 0) {
+              const line = this.buffer.slice(0, idx).trim();
+              this.buffer = this.buffer.slice(idx + 1);
+              if (line)
+                this.handleLine(line);
+            }
+          });
+          proc.stderr.on("data", (data) => {
+            const text = data.toString("utf8");
+            bbLog("[WB] acp stderr:", text.trim());
+            this.stderrTail = (this.stderrTail + text).slice(-2e3);
+          });
+          proc.on("error", (e) => {
+            fail(new AcpStartError(e.message.includes("ENOENT") ? "cli-not-found" : "handshake-failed", e.message));
+          });
+          proc.on("close", (code, signal) => {
+            const wasStarting = !settled;
+            const wasDisposed = this.disposed;
+            const hadStarted = this.handshakeDone;
+            this.handshakeDone = false;
+            this.proc = null;
+            this.buffer = "";
+            this.failAllPending(new Error("acp process exited"));
+            if (wasStarting) {
+              fail(new AcpStartError(
+                classifyHandshakeFailure(this.stderrTail),
+                this.stderrTail.trim().slice(-300) || `process exited (${code}) before handshake`
+              ));
+              return;
+            }
+            if (!wasDisposed && hadStarted)
+              this.events.onExit(code, signal);
+          });
+          this.request("initialize", {
+            protocolVersion: 1,
+            clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }
+          }).then(() => {
+            if (settled)
+              return;
+            settled = true;
+            clearTimeout(timer);
+            this.handshakeDone = true;
+            resolve();
+          }, (e) => {
+            fail(new AcpStartError(isAuthError(e.message) ? "auth-required" : "handshake-failed", e.message));
+          });
+        });
+      }
+    };
+  }
+});
+
+// src/providers/acp/events.ts
+function textOf(update) {
+  const content = update.content;
+  if ((content == null ? void 0 : content.type) === "text" && typeof content.text === "string")
+    return content.text;
+  return null;
+}
+function extractToolName(toolCall, profile = ACP_DEFAULT_PROFILE) {
+  const norm = profile.normalizeToolCall(toolCall);
+  if (norm.toolName)
+    return norm.toolName;
+  const meta = toolCall._meta;
+  for (const key of profile.toolNameMetaKeys) {
+    const metaName = meta == null ? void 0 : meta[key];
+    if (typeof metaName === "string" && metaName)
+      return metaName;
+  }
+  if (typeof toolCall.title === "string" && toolCall.title)
+    return toolCall.title;
+  return "tool";
+}
+function summarizeRawInput(rawInput) {
+  if (!rawInput || typeof rawInput !== "object" || Array.isArray(rawInput))
+    return "";
+  const input = rawInput;
+  for (const key of ["file_path", "path", "command"]) {
+    const v = input[key];
+    if (typeof v === "string" && v)
+      return v;
+  }
+  if (!Object.keys(input).length)
+    return "";
+  try {
+    const s = JSON.stringify(input);
+    return s.length > 120 ? s.slice(0, 117) + "..." : s;
+  } catch (e) {
+    return "";
+  }
+}
+function mapSessionUpdate(update, profile = ACP_DEFAULT_PROFILE) {
+  var _a;
+  switch (update.sessionUpdate) {
+    case "agent_thought_chunk": {
+      const text = textOf(update);
+      return text === null ? null : { type: "thinking", content: text };
+    }
+    case "agent_message_chunk": {
+      const text = textOf(update);
+      return text === null ? null : { type: "text", content: text };
+    }
+    case "tool_call": {
+      const toolName = extractToolName(update, profile);
+      const toolCallId = typeof update.toolCallId === "string" ? update.toolCallId : void 0;
+      const rawInput = (_a = profile.normalizeToolCall(update).rawInput) != null ? _a : update.rawInput;
+      return { type: "tool", content: "", toolName, toolCallId, toolDetail: summarizeRawInput(rawInput) };
+    }
+    default:
+      return null;
+  }
+}
+function mapToolCallUpdate(update, snapshot, profile = ACP_DEFAULT_PROFILE) {
+  var _a;
+  if (update.sessionUpdate !== "tool_call_update")
+    return null;
+  const toolCallId = typeof update.toolCallId === "string" ? update.toolCallId : "";
+  if (!toolCallId)
+    return null;
+  const toolName = extractToolName(update, profile);
+  if (update.status === "completed") {
+    let toolDetail = "";
+    try {
+      toolDetail = (_a = JSON.stringify(snapshot)) != null ? _a : "";
+    } catch (e) {
+    }
+    const chunk = { type: "tool", content: "", toolName, toolCallId, toolStatus: "completed", toolDetail };
+    const rawOutput = update.rawOutput;
+    if ((rawOutput == null ? void 0 : rawOutput.type) === "text" && typeof rawOutput.text === "string") {
+      chunk.toolOutput = rawOutput.text;
+    }
+    return chunk;
+  }
+  return { type: "tool", content: "", toolName, toolCallId, toolDetail: summarizeRawInput(snapshot) };
+}
+function mapUsageUpdate(update) {
+  if (update.sessionUpdate !== "usage_update")
+    return null;
+  const { used, size } = update;
+  if (typeof used !== "number" || typeof size !== "number")
+    return null;
+  return { used, size };
+}
+function mapConfigUpdate(update) {
+  if (update.sessionUpdate === "current_mode_update") {
+    return typeof update.currentModeId === "string" ? { mode: update.currentModeId } : null;
+  }
+  if (update.sessionUpdate === "config_option_update") {
+    const out = {};
+    const options = Array.isArray(update.configOptions) ? update.configOptions : [];
+    for (const opt of options) {
+      if (opt.id === "mode" && typeof opt.currentValue === "string")
+        out.mode = opt.currentValue;
+      if (opt.id === "model" && typeof opt.currentValue === "string")
+        out.model = opt.currentValue;
+      if (opt.id === "thought_level" && typeof opt.currentValue === "string")
+        out.thoughtLevel = opt.currentValue;
+    }
+    return Object.keys(out).length ? out : null;
+  }
+  return null;
+}
+var init_events = __esm({
+  "src/providers/acp/events.ts"() {
+    init_profile();
+  }
+});
+
+// src/providers/acp/permission.ts
+function asRecord(v) {
+  return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+function summarize(rawInput) {
+  try {
+    const s = JSON.stringify(rawInput);
+    return s.length > 200 ? s.slice(0, 197) + "..." : s;
+  } catch (e) {
+    return "";
+  }
+}
+function buildDetail(toolName, rawInput, isPlan) {
+  if (isPlan)
+    return { kind: "plan" };
+  const path3 = typeof rawInput.file_path === "string" ? rawInput.file_path : typeof rawInput.path === "string" ? rawInput.path : "";
+  if ((toolName === "Write" || toolName === "write_file") && typeof rawInput.content === "string") {
+    return { kind: "write", path: path3, lines: rawInput.content.split("\n").length };
+  }
+  if (toolName === "Edit" || toolName === "MultiEdit") {
+    return {
+      kind: "edit",
+      path: path3,
+      oldText: typeof rawInput.old_string === "string" ? rawInput.old_string : "",
+      newText: typeof rawInput.new_string === "string" ? rawInput.new_string : ""
+    };
+  }
+  if ((toolName === "Bash" || toolName === "Shell") && typeof rawInput.command === "string") {
+    return { kind: "bash", command: rawInput.command };
+  }
+  return { kind: "generic", summary: summarize(rawInput) };
+}
+function mapPermissionRequest(requestId, params, profile = ACP_DEFAULT_PROFILE) {
+  var _a, _b;
+  const p = asRecord(params);
+  const toolCall = asRecord(p.toolCall);
+  const meta = asRecord(toolCall._meta);
+  const norm = profile.normalizeToolCall(toolCall);
+  const rawInput = (_a = norm.rawInput) != null ? _a : asRecord(toolCall.rawInput);
+  const metaName = meta["codebuddy.ai/toolName"];
+  const rawToolName = typeof rawInput.toolName === "string" ? rawInput.toolName : "";
+  const toolName = (_b = norm.toolName) != null ? _b : typeof metaName === "string" && metaName ? metaName === "DeferExecuteTool" && rawToolName ? rawToolName : metaName : rawToolName || (typeof toolCall.title === "string" ? toolCall.title : "tool");
+  const isPlan = rawToolName === "ExitPlanMode";
+  const options = (Array.isArray(p.options) ? p.options : []).map((o) => {
+    const rec = asRecord(o);
+    return {
+      optionId: typeof rec.optionId === "string" ? rec.optionId : "",
+      kind: typeof rec.kind === "string" ? rec.kind : "",
+      label: typeof rec.name === "string" ? rec.name : ""
+    };
+  }).filter((o) => o.optionId);
+  return {
+    requestId,
+    sessionId: typeof p.sessionId === "string" ? p.sessionId : "",
+    toolName,
+    detail: buildDetail(toolName, rawInput, isPlan),
+    options,
+    isPlanApproval: isPlan
+  };
+}
+function buildPermissionResult(optionId) {
+  return { outcome: { outcome: "selected", optionId } };
+}
+function pickOptionId(options, kindPrefix) {
+  const hit = options.find((o) => kindPrefix === "allow_once" ? o.kind === "allow_once" : o.kind.startsWith(kindPrefix));
+  return hit == null ? void 0 : hit.optionId;
+}
+var init_permission = __esm({
+  "src/providers/acp/permission.ts"() {
+    init_profile();
+  }
+});
+
+// src/shared/responseFinalize.ts
+function pickFinalContent(text, result) {
+  return text || result;
+}
+function appendTextChunk(accumulated, incoming) {
+  if (!incoming)
+    return accumulated;
+  if (!accumulated)
+    return incoming;
+  if (incoming.length > accumulated.length && incoming.startsWith(accumulated))
+    return incoming;
+  const MIN_DEDUPE_CHARS = 32;
+  if (incoming.length >= MIN_DEDUPE_CHARS && accumulated.endsWith(incoming))
+    return accumulated;
+  return accumulated + incoming;
+}
+var init_responseFinalize = __esm({
+  "src/shared/responseFinalize.ts"() {
+  }
+});
+
+// src/providers/acp/session.ts
+var AcpSession, SessionRegistry;
+var init_session = __esm({
+  "src/providers/acp/session.ts"() {
+    init_events();
+    init_profile();
+    init_permission();
+    init_responseFinalize();
+    init_logBuffer();
+    AcpSession = class {
+      // 排队/在飞轮次被取消：到队首直接作废，不再占用 CLI
+      constructor(key, client, lookup, config, profile = ACP_DEFAULT_PROFILE, activation = { current: null }) {
+        this.key = key;
+        this.client = client;
+        this.lookup = lookup;
+        this.config = config;
+        this.profile = profile;
+        this.activation = activation;
+        this.acpSessionId = null;
+        this.status = "idle";
+        this.lastUsage = null;
+        /** fork 轮进行中标记：fork 回报（session_info_update）可能挂在新会话 id 下，provider 据此把事件归给本会话（WB-004） */
+        this.forkPending = false;
+        this.needsReload = false;
+        this.handlers = null;
+        this.pendingPermissions = /* @__PURE__ */ new Map();
+        this.toolInputs = /* @__PURE__ */ new Map();
+        // toolCallId → 最新 rawInput 快照（替换式，traffic 实证快照语义）
+        this.toolNames = /* @__PURE__ */ new Map();
+        // toolCallId → toolName（update 缺 _meta 时兜底）
+        this.lastForkedSessionId = null;
+        // ensureLoaded 记录，prompt 前再激活重放用
+        this.agentInFlight = /* @__PURE__ */ new Set();
+        // 在飞 Agent 工具调用（窗口内文本=子代理中继，WB-RT-007）
+        this.agentRelay = "";
+        // Agent 窗口内累积的中继文本，完成时挂为该行输出块
+        this.cancelPending = false;
+      }
+      /** 是否处于轮次内（有活跃 handlers）：轮外的 config 更新由 provider 旁路直推，不经本对象（WB-007） */
+      get inTurn() {
+        return this.handlers !== null;
+      }
+      /** 进程死亡后由 provider 标记：下次 ensureLoaded 重新 session/load（CLI 侧上下文不丢） */
+      markStale() {
+        if (this.acpSessionId)
+          this.needsReload = true;
+      }
+      async ensureLoaded(vaultPath, mcpServersOverride) {
+        var _a, _b;
+        if (this.acpSessionId && !this.needsReload)
+          return;
+        this.status = "loading";
+        this.lastVaultPath = vaultPath;
+        const mcpServers = (_a = mcpServersOverride != null ? mcpServersOverride : this.config.mcpServers) != null ? _a : [];
+        try {
+          if (!this.acpSessionId) {
+            const candidate = (_b = this.lookup.getAcpSessionId(this.key)) != null ? _b : this.key;
+            const loaded = await this.client.request(
+              "session/load",
+              { sessionId: candidate, cwd: vaultPath != null ? vaultPath : "", mcpServers }
+            ).catch(() => null);
+            const isMiss = loaded == null || typeof loaded === "object" && !Array.isArray(loaded) && !("models" in loaded) && !("modes" in loaded);
+            if (isMiss) {
+              const result = await this.client.request(
+                "session/new",
+                { cwd: vaultPath != null ? vaultPath : "", mcpServers }
+              );
+              this.acpSessionId = result.sessionId;
+            } else {
+              this.acpSessionId = candidate;
+            }
+            this.lookup.setAcpSessionId(this.key, this.acpSessionId);
+          } else {
+            await this.client.request("session/load", { sessionId: this.acpSessionId, cwd: vaultPath != null ? vaultPath : "", mcpServers });
+          }
+          this.activation.current = this.acpSessionId;
+          this.needsReload = false;
+          await this.applyConfig();
+        } finally {
+          this.status = "idle";
+        }
+      }
+      /** provider setModel/setPermissionMode 时对已加载会话逐一应用（按会话设置，双面板泄漏在协议层绝迹） */
+      async applyRemoteConfig() {
+        var _a, _b;
+        if (!this.acpSessionId)
+          return;
+        if (this.activation.current !== this.acpSessionId) {
+          await this.client.request("session/load", {
+            sessionId: this.acpSessionId,
+            cwd: (_a = this.lastVaultPath) != null ? _a : "",
+            mcpServers: (_b = this.config.mcpServers) != null ? _b : []
+          });
+          this.activation.current = this.acpSessionId;
+        }
+        await this.applyConfig();
+      }
+      async applyConfig() {
+        const sessionId = this.acpSessionId;
+        if (!sessionId)
+          return;
+        try {
+          if (this.config.model) {
+            await this.profile.applyRemoteModel(this.client, sessionId, this.config.model);
+          }
+        } catch (e) {
+          bbLog("[WB] acp \u8BBE\u7F6E\u6A21\u578B\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
+        }
+        try {
+          if (this.config.mode) {
+            const modeId = this.profile.mapOutgoingMode(this.config.mode);
+            try {
+              await this.client.request("session/set_mode", { sessionId, modeId });
+            } catch (e) {
+              await this.client.request("session/set_config_option", { sessionId, configId: "mode", value: modeId });
+            }
+          }
+        } catch (e) {
+          bbLog("[WB] acp \u8BBE\u7F6E\u6743\u9650\u6A21\u5F0F\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
+        }
+        try {
+          if (this.config.thoughtLevel && this.profile.supportsThoughtLevel) {
+            await this.client.request("session/set_config_option", { sessionId, configId: "thought_level", value: this.config.thoughtLevel });
+          }
+        } catch (e) {
+          bbLog("[WB] acp \u8BBE\u7F6E\u601D\u8003\u529B\u5EA6\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
+        }
+      }
+      async prompt(text, handlers, images) {
+        if (this.status !== "idle")
+          throw new Error("session busy");
+        if (!this.acpSessionId)
+          throw new Error("session not loaded");
+        const acpId = this.acpSessionId;
+        this.status = "prompting";
+        try {
+          const prompt = (images == null ? void 0 : images.length) ? [...images.map((i) => ({ type: "image", data: i.data, mimeType: i.mimeType })), { type: "text", text }] : [{ type: "text", text }];
+          const result = await this.client.enqueuePrompt(async () => {
+            var _a, _b;
+            if (this.cancelPending)
+              return { stopReason: "cancelled" };
+            this.handlers = handlers;
+            this.toolInputs.clear();
+            this.toolNames.clear();
+            this.agentInFlight.clear();
+            this.agentRelay = "";
+            if (this.activation.current !== acpId) {
+              bbLog("[WB] prompt \u524D\u91CD\u65B0\u6FC0\u6D3B\u4F1A\u8BDD:", acpId);
+              this.status = "loading";
+              try {
+                await this.client.request("session/load", {
+                  sessionId: acpId,
+                  cwd: (_a = this.lastVaultPath) != null ? _a : "",
+                  mcpServers: (_b = this.config.mcpServers) != null ? _b : []
+                });
+                this.activation.current = acpId;
+              } finally {
+                this.status = "prompting";
+              }
+            }
+            return this.client.rawRequest("session/prompt", {
+              sessionId: acpId,
+              prompt
+            });
+          });
+          return { stopReason: typeof result.stopReason === "string" ? result.stopReason : "end_turn" };
+        } finally {
+          if (this.pendingPermissions.size)
+            this.rejectPendingPermissions();
+          this.status = "idle";
+          this.handlers = null;
+          this.cancelPending = false;
+        }
+      }
+      handleUpdate(update) {
+        var _a, _b, _c, _d, _e, _f, _g;
+        if (this.status === "loading" || this.profile.isReplayUpdate(update))
+          return;
+        if (update.sessionUpdate === "session_info_update") {
+          const meta = update._meta;
+          const forked = meta == null ? void 0 : meta["codebuddy.ai/newSessionId"];
+          if ((meta == null ? void 0 : meta["codebuddy.ai/sessionReset"]) && typeof forked === "string") {
+            this.lastForkedSessionId = forked;
+          }
+        }
+        const handlers = this.handlers;
+        if (!handlers)
+          return;
+        if (update.sessionUpdate === "tool_call_update") {
+          const id = typeof update.toolCallId === "string" ? update.toolCallId : "";
+          if (!id)
+            return;
+          if (update.rawInput !== void 0) {
+            const norm = this.profile.normalizeToolCall(update);
+            this.toolInputs.set(id, (_a = norm.rawInput) != null ? _a : update.rawInput);
+          }
+          const chunk2 = mapToolCallUpdate(update, this.toolInputs.get(id), this.profile);
+          if (chunk2) {
+            if (!update._meta && this.toolNames.has(id))
+              chunk2.toolName = this.toolNames.get(id);
+            if (update.status === "completed") {
+              bbLog("[WB] \u5DE5\u5177\u5B8C\u6210:", (_b = chunk2.toolName) != null ? _b : "?", "| \u5FEB\u7167:", this.toolInputs.has(id) ? "\u6709" : "\u65E0");
+              if (this.agentInFlight.delete(id) && this.agentRelay) {
+                chunk2.toolOutput = this.agentRelay;
+                this.agentRelay = "";
+              }
+            }
+            handlers.onChunk(chunk2);
+          }
+          return;
+        }
+        const usage = mapUsageUpdate(update);
+        if (usage) {
+          this.lastUsage = usage;
+          (_c = handlers.onUsage) == null ? void 0 : _c.call(handlers, usage.used, usage.size);
+          return;
+        }
+        const config = mapConfigUpdate(update);
+        if (config) {
+          (_d = handlers.onConfigUpdate) == null ? void 0 : _d.call(handlers, config);
+          return;
+        }
+        const chunk = mapSessionUpdate(update, this.profile);
+        if (chunk) {
+          if (chunk.type === "tool" && typeof update.toolCallId === "string") {
+            this.toolNames.set(update.toolCallId, (_e = chunk.toolName) != null ? _e : "tool");
+            this.toolInputs.set(
+              update.toolCallId,
+              (_g = (_f = this.profile.normalizeToolCall(update).rawInput) != null ? _f : update.rawInput) != null ? _g : {}
+            );
+            if (chunk.toolName === "Agent")
+              this.agentInFlight.add(update.toolCallId);
+          }
+          if (chunk.type === "text" && this.agentInFlight.size > 0) {
+            this.agentRelay = appendTextChunk(this.agentRelay, chunk.content);
+            return;
+          }
+          handlers.onChunk(chunk);
+        }
+      }
+      handlePermissionRequest(requestId, params) {
+        var _a, _b;
+        const data = mapPermissionRequest(requestId, params, this.profile);
+        const toolCall = params == null ? void 0 : params.toolCall;
+        const tc = toolCall && typeof toolCall === "object" && !Array.isArray(toolCall) ? toolCall : {};
+        const toolCallId = typeof tc.toolCallId === "string" ? tc.toolCallId : "";
+        if (toolCallId) {
+          if (tc.rawInput !== void 0) {
+            this.toolInputs.set(toolCallId, (_a = this.profile.normalizeToolCall(tc).rawInput) != null ? _a : tc.rawInput);
+          }
+          this.toolNames.set(toolCallId, data.toolName);
+        }
+        const handlers = this.handlers;
+        if (!(handlers == null ? void 0 : handlers.onPermissionRequest)) {
+          this.client.respond(requestId, buildPermissionResult((_b = pickOptionId(data.options, "reject")) != null ? _b : "reject"));
+          return;
+        }
+        if (this.config.mode === "bypassPermissions") {
+          const allowAlways = pickOptionId(data.options, "allow_always");
+          if (allowAlways) {
+            this.client.respond(requestId, buildPermissionResult(allowAlways));
+            return;
+          }
+          const allowOnce = pickOptionId(data.options, "allow_once");
+          if (allowOnce) {
+            this.client.respond(requestId, buildPermissionResult(allowOnce));
+            return;
+          }
+        }
+        this.pendingPermissions.set(requestId, data);
+        this.status = "awaitingPermission";
+        handlers.onPermissionRequest(data);
+      }
+      hasPendingPermission(requestId) {
+        return this.pendingPermissions.has(requestId);
+      }
+      respondPermission(requestId, optionId) {
+        if (!this.pendingPermissions.delete(requestId))
+          return false;
+        this.client.respond(requestId, buildPermissionResult(optionId));
+        if (this.status === "awaitingPermission")
+          this.status = "prompting";
+        return true;
+      }
+      rejectPendingPermissions() {
+        var _a;
+        for (const [requestId, data] of this.pendingPermissions) {
+          this.client.respond(requestId, buildPermissionResult((_a = pickOptionId(data.options, "reject")) != null ? _a : "reject"));
+        }
+        this.pendingPermissions.clear();
+        if (this.status === "awaitingPermission")
+          this.status = "prompting";
+      }
+      /** 会话级分叉：branch-prompt 方言发 /branch 捕获回报；native-rpc 方言直接 session/fork RPC（hermes） */
+      async fork(name) {
+        var _a;
+        if (this.status !== "idle")
+          throw new Error("session busy");
+        if (!this.acpSessionId)
+          throw new Error("session not loaded");
+        if (this.profile.forkMode === "native-rpc") {
+          bbLog("[WB] fork \u5F00\u59CB(native-rpc):", this.acpSessionId, name);
+          const result = await this.client.request(
+            "session/fork",
+            { sessionId: this.acpSessionId, cwd: (_a = this.lastVaultPath) != null ? _a : "" }
+          );
+          const newId = typeof (result == null ? void 0 : result.sessionId) === "string" ? result.sessionId : "";
+          if (!newId)
+            throw new Error("fork failed: empty sessionId in session/fork result");
+          bbLog("[WB] fork \u6210\u529F:", this.acpSessionId, "\u2192", newId);
+          return newId;
+        }
+        this.lastForkedSessionId = null;
+        const sink = { onChunk: () => {
+        }, onError: () => {
+        } };
+        let timer;
+        const timeout = new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error("fork timeout (60s)")), 6e4);
+        });
+        this.forkPending = true;
+        bbLog("[WB] fork \u5F00\u59CB:", this.acpSessionId, name);
+        try {
+          await Promise.race([this.prompt(`/branch ${name}`, sink), timeout]);
+        } catch (e) {
+          bbLog("[WB] fork \u5931\u8D25:", e);
+          throw new Error(`fork failed: ${e instanceof Error ? e.message : String(e)}`);
+        } finally {
+          this.forkPending = false;
+          clearTimeout(timer);
+        }
+        if (!this.lastForkedSessionId) {
+          bbLog("[WB] fork \u5931\u8D25: prompt \u5B8C\u6210\u4F46\u672A\u6536\u5230 session_info_update \u56DE\u62A5");
+          throw new Error("fork failed: no session_info_update");
+        }
+        bbLog("[WB] fork \u6210\u529F:", this.acpSessionId, "\u2192", this.lastForkedSessionId);
+        return this.lastForkedSessionId;
+      }
+      async cancelTurn() {
+        if (this.status !== "prompting" && this.status !== "awaitingPermission")
+          return;
+        this.rejectPendingPermissions();
+        this.cancelPending = true;
+        if (this.acpSessionId)
+          this.client.notify("session/cancel", { sessionId: this.acpSessionId });
+      }
+      failTurn(message) {
+        var _a;
+        (_a = this.handlers) == null ? void 0 : _a.onError(message);
+      }
+    };
+    SessionRegistry = class {
+      constructor(client, lookup, config, profile = ACP_DEFAULT_PROFILE) {
+        this.client = client;
+        this.lookup = lookup;
+        this.config = config;
+        this.profile = profile;
+        this.sessions = /* @__PURE__ */ new Map();
+        /** 全注册表共享的"CLI 当前活动会话"指针：任何 new/load 都会切换它（探针实证） */
+        this.activation = { current: null };
+      }
+      get(key) {
+        let s = this.sessions.get(key);
+        if (!s) {
+          s = new AcpSession(key, this.client, this.lookup, this.config, this.profile, this.activation);
+          this.sessions.set(key, s);
+        }
+        return s;
+      }
+      find(key) {
+        return this.sessions.get(key);
+      }
+      byAcpId(acpSessionId) {
+        for (const s of this.sessions.values())
+          if (s.acpSessionId === acpSessionId)
+            return s;
+        return void 0;
+      }
+      all() {
+        return [...this.sessions.values()];
+      }
+    };
+  }
+});
+
+// src/shared/mcpServers.ts
+function parseMcpServers(json) {
+  let raw;
+  try {
+    raw = JSON.parse(json);
+  } catch (e) {
+    return [];
+  }
+  if (!Array.isArray(raw))
+    return [];
+  const out = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object")
+      continue;
+    const rec = item;
+    if (typeof rec.name !== "string" || !rec.name)
+      continue;
+    out.push({
+      name: rec.name,
+      command: typeof rec.command === "string" ? rec.command : "",
+      args: Array.isArray(rec.args) ? rec.args.filter((a) => typeof a === "string") : [],
+      env: normalizeEnv(rec.env),
+      disabled: rec.disabled === true ? true : void 0
+    });
+  }
+  return out;
+}
+function normalizeEnv(env2) {
+  if (Array.isArray(env2)) {
+    return env2.filter((e) => !!e && typeof e === "object").map((e) => {
+      var _a, _b;
+      return { name: String((_a = e.name) != null ? _a : ""), value: String((_b = e.value) != null ? _b : "") };
+    }).filter((e) => e.name.length > 0);
+  }
+  if (env2 && typeof env2 === "object") {
+    return Object.entries(env2).map(([name, value]) => ({ name, value: String(value) }));
+  }
+  return [];
+}
+function serializeMcpServers(servers) {
+  return JSON.stringify(servers.map((s) => ({
+    name: s.name,
+    command: s.command,
+    args: s.args,
+    env: s.env,
+    ...s.disabled ? { disabled: true } : {}
+  })));
+}
+function activeMcpServers(servers) {
+  return servers.filter((s) => !s.disabled).map((s) => ({ name: s.name, command: s.command, args: s.args, env: s.env }));
+}
+function extractMcpNames(text) {
+  const names = [];
+  for (const match of text.matchAll(/@mcp\/([A-Za-z0-9._-]+)/g)) {
+    if (!names.includes(match[1]))
+      names.push(match[1]);
+  }
+  return names;
+}
+function parseClipboardServers(text) {
+  let raw;
+  try {
+    raw = JSON.parse(text);
+  } catch (e) {
+    return [];
+  }
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const rec = raw;
+    if (rec.mcpServers && typeof rec.mcpServers === "object" && !Array.isArray(rec.mcpServers)) {
+      return Object.entries(rec.mcpServers).map(([name, cfg]) => {
+        const c = cfg && typeof cfg === "object" ? cfg : {};
+        return {
+          name,
+          command: typeof c.command === "string" ? c.command : "",
+          args: Array.isArray(c.args) ? c.args.filter((a) => typeof a === "string") : [],
+          env: normalizeEnv(c.env)
+        };
+      });
+    }
+    return parseMcpServers(JSON.stringify([raw]));
+  }
+  return parseMcpServers(text);
+}
+var init_mcpServers = __esm({
+  "src/shared/mcpServers.ts"() {
+  }
+});
+
+// src/providers/acp/provider.ts
+var TIMEOUT, AcpStartFailure, NOOP_LOOKUP, AcpProvider;
+var init_provider = __esm({
+  "src/providers/acp/provider.ts"() {
+    init_cliOptions();
+    init_i18n();
+    init_logBuffer();
+    init_client();
+    init_session();
+    init_events();
+    init_profile();
+    init_mcpServers();
+    TIMEOUT = 3e5;
+    AcpStartFailure = class extends Error {
+    };
+    NOOP_LOOKUP = { getAcpSessionId: () => void 0, setAcpSessionId: () => {
+    } };
+    AcpProvider = class {
+      constructor(profile = ACP_DEFAULT_PROFILE, timeout = TIMEOUT) {
+        this.profile = profile;
+        this.config = { model: "auto", mode: "default", mcpServers: [] };
+        this.lookup = NOOP_LOOKUP;
+        this.availableModels = Object.keys(FALLBACK_MODEL_OPTIONS);
+        this.callbacks = /* @__PURE__ */ new Map();
+        this.client = new AcpClient({
+          onSessionUpdate: (acpSessionId, update) => this.routeSessionUpdate(acpSessionId, update),
+          onPermissionRequest: (requestId, params) => this.routePermissionRequest(requestId, params),
+          onAgentNotification: (method) => bbLog("[WB] acp \u901A\u77E5:", method),
+          onModels: (models) => this.onModels(models),
+          onExit: (code, signal) => this.handleProcessExit(code, signal)
+        }, profile);
+        this.registry = new SessionRegistry(
+          this.client,
+          {
+            getAcpSessionId: (k) => this.lookup.getAcpSessionId(k),
+            setAcpSessionId: (k, id) => this.lookup.setAcpSessionId(k, id)
+          },
+          this.config,
+          profile
+        );
+        this.setTimeout(timeout);
+      }
+      setTimeout(ms) {
+        this.timeout = ms;
+        this.client.promptTimeoutMs = ms + 6e4;
+      }
+      setModel(model) {
+        this.config.model = model;
+        for (const s of this.registry.all())
+          void s.applyRemoteConfig();
+      }
+      setPermissionMode(mode) {
+        this.config.mode = mode;
+        for (const s of this.registry.all())
+          void s.applyRemoteConfig();
+      }
+      setThoughtLevel(level) {
+        this.config.thoughtLevel = level;
+        for (const s of this.registry.all())
+          void s.applyRemoteConfig();
+      }
+      setAvailableModels(models) {
+        this.availableModels = models;
+      }
+      getAvailableModels() {
+        return [...this.availableModels];
+      }
+      /** client onModels 事件入口：子类可覆写以保留更多字段（hermes 存 name） */
+      onModels(models) {
+        this.availableModels = models.map((m) => m.id);
+      }
+      getScriptPath() {
+        return this.client.getScriptPath();
+      }
+      /** main.ts 注入：Conversation.acpSessionId 的读写桥（懒加载与回写的唯一通道） */
+      setConversationLookup(lookup) {
+        this.lookup = lookup;
+      }
+      /** MCP 服务器 JSON（数组）：解析失败保留旧值并记日志；空串清空 */
+      setMcpServersJson(json) {
+        const trimmed = json.trim();
+        if (!trimmed) {
+          this.config.mcpServers = [];
+          return;
+        }
+        try {
+          JSON.parse(trimmed);
+          this.config.mcpServers = activeMcpServers(parseMcpServers(trimmed));
+        } catch (e) {
+          bbLog("[WB] mcpServersJson \u89E3\u6790\u5931\u8D25\uFF0C\u4FDD\u7559\u65E7\u503C:", e);
+        }
+      }
+      /** R10 context-saving MCP：把消息里 @mcp/xxx 命中的服务器过滤出来，供本次会话加载用 */
+      resolveMcpForMessage(mcpNames) {
+        var _a;
+        if (!(mcpNames == null ? void 0 : mcpNames.length))
+          return void 0;
+        const all = (_a = this.config.mcpServers) != null ? _a : [];
+        const lower = mcpNames.map((n) => n.toLowerCase());
+        const matched = all.filter((s) => typeof s.name === "string" && lower.includes(s.name.toLowerCase()));
+        return matched;
+      }
+      generateId() {
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+          const r = Math.random() * 16 | 0;
+          return (c === "x" ? r : r & 3 | 8).toString(16);
+        });
+      }
+      // ---- 旁路回调注册（view 在 sendText 时按会话 key 注册） ----
+      onPermissionRequest(sessionKey, cb) {
+        this.callbacks.set(sessionKey, { ...this.callbacks.get(sessionKey), onPermissionRequest: cb });
+      }
+      onUsage(sessionKey, cb) {
+        this.callbacks.set(sessionKey, { ...this.callbacks.get(sessionKey), onUsage: cb });
+      }
+      onConfigUpdate(sessionKey, cb) {
+        this.callbacks.set(sessionKey, { ...this.callbacks.get(sessionKey), onConfigUpdate: cb });
+      }
+      /** 批准卡按钮应答：requestId 归哪个会话由 pending 持有情况路由 */
+      respondPermission(requestId, optionId) {
+        for (const s of this.registry.all()) {
+          if (s.respondPermission(requestId, optionId))
+            return;
+        }
+        bbLog("[WB] respondPermission \u672A\u627E\u5230\u60AC\u6302\u8BF7\u6C42:", requestId);
+      }
+      /** 悬挂边界：关面板/切会话/卸载前把批准请求统一答 reject，不悬挂到 CLI 侧干等 */
+      rejectPendingPermissions(sessionKey) {
+        for (const s of this.registry.all()) {
+          if (!sessionKey || s.key === sessionKey)
+            s.rejectPendingPermissions();
+        }
+      }
+      /** 定向 cancel：有参只停该会话在飞轮次（双面板互不影响）；无参停全部（卸载兜底） */
+      cancel(sessionId) {
+        for (const s of this.registry.all()) {
+          if (!sessionId || s.key === sessionId)
+            void s.cancelTurn();
+        }
+      }
+      /** 会话级分叉：懒加载后走 /branch，返回 CLI 分配的新 acpSessionId（启动失败沿用分级文案） */
+      async forkSession(sessionKey, name, vaultPath) {
+        const session = this.registry.get(sessionKey);
+        try {
+          await this.client.ensureStarted();
+          await session.ensureLoaded(vaultPath);
+        } catch (e) {
+          throw new AcpStartFailure(this.startErrorMessage(e));
+        }
+        return session.fork(name);
+      }
+      /** 卸载：拒悬挂批准 → terminate 进程 */
+      dispose() {
+        this.rejectPendingPermissions();
+        this.client.dispose();
+      }
+      async *sendMessage(sessionId, text, vaultPath, addDirs = [], permissionModeOverride, images, mcpNames) {
+        var _a;
+        const session = this.registry.get(sessionId);
+        try {
+          await this.client.ensureStarted();
+          const mcpOverride = this.resolveMcpForMessage(mcpNames);
+          await session.ensureLoaded(vaultPath, mcpOverride);
+        } catch (e) {
+          throw new AcpStartFailure(this.startErrorMessage(e));
+        }
+        const cbs = (_a = this.callbacks.get(sessionId)) != null ? _a : {};
+        const queue = [];
+        let waiter = null;
+        let settled = false;
+        let chunkCount = 0;
+        const push2 = (item) => {
+          if (settled)
+            return;
+          if (item.end || item.error)
+            settled = true;
+          if (waiter) {
+            const w = waiter;
+            waiter = null;
+            w(item);
+          } else {
+            queue.push(item);
+          }
+        };
+        const pull = () => queue.length ? Promise.resolve(queue.shift()) : new Promise((r) => {
+          waiter = r;
+        });
+        const handlers = {
+          onChunk: (chunk) => {
+            chunkCount++;
+            push2({ chunk });
+          },
+          onError: (message) => push2({ error: message }),
+          // 未注册批准回调时保持 undefined，session 层自动统一拒绝
+          onPermissionRequest: cbs.onPermissionRequest ? (data) => cbs.onPermissionRequest(data) : void 0,
+          onUsage: (used, size) => {
+            var _a2;
+            return (_a2 = cbs.onUsage) == null ? void 0 : _a2.call(cbs, used, size);
+          },
+          onConfigUpdate: (cfg) => {
+            var _a2;
+            return (_a2 = cbs.onConfigUpdate) == null ? void 0 : _a2.call(cbs, cfg);
+          }
+        };
+        const startedAt = Date.now();
+        const timer = setTimeout(() => {
+          void session.cancelTurn();
+          push2({ error: t("provider.turnTimeout") });
+        }, this.timeout);
+        let promptPromise;
+        try {
+          promptPromise = session.prompt(text, handlers, images);
+        } catch (e) {
+          clearTimeout(timer);
+          throw e;
+        }
+        promptPromise.then(({ stopReason }) => {
+          clearTimeout(timer);
+          if (stopReason === "end_turn") {
+            if (chunkCount === 0)
+              this.restartAfterDeadTurn(sessionId);
+            push2({
+              chunk: {
+                type: "done",
+                content: "",
+                usage: session.lastUsage ? { inputTokens: session.lastUsage.used } : void 0
+              }
+            });
+            push2({ end: true });
+          } else if (stopReason === "cancelled") {
+            if (chunkCount === 0 && Date.now() - startedAt > 15e3)
+              this.restartAfterDeadTurn(sessionId);
+            push2({ end: true });
+          } else {
+            push2({ error: t("provider.turnFailed").replace("{reason}", stopReason) });
+          }
+        }, (e) => {
+          clearTimeout(timer);
+          push2({ error: e.message === "session busy" ? t("provider.busy") : e.message });
+        });
+        while (true) {
+          const item = await pull();
+          if (item.end)
+            return;
+          if (item.error)
+            throw new Error(item.error);
+          if (item.chunk)
+            yield item.chunk;
+        }
+      }
+      /** session/update 路由：按 acpSessionId 归会话；fork 回报可能挂在新 id 下，归给正在 fork 的会话；无归属记日志不再静默丢 */
+      routeSessionUpdate(acpSessionId, update) {
+        var _a, _b, _c, _d;
+        const target = this.registry.byAcpId(acpSessionId);
+        if (target == null ? void 0 : target.inTurn) {
+          target.handleUpdate(update);
+          return;
+        }
+        if (update.sessionUpdate === "session_info_update") {
+          const forking = this.registry.all().find((s) => s.forkPending);
+          if (forking) {
+            forking.handleUpdate(update);
+            return;
+          }
+        }
+        const kind = update.sessionUpdate;
+        const isStreamPayload = kind === "agent_message_chunk" || kind === "agent_thought_chunk" || kind === "tool_call" || kind === "tool_call_update";
+        if (isStreamPayload) {
+          const inFlight = this.registry.all().filter((s) => s.inTurn);
+          if (inFlight.length === 1 && inFlight[0] !== target) {
+            bbLog("[WB] \u4E8B\u4EF6\u8BEF\u6807\u7EA0\u504F:", kind, acpSessionId, "\u2192", (_a = inFlight[0].acpSessionId) != null ? _a : "?");
+            inFlight[0].handleUpdate(update);
+            return;
+          }
+        }
+        if (target) {
+          if (!this.profile.isReplayUpdate(update) && !this.client.loadInFlight(acpSessionId)) {
+            const cfg = mapConfigUpdate(update);
+            if (cfg)
+              (_c = (_b = this.callbacks.get(target.key)) == null ? void 0 : _b.onConfigUpdate) == null ? void 0 : _c.call(_b, cfg);
+          }
+          target.handleUpdate(update);
+          return;
+        }
+        if (!this.profile.isReplayUpdate(update) && !this.client.loadInFlight(acpSessionId)) {
+          bbLog("[WB] acp update \u65E0\u5F52\u5C5E\u4F1A\u8BDD\uFF0C\u5DF2\u4E22\u5F03:", acpSessionId, (_d = update.sessionUpdate) != null ? _d : "(unknown)");
+        }
+      }
+      /**
+       * 零 chunk 落账（end_turn/cancelled 但全程无任何事件到达）是 CLI 会话状态机卡死的特征
+       *（GUI 日志实锤：AGENT_ENDED/RUN_PREPARING 被 ignored invalid transition，cancelling 卡死，
+       * 后续 prompt 全部进门即丢，进程内无自愈路径）。标记全部会话待重载并重启进程，
+       * 下一条消息经 session/load 恢复上下文（CLI 会话持久化在盘上）。
+       */
+      restartAfterDeadTurn(sessionKey) {
+        bbError("[WB] \u96F6 chunk \u843D\u8D26\uFF0CCLI \u72B6\u6001\u673A\u7591\u4F3C\u5361\u6B7B\uFF0C\u91CD\u542F\u8FDB\u7A0B\u81EA\u6108:", sessionKey);
+        for (const s of this.registry.all())
+          s.markStale();
+        this.client.dispose();
+      }
+      routePermissionRequest(requestId, params) {
+        const sessionId = params == null ? void 0 : params.sessionId;
+        const session = typeof sessionId === "string" ? this.registry.byAcpId(sessionId) : void 0;
+        if (session) {
+          session.handlePermissionRequest(requestId, params);
+        } else {
+          this.client.respond(requestId, { outcome: { outcome: "selected", optionId: "reject" } });
+        }
+      }
+      handleProcessExit(code, signal) {
+        bbLog("[WB] acp \u8FDB\u7A0B\u9000\u51FA:", code, signal);
+        for (const s of this.registry.all()) {
+          s.markStale();
+          s.failTurn(t("provider.processDied"));
+        }
+      }
+      startErrorMessage(e) {
+        if (e instanceof AcpStartError) {
+          const byTier = {
+            "cli-not-found": t("provider.cliNotFound"),
+            "acp-unsupported": t("provider.acpUnsupported"),
+            "auth-required": t("provider.notLoggedIn"),
+            "handshake-failed": t("provider.handshakeFailed").replace("{detail}", e.message)
+          };
+          return byTier[e.tier];
+        }
+        return e instanceof Error ? e.message : String(e);
+      }
+    };
+  }
+});
+
+// src/providers/hermes/profile.ts
+var OUTGOING_MODE, INCOMING_MODE, HERMES_PROFILE;
+var init_profile2 = __esm({
+  "src/providers/hermes/profile.ts"() {
+    init_cliPath();
+    init_logBuffer();
+    OUTGOING_MODE = {
+      default: "default",
+      acceptEdits: "accept_edits",
+      bypassPermissions: "dont_ask",
+      plan: "default"
+      // hermes 无 plan 模式，回落 default
+    };
+    INCOMING_MODE = {
+      default: "default",
+      accept_edits: "acceptEdits",
+      dont_ask: "bypassPermissions"
+    };
+    HERMES_PROFILE = {
+      id: "hermes",
+      resolveCliPath: resolveHermesPath,
+      acpArgs: ["acp"],
+      mapOutgoingMode: (m) => OUTGOING_MODE[m],
+      mapIncomingMode: (id) => INCOMING_MODE[id],
+      async applyRemoteModel(client, sessionId, model) {
+        if (!model || model === "auto")
+          return;
+        try {
+          await client.request("session/set_model", { sessionId, modelId: model });
+        } catch (e) {
+          bbLog("[WB] hermes \u8BBE\u7F6E\u6A21\u578B\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
+        }
+      },
+      supportsThoughtLevel: false,
+      // set_config_option 收下不执行（探针实证）→ 不下发
+      isReplayUpdate: () => false,
+      // hermes 回放无 meta 标记：由引擎 load 窗口通用判别
+      toolNameMetaKeys: [],
+      // _meta 恒空：工具名走 normalizeToolCall 的 rawInput.tool
+      forkMode: "native-rpc",
+      normalizeToolCall(update) {
+        const ri = update.rawInput;
+        if (ri && typeof ri === "object" && !Array.isArray(ri) && "arguments" in ri) {
+          const rec = ri;
+          const args = rec.arguments && typeof rec.arguments === "object" && !Array.isArray(rec.arguments) ? rec.arguments : {};
+          return { toolName: typeof rec.tool === "string" ? rec.tool : void 0, rawInput: args };
+        }
+        return {};
+      }
+    };
+  }
+});
+
+// src/providers/hermes/acpProvider.ts
+var HermesAcpProvider;
+var init_acpProvider = __esm({
+  "src/providers/hermes/acpProvider.ts"() {
+    init_provider();
+    init_profile2();
+    HermesAcpProvider = class extends AcpProvider {
+      constructor(timeout) {
+        super(HERMES_PROFILE, timeout);
+        this.modelPairs = [];
+      }
+      /** hermes acp 无 --agents 旗标：空操作（main.ts 会无条件灌 customAgentsJson） */
+      setCustomAgentsJson(_json) {
+      }
+      /** 路由器灌入：自定义 CLI 路径（--check 探测与 spawn 同一路径来源） */
+      setCliPath(p) {
+        this.client.setCliPath(p);
+      }
+      /** 设置页模型下拉展示用：label 来自握手 availableModels 的 name 字段（探针实证），缺省回落 id */
+      getAvailableModelLabels() {
+        return this.modelPairs.map((m) => {
+          var _a;
+          return { id: m.id, label: (_a = m.name) != null ? _a : m.id };
+        });
+      }
+      onModels(models) {
+        this.modelPairs = models;
+        super.onModels(models);
+      }
+    };
+  }
+});
+
+// src/providers/hermes/httpProvider.ts
 function timeoutSignal(ms) {
   var _a;
   const c = new AbortController();
@@ -398,12 +2127,12 @@ function timeoutSignal(ms) {
   (_a = timer.unref) == null ? void 0 : _a.call(timer);
   return c.signal;
 }
-var DEFAULT_BASE, HermesProvider;
-var init_hermes = __esm({
-  "src/providers/hermes/index.ts"() {
+var DEFAULT_BASE, HermesHttpProvider;
+var init_httpProvider = __esm({
+  "src/providers/hermes/httpProvider.ts"() {
     init_logBuffer();
     DEFAULT_BASE = "http://127.0.0.1:8642";
-    HermesProvider = class {
+    HermesHttpProvider = class {
       constructor() {
         this.timeout = 3e5;
         this.baseUrl = DEFAULT_BASE;
@@ -598,6 +2327,185 @@ var init_hermes = __esm({
   }
 });
 
+// src/providers/hermes/index.ts
+var hermes_exports = {};
+__export(hermes_exports, {
+  HermesProvider: () => HermesProvider
+});
+function isLocalGateway(url) {
+  if (!url.trim())
+    return true;
+  try {
+    return LOCAL_HOSTS.has(new URL(url).hostname);
+  } catch (e) {
+    return false;
+  }
+}
+var import_child_process3, LOCAL_HOSTS, HermesProvider;
+var init_hermes = __esm({
+  "src/providers/hermes/index.ts"() {
+    import_child_process3 = require("child_process");
+    init_logBuffer();
+    init_cliPath();
+    init_provider();
+    init_acpProvider();
+    init_httpProvider();
+    LOCAL_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1", ""]);
+    HermesProvider = class {
+      constructor() {
+        this.acp = new HermesAcpProvider();
+        this.http = new HermesHttpProvider();
+        this.modeValue = "http";
+        // init() 前保守为 http
+        this.demoted = false;
+        // 粘性降级：本次插件生命周期内不再尝试 ACP
+        this.cliPath = "";
+        this.gatewayUrl = "";
+        this.modeCbs = [];
+      }
+      get mode() {
+        return this.modeValue;
+      }
+      onModeChange(cb) {
+        this.modeCbs.push(cb);
+      }
+      /** main.ts onload/设置变更后调用：探测一次定模式（降级后粘性保持 http） */
+      async init() {
+        if (this.demoted)
+          return;
+        if (!isLocalGateway(this.gatewayUrl)) {
+          this.setMode("http");
+          return;
+        }
+        const cli = resolveHermesPath(this.cliPath);
+        const ok = await new Promise((resolve) => {
+          (0, import_child_process3.execFile)(cli, ["acp", "--check"], { timeout: 5e3 }, (err) => resolve(!err));
+        });
+        this.setMode(ok ? "acp" : "http");
+        bbLog("[WB] hermes \u8DEF\u7531:", this.modeValue, ok ? `(${cli})` : "(CLI \u81EA\u68C0\u5931\u8D25)");
+      }
+      /** ACP 启动/运行失败 → 粘性降级 http（本次插件生命周期内不再尝试 ACP） */
+      demoteToHttp(e) {
+        if (this.modeValue === "http")
+          return;
+        this.demoted = true;
+        bbError("[WB] hermes ACP \u4E0D\u53EF\u7528\uFF0C\u964D\u7EA7 HTTP \u8F7B\u91CF\u6A21\u5F0F:", e);
+        this.setMode("http");
+      }
+      setMode(m) {
+        if (m === this.modeValue)
+          return;
+        this.modeValue = m;
+        for (const cb of this.modeCbs)
+          cb(m);
+      }
+      active() {
+        return this.modeValue === "acp" ? this.acp : this.http;
+      }
+      // ---- 契约转发（双 inner 都灌，模式翻转不丢注册）----
+      setHermesCliPath(p) {
+        this.cliPath = p.trim();
+        this.acp.setCliPath(p);
+      }
+      setGateway(url, key) {
+        this.gatewayUrl = url;
+        this.http.setGateway(url, key);
+      }
+      setModel(m) {
+        this.acp.setModel(m);
+        this.http.setModel(m);
+      }
+      setTimeout(ms) {
+        this.acp.setTimeout(ms);
+        this.http.setTimeout(ms);
+      }
+      setPermissionMode(m) {
+        this.acp.setPermissionMode(m);
+        this.http.setPermissionMode(m);
+      }
+      setThoughtLevel(l) {
+        this.acp.setThoughtLevel(l);
+        this.http.setThoughtLevel(l);
+      }
+      setMcpServersJson(j) {
+        this.acp.setMcpServersJson(j);
+        this.http.setMcpServersJson(j);
+      }
+      setCustomAgentsJson(j) {
+        this.acp.setCustomAgentsJson(j);
+        this.http.setCustomAgentsJson(j);
+      }
+      setCodebuddyPath(_p) {
+      }
+      setNodePath(_p) {
+      }
+      setAvailableModels(m) {
+        this.acp.setAvailableModels(m);
+        this.http.setAvailableModels(m);
+      }
+      getAvailableModels() {
+        return this.active().getAvailableModels();
+      }
+      getScriptPath() {
+        return this.active().getScriptPath();
+      }
+      setConversationLookup(l) {
+        this.acp.setConversationLookup(l);
+        this.http.setConversationLookup(l);
+      }
+      generateId() {
+        return this.active().generateId();
+      }
+      onPermissionRequest(k, cb) {
+        this.acp.onPermissionRequest(k, cb);
+        this.http.onPermissionRequest(k, cb);
+      }
+      onUsage(k, cb) {
+        this.acp.onUsage(k, cb);
+        this.http.onUsage(k, cb);
+      }
+      onConfigUpdate(k, cb) {
+        this.acp.onConfigUpdate(k, cb);
+        this.http.onConfigUpdate(k, cb);
+      }
+      respondPermission(id, o) {
+        this.acp.respondPermission(id, o);
+        this.http.respondPermission(id, o);
+      }
+      rejectPendingPermissions(k) {
+        this.acp.rejectPendingPermissions(k);
+        this.http.rejectPendingPermissions(k);
+      }
+      cancel(k) {
+        this.active().cancel(k);
+      }
+      forkSession(k, n, v) {
+        return this.active().forkSession(k, n, v);
+      }
+      testConnection() {
+        return this.http.testConnection();
+      }
+      async *sendMessage(...args) {
+        if (this.modeValue === "acp") {
+          try {
+            yield* this.acp.sendMessage(...args);
+            return;
+          } catch (e) {
+            if (e instanceof AcpStartFailure)
+              this.demoteToHttp(e);
+            throw e;
+          }
+        }
+        yield* this.http.sendMessage(...args);
+      }
+      dispose() {
+        this.acp.dispose();
+        this.http.dispose();
+      }
+    };
+  }
+});
+
 // src/shared/hermesDiscover.ts
 var hermesDiscover_exports = {};
 __export(hermesDiscover_exports, {
@@ -696,1580 +2604,15 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 var import_obsidian14 = require("obsidian");
 
-// src/shared/cliOptions.ts
-var MODEL_OPTIONS = {
-  hy3: "hy3",
-  "glm-5.2": "glm-5.2",
-  "glm-5.1": "glm-5.1",
-  "glm-5v-turbo": "glm-5v-turbo",
-  "minimax-m3": "minimax-m3",
-  "kimi-k3-1": "kimi-k3-1",
-  "kimi-k2.7": "kimi-k2.7",
-  "kimi-k2.6": "kimi-k2.6",
-  "deepseek-v4-flash": "deepseek-v4-flash",
-  "deepseek-v4-pro": "deepseek-v4-pro"
-};
-var MODEL_LABELS = {
-  hy3: "Hunyuan \u6DF7\u5143",
-  "glm-5.2": "GLM-5.2\uFF08\u667A\u8C31\uFF09",
-  "glm-5.1": "GLM-5.1\uFF08\u667A\u8C31\uFF09",
-  "glm-5v-turbo": "GLM-5V Turbo\uFF08\u667A\u8C31\xB7\u89C6\u89C9\uFF09",
-  "minimax-m3": "MiniMax-M3\uFF08\u7A00\u5B87\uFF09",
-  "kimi-k3-1": "Kimi K3\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
-  "kimi-k2.7": "Kimi K2.7\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
-  "kimi-k2.6": "Kimi K2.6\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
-  "deepseek-v4-flash": "DeepSeek V4 Flash\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
-  "deepseek-v4-pro": "DeepSeek V4 Pro\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
-  auto: "Auto\uFF08\u81EA\u52A8\u9009\u62E9\uFF09"
-};
-function modelLabel(id) {
-  var _a;
-  return (_a = MODEL_LABELS[id]) != null ? _a : id;
-}
-var MODEL_ORDER = [
-  "glm-5.2",
-  "glm-5.1",
-  "glm-5v-turbo",
-  "deepseek-v4-pro",
-  "deepseek-v4-flash",
-  "kimi-k3-1",
-  "kimi-k2.7",
-  "kimi-k2.6",
-  "minimax-m3",
-  "hy3"
-];
-function orderModels(ids) {
-  const ranked = MODEL_ORDER.filter((m) => ids.includes(m));
-  const rest = ids.filter((m) => !MODEL_ORDER.includes(m));
-  return [...ranked, ...rest];
-}
-var FALLBACK_MODEL_OPTIONS = MODEL_OPTIONS;
-var PERMISSION_MODES = ["default", "plan", "acceptEdits", "bypassPermissions"];
-var PERMISSION_MODE_CHOICES = ["default", "plan", "bypassPermissions"];
-var THOUGHT_LEVEL_CHOICES = ["enabled", "minimal", "low", "medium", "high", "xhigh", "max"];
-function isThoughtLevel(value) {
-  return typeof value === "string" && THOUGHT_LEVEL_CHOICES.includes(value);
-}
-function isPermissionMode(value) {
-  return typeof value === "string" && PERMISSION_MODES.includes(value);
-}
+// src/providers/codebuddy/index.ts
+init_provider();
 
-// src/providers/acp/provider.ts
-init_i18n();
-init_logBuffer();
-
-// src/providers/acp/client.ts
-var import_child_process2 = require("child_process");
-
-// src/utils/cliPath.ts
-var path = __toESM(require("path"));
-var fs = __toESM(require("fs"));
-var import_child_process = require("child_process");
-init_logBuffer();
-var isWin = () => process.platform === "win32";
-var home = () => process.env.HOME || process.env.USERPROFILE || "";
-var nodeBinName = () => isWin() ? "node.exe" : "node";
-function env(name) {
-  return process.env[name] || "";
-}
-function isFile(p) {
-  try {
-    return fs.statSync(p).isFile();
-  } catch (e) {
-    return false;
-  }
-}
-function firstHit(candidates) {
-  for (const p of candidates) {
-    if (p && fs.existsSync(p))
-      return p;
-  }
-  return null;
-}
-function findOnPath(names) {
-  const sep = isWin() ? ";" : ":";
-  for (const dir of env("PATH").split(sep)) {
-    if (!dir)
-      continue;
-    for (const name of names) {
-      const p = path.join(dir, name);
-      if (isFile(p))
-        return p;
-    }
-  }
-  return null;
-}
-function nodeCandidates() {
-  if (!isWin()) {
-    return [
-      path.join(home(), ".local", "bin"),
-      path.join(home(), ".npm-global", "bin"),
-      path.join(home(), ".volta", "bin"),
-      path.join(home(), "bin"),
-      "/usr/local/bin",
-      "/opt/homebrew/bin",
-      env("NVM_BIN")
-    ].map((dir) => dir && path.join(dir, nodeBinName()));
-  }
-  const dirs = [path.dirname(process.execPath)];
-  const appData = env("APPDATA");
-  if (appData)
-    dirs.push(appData, path.join(appData, "npm"));
-  const pf = env("ProgramFiles") || "C:\\Program Files";
-  const pf86 = env("ProgramFiles(x86)") || "C:\\Program Files (x86)";
-  dirs.push(path.join(pf, "nodejs"), path.join(pf86, "nodejs"));
-  const lad = env("LOCALAPPDATA");
-  if (lad)
-    dirs.push(path.join(lad, "Programs", "nodejs"));
-  if (env("NVM_SYMLINK"))
-    dirs.push(env("NVM_SYMLINK"));
-  if (home()) {
-    const versionsDir = path.join(home(), ".workbuddy", "binaries", "node", "versions");
-    try {
-      for (const v of fs.readdirSync(versionsDir))
-        dirs.push(path.join(versionsDir, v));
-    } catch (e) {
-    }
-  }
-  for (const drive of ["C:", "D:", "E:"]) {
-    if (`${drive}\\` !== path.parse(pf).root.toUpperCase()) {
-      dirs.push(path.join(`${drive}\\Program Files`, "nodejs"));
-    }
-  }
-  return dirs.map((dir) => dir && path.join(dir, nodeBinName()));
-}
-function findNodeExecutable() {
-  const hit = firstHit(nodeCandidates().filter(isFile));
-  if (hit) {
-    bbLog("[WB] found node at:", hit);
-    return hit;
-  }
-  bbLog("[WB] WARNING: node not found in any search path, falling back to 'node'");
-  return "node";
-}
-var WB_CLI_REL = ["Resources", "app.asar.unpacked", "cli", "bin"];
-function codebuddyCandidates() {
-  if (!isWin()) {
-    return [
-      "/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy",
-      path.join(home(), "Applications", "WorkBuddy.app", "Contents", ...WB_CLI_REL, "codebuddy"),
-      path.join(home(), ".local", "bin", "codebuddy"),
-      path.join(home(), ".npm-global", "bin", "codebuddy"),
-      path.join(home(), ".volta", "bin", "codebuddy"),
-      path.join(home(), "bin", "codebuddy"),
-      "/usr/local/bin/codebuddy",
-      "/opt/homebrew/bin/codebuddy"
-    ];
-  }
-  const lad = env("LOCALAPPDATA");
-  const appData = env("APPDATA");
-  const pf = env("ProgramFiles") || "C:\\Program Files";
-  const pf86 = env("ProgramFiles(x86)") || "C:\\Program Files (x86)";
-  const list = [];
-  const wbExe = (root, names) => names.map((n) => path.join(root, ...WB_CLI_REL, n));
-  if (lad)
-    list.push(...wbExe(path.join(lad, "Programs", "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
-  if (appData)
-    list.push(path.join(appData, "npm", "codebuddy.cmd"), path.join(appData, "npm", "codebuddy"));
-  list.push(
-    path.join(pf, "nodejs", "codebuddy.cmd"),
-    path.join(pf, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
-    path.join(pf86, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
-    ...wbExe(path.join(pf, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]),
-    ...wbExe(path.join(pf86, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"])
-  );
-  for (const drive of ["C:", "D:", "E:"]) {
-    list.push(...wbExe(path.join(`${drive}\\Program Files`, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
-  }
-  return list;
-}
-function resolveCodebuddyPath(customPath) {
-  if (customPath && fs.existsSync(customPath))
-    return customPath;
-  const fromEnv = env("CODEBUDDY_PATH");
-  if (fromEnv && fs.existsSync(fromEnv))
-    return fromEnv;
-  const extra = [
-    env("NVM_BIN") && path.join(env("NVM_BIN"), "codebuddy"),
-    env("npm_config_prefix") && path.join(env("npm_config_prefix"), "bin", "codebuddy")
-  ];
-  const hit = firstHit([...codebuddyCandidates(), ...extra]);
-  if (hit) {
-    bbLog("[WB] resolved codebuddy path:", hit);
-    return hit;
-  }
-  const onPath = findOnPath(isWin() ? ["codebuddy.exe", "codebuddy.cmd", "codebuddy"] : ["codebuddy"]);
-  return onPath != null ? onPath : "codebuddy";
-}
-var WRAPPER_EXTS = /* @__PURE__ */ new Set([".cmd", ".exe", ".bat"]);
-function isWindowsWrapper(scriptPath) {
-  return WRAPPER_EXTS.has(path.extname(scriptPath).toLowerCase());
-}
-function isBareFallback(scriptPath) {
-  return scriptPath === "codebuddy" || !path.isAbsolute(scriptPath);
-}
-function needsWindowsShell(scriptPath) {
-  const ext = path.extname(scriptPath).toLowerCase();
-  return isWin() && (ext === ".cmd" || ext === ".bat");
-}
-
-// src/providers/acp/client.ts
-init_logBuffer();
-
-// src/providers/acp/profile.ts
-init_logBuffer();
-var ACP_DEFAULT_PROFILE = {
-  id: "codebuddy",
-  resolveCliPath: resolveCodebuddyPath,
-  acpArgs: ["--acp"],
-  mapOutgoingMode: (m) => m,
-  mapIncomingMode: (id) => id,
-  async applyRemoteModel(client, sessionId, model) {
-    try {
-      await client.request("session/set_config_option", { sessionId, configId: "model", value: model });
-    } catch (e) {
-      bbLog("[WB] acp \u8BBE\u7F6E\u6A21\u578B\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
-    }
-  },
-  supportsThoughtLevel: true,
-  isReplayUpdate: (update) => {
-    const meta = update._meta;
-    const cb = meta == null ? void 0 : meta["codebuddy.ai"];
-    return (cb == null ? void 0 : cb.mode) === "history";
-  },
-  toolNameMetaKeys: ["codebuddy.ai/toolName"],
-  forkMode: "branch-prompt",
-  normalizeToolCall: () => ({})
-};
-
-// src/providers/acp/client.ts
-var AcpStartError = class extends Error {
-  constructor(tier, message) {
-    super(message);
-    this.tier = tier;
-    this.name = "AcpStartError";
-  }
-};
-function buildSpawnCommand(scriptPath, nodePathOverride, args) {
-  if (isWindowsWrapper(scriptPath) || isBareFallback(scriptPath)) {
-    return { command: scriptPath, args, shell: needsWindowsShell(scriptPath) };
-  }
-  const node = nodePathOverride || findNodeExecutable() || "node";
-  return { command: node, args: [scriptPath, ...args], shell: false };
-}
-function classifyHandshakeFailure(stderr) {
-  return /unrecogni[sz]ed|unknown (option|command|flag)|invalid option|unknown argument/i.test(stderr) ? "acp-unsupported" : "handshake-failed";
-}
-function isAuthError(message) {
-  return /auth|logged|login|unauthorized|登录|未登录/i.test(message);
-}
-var HANDSHAKE_TIMEOUT_MS = 1e4;
-var DEFAULT_REQUEST_TIMEOUT_MS = 9e4;
-function summarizeRpcParams(method, params) {
-  try {
-    let p = params;
-    if (method === "session/prompt" && Array.isArray(params.prompt)) {
-      const blocks = params.prompt;
-      const textLen = blocks.reduce((n, b) => n + (typeof (b == null ? void 0 : b.text) === "string" ? b.text.length : 0), 0);
-      p = { ...params, prompt: `<${blocks.length} blocks, ${textLen} chars>` };
-    }
-    const s = JSON.stringify(p);
-    return s.length > 300 ? s.slice(0, 297) + "..." : s;
-  } catch (e) {
-    return "";
-  }
-}
-var AcpClient = class {
-  constructor(events, profile = ACP_DEFAULT_PROFILE) {
-    this.events = events;
-    this.profile = profile;
-    this.scriptPath = "";
-    this.nodePath = "";
-    this.extraArgs = [];
-    // 追加在 acpArgs 之后的 CLI 旗标（如 --agents）
-    this.proc = null;
-    this.nextId = 1;
-    this.pending = /* @__PURE__ */ new Map();
-    this.buffer = "";
-    this.stderrTail = "";
-    this.startPromise = null;
-    this.disposed = false;
-    this.handshakeDone = false;
-    this.promptChain = Promise.resolve();
-    /** session/load 在途窗口：hermes 无回放 meta 标记，回放事件只能靠"load 响应到达前的窗口"判别 */
-    this.loadingSessions = /* @__PURE__ */ new Set();
-    // session/prompt 串行队列
-    this.promptQueued = 0;
-    // 队列中未落账的 prompt 数（>0 时后续 prompt 记排队日志）
-    /** prompt 挂死兜底（provider 轮级超时 + 宽限）：CLI 连 cancel 都不应答时由此断链，队列才能放行后续 prompt */
-    this.promptTimeoutMs = 6 * 6e4;
-    this.scriptPath = this.profile.resolveCliPath("");
-  }
-  loadInFlight(sessionId) {
-    return this.loadingSessions.has(sessionId);
-  }
-  setCliPath(p) {
-    const next = this.profile.resolveCliPath(p);
-    if (next === this.scriptPath)
-      return;
-    this.scriptPath = next;
-    if (this.proc)
-      this.dispose();
-  }
-  setNodePath(p) {
-    if (p === this.nodePath)
-      return;
-    this.nodePath = p;
-    if (this.proc)
-      this.dispose();
-  }
-  setExtraArgs(args) {
-    if (args.join("\n") === this.extraArgs.join("\n"))
-      return;
-    this.extraArgs = args;
-    if (this.proc)
-      this.dispose();
-  }
-  getScriptPath() {
-    return this.scriptPath;
-  }
-  get running() {
-    return this.proc !== null;
-  }
-  ensureStarted() {
-    if (this.proc)
-      return Promise.resolve();
-    if (this.startPromise)
-      return this.startPromise;
-    this.disposed = false;
-    this.startPromise = this.spawnAndHandshake().then(
-      () => {
-        this.startPromise = null;
-      },
-      (e) => {
-        this.startPromise = null;
-        throw e;
-      }
-    );
-    return this.startPromise;
-  }
-  request(method, params) {
-    if (method === "session/prompt") {
-      return this.enqueuePrompt(() => this.doRequest(method, params, this.promptTimeoutMs));
-    }
-    return this.doRequest(method, params, DEFAULT_REQUEST_TIMEOUT_MS);
-  }
-  /**
-   * 把一组操作作为原子单元排进 prompt 串行队列（session 层用来把"再激活 load + prompt"绑在一起：
-   * 排队期间别的会话不会把 CLI 的活动会话指针抢走）。fn 内发 prompt 本体必须走 rawRequest，否则自排队死锁。
-   */
-  enqueuePrompt(fn) {
-    if (this.promptQueued > 0)
-      bbLog("[WB] prompt \u6392\u961F\u7B49\u5F85\uFF08\u524D\u9762\u6709\u672A\u843D\u8D26\u8F6E\u6B21\uFF09");
-    this.promptQueued++;
-    const run = this.promptChain.then(async () => {
-      try {
-        return await fn();
-      } finally {
-        this.promptQueued--;
-      }
-    });
-    this.promptChain = run.then(() => void 0, () => void 0);
-    return run;
-  }
-  /** 绕过串行队列直接发请求：仅供 enqueuePrompt 的 fn 内部使用（prompt 超时仍按 promptTimeoutMs） */
-  rawRequest(method, params) {
-    const timeout = method === "session/prompt" ? this.promptTimeoutMs : DEFAULT_REQUEST_TIMEOUT_MS;
-    return this.doRequest(method, params, timeout);
-  }
-  doRequest(method, params, timeoutMs) {
-    if (!this.proc)
-      return Promise.reject(new Error("acp client not started"));
-    const loadKey = method === "session/load" && typeof params.sessionId === "string" ? params.sessionId : "";
-    if (loadKey)
-      this.loadingSessions.add(loadKey);
-    const id = this.nextId++;
-    this.write({ jsonrpc: "2.0", id, method, params });
-    bbLog("[WB] acp \u8BF7\u6C42:", method, summarizeRpcParams(method, params));
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        bbError("[WB] acp \u8BF7\u6C42\u8D85\u65F6:", method);
-        reject(new Error(`acp request timeout: ${method}`));
-      }, timeoutMs);
-      const settle = () => {
-        if (loadKey)
-          this.loadingSessions.delete(loadKey);
-      };
-      this.pending.set(id, {
-        resolve: (v) => {
-          clearTimeout(timer);
-          settle();
-          resolve(v);
-        },
-        reject: (e) => {
-          clearTimeout(timer);
-          settle();
-          reject(e);
-        }
-      });
-    });
-  }
-  notify(method, params) {
-    if (!this.proc) {
-      bbLog("[WB] acp notify \u65F6\u8FDB\u7A0B\u4E0D\u5728:", method);
-      return;
-    }
-    this.write({ jsonrpc: "2.0", method, params });
-    bbLog("[WB] acp \u901A\u77E5\u51FA\u7AD9:", method);
-  }
-  respond(requestId, result) {
-    if (!this.proc) {
-      bbLog("[WB] acp respond \u65F6\u8FDB\u7A0B\u4E0D\u5728:", requestId);
-      return;
-    }
-    this.write({ jsonrpc: "2.0", id: requestId, result });
-  }
-  /** 对 agent→client 请求的错误应答（未支持的方法）：防止 CLI 干等响应把 prompt 挂死 */
-  respondError(requestId, message) {
-    if (!this.proc)
-      return;
-    this.write({ jsonrpc: "2.0", id: requestId, error: { code: -32601, message } });
-  }
-  dispose() {
-    this.disposed = true;
-    const proc = this.proc;
-    this.proc = null;
-    this.startPromise = null;
-    this.failAllPending(new Error("acp client disposed"));
-    if (proc) {
-      try {
-        proc.kill();
-      } catch (e) {
-      }
-    }
-  }
-  // ---- 内部 ----
-  write(msg) {
-    var _a, _b;
-    (_b = (_a = this.proc) == null ? void 0 : _a.stdin) == null ? void 0 : _b.write(JSON.stringify(msg) + "\n");
-  }
-  failAllPending(err) {
-    for (const p of this.pending.values())
-      p.reject(err);
-    this.pending.clear();
-  }
-  handleLine(line) {
-    let msg;
-    try {
-      msg = JSON.parse(line);
-    } catch (e) {
-      bbLog("[WB] acp \u975E JSON \u884C:", line.slice(0, 200));
-      return;
-    }
-    if (typeof msg.method === "string" && msg.id !== void 0) {
-      if (msg.method === "session/request_permission" && typeof msg.id === "number") {
-        this.events.onPermissionRequest(msg.id, msg.params);
-      } else if (typeof msg.id === "number") {
-        bbLog("[WB] \u672A\u652F\u6301\u7684 agent \u8BF7\u6C42\uFF0C\u56DE method not found:", msg.method);
-        this.respondError(msg.id, `client does not support ${msg.method}`);
-      }
-      return;
-    }
-    if (typeof msg.method === "string") {
-      this.handleNotification(msg.method, msg.params);
-      return;
-    }
-    if (typeof msg.id === "number" && this.pending.has(msg.id)) {
-      const p = this.pending.get(msg.id);
-      this.pending.delete(msg.id);
-      if (msg.error) {
-        p.reject(new Error(msg.error.message || "acp rpc error"));
-        return;
-      }
-      this.reportModels(msg.result);
-      p.resolve(msg.result);
-    }
-  }
-  handleNotification(method, params) {
-    if (method === "session/update") {
-      const rec = params && typeof params === "object" ? params : {};
-      const sessionId = typeof rec.sessionId === "string" ? rec.sessionId : "";
-      const update = rec.update;
-      if (sessionId && update)
-        this.events.onSessionUpdate(sessionId, update);
-      return;
-    }
-    this.events.onAgentNotification(method, params);
-  }
-  reportModels(result) {
-    var _a;
-    const models = (_a = result == null ? void 0 : result.models) == null ? void 0 : _a.availableModels;
-    if (Array.isArray(models) && models.length) {
-      this.events.onModels(models.filter((m) => m.modelId != null && String(m.modelId) !== "").map((m) => ({
-        id: String(m.modelId),
-        ...typeof m.name === "string" && m.name ? { name: m.name } : {}
-      })));
-    }
-  }
-  spawnAndHandshake() {
-    return new Promise((resolve, reject) => {
-      const { command, args, shell } = buildSpawnCommand(this.scriptPath, this.nodePath, [...this.profile.acpArgs, ...this.extraArgs]);
-      let proc;
-      try {
-        proc = (0, import_child_process2.spawn)(command, args, { shell });
-      } catch (e) {
-        reject(new AcpStartError("cli-not-found", String(e)));
-        return;
-      }
-      this.proc = proc;
-      this.buffer = "";
-      this.stderrTail = "";
-      let settled = false;
-      const fail = (err) => {
-        if (settled)
-          return;
-        settled = true;
-        clearTimeout(timer);
-        this.proc = null;
-        try {
-          proc.kill();
-        } catch (e) {
-        }
-        this.failAllPending(err);
-        reject(err);
-      };
-      const timer = setTimeout(() => {
-        fail(new AcpStartError("handshake-failed", `handshake timeout after ${HANDSHAKE_TIMEOUT_MS}ms`));
-      }, HANDSHAKE_TIMEOUT_MS);
-      proc.stdout.on("data", (data) => {
-        this.buffer += data.toString("utf8");
-        let idx;
-        while ((idx = this.buffer.indexOf("\n")) >= 0) {
-          const line = this.buffer.slice(0, idx).trim();
-          this.buffer = this.buffer.slice(idx + 1);
-          if (line)
-            this.handleLine(line);
-        }
-      });
-      proc.stderr.on("data", (data) => {
-        const text = data.toString("utf8");
-        bbLog("[WB] acp stderr:", text.trim());
-        this.stderrTail = (this.stderrTail + text).slice(-2e3);
-      });
-      proc.on("error", (e) => {
-        fail(new AcpStartError(e.message.includes("ENOENT") ? "cli-not-found" : "handshake-failed", e.message));
-      });
-      proc.on("close", (code, signal) => {
-        const wasStarting = !settled;
-        const wasDisposed = this.disposed;
-        const hadStarted = this.handshakeDone;
-        this.handshakeDone = false;
-        this.proc = null;
-        this.buffer = "";
-        this.failAllPending(new Error("acp process exited"));
-        if (wasStarting) {
-          fail(new AcpStartError(
-            classifyHandshakeFailure(this.stderrTail),
-            this.stderrTail.trim().slice(-300) || `process exited (${code}) before handshake`
-          ));
-          return;
-        }
-        if (!wasDisposed && hadStarted)
-          this.events.onExit(code, signal);
-      });
-      this.request("initialize", {
-        protocolVersion: 1,
-        clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }
-      }).then(() => {
-        if (settled)
-          return;
-        settled = true;
-        clearTimeout(timer);
-        this.handshakeDone = true;
-        resolve();
-      }, (e) => {
-        fail(new AcpStartError(isAuthError(e.message) ? "auth-required" : "handshake-failed", e.message));
-      });
-    });
-  }
-};
-
-// src/providers/acp/events.ts
-function textOf(update) {
-  const content = update.content;
-  if ((content == null ? void 0 : content.type) === "text" && typeof content.text === "string")
-    return content.text;
-  return null;
-}
-function extractToolName(toolCall, profile = ACP_DEFAULT_PROFILE) {
-  const norm = profile.normalizeToolCall(toolCall);
-  if (norm.toolName)
-    return norm.toolName;
-  const meta = toolCall._meta;
-  for (const key of profile.toolNameMetaKeys) {
-    const metaName = meta == null ? void 0 : meta[key];
-    if (typeof metaName === "string" && metaName)
-      return metaName;
-  }
-  if (typeof toolCall.title === "string" && toolCall.title)
-    return toolCall.title;
-  return "tool";
-}
-function summarizeRawInput(rawInput) {
-  if (!rawInput || typeof rawInput !== "object" || Array.isArray(rawInput))
-    return "";
-  const input = rawInput;
-  for (const key of ["file_path", "path", "command"]) {
-    const v = input[key];
-    if (typeof v === "string" && v)
-      return v;
-  }
-  if (!Object.keys(input).length)
-    return "";
-  try {
-    const s = JSON.stringify(input);
-    return s.length > 120 ? s.slice(0, 117) + "..." : s;
-  } catch (e) {
-    return "";
-  }
-}
-function mapSessionUpdate(update, profile = ACP_DEFAULT_PROFILE) {
-  var _a;
-  switch (update.sessionUpdate) {
-    case "agent_thought_chunk": {
-      const text = textOf(update);
-      return text === null ? null : { type: "thinking", content: text };
-    }
-    case "agent_message_chunk": {
-      const text = textOf(update);
-      return text === null ? null : { type: "text", content: text };
-    }
-    case "tool_call": {
-      const toolName = extractToolName(update, profile);
-      const toolCallId = typeof update.toolCallId === "string" ? update.toolCallId : void 0;
-      const rawInput = (_a = profile.normalizeToolCall(update).rawInput) != null ? _a : update.rawInput;
-      return { type: "tool", content: "", toolName, toolCallId, toolDetail: summarizeRawInput(rawInput) };
-    }
-    default:
-      return null;
-  }
-}
-function mapToolCallUpdate(update, snapshot, profile = ACP_DEFAULT_PROFILE) {
-  var _a;
-  if (update.sessionUpdate !== "tool_call_update")
-    return null;
-  const toolCallId = typeof update.toolCallId === "string" ? update.toolCallId : "";
-  if (!toolCallId)
-    return null;
-  const toolName = extractToolName(update, profile);
-  if (update.status === "completed") {
-    let toolDetail = "";
-    try {
-      toolDetail = (_a = JSON.stringify(snapshot)) != null ? _a : "";
-    } catch (e) {
-    }
-    const chunk = { type: "tool", content: "", toolName, toolCallId, toolStatus: "completed", toolDetail };
-    const rawOutput = update.rawOutput;
-    if ((rawOutput == null ? void 0 : rawOutput.type) === "text" && typeof rawOutput.text === "string") {
-      chunk.toolOutput = rawOutput.text;
-    }
-    return chunk;
-  }
-  return { type: "tool", content: "", toolName, toolCallId, toolDetail: summarizeRawInput(snapshot) };
-}
-function mapUsageUpdate(update) {
-  if (update.sessionUpdate !== "usage_update")
-    return null;
-  const { used, size } = update;
-  if (typeof used !== "number" || typeof size !== "number")
-    return null;
-  return { used, size };
-}
-function mapConfigUpdate(update) {
-  if (update.sessionUpdate === "current_mode_update") {
-    return typeof update.currentModeId === "string" ? { mode: update.currentModeId } : null;
-  }
-  if (update.sessionUpdate === "config_option_update") {
-    const out = {};
-    const options = Array.isArray(update.configOptions) ? update.configOptions : [];
-    for (const opt of options) {
-      if (opt.id === "mode" && typeof opt.currentValue === "string")
-        out.mode = opt.currentValue;
-      if (opt.id === "model" && typeof opt.currentValue === "string")
-        out.model = opt.currentValue;
-      if (opt.id === "thought_level" && typeof opt.currentValue === "string")
-        out.thoughtLevel = opt.currentValue;
-    }
-    return Object.keys(out).length ? out : null;
-  }
-  return null;
-}
-
-// src/providers/acp/permission.ts
-function asRecord(v) {
-  return v && typeof v === "object" && !Array.isArray(v) ? v : {};
-}
-function summarize(rawInput) {
-  try {
-    const s = JSON.stringify(rawInput);
-    return s.length > 200 ? s.slice(0, 197) + "..." : s;
-  } catch (e) {
-    return "";
-  }
-}
-function buildDetail(toolName, rawInput, isPlan) {
-  if (isPlan)
-    return { kind: "plan" };
-  const path3 = typeof rawInput.file_path === "string" ? rawInput.file_path : typeof rawInput.path === "string" ? rawInput.path : "";
-  if ((toolName === "Write" || toolName === "write_file") && typeof rawInput.content === "string") {
-    return { kind: "write", path: path3, lines: rawInput.content.split("\n").length };
-  }
-  if (toolName === "Edit" || toolName === "MultiEdit") {
-    return {
-      kind: "edit",
-      path: path3,
-      oldText: typeof rawInput.old_string === "string" ? rawInput.old_string : "",
-      newText: typeof rawInput.new_string === "string" ? rawInput.new_string : ""
-    };
-  }
-  if ((toolName === "Bash" || toolName === "Shell") && typeof rawInput.command === "string") {
-    return { kind: "bash", command: rawInput.command };
-  }
-  return { kind: "generic", summary: summarize(rawInput) };
-}
-function mapPermissionRequest(requestId, params, profile = ACP_DEFAULT_PROFILE) {
-  var _a, _b;
-  const p = asRecord(params);
-  const toolCall = asRecord(p.toolCall);
-  const meta = asRecord(toolCall._meta);
-  const norm = profile.normalizeToolCall(toolCall);
-  const rawInput = (_a = norm.rawInput) != null ? _a : asRecord(toolCall.rawInput);
-  const metaName = meta["codebuddy.ai/toolName"];
-  const rawToolName = typeof rawInput.toolName === "string" ? rawInput.toolName : "";
-  const toolName = (_b = norm.toolName) != null ? _b : typeof metaName === "string" && metaName ? metaName === "DeferExecuteTool" && rawToolName ? rawToolName : metaName : rawToolName || (typeof toolCall.title === "string" ? toolCall.title : "tool");
-  const isPlan = rawToolName === "ExitPlanMode";
-  const options = (Array.isArray(p.options) ? p.options : []).map((o) => {
-    const rec = asRecord(o);
-    return {
-      optionId: typeof rec.optionId === "string" ? rec.optionId : "",
-      kind: typeof rec.kind === "string" ? rec.kind : "",
-      label: typeof rec.name === "string" ? rec.name : ""
-    };
-  }).filter((o) => o.optionId);
-  return {
-    requestId,
-    sessionId: typeof p.sessionId === "string" ? p.sessionId : "",
-    toolName,
-    detail: buildDetail(toolName, rawInput, isPlan),
-    options,
-    isPlanApproval: isPlan
-  };
-}
-function buildPermissionResult(optionId) {
-  return { outcome: { outcome: "selected", optionId } };
-}
-function pickOptionId(options, kindPrefix) {
-  const hit = options.find((o) => kindPrefix === "allow_once" ? o.kind === "allow_once" : o.kind.startsWith(kindPrefix));
-  return hit == null ? void 0 : hit.optionId;
-}
-
-// src/shared/responseFinalize.ts
-function pickFinalContent(text, result) {
-  return text || result;
-}
-function appendTextChunk(accumulated, incoming) {
-  if (!incoming)
-    return accumulated;
-  if (!accumulated)
-    return incoming;
-  if (incoming.length > accumulated.length && incoming.startsWith(accumulated))
-    return incoming;
-  const MIN_DEDUPE_CHARS = 32;
-  if (incoming.length >= MIN_DEDUPE_CHARS && accumulated.endsWith(incoming))
-    return accumulated;
-  return accumulated + incoming;
-}
-
-// src/providers/acp/session.ts
-init_logBuffer();
-var AcpSession = class {
-  // 排队/在飞轮次被取消：到队首直接作废，不再占用 CLI
-  constructor(key, client, lookup, config, profile = ACP_DEFAULT_PROFILE, activation = { current: null }) {
-    this.key = key;
-    this.client = client;
-    this.lookup = lookup;
-    this.config = config;
-    this.profile = profile;
-    this.activation = activation;
-    this.acpSessionId = null;
-    this.status = "idle";
-    this.lastUsage = null;
-    /** fork 轮进行中标记：fork 回报（session_info_update）可能挂在新会话 id 下，provider 据此把事件归给本会话（WB-004） */
-    this.forkPending = false;
-    this.needsReload = false;
-    this.handlers = null;
-    this.pendingPermissions = /* @__PURE__ */ new Map();
-    this.toolInputs = /* @__PURE__ */ new Map();
-    // toolCallId → 最新 rawInput 快照（替换式，traffic 实证快照语义）
-    this.toolNames = /* @__PURE__ */ new Map();
-    // toolCallId → toolName（update 缺 _meta 时兜底）
-    this.lastForkedSessionId = null;
-    // ensureLoaded 记录，prompt 前再激活重放用
-    this.agentInFlight = /* @__PURE__ */ new Set();
-    // 在飞 Agent 工具调用（窗口内文本=子代理中继，WB-RT-007）
-    this.agentRelay = "";
-    // Agent 窗口内累积的中继文本，完成时挂为该行输出块
-    this.cancelPending = false;
-  }
-  /** 是否处于轮次内（有活跃 handlers）：轮外的 config 更新由 provider 旁路直推，不经本对象（WB-007） */
-  get inTurn() {
-    return this.handlers !== null;
-  }
-  /** 进程死亡后由 provider 标记：下次 ensureLoaded 重新 session/load（CLI 侧上下文不丢） */
-  markStale() {
-    if (this.acpSessionId)
-      this.needsReload = true;
-  }
-  async ensureLoaded(vaultPath, mcpServersOverride) {
-    var _a, _b;
-    if (this.acpSessionId && !this.needsReload)
-      return;
-    this.status = "loading";
-    this.lastVaultPath = vaultPath;
-    const mcpServers = (_a = mcpServersOverride != null ? mcpServersOverride : this.config.mcpServers) != null ? _a : [];
-    try {
-      if (!this.acpSessionId) {
-        const candidate = (_b = this.lookup.getAcpSessionId(this.key)) != null ? _b : this.key;
-        const loaded = await this.client.request(
-          "session/load",
-          { sessionId: candidate, cwd: vaultPath != null ? vaultPath : "", mcpServers }
-        ).catch(() => null);
-        const isMiss = loaded == null || typeof loaded === "object" && !Array.isArray(loaded) && !("models" in loaded) && !("modes" in loaded);
-        if (isMiss) {
-          const result = await this.client.request(
-            "session/new",
-            { cwd: vaultPath != null ? vaultPath : "", mcpServers }
-          );
-          this.acpSessionId = result.sessionId;
-        } else {
-          this.acpSessionId = candidate;
-        }
-        this.lookup.setAcpSessionId(this.key, this.acpSessionId);
-      } else {
-        await this.client.request("session/load", { sessionId: this.acpSessionId, cwd: vaultPath != null ? vaultPath : "", mcpServers });
-      }
-      this.activation.current = this.acpSessionId;
-      this.needsReload = false;
-      await this.applyConfig();
-    } finally {
-      this.status = "idle";
-    }
-  }
-  /** provider setModel/setPermissionMode 时对已加载会话逐一应用（按会话设置，双面板泄漏在协议层绝迹） */
-  async applyRemoteConfig() {
-    var _a, _b;
-    if (!this.acpSessionId)
-      return;
-    if (this.activation.current !== this.acpSessionId) {
-      await this.client.request("session/load", {
-        sessionId: this.acpSessionId,
-        cwd: (_a = this.lastVaultPath) != null ? _a : "",
-        mcpServers: (_b = this.config.mcpServers) != null ? _b : []
-      });
-      this.activation.current = this.acpSessionId;
-    }
-    await this.applyConfig();
-  }
-  async applyConfig() {
-    const sessionId = this.acpSessionId;
-    if (!sessionId)
-      return;
-    try {
-      if (this.config.model) {
-        await this.profile.applyRemoteModel(this.client, sessionId, this.config.model);
-      }
-    } catch (e) {
-      bbLog("[WB] acp \u8BBE\u7F6E\u6A21\u578B\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
-    }
-    try {
-      if (this.config.mode) {
-        const modeId = this.profile.mapOutgoingMode(this.config.mode);
-        try {
-          await this.client.request("session/set_mode", { sessionId, modeId });
-        } catch (e) {
-          await this.client.request("session/set_config_option", { sessionId, configId: "mode", value: modeId });
-        }
-      }
-    } catch (e) {
-      bbLog("[WB] acp \u8BBE\u7F6E\u6743\u9650\u6A21\u5F0F\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
-    }
-    try {
-      if (this.config.thoughtLevel && this.profile.supportsThoughtLevel) {
-        await this.client.request("session/set_config_option", { sessionId, configId: "thought_level", value: this.config.thoughtLevel });
-      }
-    } catch (e) {
-      bbLog("[WB] acp \u8BBE\u7F6E\u601D\u8003\u529B\u5EA6\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
-    }
-  }
-  async prompt(text, handlers, images) {
-    if (this.status !== "idle")
-      throw new Error("session busy");
-    if (!this.acpSessionId)
-      throw new Error("session not loaded");
-    const acpId = this.acpSessionId;
-    this.status = "prompting";
-    try {
-      const prompt = (images == null ? void 0 : images.length) ? [...images.map((i) => ({ type: "image", data: i.data, mimeType: i.mimeType })), { type: "text", text }] : [{ type: "text", text }];
-      const result = await this.client.enqueuePrompt(async () => {
-        var _a, _b;
-        if (this.cancelPending)
-          return { stopReason: "cancelled" };
-        this.handlers = handlers;
-        this.toolInputs.clear();
-        this.toolNames.clear();
-        this.agentInFlight.clear();
-        this.agentRelay = "";
-        if (this.activation.current !== acpId) {
-          bbLog("[WB] prompt \u524D\u91CD\u65B0\u6FC0\u6D3B\u4F1A\u8BDD:", acpId);
-          this.status = "loading";
-          try {
-            await this.client.request("session/load", {
-              sessionId: acpId,
-              cwd: (_a = this.lastVaultPath) != null ? _a : "",
-              mcpServers: (_b = this.config.mcpServers) != null ? _b : []
-            });
-            this.activation.current = acpId;
-          } finally {
-            this.status = "prompting";
-          }
-        }
-        return this.client.rawRequest("session/prompt", {
-          sessionId: acpId,
-          prompt
-        });
-      });
-      return { stopReason: typeof result.stopReason === "string" ? result.stopReason : "end_turn" };
-    } finally {
-      if (this.pendingPermissions.size)
-        this.rejectPendingPermissions();
-      this.status = "idle";
-      this.handlers = null;
-      this.cancelPending = false;
-    }
-  }
-  handleUpdate(update) {
-    var _a, _b, _c, _d, _e, _f, _g;
-    if (this.status === "loading" || this.profile.isReplayUpdate(update))
-      return;
-    if (update.sessionUpdate === "session_info_update") {
-      const meta = update._meta;
-      const forked = meta == null ? void 0 : meta["codebuddy.ai/newSessionId"];
-      if ((meta == null ? void 0 : meta["codebuddy.ai/sessionReset"]) && typeof forked === "string") {
-        this.lastForkedSessionId = forked;
-      }
-    }
-    const handlers = this.handlers;
-    if (!handlers)
-      return;
-    if (update.sessionUpdate === "tool_call_update") {
-      const id = typeof update.toolCallId === "string" ? update.toolCallId : "";
-      if (!id)
-        return;
-      if (update.rawInput !== void 0) {
-        const norm = this.profile.normalizeToolCall(update);
-        this.toolInputs.set(id, (_a = norm.rawInput) != null ? _a : update.rawInput);
-      }
-      const chunk2 = mapToolCallUpdate(update, this.toolInputs.get(id), this.profile);
-      if (chunk2) {
-        if (!update._meta && this.toolNames.has(id))
-          chunk2.toolName = this.toolNames.get(id);
-        if (update.status === "completed") {
-          bbLog("[WB] \u5DE5\u5177\u5B8C\u6210:", (_b = chunk2.toolName) != null ? _b : "?", "| \u5FEB\u7167:", this.toolInputs.has(id) ? "\u6709" : "\u65E0");
-          if (this.agentInFlight.delete(id) && this.agentRelay) {
-            chunk2.toolOutput = this.agentRelay;
-            this.agentRelay = "";
-          }
-        }
-        handlers.onChunk(chunk2);
-      }
-      return;
-    }
-    const usage = mapUsageUpdate(update);
-    if (usage) {
-      this.lastUsage = usage;
-      (_c = handlers.onUsage) == null ? void 0 : _c.call(handlers, usage.used, usage.size);
-      return;
-    }
-    const config = mapConfigUpdate(update);
-    if (config) {
-      (_d = handlers.onConfigUpdate) == null ? void 0 : _d.call(handlers, config);
-      return;
-    }
-    const chunk = mapSessionUpdate(update, this.profile);
-    if (chunk) {
-      if (chunk.type === "tool" && typeof update.toolCallId === "string") {
-        this.toolNames.set(update.toolCallId, (_e = chunk.toolName) != null ? _e : "tool");
-        this.toolInputs.set(
-          update.toolCallId,
-          (_g = (_f = this.profile.normalizeToolCall(update).rawInput) != null ? _f : update.rawInput) != null ? _g : {}
-        );
-        if (chunk.toolName === "Agent")
-          this.agentInFlight.add(update.toolCallId);
-      }
-      if (chunk.type === "text" && this.agentInFlight.size > 0) {
-        this.agentRelay = appendTextChunk(this.agentRelay, chunk.content);
-        return;
-      }
-      handlers.onChunk(chunk);
-    }
-  }
-  handlePermissionRequest(requestId, params) {
-    var _a, _b;
-    const data = mapPermissionRequest(requestId, params, this.profile);
-    const toolCall = params == null ? void 0 : params.toolCall;
-    const tc = toolCall && typeof toolCall === "object" && !Array.isArray(toolCall) ? toolCall : {};
-    const toolCallId = typeof tc.toolCallId === "string" ? tc.toolCallId : "";
-    if (toolCallId) {
-      if (tc.rawInput !== void 0) {
-        this.toolInputs.set(toolCallId, (_a = this.profile.normalizeToolCall(tc).rawInput) != null ? _a : tc.rawInput);
-      }
-      this.toolNames.set(toolCallId, data.toolName);
-    }
-    const handlers = this.handlers;
-    if (!(handlers == null ? void 0 : handlers.onPermissionRequest)) {
-      this.client.respond(requestId, buildPermissionResult((_b = pickOptionId(data.options, "reject")) != null ? _b : "reject"));
-      return;
-    }
-    if (this.config.mode === "bypassPermissions") {
-      const allowAlways = pickOptionId(data.options, "allow_always");
-      if (allowAlways) {
-        this.client.respond(requestId, buildPermissionResult(allowAlways));
-        return;
-      }
-      const allowOnce = pickOptionId(data.options, "allow_once");
-      if (allowOnce) {
-        this.client.respond(requestId, buildPermissionResult(allowOnce));
-        return;
-      }
-    }
-    this.pendingPermissions.set(requestId, data);
-    this.status = "awaitingPermission";
-    handlers.onPermissionRequest(data);
-  }
-  hasPendingPermission(requestId) {
-    return this.pendingPermissions.has(requestId);
-  }
-  respondPermission(requestId, optionId) {
-    if (!this.pendingPermissions.delete(requestId))
-      return false;
-    this.client.respond(requestId, buildPermissionResult(optionId));
-    if (this.status === "awaitingPermission")
-      this.status = "prompting";
-    return true;
-  }
-  rejectPendingPermissions() {
-    var _a;
-    for (const [requestId, data] of this.pendingPermissions) {
-      this.client.respond(requestId, buildPermissionResult((_a = pickOptionId(data.options, "reject")) != null ? _a : "reject"));
-    }
-    this.pendingPermissions.clear();
-    if (this.status === "awaitingPermission")
-      this.status = "prompting";
-  }
-  /** 会话级分叉：branch-prompt 方言发 /branch 捕获回报；native-rpc 方言直接 session/fork RPC（hermes） */
-  async fork(name) {
-    var _a;
-    if (this.status !== "idle")
-      throw new Error("session busy");
-    if (!this.acpSessionId)
-      throw new Error("session not loaded");
-    if (this.profile.forkMode === "native-rpc") {
-      bbLog("[WB] fork \u5F00\u59CB(native-rpc):", this.acpSessionId, name);
-      const result = await this.client.request(
-        "session/fork",
-        { sessionId: this.acpSessionId, cwd: (_a = this.lastVaultPath) != null ? _a : "" }
-      );
-      const newId = typeof (result == null ? void 0 : result.sessionId) === "string" ? result.sessionId : "";
-      if (!newId)
-        throw new Error("fork failed: empty sessionId in session/fork result");
-      bbLog("[WB] fork \u6210\u529F:", this.acpSessionId, "\u2192", newId);
-      return newId;
-    }
-    this.lastForkedSessionId = null;
-    const sink = { onChunk: () => {
-    }, onError: () => {
-    } };
-    let timer;
-    const timeout = new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error("fork timeout (60s)")), 6e4);
-    });
-    this.forkPending = true;
-    bbLog("[WB] fork \u5F00\u59CB:", this.acpSessionId, name);
-    try {
-      await Promise.race([this.prompt(`/branch ${name}`, sink), timeout]);
-    } catch (e) {
-      bbLog("[WB] fork \u5931\u8D25:", e);
-      throw new Error(`fork failed: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      this.forkPending = false;
-      clearTimeout(timer);
-    }
-    if (!this.lastForkedSessionId) {
-      bbLog("[WB] fork \u5931\u8D25: prompt \u5B8C\u6210\u4F46\u672A\u6536\u5230 session_info_update \u56DE\u62A5");
-      throw new Error("fork failed: no session_info_update");
-    }
-    bbLog("[WB] fork \u6210\u529F:", this.acpSessionId, "\u2192", this.lastForkedSessionId);
-    return this.lastForkedSessionId;
-  }
-  async cancelTurn() {
-    if (this.status !== "prompting" && this.status !== "awaitingPermission")
-      return;
-    this.rejectPendingPermissions();
-    this.cancelPending = true;
-    if (this.acpSessionId)
-      this.client.notify("session/cancel", { sessionId: this.acpSessionId });
-  }
-  failTurn(message) {
-    var _a;
-    (_a = this.handlers) == null ? void 0 : _a.onError(message);
-  }
-};
-var SessionRegistry = class {
-  constructor(client, lookup, config, profile = ACP_DEFAULT_PROFILE) {
-    this.client = client;
-    this.lookup = lookup;
-    this.config = config;
-    this.profile = profile;
-    this.sessions = /* @__PURE__ */ new Map();
-    /** 全注册表共享的"CLI 当前活动会话"指针：任何 new/load 都会切换它（探针实证） */
-    this.activation = { current: null };
-  }
-  get(key) {
-    let s = this.sessions.get(key);
-    if (!s) {
-      s = new AcpSession(key, this.client, this.lookup, this.config, this.profile, this.activation);
-      this.sessions.set(key, s);
-    }
-    return s;
-  }
-  find(key) {
-    return this.sessions.get(key);
-  }
-  byAcpId(acpSessionId) {
-    for (const s of this.sessions.values())
-      if (s.acpSessionId === acpSessionId)
-        return s;
-    return void 0;
-  }
-  all() {
-    return [...this.sessions.values()];
-  }
-};
-
-// src/shared/mcpServers.ts
-function parseMcpServers(json) {
-  let raw;
-  try {
-    raw = JSON.parse(json);
-  } catch (e) {
-    return [];
-  }
-  if (!Array.isArray(raw))
-    return [];
-  const out = [];
-  for (const item of raw) {
-    if (!item || typeof item !== "object")
-      continue;
-    const rec = item;
-    if (typeof rec.name !== "string" || !rec.name)
-      continue;
-    out.push({
-      name: rec.name,
-      command: typeof rec.command === "string" ? rec.command : "",
-      args: Array.isArray(rec.args) ? rec.args.filter((a) => typeof a === "string") : [],
-      env: normalizeEnv(rec.env),
-      disabled: rec.disabled === true ? true : void 0
-    });
-  }
-  return out;
-}
-function normalizeEnv(env2) {
-  if (Array.isArray(env2)) {
-    return env2.filter((e) => !!e && typeof e === "object").map((e) => {
-      var _a, _b;
-      return { name: String((_a = e.name) != null ? _a : ""), value: String((_b = e.value) != null ? _b : "") };
-    }).filter((e) => e.name.length > 0);
-  }
-  if (env2 && typeof env2 === "object") {
-    return Object.entries(env2).map(([name, value]) => ({ name, value: String(value) }));
-  }
-  return [];
-}
-function serializeMcpServers(servers) {
-  return JSON.stringify(servers.map((s) => ({
-    name: s.name,
-    command: s.command,
-    args: s.args,
-    env: s.env,
-    ...s.disabled ? { disabled: true } : {}
-  })));
-}
-function activeMcpServers(servers) {
-  return servers.filter((s) => !s.disabled).map((s) => ({ name: s.name, command: s.command, args: s.args, env: s.env }));
-}
-function extractMcpNames(text) {
-  const names = [];
-  for (const match of text.matchAll(/@mcp\/([A-Za-z0-9._-]+)/g)) {
-    if (!names.includes(match[1]))
-      names.push(match[1]);
-  }
-  return names;
-}
-function parseClipboardServers(text) {
-  let raw;
-  try {
-    raw = JSON.parse(text);
-  } catch (e) {
-    return [];
-  }
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-    const rec = raw;
-    if (rec.mcpServers && typeof rec.mcpServers === "object" && !Array.isArray(rec.mcpServers)) {
-      return Object.entries(rec.mcpServers).map(([name, cfg]) => {
-        const c = cfg && typeof cfg === "object" ? cfg : {};
-        return {
-          name,
-          command: typeof c.command === "string" ? c.command : "",
-          args: Array.isArray(c.args) ? c.args.filter((a) => typeof a === "string") : [],
-          env: normalizeEnv(c.env)
-        };
-      });
-    }
-    return parseMcpServers(JSON.stringify([raw]));
-  }
-  return parseMcpServers(text);
-}
-
-// src/providers/acp/provider.ts
-var TIMEOUT = 3e5;
-var NOOP_LOOKUP = { getAcpSessionId: () => void 0, setAcpSessionId: () => {
-} };
-var AcpProvider = class {
-  constructor(profile = ACP_DEFAULT_PROFILE, timeout = TIMEOUT) {
-    this.profile = profile;
-    this.config = { model: "auto", mode: "default", mcpServers: [] };
-    this.lookup = NOOP_LOOKUP;
-    this.availableModels = Object.keys(FALLBACK_MODEL_OPTIONS);
-    this.callbacks = /* @__PURE__ */ new Map();
-    this.client = new AcpClient({
-      onSessionUpdate: (acpSessionId, update) => this.routeSessionUpdate(acpSessionId, update),
-      onPermissionRequest: (requestId, params) => this.routePermissionRequest(requestId, params),
-      onAgentNotification: (method) => bbLog("[WB] acp \u901A\u77E5:", method),
-      onModels: (models) => this.onModels(models),
-      onExit: (code, signal) => this.handleProcessExit(code, signal)
-    }, profile);
-    this.registry = new SessionRegistry(
-      this.client,
-      {
-        getAcpSessionId: (k) => this.lookup.getAcpSessionId(k),
-        setAcpSessionId: (k, id) => this.lookup.setAcpSessionId(k, id)
-      },
-      this.config,
-      profile
-    );
-    this.setTimeout(timeout);
-  }
-  setTimeout(ms) {
-    this.timeout = ms;
-    this.client.promptTimeoutMs = ms + 6e4;
-  }
-  setModel(model) {
-    this.config.model = model;
-    for (const s of this.registry.all())
-      void s.applyRemoteConfig();
-  }
-  setPermissionMode(mode) {
-    this.config.mode = mode;
-    for (const s of this.registry.all())
-      void s.applyRemoteConfig();
-  }
-  setThoughtLevel(level) {
-    this.config.thoughtLevel = level;
-    for (const s of this.registry.all())
-      void s.applyRemoteConfig();
-  }
-  setAvailableModels(models) {
-    this.availableModels = models;
-  }
-  getAvailableModels() {
-    return [...this.availableModels];
-  }
-  /** client onModels 事件入口：子类可覆写以保留更多字段（hermes 存 name） */
-  onModels(models) {
-    this.availableModels = models.map((m) => m.id);
-  }
-  getScriptPath() {
-    return this.client.getScriptPath();
-  }
-  /** main.ts 注入：Conversation.acpSessionId 的读写桥（懒加载与回写的唯一通道） */
-  setConversationLookup(lookup) {
-    this.lookup = lookup;
-  }
-  /** MCP 服务器 JSON（数组）：解析失败保留旧值并记日志；空串清空 */
-  setMcpServersJson(json) {
-    const trimmed = json.trim();
-    if (!trimmed) {
-      this.config.mcpServers = [];
-      return;
-    }
-    try {
-      JSON.parse(trimmed);
-      this.config.mcpServers = activeMcpServers(parseMcpServers(trimmed));
-    } catch (e) {
-      bbLog("[WB] mcpServersJson \u89E3\u6790\u5931\u8D25\uFF0C\u4FDD\u7559\u65E7\u503C:", e);
-    }
-  }
-  /** R10 context-saving MCP：把消息里 @mcp/xxx 命中的服务器过滤出来，供本次会话加载用 */
-  resolveMcpForMessage(mcpNames) {
-    var _a;
-    if (!(mcpNames == null ? void 0 : mcpNames.length))
-      return void 0;
-    const all = (_a = this.config.mcpServers) != null ? _a : [];
-    const lower = mcpNames.map((n) => n.toLowerCase());
-    const matched = all.filter((s) => typeof s.name === "string" && lower.includes(s.name.toLowerCase()));
-    return matched;
-  }
-  generateId() {
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-      const r = Math.random() * 16 | 0;
-      return (c === "x" ? r : r & 3 | 8).toString(16);
-    });
-  }
-  // ---- 旁路回调注册（view 在 sendText 时按会话 key 注册） ----
-  onPermissionRequest(sessionKey, cb) {
-    this.callbacks.set(sessionKey, { ...this.callbacks.get(sessionKey), onPermissionRequest: cb });
-  }
-  onUsage(sessionKey, cb) {
-    this.callbacks.set(sessionKey, { ...this.callbacks.get(sessionKey), onUsage: cb });
-  }
-  onConfigUpdate(sessionKey, cb) {
-    this.callbacks.set(sessionKey, { ...this.callbacks.get(sessionKey), onConfigUpdate: cb });
-  }
-  /** 批准卡按钮应答：requestId 归哪个会话由 pending 持有情况路由 */
-  respondPermission(requestId, optionId) {
-    for (const s of this.registry.all()) {
-      if (s.respondPermission(requestId, optionId))
-        return;
-    }
-    bbLog("[WB] respondPermission \u672A\u627E\u5230\u60AC\u6302\u8BF7\u6C42:", requestId);
-  }
-  /** 悬挂边界：关面板/切会话/卸载前把批准请求统一答 reject，不悬挂到 CLI 侧干等 */
-  rejectPendingPermissions(sessionKey) {
-    for (const s of this.registry.all()) {
-      if (!sessionKey || s.key === sessionKey)
-        s.rejectPendingPermissions();
-    }
-  }
-  /** 定向 cancel：有参只停该会话在飞轮次（双面板互不影响）；无参停全部（卸载兜底） */
-  cancel(sessionId) {
-    for (const s of this.registry.all()) {
-      if (!sessionId || s.key === sessionId)
-        void s.cancelTurn();
-    }
-  }
-  /** 会话级分叉：懒加载后走 /branch，返回 CLI 分配的新 acpSessionId（启动失败沿用分级文案） */
-  async forkSession(sessionKey, name, vaultPath) {
-    const session = this.registry.get(sessionKey);
-    try {
-      await this.client.ensureStarted();
-      await session.ensureLoaded(vaultPath);
-    } catch (e) {
-      throw new Error(this.startErrorMessage(e));
-    }
-    return session.fork(name);
-  }
-  /** 卸载：拒悬挂批准 → terminate 进程 */
-  dispose() {
-    this.rejectPendingPermissions();
-    this.client.dispose();
-  }
-  async *sendMessage(sessionId, text, vaultPath, addDirs = [], permissionModeOverride, images, mcpNames) {
-    var _a;
-    const session = this.registry.get(sessionId);
-    try {
-      await this.client.ensureStarted();
-      const mcpOverride = this.resolveMcpForMessage(mcpNames);
-      await session.ensureLoaded(vaultPath, mcpOverride);
-    } catch (e) {
-      throw new Error(this.startErrorMessage(e));
-    }
-    const cbs = (_a = this.callbacks.get(sessionId)) != null ? _a : {};
-    const queue = [];
-    let waiter = null;
-    let settled = false;
-    let chunkCount = 0;
-    const push2 = (item) => {
-      if (settled)
-        return;
-      if (item.end || item.error)
-        settled = true;
-      if (waiter) {
-        const w = waiter;
-        waiter = null;
-        w(item);
-      } else {
-        queue.push(item);
-      }
-    };
-    const pull = () => queue.length ? Promise.resolve(queue.shift()) : new Promise((r) => {
-      waiter = r;
-    });
-    const handlers = {
-      onChunk: (chunk) => {
-        chunkCount++;
-        push2({ chunk });
-      },
-      onError: (message) => push2({ error: message }),
-      // 未注册批准回调时保持 undefined，session 层自动统一拒绝
-      onPermissionRequest: cbs.onPermissionRequest ? (data) => cbs.onPermissionRequest(data) : void 0,
-      onUsage: (used, size) => {
-        var _a2;
-        return (_a2 = cbs.onUsage) == null ? void 0 : _a2.call(cbs, used, size);
-      },
-      onConfigUpdate: (cfg) => {
-        var _a2;
-        return (_a2 = cbs.onConfigUpdate) == null ? void 0 : _a2.call(cbs, cfg);
-      }
-    };
-    const startedAt = Date.now();
-    const timer = setTimeout(() => {
-      void session.cancelTurn();
-      push2({ error: t("provider.turnTimeout") });
-    }, this.timeout);
-    let promptPromise;
-    try {
-      promptPromise = session.prompt(text, handlers, images);
-    } catch (e) {
-      clearTimeout(timer);
-      throw e;
-    }
-    promptPromise.then(({ stopReason }) => {
-      clearTimeout(timer);
-      if (stopReason === "end_turn") {
-        if (chunkCount === 0)
-          this.restartAfterDeadTurn(sessionId);
-        push2({
-          chunk: {
-            type: "done",
-            content: "",
-            usage: session.lastUsage ? { inputTokens: session.lastUsage.used } : void 0
-          }
-        });
-        push2({ end: true });
-      } else if (stopReason === "cancelled") {
-        if (chunkCount === 0 && Date.now() - startedAt > 15e3)
-          this.restartAfterDeadTurn(sessionId);
-        push2({ end: true });
-      } else {
-        push2({ error: t("provider.turnFailed").replace("{reason}", stopReason) });
-      }
-    }, (e) => {
-      clearTimeout(timer);
-      push2({ error: e.message === "session busy" ? t("provider.busy") : e.message });
-    });
-    while (true) {
-      const item = await pull();
-      if (item.end)
-        return;
-      if (item.error)
-        throw new Error(item.error);
-      if (item.chunk)
-        yield item.chunk;
-    }
-  }
-  /** session/update 路由：按 acpSessionId 归会话；fork 回报可能挂在新 id 下，归给正在 fork 的会话；无归属记日志不再静默丢 */
-  routeSessionUpdate(acpSessionId, update) {
-    var _a, _b, _c, _d;
-    const target = this.registry.byAcpId(acpSessionId);
-    if (target == null ? void 0 : target.inTurn) {
-      target.handleUpdate(update);
-      return;
-    }
-    if (update.sessionUpdate === "session_info_update") {
-      const forking = this.registry.all().find((s) => s.forkPending);
-      if (forking) {
-        forking.handleUpdate(update);
-        return;
-      }
-    }
-    const kind = update.sessionUpdate;
-    const isStreamPayload = kind === "agent_message_chunk" || kind === "agent_thought_chunk" || kind === "tool_call" || kind === "tool_call_update";
-    if (isStreamPayload) {
-      const inFlight = this.registry.all().filter((s) => s.inTurn);
-      if (inFlight.length === 1 && inFlight[0] !== target) {
-        bbLog("[WB] \u4E8B\u4EF6\u8BEF\u6807\u7EA0\u504F:", kind, acpSessionId, "\u2192", (_a = inFlight[0].acpSessionId) != null ? _a : "?");
-        inFlight[0].handleUpdate(update);
-        return;
-      }
-    }
-    if (target) {
-      if (!this.profile.isReplayUpdate(update) && !this.client.loadInFlight(acpSessionId)) {
-        const cfg = mapConfigUpdate(update);
-        if (cfg)
-          (_c = (_b = this.callbacks.get(target.key)) == null ? void 0 : _b.onConfigUpdate) == null ? void 0 : _c.call(_b, cfg);
-      }
-      target.handleUpdate(update);
-      return;
-    }
-    if (!this.profile.isReplayUpdate(update) && !this.client.loadInFlight(acpSessionId)) {
-      bbLog("[WB] acp update \u65E0\u5F52\u5C5E\u4F1A\u8BDD\uFF0C\u5DF2\u4E22\u5F03:", acpSessionId, (_d = update.sessionUpdate) != null ? _d : "(unknown)");
-    }
-  }
-  /**
-   * 零 chunk 落账（end_turn/cancelled 但全程无任何事件到达）是 CLI 会话状态机卡死的特征
-   *（GUI 日志实锤：AGENT_ENDED/RUN_PREPARING 被 ignored invalid transition，cancelling 卡死，
-   * 后续 prompt 全部进门即丢，进程内无自愈路径）。标记全部会话待重载并重启进程，
-   * 下一条消息经 session/load 恢复上下文（CLI 会话持久化在盘上）。
-   */
-  restartAfterDeadTurn(sessionKey) {
-    bbError("[WB] \u96F6 chunk \u843D\u8D26\uFF0CCLI \u72B6\u6001\u673A\u7591\u4F3C\u5361\u6B7B\uFF0C\u91CD\u542F\u8FDB\u7A0B\u81EA\u6108:", sessionKey);
-    for (const s of this.registry.all())
-      s.markStale();
-    this.client.dispose();
-  }
-  routePermissionRequest(requestId, params) {
-    const sessionId = params == null ? void 0 : params.sessionId;
-    const session = typeof sessionId === "string" ? this.registry.byAcpId(sessionId) : void 0;
-    if (session) {
-      session.handlePermissionRequest(requestId, params);
-    } else {
-      this.client.respond(requestId, { outcome: { outcome: "selected", optionId: "reject" } });
-    }
-  }
-  handleProcessExit(code, signal) {
-    bbLog("[WB] acp \u8FDB\u7A0B\u9000\u51FA:", code, signal);
-    for (const s of this.registry.all()) {
-      s.markStale();
-      s.failTurn(t("provider.processDied"));
-    }
-  }
-  startErrorMessage(e) {
-    if (e instanceof AcpStartError) {
-      const byTier = {
-        "cli-not-found": t("provider.cliNotFound"),
-        "acp-unsupported": t("provider.acpUnsupported"),
-        "auth-required": t("provider.notLoggedIn"),
-        "handshake-failed": t("provider.handshakeFailed").replace("{detail}", e.message)
-      };
-      return byTier[e.tier];
-    }
-    return e instanceof Error ? e.message : String(e);
-  }
-};
+// src/providers/codebuddy/profile.ts
+init_profile();
 
 // src/providers/codebuddy/index.ts
 init_logBuffer();
+init_cliPath();
 var CodebuddyProvider = class extends AcpProvider {
   constructor(timeout) {
     super(ACP_DEFAULT_PROFILE, timeout);
@@ -2317,6 +2660,7 @@ function registerWorkbuddianIcon() {
 var import_obsidian7 = require("obsidian");
 
 // src/types/index.ts
+init_cliOptions();
 init_i18n();
 function isObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -2556,6 +2900,9 @@ function parseMcpServerNames(json) {
     return [];
   }
 }
+
+// src/features/chat/input.ts
+init_mcpServers();
 
 // src/shared/instruction.ts
 function parseInstructionInput(text) {
@@ -3278,6 +3625,9 @@ function renderDiffRows(diffBody, diffLines) {
   }
 }
 
+// src/features/chat/input.ts
+init_permission();
+
 // src/features/chat/instructionModal.ts
 var import_obsidian3 = require("obsidian");
 init_i18n();
@@ -3419,6 +3769,9 @@ function buildSelectionBlock(selectedText, noteName) {
   ].join("\n");
 }
 
+// src/features/chat/input.ts
+init_responseFinalize();
+
 // src/features/chat/externalAccessModal.ts
 var import_obsidian5 = require("obsidian");
 init_i18n();
@@ -3481,6 +3834,9 @@ function sanitizeTitle(raw) {
 function shouldApplyAutoTitle(currentTitle, userText) {
   return currentTitle === fallbackTitle(userText);
 }
+
+// src/features/chat/input.ts
+init_cliOptions();
 
 // src/shared/contextUsage.ts
 function formatTokenCount(n) {
@@ -4946,6 +5302,7 @@ function showTabContextMenu(view, e, convId, tab, titleSpan) {
 }
 
 // src/features/chat/view.ts
+init_cliOptions();
 init_i18n();
 init_logBuffer();
 var VIEW_TYPE_CHAT = "workbuddian-panel";
@@ -5505,6 +5862,7 @@ var ConversationManager = class {
 // src/features/settings/tab.ts
 var import_obsidian11 = require("obsidian");
 init_i18n();
+init_cliPath();
 
 // src/features/settings/logModal.ts
 var import_obsidian9 = require("obsidian");
@@ -5606,6 +5964,9 @@ var McpServerModal = class extends import_obsidian10.Modal {
   }
 };
 
+// src/features/settings/tab.ts
+init_mcpServers();
+
 // src/shared/codebuddyPlugins.ts
 var import_fs2 = require("fs");
 var import_path2 = require("path");
@@ -5661,7 +6022,7 @@ function homeDir() {
 }
 
 // src/features/settings/tab.ts
-var import_child_process3 = require("child_process");
+var import_child_process4 = require("child_process");
 var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
@@ -6005,7 +6366,7 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
       const label = t(args[0] === "enable" ? "plugins.enable" : args[0] === "disable" ? "plugins.disable" : "plugins.update");
       btn.disabled = true;
       btn.setText(t("plugins.working"));
-      (0, import_child_process3.execFile)(codebuddyPath, ["plugin", ...args, plugin.name], { timeout: 2e4 }, (err) => {
+      (0, import_child_process4.execFile)(codebuddyPath, ["plugin", ...args, plugin.name], { timeout: 2e4 }, (err) => {
         btn.disabled = false;
         btn.setText(label);
         if (err) {

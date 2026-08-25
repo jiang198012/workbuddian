@@ -13,6 +13,9 @@ import { activeMcpServers, parseMcpServers } from '../../shared/mcpServers';
 
 const TIMEOUT = 300_000; // 5 分钟
 
+/** 启动阶段（ensureStarted/ensureLoaded）失败标记：hermes 路由器据此做粘性降级，轮中错误不降级 */
+export class AcpStartFailure extends Error {}
+
 interface SessionCallbacks {
     onPermissionRequest?: (data: PermissionCardData) => void;
     onUsage?: (used: number, size: number) => void;
@@ -165,7 +168,7 @@ export class AcpProvider {
             await this.client.ensureStarted();
             await session.ensureLoaded(vaultPath);
         } catch (e) {
-            throw new Error(this.startErrorMessage(e));
+            throw new AcpStartFailure(this.startErrorMessage(e));
         }
         return session.fork(name);
     }
@@ -197,7 +200,7 @@ export class AcpProvider {
             const mcpOverride = this.resolveMcpForMessage(mcpNames);
             await session.ensureLoaded(vaultPath, mcpOverride);
         } catch (e) {
-            throw new Error(this.startErrorMessage(e));
+            throw new AcpStartFailure(this.startErrorMessage(e));
         }
 
         const cbs = this.callbacks.get(sessionId) ?? {};
