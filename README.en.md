@@ -20,7 +20,7 @@
 
 ## Features
 
-- **Dual backends** — local CodeBuddy CLI (full agent features) or **Hermes agent gateway** (plain chat). Auto-discovers Hermes gateway URL + API key from `~/.hermes`; model list matches Hermes Desktop.
+- **Dual backends** — local CodeBuddy CLI or **Hermes agent**, both with full agent features (tools / approval cards / thinking / usage / forking) over ACP. Hermes falls back to a plain-chat HTTP lite mode when the local CLI is missing or a remote gateway is configured; auto-discovers gateway URL + API key from `~/.hermes`.
 - **Streaming chat** in the sidebar or a full-width main-area tab, with collapsible thinking / tool-call cards and Markdown rendering.
 - **`@` references anything** — subagents (`@Agent`), MCP servers (`@mcp`), notes (`@[[note]]`), or any file, from one dropdown.
 - **Approvals in the bubble** — Write / Edit / Bash / MCP tools ask permission on a card; plan mode continues in the same turn.

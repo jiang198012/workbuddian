@@ -1450,10 +1450,16 @@ var AcpSession = class {
             this.status = "prompting";
           }
         }
-        return this.client.rawRequest("session/prompt", {
-          sessionId: acpId,
-          prompt
-        });
+        try {
+          return await this.client.rawRequest("session/prompt", {
+            sessionId: acpId,
+            prompt
+          });
+        } catch (e) {
+          if (this.cancelPending)
+            return { stopReason: "cancelled" };
+          throw e;
+        }
       });
       return { stopReason: typeof result.stopReason === "string" ? result.stopReason : "end_turn" };
     } finally {

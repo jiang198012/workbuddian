@@ -490,6 +490,45 @@ describe('AcpSession cancel & failure', () => {
         expect(s.status).toBe('idle');
     });
 
+    it('prompt rejection while cancel pending resolves as cancelled (hermes 取消竞争 -32603)', async () => {
+        // hermes 取消与模型调用竞争时 prompt RPC 以 "Internal error" 收尾（源码主路径是
+        // stop_reason=cancelled）：用户取消语义不变，引擎按 cancelled 落账而非错误卡
+        const gate = deferred<{ stopReason: string }>();
+        const client = makeFakeClient((m) => {
+            if (m === 'session/load') return LOAD_OK;
+            if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
+            return undefined;
+        });
+        const lookup = makeLookup();
+        lookup.getAcpSessionId.mockReturnValue('acp-stored');
+        const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
+        await s.ensureLoaded('/v');
+        const handlers = makeHandlers();
+        const turn = s.prompt('long work', handlers);
+        await s.cancelTurn();
+        gate.reject(new Error('Internal error'));
+        await expect(turn).resolves.toEqual({ stopReason: 'cancelled' });
+        expect(s.status).toBe('idle');
+        expect(handlers.onError).not.toHaveBeenCalled();
+    });
+
+    it('prompt rejection without cancel propagates (非取消竞争不掩盖真错误)', async () => {
+        const gate = deferred<{ stopReason: string }>();
+        const client = makeFakeClient((m) => {
+            if (m === 'session/load') return LOAD_OK;
+            if (m === 'session/prompt') return gate.promise as unknown as { stopReason: string };
+            return undefined;
+        });
+        const lookup = makeLookup();
+        lookup.getAcpSessionId.mockReturnValue('acp-stored');
+        const s = new AcpSession('k', client, lookup, { model: '', mode: '' });
+        await s.ensureLoaded('/v');
+        const turn = s.prompt('work', makeHandlers());
+        gate.reject(new Error('model 500'));
+        await expect(turn).rejects.toThrow('model 500');
+        expect(s.status).toBe('idle');
+    });
+
     it('cancelTurn rejects parked permission before notifying', async () => {
         const gate = deferred<{ stopReason: string }>();
         const client = makeFakeClient((m) => {

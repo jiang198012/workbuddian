@@ -191,10 +191,17 @@ export class AcpSession {
                     }
                 }
                 // 必须走 rawRequest：request('session/prompt') 会再排队，造成自等待死锁
-                return this.client.rawRequest<{ stopReason?: string }>('session/prompt', {
-                    sessionId: acpId,
-                    prompt,
-                });
+                try {
+                    return await this.client.rawRequest<{ stopReason?: string }>('session/prompt', {
+                        sessionId: acpId,
+                        prompt,
+                    });
+                } catch (e) {
+                    // hermes 取消与模型调用竞争时 prompt RPC 以 -32603 "Internal error" 收尾
+                    //（其源码主路径是 stop_reason=cancelled）：用户已取消，按 cancelled 落账
+                    if (this.cancelPending) return { stopReason: 'cancelled' };
+                    throw e;
+                }
             });
             return { stopReason: typeof result.stopReason === 'string' ? result.stopReason : 'end_turn' };
         } finally {

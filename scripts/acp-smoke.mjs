@@ -5,11 +5,12 @@
  * 环境变量 CODEBUDDY_PATH 可指定 CLI 路径；否则依次探测 WorkBuddy.app 默认路径与 PATH。
  */
 import { spawn } from 'node:child_process';
-import { mkdtempSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const vault = process.argv[2] || mkdtempSync(join(tmpdir(), 'acp-smoke-'));
+mkdirSync(vault, { recursive: true }); // 传入路径未必存在：cwd 缺失会让 spawn 报误导性 ENOENT
 const CLI_CANDIDATES = [
     process.env.CODEBUDDY_PATH,
     '/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy',

@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.6.0 — 未发布
+
+**Hermes ACP 完整版**：Hermes 后端从纯对话 MVP 升级为全能力代理。698 项单测全绿。
+
+### 新增
+- **Hermes ACP 完整版**：本机 `hermes acp` 直连（复用 v2.0 ACP 引擎）——工具调用块、批准卡、思考流、上下文用量、历史回放、会话分叉（原生 `session/fork`）、模型切换（显示名取自握手 `name` 字段）、图片与 MCP 全量支持。
+- **自动降级**：CLI 缺失/自检失败/启动失败时粘性降级 HTTP 轻量模式（纯对话），聊天区顶条提示；用户改 CLI 路径或 gateway 即自动重探。
+- **远程 gateway 兜底**：gateway 填非本机地址时直接走 HTTP 轻量模式，不探测本机 CLI。
+- **设置页方案一**：运行模式状态行 + CLI 路径行为主，gateway/API key/测试连接折进「高级」组。
+
+### 改进
+- **ACP 引擎后端无关化**：`providers/codebuddy/acp` 提升为共享引擎 `providers/acp`，方言差异收敛为 `AcpBackendProfile` 剖面（codebuddy/hermes 各一份）；`StreamChunk` 内沉引擎。
+- **取消竞争容错**：hermes 取消与模型调用竞争时 prompt 以 "Internal error" 收尾，引擎按 cancelled 落账不再误出错误卡。
+
+### 已知缺口
+- Hermes 后端不支持调节推理强度（thoughtLevel 下拉置灰；hermes `set_config_option` 收下不执行，探针实证）。
+
 ## v2.5.1 — 2026-08-18
 
 **Hermes 后端支持(MVP)** + 设置页体验优化。668 项单测全绿。
