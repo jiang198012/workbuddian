@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.6.1 — 2026-08-26
+
+**Hermes ACP 热修**：修复 v2.6.0 发布的 Hermes 直连在本机必现的「连不上」与模型列表错串。701 项单测全绿，两项修复均经本机真实 CLI 端到端活验证。
+
+### 修复
+- **Hermes 直连必炸（阻断）**：ACP 引擎 spawn 沿用 codebuddy 策略把纯路径交给 node 解释，而 hermes shim 是 bash 脚本——node 执行即 SyntaxError，首个消息触发假性「未检测到 hermes CLI」并降级。新增剖面字段 `spawnViaNode`（codebuddy=true 历史行为；hermes=false 直接 spawn）。
+- **模型菜单错串 codebuddy**：provider 构造时模型列表硬编码播种 codebuddy 兜底清单，hermes 握手前菜单全是别家模型。新增剖面字段 `fallbackModels`（codebuddy 不变；hermes=`['auto']`），握手后替换为 hermes 真实列表（活验证：13 个模型及中文显示名正确流入）。
+- **自检日志可排查**：路由器 init() 探活失败详情（具体错误）进日志缓冲，不再只显示一句「未检测到 CLI」。
+- **设置页模式行 stale paint**：display 重建后异步模式变化刷新的是已 detach 的旧 DOM 行，改为经可变 holder 调最新闭包。
+
 ## v2.6.0 — 2026-08-25
 
 **Hermes ACP 完整版**：Hermes 后端从纯对话 MVP 升级为全能力代理。698 项单测全绿。
