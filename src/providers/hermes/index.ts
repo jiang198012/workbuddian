@@ -41,7 +41,11 @@ export class HermesProvider {
         if (!isLocalGateway(this.gatewayUrl)) { this.setMode('http'); return; } // 远程 → 直接 http
         const cli = resolveHermesPath(this.cliPath);
         const ok = await new Promise<boolean>((resolve) => {
-            execFile(cli, ['acp', '--check'], { timeout: 5000 }, (err) => resolve(!err));
+            execFile(cli, ['acp', '--check'], { timeout: 5000 }, (err) => {
+                // 失败详情必须进日志：设置页只显示"未检测到 CLI"，无详情无法排查（v2.6.0 教训）
+                if (err) bbLog('[WB] hermes CLI 自检失败:', cli, String(err));
+                resolve(!err);
+            });
         });
         this.setMode(ok ? 'acp' : 'http');
         bbLog('[WB] hermes 路由:', this.modeValue, ok ? `(${cli})` : '(CLI 自检失败)');

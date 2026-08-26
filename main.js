@@ -729,6 +729,7 @@ var ACP_DEFAULT_PROFILE = {
   id: "codebuddy",
   resolveCliPath: resolveCodebuddyPath,
   acpArgs: ["--acp"],
+  spawnViaNode: true,
   mapOutgoingMode: (m) => m,
   mapIncomingMode: (id) => id,
   async applyRemoteModel(client, sessionId, model) {
@@ -1021,7 +1022,8 @@ var AcpClient = class {
   }
   spawnAndHandshake() {
     return new Promise((resolve, reject) => {
-      const { command, args, shell } = buildSpawnCommand(this.scriptPath, this.nodePath, [...this.profile.acpArgs, ...this.extraArgs]);
+      const acpArgs = [...this.profile.acpArgs, ...this.extraArgs];
+      const { command, args, shell } = this.profile.spawnViaNode ? buildSpawnCommand(this.scriptPath, this.nodePath, acpArgs) : { command: this.scriptPath, args: acpArgs, shell: needsWindowsShell(this.scriptPath) };
       let proc;
       try {
         proc = (0, import_child_process2.spawn)(command, args, { shell });
@@ -2131,6 +2133,8 @@ var HERMES_PROFILE = {
   id: "hermes",
   resolveCliPath: resolveHermesPath,
   acpArgs: ["acp"],
+  spawnViaNode: false,
+  // hermes shim 是 bash 脚本：node 解释即 SyntaxError（v2.6.0 实测事故）
   mapOutgoingMode: (m) => OUTGOING_MODE[m],
   mapIncomingMode: (id) => INCOMING_MODE[id],
   async applyRemoteModel(client, sessionId, model) {
@@ -2430,7 +2434,11 @@ var HermesProvider = class {
     }
     const cli = resolveHermesPath(this.cliPath);
     const ok = await new Promise((resolve) => {
-      (0, import_child_process3.execFile)(cli, ["acp", "--check"], { timeout: 5e3 }, (err) => resolve(!err));
+      (0, import_child_process3.execFile)(cli, ["acp", "--check"], { timeout: 5e3 }, (err) => {
+        if (err)
+          bbLog("[WB] hermes CLI \u81EA\u68C0\u5931\u8D25:", cli, String(err));
+        resolve(!err);
+      });
     });
     this.setMode(ok ? "acp" : "http");
     bbLog("[WB] hermes \u8DEF\u7531:", this.modeValue, ok ? `(${cli})` : "(CLI \u81EA\u68C0\u5931\u8D25)");
@@ -5951,6 +5959,8 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
     super(app, plugin);
     this.thoughtDropdown = null;
     this.hermesModeWired = false;
+    /** display() 每次重建都换最新 paint 闭包；onModeChange 只接线一次、经此 holder 调用（否则刷新的是已 detach 的旧行） */
+    this.hermesModePaint = null;
     this.plugin = plugin;
     this.plugin.registerEvent(onConfigChanged(this.app, () => {
       if (this.thoughtDropdown && this.thoughtDropdown.getValue() !== this.plugin.settings.thoughtLevel) {
@@ -6000,10 +6010,14 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
             modeSetting.setDesc(`${t("hermes.modeHttp")} \xB7 ${why}`);
           }
         };
+        this.hermesModePaint = paintMode;
         paintMode();
         if (!this.hermesModeWired) {
           this.hermesModeWired = true;
-          api.onModeChange(() => paintMode());
+          api.onModeChange(() => {
+            var _a2;
+            return (_a2 = this.hermesModePaint) == null ? void 0 : _a2.call(this);
+          });
         }
         new import_obsidian11.Setting(containerEl).setName(t("hermes.cliPath")).setDesc(t("hermes.cliPathDesc")).addText((text) => text.setPlaceholder("~/.local/bin/hermes").setValue(this.plugin.settings.hermesCliPath).onChange(async (value) => {
           this.plugin.settings.hermesCliPath = value.trim();

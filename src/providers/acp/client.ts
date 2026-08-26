@@ -280,7 +280,11 @@ export class AcpClient {
 
     private spawnAndHandshake(): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            const { command, args, shell } = buildSpawnCommand(this.scriptPath, this.nodePath, [...this.profile.acpArgs, ...this.extraArgs]);
+            const acpArgs = [...this.profile.acpArgs, ...this.extraArgs];
+            const { command, args, shell } = this.profile.spawnViaNode
+                ? buildSpawnCommand(this.scriptPath, this.nodePath, acpArgs)
+                // 非 JS CLI（如 hermes 的 bash shim）：直接 spawn，与 wrapper/bare 分支同策略
+                : { command: this.scriptPath, args: acpArgs, shell: needsWindowsShell(this.scriptPath) };
             let proc: ReturnType<typeof spawn>;
             try {
                 proc = spawn(command, args, { shell });

@@ -31,6 +31,8 @@ describe('hermes profile 方言', () => {
         expect(HERMES_PROFILE.supportsThoughtLevel).toBe(false);
         expect(HERMES_PROFILE.isReplayUpdate({ _meta: { hermes: { compactionSummary: true } } })).toBe(false);
         expect(HERMES_PROFILE.forkMode).toBe('native-rpc');
+        // hermes shim 是 bash 脚本（unset PYTHONPATH; exec venv/python）：直接 spawn，不可由 node 解释
+        expect(HERMES_PROFILE.spawnViaNode).toBe(false);
     });
     it('normalizeToolCall 解嵌套 {tool, arguments}（探针实证形态）', () => {
         const out = HERMES_PROFILE.normalizeToolCall({

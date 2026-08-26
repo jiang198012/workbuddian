@@ -15,6 +15,12 @@ export interface AcpBackendProfile {
     resolveCliPath(customPath: string): string;
     /** spawn 时 CLI 后的 ACP 入口参数 */
     readonly acpArgs: readonly string[];
+    /**
+     * 纯路径（非 wrapper/非 bare fallback）是否走 node 解释。
+     * codebuddy CLI 是 JS 脚本 → true（v1 历史行为）；
+     * hermes shim 是 bash（unset PYTHONPATH; exec venv/python）→ false，直接 spawn。
+     */
+    readonly spawnViaNode: boolean;
     /** 插件权限模式 → agent 侧 mode id */
     mapOutgoingMode(mode: PermissionMode): string;
     /** agent 侧 mode id → 插件权限模式（不认识返回 undefined） */
@@ -43,6 +49,7 @@ export const ACP_DEFAULT_PROFILE: AcpBackendProfile = {
     id: 'codebuddy',
     resolveCliPath: resolveCodebuddyPath,
     acpArgs: ['--acp'],
+    spawnViaNode: true,
     mapOutgoingMode: (m) => m,
     mapIncomingMode: (id) => id as PermissionMode,
     async applyRemoteModel(client, sessionId, model) {

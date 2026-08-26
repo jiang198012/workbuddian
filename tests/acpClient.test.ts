@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { AcpClient, buildSpawnCommand, classifyHandshakeFailure, isAuthError, type AcpClientEvents } from '../src/providers/acp/client';
+import { HERMES_PROFILE } from '../src/providers/hermes/profile';
 
 jest.mock('child_process');
 const mockedSpawn = spawn as jest.MockedFunction<typeof spawn>;
@@ -305,6 +306,37 @@ describe('buildSpawnCommand / classifyHandshakeFailure / isAuthError', () => {
         expect(isAuthError('not logged in')).toBe(true);
         expect(isAuthError('请先登录')).toBe(true);
         expect(isAuthError('boom')).toBe(false);
+    });
+});
+
+describe('profile 驱动的 spawn 策略（spawnViaNode）', () => {
+    function makeEvents(): AcpClientEvents {
+        return {
+            onSessionUpdate: jest.fn(),
+            onPermissionRequest: jest.fn(),
+            onAgentNotification: jest.fn(),
+            onModels: jest.fn(),
+            onExit: jest.fn(),
+        };
+    }
+
+    it('hermes profile：纯路径直接 spawn，不经 node（bash shim 由 node 解释会 SyntaxError）', async () => {
+        const { proc, emitJson } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const client = new AcpClient(makeEvents(), HERMES_PROFILE);
+        client.setCliPath('/Users/jiang/.local/bin/hermes');
+        await startClient(client, emitJson);
+        expect(mockedSpawn).toHaveBeenCalledWith('/Users/jiang/.local/bin/hermes', ['acp'], { shell: false });
+    });
+
+    it('codebuddy 默认 profile：纯路径仍走 node 解释（历史行为不变）', async () => {
+        const { proc, emitJson } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const client = new AcpClient(makeEvents());
+        client.setCliPath('/usr/local/bin/codebuddy');
+        client.setNodePath('/fake/node');
+        await startClient(client, emitJson);
+        expect(mockedSpawn).toHaveBeenCalledWith('/fake/node', ['/usr/local/bin/codebuddy', '--acp'], { shell: false });
     });
 });
 

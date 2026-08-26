@@ -15,6 +15,8 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
     plugin: WorkbuddianPlugin;
     private thoughtDropdown: DropdownComponent | null = null;
     private hermesModeWired = false;
+    /** display() 每次重建都换最新 paint 闭包；onModeChange 只接线一次、经此 holder 调用（否则刷新的是已 detach 的旧行） */
+    private hermesModePaint: (() => void) | null = null;
 
     constructor(app: App, plugin: WorkbuddianPlugin) {
         super(app, plugin);
@@ -89,11 +91,12 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                         modeSetting.setDesc(`${t('hermes.modeHttp')} · ${why}`);
                     }
                 };
+                this.hermesModePaint = paintMode;
                 paintMode();
                 // 探测是异步的：init 落锤/粘性降级时就地刷新本行（只接线一次，display 反复重建不累积）
                 if (!this.hermesModeWired) {
                     this.hermesModeWired = true;
-                    api.onModeChange(() => paintMode());
+                    api.onModeChange(() => this.hermesModePaint?.());
                 }
 
                 new Setting(containerEl)

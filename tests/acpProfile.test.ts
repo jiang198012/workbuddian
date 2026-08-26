@@ -23,5 +23,7 @@ describe('codebuddy profile（行为钉：与现状一致）', () => {
         expect(CODEBUDDY_PROFILE.forkMode).toBe('branch-prompt');
         expect(CODEBUDDY_PROFILE.supportsThoughtLevel).toBe(true);
         expect(CODEBUDDY_PROFILE.normalizeToolCall({ title: 't' })).toEqual({});
+        // codebuddy CLI 是 JS 脚本：纯路径须走 node 解释（v1 历史行为）
+        expect(CODEBUDDY_PROFILE.spawnViaNode).toBe(true);
     });
 });
