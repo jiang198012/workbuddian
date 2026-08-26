@@ -455,64 +455,6 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 var import_obsidian14 = require("obsidian");
 
-// src/shared/cliOptions.ts
-var MODEL_OPTIONS = {
-  hy3: "hy3",
-  "glm-5.2": "glm-5.2",
-  "glm-5.1": "glm-5.1",
-  "glm-5v-turbo": "glm-5v-turbo",
-  "minimax-m3": "minimax-m3",
-  "kimi-k3-1": "kimi-k3-1",
-  "kimi-k2.7": "kimi-k2.7",
-  "kimi-k2.6": "kimi-k2.6",
-  "deepseek-v4-flash": "deepseek-v4-flash",
-  "deepseek-v4-pro": "deepseek-v4-pro"
-};
-var MODEL_LABELS = {
-  hy3: "Hunyuan \u6DF7\u5143",
-  "glm-5.2": "GLM-5.2\uFF08\u667A\u8C31\uFF09",
-  "glm-5.1": "GLM-5.1\uFF08\u667A\u8C31\uFF09",
-  "glm-5v-turbo": "GLM-5V Turbo\uFF08\u667A\u8C31\xB7\u89C6\u89C9\uFF09",
-  "minimax-m3": "MiniMax-M3\uFF08\u7A00\u5B87\uFF09",
-  "kimi-k3-1": "Kimi K3\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
-  "kimi-k2.7": "Kimi K2.7\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
-  "kimi-k2.6": "Kimi K2.6\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
-  "deepseek-v4-flash": "DeepSeek V4 Flash\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
-  "deepseek-v4-pro": "DeepSeek V4 Pro\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
-  auto: "Auto\uFF08\u81EA\u52A8\u9009\u62E9\uFF09"
-};
-function modelLabel(id) {
-  var _a;
-  return (_a = MODEL_LABELS[id]) != null ? _a : id;
-}
-var MODEL_ORDER = [
-  "glm-5.2",
-  "glm-5.1",
-  "glm-5v-turbo",
-  "deepseek-v4-pro",
-  "deepseek-v4-flash",
-  "kimi-k3-1",
-  "kimi-k2.7",
-  "kimi-k2.6",
-  "minimax-m3",
-  "hy3"
-];
-function orderModels(ids) {
-  const ranked = MODEL_ORDER.filter((m) => ids.includes(m));
-  const rest = ids.filter((m) => !MODEL_ORDER.includes(m));
-  return [...ranked, ...rest];
-}
-var FALLBACK_MODEL_OPTIONS = MODEL_OPTIONS;
-var PERMISSION_MODES = ["default", "plan", "acceptEdits", "bypassPermissions"];
-var PERMISSION_MODE_CHOICES = ["default", "plan", "bypassPermissions"];
-var THOUGHT_LEVEL_CHOICES = ["enabled", "minimal", "low", "medium", "high", "xhigh", "max"];
-function isThoughtLevel(value) {
-  return typeof value === "string" && THOUGHT_LEVEL_CHOICES.includes(value);
-}
-function isPermissionMode(value) {
-  return typeof value === "string" && PERMISSION_MODES.includes(value);
-}
-
 // src/providers/acp/provider.ts
 init_i18n();
 
@@ -724,12 +666,71 @@ function needsWindowsShell(scriptPath) {
   return isWin() && (ext === ".cmd" || ext === ".bat");
 }
 
+// src/shared/cliOptions.ts
+var MODEL_OPTIONS = {
+  hy3: "hy3",
+  "glm-5.2": "glm-5.2",
+  "glm-5.1": "glm-5.1",
+  "glm-5v-turbo": "glm-5v-turbo",
+  "minimax-m3": "minimax-m3",
+  "kimi-k3-1": "kimi-k3-1",
+  "kimi-k2.7": "kimi-k2.7",
+  "kimi-k2.6": "kimi-k2.6",
+  "deepseek-v4-flash": "deepseek-v4-flash",
+  "deepseek-v4-pro": "deepseek-v4-pro"
+};
+var MODEL_LABELS = {
+  hy3: "Hunyuan \u6DF7\u5143",
+  "glm-5.2": "GLM-5.2\uFF08\u667A\u8C31\uFF09",
+  "glm-5.1": "GLM-5.1\uFF08\u667A\u8C31\uFF09",
+  "glm-5v-turbo": "GLM-5V Turbo\uFF08\u667A\u8C31\xB7\u89C6\u89C9\uFF09",
+  "minimax-m3": "MiniMax-M3\uFF08\u7A00\u5B87\uFF09",
+  "kimi-k3-1": "Kimi K3\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
+  "kimi-k2.7": "Kimi K2.7\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
+  "kimi-k2.6": "Kimi K2.6\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
+  "deepseek-v4-flash": "DeepSeek V4 Flash\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
+  "deepseek-v4-pro": "DeepSeek V4 Pro\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
+  auto: "Auto\uFF08\u81EA\u52A8\u9009\u62E9\uFF09"
+};
+function modelLabel(id) {
+  var _a;
+  return (_a = MODEL_LABELS[id]) != null ? _a : id;
+}
+var MODEL_ORDER = [
+  "glm-5.2",
+  "glm-5.1",
+  "glm-5v-turbo",
+  "deepseek-v4-pro",
+  "deepseek-v4-flash",
+  "kimi-k3-1",
+  "kimi-k2.7",
+  "kimi-k2.6",
+  "minimax-m3",
+  "hy3"
+];
+function orderModels(ids) {
+  const ranked = MODEL_ORDER.filter((m) => ids.includes(m));
+  const rest = ids.filter((m) => !MODEL_ORDER.includes(m));
+  return [...ranked, ...rest];
+}
+var FALLBACK_MODEL_OPTIONS = MODEL_OPTIONS;
+var PERMISSION_MODES = ["default", "plan", "acceptEdits", "bypassPermissions"];
+var PERMISSION_MODE_CHOICES = ["default", "plan", "bypassPermissions"];
+var THOUGHT_LEVEL_CHOICES = ["enabled", "minimal", "low", "medium", "high", "xhigh", "max"];
+function isThoughtLevel(value) {
+  return typeof value === "string" && THOUGHT_LEVEL_CHOICES.includes(value);
+}
+function isPermissionMode(value) {
+  return typeof value === "string" && PERMISSION_MODES.includes(value);
+}
+
 // src/providers/acp/profile.ts
 var ACP_DEFAULT_PROFILE = {
   id: "codebuddy",
   resolveCliPath: resolveCodebuddyPath,
   acpArgs: ["--acp"],
   spawnViaNode: true,
+  fallbackModels: Object.keys(FALLBACK_MODEL_OPTIONS),
   mapOutgoingMode: (m) => m,
   mapIncomingMode: (id) => id,
   async applyRemoteModel(client, sessionId, model) {
@@ -1776,8 +1777,9 @@ var AcpProvider = class {
     this.profile = profile;
     this.config = { model: "auto", mode: "default", mcpServers: [] };
     this.lookup = NOOP_LOOKUP;
-    this.availableModels = Object.keys(FALLBACK_MODEL_OPTIONS);
+    this.availableModels = [];
     this.callbacks = /* @__PURE__ */ new Map();
+    this.availableModels = [...profile.fallbackModels];
     this.client = new AcpClient({
       onSessionUpdate: (acpSessionId, update) => this.routeSessionUpdate(acpSessionId, update),
       onPermissionRequest: (requestId, params) => this.routePermissionRequest(requestId, params),
@@ -2135,6 +2137,8 @@ var HERMES_PROFILE = {
   acpArgs: ["acp"],
   spawnViaNode: false,
   // hermes shim 是 bash 脚本：node 解释即 SyntaxError（v2.6.0 实测事故）
+  fallbackModels: ["auto"],
+  // 握手前只展示 auto：codebuddy 的兜底模型列表与 hermes 无关
   mapOutgoingMode: (m) => OUTGOING_MODE[m],
   mapIncomingMode: (id) => INCOMING_MODE[id],
   async applyRemoteModel(client, sessionId, model) {

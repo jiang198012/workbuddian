@@ -19,6 +19,11 @@ describe('HermesAcpProvider', () => {
         const p = new HermesAcpProvider();
         expect(() => p.setCustomAgentsJson('{"a":{}}')).not.toThrow();
     });
+    it('握手前模型列表只有 auto（不泄 codebuddy 兜底列表）', () => {
+        makeFakeClient(AcpClient as jest.MockedClass<typeof AcpClient>);
+        const p = new HermesAcpProvider();
+        expect(p.getAvailableModels()).toEqual(['auto']);
+    });
     it('getAvailableModelLabels 用握手 name 字段，缺省回落 id', () => {
         const kit = makeFakeClient(AcpClient as jest.MockedClass<typeof AcpClient>);
         const p = new HermesAcpProvider();

@@ -1,4 +1,5 @@
 import { CODEBUDDY_PROFILE } from '../src/providers/codebuddy/profile';
+import { FALLBACK_MODEL_OPTIONS } from '../src/shared/cliOptions';
 
 describe('codebuddy profile（行为钉：与现状一致）', () => {
     it('spawn 入口参数为 --acp', () => {
@@ -25,5 +26,7 @@ describe('codebuddy profile（行为钉：与现状一致）', () => {
         expect(CODEBUDDY_PROFILE.normalizeToolCall({ title: 't' })).toEqual({});
         // codebuddy CLI 是 JS 脚本：纯路径须走 node 解释（v1 历史行为）
         expect(CODEBUDDY_PROFILE.spawnViaNode).toBe(true);
+        // 握手前模型菜单种子 = 硬编码兜底列表（v1 历史行为）
+        expect([...CODEBUDDY_PROFILE.fallbackModels]).toEqual(Object.keys(FALLBACK_MODEL_OPTIONS));
     });
 });

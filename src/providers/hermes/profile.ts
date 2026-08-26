@@ -22,6 +22,7 @@ export const HERMES_PROFILE: AcpBackendProfile = {
     resolveCliPath: resolveHermesPath,
     acpArgs: ['acp'],
     spawnViaNode: false, // hermes shim 是 bash 脚本：node 解释即 SyntaxError（v2.6.0 实测事故）
+    fallbackModels: ['auto'], // 握手前只展示 auto：codebuddy 的兜底模型列表与 hermes 无关
     mapOutgoingMode: (m) => OUTGOING_MODE[m],
     mapIncomingMode: (id) => INCOMING_MODE[id],
     async applyRemoteModel(client, sessionId, model) {

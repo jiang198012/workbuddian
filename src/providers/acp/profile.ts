@@ -1,4 +1,4 @@
-import type { PermissionMode } from '../../shared/cliOptions';
+import { FALLBACK_MODEL_OPTIONS, type PermissionMode } from '../../shared/cliOptions';
 import { resolveCodebuddyPath } from '../../utils/cliPath';
 import { bbLog } from '../../shared/logBuffer';
 import type { AcpUpdate } from './events';
@@ -21,6 +21,8 @@ export interface AcpBackendProfile {
      * hermes shim 是 bash（unset PYTHONPATH; exec venv/python）→ false，直接 spawn。
      */
     readonly spawnViaNode: boolean;
+    /** 握手前模型菜单种子：codebuddy = 硬编码兜底列表；hermes = ['auto']（不泄别家模型名） */
+    readonly fallbackModels: readonly string[];
     /** 插件权限模式 → agent 侧 mode id */
     mapOutgoingMode(mode: PermissionMode): string;
     /** agent 侧 mode id → 插件权限模式（不认识返回 undefined） */
@@ -50,6 +52,7 @@ export const ACP_DEFAULT_PROFILE: AcpBackendProfile = {
     resolveCliPath: resolveCodebuddyPath,
     acpArgs: ['--acp'],
     spawnViaNode: true,
+    fallbackModels: Object.keys(FALLBACK_MODEL_OPTIONS),
     mapOutgoingMode: (m) => m,
     mapIncomingMode: (id) => id as PermissionMode,
     async applyRemoteModel(client, sessionId, model) {

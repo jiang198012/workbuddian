@@ -1,4 +1,4 @@
-import { FALLBACK_MODEL_OPTIONS, type PermissionMode } from '../../shared/cliOptions';
+import type { PermissionMode } from '../../shared/cliOptions';
 import { t } from '../../i18n';
 import { bbLog, bbError } from '../../shared/logBuffer';
 import { AcpClient, AcpStartError, type AcpStartTier } from './client';
@@ -37,13 +37,14 @@ export class AcpProvider {
     private readonly registry: SessionRegistry;
     private readonly config: SessionConfig = { model: 'auto', mode: 'default', mcpServers: [] };
     private lookup: ConversationLookup = NOOP_LOOKUP;
-    private availableModels: string[] = Object.keys(FALLBACK_MODEL_OPTIONS);
+    private availableModels: string[] = [];
     private callbacks = new Map<string, SessionCallbacks>();
 
     constructor(
         protected readonly profile: AcpBackendProfile = ACP_DEFAULT_PROFILE,
         timeout: number = TIMEOUT,
     ) {
+        this.availableModels = [...profile.fallbackModels]; // 握手前种子按后端方言给（hermes 不泄 codebuddy 列表）
         this.client = new AcpClient({
             onSessionUpdate: (acpSessionId, update) => this.routeSessionUpdate(acpSessionId, update),
             onPermissionRequest: (requestId, params) => this.routePermissionRequest(requestId, params),
