@@ -2,6 +2,7 @@ import { Notice, Plugin, WorkspaceLeaf } from 'obsidian';
 import { CodebuddyProvider } from './providers/codebuddy';
 import { HermesProvider } from './providers/hermes';
 import { discoverHermes } from './shared/hermesDiscover';
+import { sanitizeModelForBackend } from './shared/cliOptions';
 import { WorkbuddianChatView, VIEW_TYPE_CHAT } from './features/chat/view';
 import { ConversationManager } from './core/session/manager';
 import { migrateSettings, normalizePersistedData, getErrorMessage, type WorkbuddianSettings, type PersistedData } from './types';
@@ -239,6 +240,12 @@ export default class WorkbuddianPlugin extends Plugin {
 
     /** 把当前 settings 灌入 provider（onload 与「重置为默认」复用） */
     applySettingsToApi() {
+        // 切后端残留自愈：hermes 挂着 codebuddy 的模型 id 时回落 auto（旧版可能已把残留写进 data.json）
+        const sanitizedModel = sanitizeModelForBackend(this.settings.backend, this.settings.model);
+        if (sanitizedModel !== this.settings.model) {
+            this.settings.model = sanitizedModel;
+            void this.saveSettings();
+        }
         this.api.setCodebuddyPath(this.settings.codebuddyPath);
         this.api.setTimeout(this.settings.cliTimeoutMinutes * 60_000);
         this.api.setNodePath(this.settings.nodePath);

@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS, migrateSettings, exportSettings, MAX_PASTED_IMAGE_KEE
 import { applyLang, t } from '../../i18n';
 import { onConfigChanged } from '../../shared/configEvents';
 import { resolveCodebuddyPath } from '../../utils/cliPath';
+import { sanitizeModelForBackend } from '../../shared/cliOptions';
 import { LogModal } from './logModal';
 import { McpServerModal } from './mcpModal';
 import { parseMcpServers, serializeMcpServers, parseClipboardServers, type McpServerEntry } from '../../shared/mcpServers';
@@ -63,6 +64,8 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                 .setValue(this.plugin.settings.backend)
                 .onChange(async (value) => {
                     this.plugin.settings.backend = value as 'codebuddy' | 'hermes';
+                    // 切后端模型残留清理:hermes 不沿用 codebuddy 的模型 id,回落 auto(保证切换后有正确模型值)
+                    this.plugin.settings.model = sanitizeModelForBackend(value, this.plugin.settings.model);
                     // 切到 hermes 时自动探测本机配置(地址/key 预填)
                     if (value === 'hermes') {
                         const { discoverHermes } = await import('../../shared/hermesDiscover');

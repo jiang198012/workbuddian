@@ -708,6 +708,13 @@ var MODEL_ORDER = [
   "minimax-m3",
   "hy3"
 ];
+function sanitizeModelForBackend(backend, model) {
+  if (backend !== "hermes")
+    return model;
+  if (!model || model === "auto")
+    return "auto";
+  return model in MODEL_OPTIONS ? "auto" : model;
+}
 function orderModels(ids) {
   const ranked = MODEL_ORDER.filter((m) => ids.includes(m));
   const rest = ids.filter((m) => !MODEL_ORDER.includes(m));
@@ -5988,6 +5995,7 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
     new import_obsidian11.Setting(containerEl).setName(t("settings.conn")).setHeading();
     new import_obsidian11.Setting(containerEl).setName(t("backend.title")).setDesc(t("backend.desc")).addDropdown((dropdown) => dropdown.addOptions({ codebuddy: t("backend.codebuddy"), hermes: t("backend.hermes") }).setValue(this.plugin.settings.backend).onChange(async (value) => {
       this.plugin.settings.backend = value;
+      this.plugin.settings.model = sanitizeModelForBackend(value, this.plugin.settings.model);
       if (value === "hermes") {
         const { discoverHermes: discoverHermes2 } = await Promise.resolve().then(() => (init_hermesDiscover(), hermesDiscover_exports));
         const d = discoverHermes2();
@@ -6840,6 +6848,11 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
   }
   /** 把当前 settings 灌入 provider（onload 与「重置为默认」复用） */
   applySettingsToApi() {
+    const sanitizedModel = sanitizeModelForBackend(this.settings.backend, this.settings.model);
+    if (sanitizedModel !== this.settings.model) {
+      this.settings.model = sanitizedModel;
+      void this.saveSettings();
+    }
     this.api.setCodebuddyPath(this.settings.codebuddyPath);
     this.api.setTimeout(this.settings.cliTimeoutMinutes * 6e4);
     this.api.setNodePath(this.settings.nodePath);

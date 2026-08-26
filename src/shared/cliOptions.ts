@@ -40,6 +40,17 @@ export const MODEL_ORDER: string[] = [
     'minimax-m3', 'hy3',
 ];
 
+/**
+ * 切后端/启动时的模型残留清理：hermes 不允许挂着 codebuddy 的模型 id（切后端残留会显示成"已选"）。
+ * 只清可判定的残留（id 命中 codebuddy 白名单）；hermes 原生 id（custom:k3 等）与 auto 不动。
+ * 保证 hermes 侧至少恒有 'auto'（= 跟随 hermes 当前 provider 默认模型）。
+ */
+export function sanitizeModelForBackend(backend: string, model: string): string {
+    if (backend !== 'hermes') return model;
+    if (!model || model === 'auto') return 'auto';
+    return model in MODEL_OPTIONS ? 'auto' : model;
+}
+
 /** 把模型 id 列表按 MODEL_ORDER 排序（未收录的按原序附尾） */
 export function orderModels(ids: string[]): string[] {
     const ranked = MODEL_ORDER.filter((m) => ids.includes(m));
