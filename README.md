@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (v2.6.1)
+status: stable (v2.6.2)
 license: MIT
 -->
 
@@ -192,8 +192,11 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 v2.6.1**
+**最新版本 v2.6.2**
 
+- **v2.6.2** — **后端切换卫生**:
+  - 切到 Hermes 后不再残留 CodeBuddy 模型:自动回落 auto(跟随 Hermes 默认模型),旧配置启动自愈
+  - 设置页「后端连接」正名,CodeBuddy 专属行(CLI 路径/Node/自定义 agents)在 Hermes 模式下不再误显
 - **v2.6.1** — **Hermes 直连热修**:
   - 修复 Hermes 直连必现「连不上/未检测到 CLI」:spawn 不再用 node 解释 hermes 的 bash 启动脚本
   - 修复 Hermes 模型菜单错串 CodeBuddy 候选:握手前只显示 auto,握手后展示 Hermes 真实模型列表

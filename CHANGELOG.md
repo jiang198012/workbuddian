@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.6.2 — 2026-08-26
+
+**后端切换卫生**：模型值跨后端残留清理 + 设置页后端区块正名与门控。705 项单测全绿。
+
+### 修复
+- **切到 hermes 后模型残留**：`settings.model` 全局共享，codebuddy 的模型（如 deepseek）切到 hermes 后仍显示为选中（无效值）。新增 `sanitizeModelForBackend`：后端切换时与插件启动时各清理一次——hermes 下挂着 codebuddy 模型 id 一律回落 `auto`（跟随 hermes 当前默认模型），hermes 自有模型 id 不误伤，已污染的 data.json 启动自愈。
+- **设置页区块名不副实**：「CodeBuddy 连接」改名「后端连接」（区块内含后端选择 + hermes 配置）。
+- **codebuddy 专属行不再裸奔**：CodeBuddy CLI 路径 / Node 路径（hermes 直起不消费 node）/ 自定义 agents（hermes 侧 no-op）三行按 `backend === 'codebuddy'` 门控，hermes 模式下设置页不再显示无效行。
+
 ## v2.6.1 — 2026-08-26
 
 **Hermes ACP 热修**：修复 v2.6.0 发布的 Hermes 直连在本机必现的「连不上」与模型列表错串。701 项单测全绿，两项修复均经本机真实 CLI 端到端活验证。
