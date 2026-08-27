@@ -83,7 +83,7 @@ var init_i18n = __esm({
       "export.roleAssistant": { zh: "**AI**", en: "**AI**" },
       "export.metaExportedAt": { zh: "\u5BFC\u51FA\u65F6\u95F4", en: "Exported" },
       "export.metaMessages": { zh: "\u6D88\u606F\u6570", en: "messages" },
-      "settings.conn": { zh: "CodeBuddy \u8FDE\u63A5", en: "CodeBuddy Connection" },
+      "settings.conn": { zh: "\u540E\u7AEF\u8FDE\u63A5", en: "Backend Connection" },
       "settings.general": { zh: "\u901A\u7528", en: "General" },
       // Hermes 后端
       "backend.title": { zh: "\u540E\u7AEF", en: "Backend" },
@@ -6065,31 +6065,33 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
         new import_obsidian11.Notice(r.ok ? t("hermes.testOk") : `${t("hermes.testFail")}${r.error}`);
       }));
     }
-    let pathInput;
-    new import_obsidian11.Setting(containerEl).setName(t("settings.path")).setDesc(t("settings.pathDesc")).addText((text) => {
-      pathInput = text;
-      text.setPlaceholder(t("settings.pathPlaceholder")).setValue(this.plugin.settings.codebuddyPath).onChange(async (value) => {
-        this.plugin.settings.codebuddyPath = value;
-        this.plugin.api.setCodebuddyPath(value);
+    if (this.plugin.settings.backend === "codebuddy") {
+      let pathInput;
+      new import_obsidian11.Setting(containerEl).setName(t("settings.path")).setDesc(t("settings.pathDesc")).addText((text) => {
+        pathInput = text;
+        text.setPlaceholder(t("settings.pathPlaceholder")).setValue(this.plugin.settings.codebuddyPath).onChange(async (value) => {
+          this.plugin.settings.codebuddyPath = value;
+          this.plugin.api.setCodebuddyPath(value);
+          await this.plugin.saveSettings();
+        });
+      }).addExtraButton((btn) => btn.setIcon("search").setTooltip(t("settings.pathDetect")).onClick(async () => {
+        const detected = resolveCodebuddyPath("");
+        if (detected && detected !== "codebuddy") {
+          this.plugin.settings.codebuddyPath = detected;
+          this.plugin.api.setCodebuddyPath(detected);
+          await this.plugin.saveSettings();
+          pathInput.setValue(detected);
+          new import_obsidian11.Notice(t("settings.pathDetected").replace("{path}", detected));
+        } else {
+          new import_obsidian11.Notice(t("settings.pathNotFound"));
+        }
+      }));
+      new import_obsidian11.Setting(containerEl).setName(t("settings.node")).setDesc(t("settings.nodeDesc")).addText((text) => text.setPlaceholder(t("settings.nodePlaceholder")).setValue(this.plugin.settings.nodePath).onChange(async (value) => {
+        this.plugin.settings.nodePath = value;
+        this.plugin.api.setNodePath(value);
         await this.plugin.saveSettings();
-      });
-    }).addExtraButton((btn) => btn.setIcon("search").setTooltip(t("settings.pathDetect")).onClick(async () => {
-      const detected = resolveCodebuddyPath("");
-      if (detected && detected !== "codebuddy") {
-        this.plugin.settings.codebuddyPath = detected;
-        this.plugin.api.setCodebuddyPath(detected);
-        await this.plugin.saveSettings();
-        pathInput.setValue(detected);
-        new import_obsidian11.Notice(t("settings.pathDetected").replace("{path}", detected));
-      } else {
-        new import_obsidian11.Notice(t("settings.pathNotFound"));
-      }
-    }));
-    new import_obsidian11.Setting(containerEl).setName(t("settings.node")).setDesc(t("settings.nodeDesc")).addText((text) => text.setPlaceholder(t("settings.nodePlaceholder")).setValue(this.plugin.settings.nodePath).onChange(async (value) => {
-      this.plugin.settings.nodePath = value;
-      this.plugin.api.setNodePath(value);
-      await this.plugin.saveSettings();
-    }));
+      }));
+    }
     new import_obsidian11.Setting(containerEl).setName(t("settings.timeout")).setDesc(t("settings.timeoutDesc")).addText((text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.cliTimeoutMinutes)).onChange(async (value) => {
       const num = parseInt(value);
       if (!isNaN(num) && num > 0) {
@@ -6179,22 +6181,24 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
         renderMcpList();
       });
     });
-    new import_obsidian11.Setting(containerEl).setName(t("settings.customAgents")).setDesc(t("settings.customAgentsDesc")).addTextArea((text) => text.setPlaceholder('{"reviewer":{"description":"...","prompt":"..."}}').setValue(this.plugin.settings.customAgentsJson).onChange(async (value) => {
-      const trimmed = value.trim();
-      if (trimmed) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-            throw new Error("not object");
-        } catch (e) {
-          new import_obsidian11.Notice(t("settings.invalidJson").replace("{field}", t("settings.customAgents")));
-          return;
+    if (this.plugin.settings.backend === "codebuddy") {
+      new import_obsidian11.Setting(containerEl).setName(t("settings.customAgents")).setDesc(t("settings.customAgentsDesc")).addTextArea((text) => text.setPlaceholder('{"reviewer":{"description":"...","prompt":"..."}}').setValue(this.plugin.settings.customAgentsJson).onChange(async (value) => {
+        const trimmed = value.trim();
+        if (trimmed) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+              throw new Error("not object");
+          } catch (e) {
+            new import_obsidian11.Notice(t("settings.invalidJson").replace("{field}", t("settings.customAgents")));
+            return;
+          }
         }
-      }
-      this.plugin.settings.customAgentsJson = trimmed;
-      this.plugin.api.setCustomAgentsJson(trimmed);
-      await this.plugin.saveSettings();
-    }));
+        this.plugin.settings.customAgentsJson = trimmed;
+        this.plugin.api.setCustomAgentsJson(trimmed);
+        await this.plugin.saveSettings();
+      }));
+    }
     new import_obsidian11.Setting(containerEl).setName(t("settings.inject")).setHeading();
     new import_obsidian11.Setting(containerEl).setName(t("settings.injectVault")).setDesc(t("settings.injectVaultDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.injectVaultContext).onChange(async (value) => {
       this.plugin.settings.injectVaultContext = value;

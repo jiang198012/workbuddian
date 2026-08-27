@@ -156,49 +156,52 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                 }));
         }
 
-        let pathInput: TextComponent;
-        new Setting(containerEl)
-            .setName(t('settings.path'))
-            .setDesc(t('settings.pathDesc'))
-            .addText(text => {
-                pathInput = text;
-                text
-                    .setPlaceholder(t('settings.pathPlaceholder'))
-                    .setValue(this.plugin.settings.codebuddyPath)
-                    .onChange(async (value) => {
-                        this.plugin.settings.codebuddyPath = value;
-                        this.plugin.api.setCodebuddyPath(value);
-                        await this.plugin.saveSettings();
-                    });
-            })
-            .addExtraButton(btn => btn
-                .setIcon('search')
-                .setTooltip(t('settings.pathDetect'))
-                .onClick(async () => {
-                    // 按 Win/Mac 的 WorkBuddy 默认安装位置探测；探到真实路径就填入，否则提示手动指定
-                    const detected = resolveCodebuddyPath('');
-                    if (detected && detected !== 'codebuddy') {
-                        this.plugin.settings.codebuddyPath = detected;
-                        this.plugin.api.setCodebuddyPath(detected);
-                        await this.plugin.saveSettings();
-                        pathInput.setValue(detected);
-                        new Notice(t('settings.pathDetected').replace('{path}', detected));
-                    } else {
-                        new Notice(t('settings.pathNotFound'));
-                    }
-                }));
+        // codebuddy 专属设置(Node 路径仅 codebuddy 走 node 解释时需要;hermes 直起不消费)
+        if (this.plugin.settings.backend === 'codebuddy') {
+            let pathInput: TextComponent;
+            new Setting(containerEl)
+                .setName(t('settings.path'))
+                .setDesc(t('settings.pathDesc'))
+                .addText(text => {
+                    pathInput = text;
+                    text
+                        .setPlaceholder(t('settings.pathPlaceholder'))
+                        .setValue(this.plugin.settings.codebuddyPath)
+                        .onChange(async (value) => {
+                            this.plugin.settings.codebuddyPath = value;
+                            this.plugin.api.setCodebuddyPath(value);
+                            await this.plugin.saveSettings();
+                        });
+                })
+                .addExtraButton(btn => btn
+                    .setIcon('search')
+                    .setTooltip(t('settings.pathDetect'))
+                    .onClick(async () => {
+                        // 按 Win/Mac 的 WorkBuddy 默认安装位置探测；探到真实路径就填入，否则提示手动指定
+                        const detected = resolveCodebuddyPath('');
+                        if (detected && detected !== 'codebuddy') {
+                            this.plugin.settings.codebuddyPath = detected;
+                            this.plugin.api.setCodebuddyPath(detected);
+                            await this.plugin.saveSettings();
+                            pathInput.setValue(detected);
+                            new Notice(t('settings.pathDetected').replace('{path}', detected));
+                        } else {
+                            new Notice(t('settings.pathNotFound'));
+                        }
+                    }));
 
-        new Setting(containerEl)
-            .setName(t('settings.node'))
-            .setDesc(t('settings.nodeDesc'))
-            .addText(text => text
-                .setPlaceholder(t('settings.nodePlaceholder'))
-                .setValue(this.plugin.settings.nodePath)
-                .onChange(async (value) => {
-                    this.plugin.settings.nodePath = value;
-                    this.plugin.api.setNodePath(value);
-                    await this.plugin.saveSettings();
-                }));
+            new Setting(containerEl)
+                .setName(t('settings.node'))
+                .setDesc(t('settings.nodeDesc'))
+                .addText(text => text
+                    .setPlaceholder(t('settings.nodePlaceholder'))
+                    .setValue(this.plugin.settings.nodePath)
+                    .onChange(async (value) => {
+                        this.plugin.settings.nodePath = value;
+                        this.plugin.api.setNodePath(value);
+                        await this.plugin.saveSettings();
+                    }));
+        }
 
         new Setting(containerEl)
             .setName(t('settings.timeout'))
@@ -313,27 +316,30 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                     renderMcpList(); // JSON 直编成功后立即重建列表，不再等重开设置页（WB-011）
                 })});
 
-        new Setting(containerEl)
-            .setName(t('settings.customAgents'))
-            .setDesc(t('settings.customAgentsDesc'))
-            .addTextArea(text => text
-                .setPlaceholder('{"reviewer":{"description":"...","prompt":"..."}}')
-                .setValue(this.plugin.settings.customAgentsJson)
-                .onChange(async (value) => {
-                    const trimmed = value.trim();
-                    if (trimmed) {
-                        try {
-                            const parsed: unknown = JSON.parse(trimmed);
-                            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not object');
-                        } catch {
-                            new Notice(t('settings.invalidJson').replace('{field}', t('settings.customAgents')));
-                            return;
+        // codebuddy 专属:自定义 agents 经 --agents 传给 CLI(hermes 不消费)
+        if (this.plugin.settings.backend === 'codebuddy') {
+            new Setting(containerEl)
+                .setName(t('settings.customAgents'))
+                .setDesc(t('settings.customAgentsDesc'))
+                .addTextArea(text => text
+                    .setPlaceholder('{"reviewer":{"description":"...","prompt":"..."}}')
+                    .setValue(this.plugin.settings.customAgentsJson)
+                    .onChange(async (value) => {
+                        const trimmed = value.trim();
+                        if (trimmed) {
+                            try {
+                                const parsed: unknown = JSON.parse(trimmed);
+                                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not object');
+                            } catch {
+                                new Notice(t('settings.invalidJson').replace('{field}', t('settings.customAgents')));
+                                return;
+                            }
                         }
-                    }
-                    this.plugin.settings.customAgentsJson = trimmed;
-                    this.plugin.api.setCustomAgentsJson(trimmed);
-                    await this.plugin.saveSettings();
-                }));
+                        this.plugin.settings.customAgentsJson = trimmed;
+                        this.plugin.api.setCustomAgentsJson(trimmed);
+                        await this.plugin.saveSettings();
+                    }));
+        }
 
         // ===== 上下文注入 =====
         new Setting(containerEl).setName(t('settings.inject')).setHeading();

@@ -54,7 +54,7 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'export.metaExportedAt': { zh: '导出时间', en: 'Exported' },
     'export.metaMessages': { zh: '消息数', en: 'messages' },
 
-    'settings.conn': { zh: 'CodeBuddy 连接', en: 'CodeBuddy Connection' },
+    'settings.conn': { zh: '后端连接', en: 'Backend Connection' },
     'settings.general': { zh: '通用', en: 'General' },
     // Hermes 后端
     'backend.title': { zh: '后端', en: 'Backend' },
