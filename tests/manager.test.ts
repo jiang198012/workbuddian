@@ -142,6 +142,19 @@ describe('ConversationManager', () => {
         expect(manager.getById(conv.id)?.lastUsage).toEqual({ inputTokens: 22594 });
     });
 
+    it('stores workspace overrides and drafts per conversation', () => {
+        const first = manager.createConversation('first');
+        const second = manager.createConversation('second');
+        expect(manager.updateWorkspace(first.id, { model: 'deepseek-v4-pro', customInstruction: 'short' })).toBe(true);
+        expect(manager.setDraft(first.id, { text: 'unfinished', attachments: ['a.pdf'] })).toBe(true);
+        expect(manager.getById(first.id)?.workspace).toEqual({ model: 'deepseek-v4-pro', customInstruction: 'short' });
+        expect(manager.getById(first.id)?.draft).toEqual({ text: 'unfinished', attachments: ['a.pdf'] });
+        expect(manager.getById(second.id)?.workspace).toBeUndefined();
+        expect(manager.getById(second.id)?.draft).toBeUndefined();
+        expect(manager.setDraft(first.id, null)).toBe(true);
+        expect(manager.getById(first.id)?.draft).toBeUndefined();
+    });
+
     it('setUsage returns false for a missing conversation', () => {
         expect(manager.setUsage('missing', { inputTokens: 1 })).toBe(false);
     });
@@ -264,5 +277,15 @@ describe('forkConversation', () => {
         expect(forked!.sessionId).toBe('');
         expect(persist).toHaveBeenCalled();
         expect(manager.forkConversation('missing', 't', 'x')).toBeNull();
+    });
+
+    it('copies workspace overrides but starts the fork with an empty draft', () => {
+        const manager = new ConversationManager();
+        const src = manager.createConversation('源会话');
+        manager.updateWorkspace(src.id, { model: 'deepseek-v4-pro' });
+        manager.setDraft(src.id, { text: 'draft', attachments: ['x.md'] });
+        const forked = manager.forkConversation(src.id, '分叉', 'acp-forked-2');
+        expect(forked?.workspace).toEqual({ model: 'deepseek-v4-pro' });
+        expect(forked?.draft).toBeUndefined();
     });
 });

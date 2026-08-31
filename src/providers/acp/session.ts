@@ -40,6 +40,9 @@ export type SessionStatus = 'idle' | 'loading' | 'prompting' | 'awaitingPermissi
 /** provider 级当前配置；对象引用在 provider/registry/各 session 间共享，改字段即对新会话生效 */
 export interface SessionConfig { model: string; mode: string; mcpServers?: unknown[]; thoughtLevel?: string }
 
+/** 单次消息可覆盖的会话配置；全局 provider 配置仍作为默认值。 */
+export type SessionConfigOverride = Partial<Pick<SessionConfig, 'model' | 'mode' | 'thoughtLevel'>>;
+
 /**
  * 单会话状态机：idle → loading → idle（懒加载）；
  * idle → prompting → (awaitingPermission → prompting)* → idle（cancel 也须等 prompt 响应落账，spike 瑕疵⑤）。
@@ -61,6 +64,7 @@ export class AcpSession {
     private agentInFlight = new Set<string>(); // 在飞 Agent 工具调用（窗口内文本=子代理中继，WB-RT-007）
     private agentRelay = ''; // Agent 窗口内累积的中继文本，完成时挂为该行输出块
     private cancelPending = false; // 排队/在飞轮次被取消：到队首直接作废，不再占用 CLI
+    private configOverride: SessionConfigOverride = {};
 
     constructor(
         readonly key: string,
@@ -80,8 +84,16 @@ export class AcpSession {
         if (this.acpSessionId) this.needsReload = true;
     }
 
-    async ensureLoaded(vaultPath?: string, mcpServersOverride?: unknown[]): Promise<void> {
-        if (this.acpSessionId && !this.needsReload) return;
+    async ensureLoaded(
+        vaultPath?: string,
+        mcpServersOverride?: unknown[],
+        configOverride?: SessionConfigOverride,
+    ): Promise<void> {
+        this.configOverride = configOverride ?? {};
+        if (this.acpSessionId && !this.needsReload) {
+            await this.applyConfig();
+            return;
+        }
         this.status = 'loading';
         this.lastVaultPath = vaultPath;
         // R10 context-saving MCP:本次加载优先用调用方按需过滤的服务器（@mcp 激活才注入），否则回退全局配置
@@ -133,14 +145,15 @@ export class AcpSession {
     private async applyConfig(): Promise<void> {
         const sessionId = this.acpSessionId;
         if (!sessionId) return;
+        const config = { ...this.config, ...this.configOverride };
         try {
-            if (this.config.model) {
-                await this.profile.applyRemoteModel(this.client, sessionId, this.config.model);
+            if (config.model) {
+                await this.profile.applyRemoteModel(this.client, sessionId, config.model);
             }
         } catch (e) { bbLog('[WB] acp 设置模型失败（忽略）:', e); }
         try {
-            if (this.config.mode) {
-                const modeId = this.profile.mapOutgoingMode(this.config.mode as PermissionMode);
+            if (config.mode) {
+                const modeId = this.profile.mapOutgoingMode(config.mode as PermissionMode);
                 try {
                     await this.client.request('session/set_mode', { sessionId, modeId });
                 } catch {
@@ -150,8 +163,8 @@ export class AcpSession {
         } catch (e) { bbLog('[WB] acp 设置权限模式失败（忽略）:', e); }
         try {
             // hermes 的 set_config_option 收下不执行（探针实证）→ profile 声明不支持即跳过
-            if (this.config.thoughtLevel && this.profile.supportsThoughtLevel) {
-                await this.client.request('session/set_config_option', { sessionId, configId: 'thought_level', value: this.config.thoughtLevel });
+            if (config.thoughtLevel && this.profile.supportsThoughtLevel) {
+                await this.client.request('session/set_config_option', { sessionId, configId: 'thought_level', value: config.thoughtLevel });
             }
         } catch (e) { bbLog('[WB] acp 设置思考力度失败（忽略）:', e); }
     }
@@ -186,6 +199,7 @@ export class AcpSession {
                             sessionId: acpId, cwd: this.lastVaultPath ?? '', mcpServers: this.config.mcpServers ?? [],
                         });
                         this.activation.current = acpId;
+                        await this.applyConfig();
                     } finally {
                         this.status = 'prompting';
                     }

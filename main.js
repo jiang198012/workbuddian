@@ -279,6 +279,9 @@ var init_i18n = __esm({
       "render.copyFailed": { zh: "\u590D\u5236\u5931\u8D25", en: "Copy failed" },
       "render.edit": { zh: "\u7F16\u8F91\u5E76\u91CD\u53D1", en: "Edit and resend" },
       "render.regenerate": { zh: "\u91CD\u65B0\u751F\u6210", en: "Regenerate" },
+      "render.insertReply": { zh: "\u63D2\u5165\u56DE\u590D", en: "Insert reply" },
+      "render.replyInserted": { zh: "\u56DE\u590D\u5DF2\u63D2\u5165", en: "Reply inserted" },
+      "render.saveReply": { zh: "\u4FDD\u5B58\u56DE\u590D\u4E3A\u7B14\u8BB0", en: "Save reply as note" },
       "render.editResendHint": { zh: "\u5DF2\u8F7D\u5165\u539F\u6D88\u606F\uFF0C\u7F16\u8F91\u540E\u53D1\u9001", en: "Original loaded; edit and send" },
       "render.insertToNote": { zh: "\u63D2\u5165\u5230\u5F53\u524D\u7B14\u8BB0", en: "Insert into current note" },
       "render.noActiveNote": { zh: "\u6CA1\u6709\u6253\u5F00\u7684\u7B14\u8BB0", en: "No note open" },
@@ -287,6 +290,10 @@ var init_i18n = __esm({
       "render.saveAsNote": { zh: "\u4FDD\u5B58\u4E3A\u65B0\u7B14\u8BB0", en: "Save as new note" },
       "render.savedAs": { zh: "\u5DF2\u4FDD\u5B58\u4E3A {name}", en: "Saved as {name}" },
       "render.saveFailed": { zh: "\u4FDD\u5B58\u5931\u8D25\uFF1A", en: "Save failed: " },
+      "instruction.injectVaultContext": { zh: "\u6CE8\u5165 Vault \u4E0A\u4E0B\u6587", en: "Inject Vault context" },
+      "instruction.injectVaultContextDesc": { zh: "\u5C06\u5F53\u524D Vault \u8DEF\u5F84\u4E0E\u4E0A\u4E0B\u6587\u4FE1\u606F\u5E26\u5165\u672C\u4F1A\u8BDD", en: "Include the current Vault path and context in this conversation" },
+      "instruction.injectCurrentNoteLink": { zh: "\u6CE8\u5165\u5F53\u524D\u7B14\u8BB0\u94FE\u63A5", en: "Inject current note link" },
+      "instruction.injectCurrentNoteLinkDesc": { zh: "\u5C06\u5F53\u524D\u67E5\u770B\u7684\u7B14\u8BB0\u540D\u79F0\u4E0E\u8DEF\u5F84\u5E26\u5165\u672C\u4F1A\u8BDD", en: "Include the current note name and path in this conversation" },
       "tabs.close": { zh: "\u5173\u95ED\u5BF9\u8BDD", en: "Close chat" },
       "tabs.searchPlaceholder": { zh: "\u641C\u7D22\u4F1A\u8BDD\u2026", en: "Search chats\u2026" },
       "tabs.rename": { zh: "\u91CD\u547D\u540D", en: "Rename" },
@@ -1310,7 +1317,6 @@ function appendTextChunk(accumulated, incoming) {
 
 // src/providers/acp/session.ts
 var AcpSession = class {
-  // 排队/在飞轮次被取消：到队首直接作废，不再占用 CLI
   constructor(key, client, lookup, config, profile = ACP_DEFAULT_PROFILE, activation = { current: null }) {
     this.key = key;
     this.client = client;
@@ -1337,6 +1343,8 @@ var AcpSession = class {
     this.agentRelay = "";
     // Agent 窗口内累积的中继文本，完成时挂为该行输出块
     this.cancelPending = false;
+    // 排队/在飞轮次被取消：到队首直接作废，不再占用 CLI
+    this.configOverride = {};
   }
   /** 是否处于轮次内（有活跃 handlers）：轮外的 config 更新由 provider 旁路直推，不经本对象（WB-007） */
   get inTurn() {
@@ -1347,10 +1355,13 @@ var AcpSession = class {
     if (this.acpSessionId)
       this.needsReload = true;
   }
-  async ensureLoaded(vaultPath, mcpServersOverride) {
+  async ensureLoaded(vaultPath, mcpServersOverride, configOverride) {
     var _a, _b;
-    if (this.acpSessionId && !this.needsReload)
+    this.configOverride = configOverride != null ? configOverride : {};
+    if (this.acpSessionId && !this.needsReload) {
+      await this.applyConfig();
       return;
+    }
     this.status = "loading";
     this.lastVaultPath = vaultPath;
     const mcpServers = (_a = mcpServersOverride != null ? mcpServersOverride : this.config.mcpServers) != null ? _a : [];
@@ -1401,16 +1412,17 @@ var AcpSession = class {
     const sessionId = this.acpSessionId;
     if (!sessionId)
       return;
+    const config = { ...this.config, ...this.configOverride };
     try {
-      if (this.config.model) {
-        await this.profile.applyRemoteModel(this.client, sessionId, this.config.model);
+      if (config.model) {
+        await this.profile.applyRemoteModel(this.client, sessionId, config.model);
       }
     } catch (e) {
       bbLog("[WB] acp \u8BBE\u7F6E\u6A21\u578B\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
     }
     try {
-      if (this.config.mode) {
-        const modeId = this.profile.mapOutgoingMode(this.config.mode);
+      if (config.mode) {
+        const modeId = this.profile.mapOutgoingMode(config.mode);
         try {
           await this.client.request("session/set_mode", { sessionId, modeId });
         } catch (e) {
@@ -1421,8 +1433,8 @@ var AcpSession = class {
       bbLog("[WB] acp \u8BBE\u7F6E\u6743\u9650\u6A21\u5F0F\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
     }
     try {
-      if (this.config.thoughtLevel && this.profile.supportsThoughtLevel) {
-        await this.client.request("session/set_config_option", { sessionId, configId: "thought_level", value: this.config.thoughtLevel });
+      if (config.thoughtLevel && this.profile.supportsThoughtLevel) {
+        await this.client.request("session/set_config_option", { sessionId, configId: "thought_level", value: config.thoughtLevel });
       }
     } catch (e) {
       bbLog("[WB] acp \u8BBE\u7F6E\u601D\u8003\u529B\u5EA6\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
@@ -1456,6 +1468,7 @@ var AcpSession = class {
               mcpServers: (_b = this.config.mcpServers) != null ? _b : []
             });
             this.activation.current = acpId;
+            await this.applyConfig();
           } finally {
             this.status = "prompting";
           }
@@ -1919,13 +1932,13 @@ var AcpProvider = class {
     this.rejectPendingPermissions();
     this.client.dispose();
   }
-  async *sendMessage(sessionId, text, vaultPath, addDirs = [], permissionModeOverride, images, mcpNames) {
+  async *sendMessage(sessionId, text, vaultPath, addDirs = [], permissionModeOverride, images, mcpNames, configOverride) {
     var _a;
     const session = this.registry.get(sessionId);
     try {
       await this.client.ensureStarted();
       const mcpOverride = this.resolveMcpForMessage(mcpNames);
-      await session.ensureLoaded(vaultPath, mcpOverride);
+      await session.ensureLoaded(vaultPath, mcpOverride, configOverride);
     } catch (e) {
       throw new AcpStartFailure(this.startErrorMessage(e));
     }
@@ -2274,8 +2287,9 @@ var HermesHttpProvider = class {
     }
   }
   /** 发送消息:OpenAI 兼容流式,逐 chunk yield text;done 收尾(多余参数仅签名兼容,忽略) */
-  async *sendMessage(sessionKey, text, vaultPath, addDirs, permissionModeOverride, images, mcpNames) {
-    var _a, _b, _c;
+  async *sendMessage(sessionKey, text, vaultPath, addDirs, permissionModeOverride, images, mcpNames, configOverride) {
+    var _a, _b, _c, _d;
+    const model = (_a = configOverride == null ? void 0 : configOverride.model) != null ? _a : this.model;
     this.abortController = new AbortController();
     const timer = setTimeout(() => {
       var _a2;
@@ -2286,7 +2300,7 @@ var HermesHttpProvider = class {
         method: "POST",
         headers: { "Content-Type": "application/json", ...this.authHeaders() },
         body: JSON.stringify({
-          model: this.model === "auto" ? void 0 : this.model,
+          model: model === "auto" ? void 0 : model,
           messages: [{ role: "user", content: text }],
           stream: true
         }),
@@ -2315,7 +2329,7 @@ var HermesHttpProvider = class {
             break;
           try {
             const obj = JSON.parse(payload);
-            const delta = (_c = (_b = (_a = obj.choices) == null ? void 0 : _a[0]) == null ? void 0 : _b.delta) == null ? void 0 : _c.content;
+            const delta = (_d = (_c = (_b = obj.choices) == null ? void 0 : _b[0]) == null ? void 0 : _c.delta) == null ? void 0 : _d.content;
             if (delta)
               yield { type: "text", content: delta };
           } catch (e) {
@@ -2587,6 +2601,17 @@ init_hermesDiscover();
 
 // src/features/chat/view.ts
 var import_obsidian8 = require("obsidian");
+
+// src/shared/chatWorkspace.ts
+function resolveConversationWorkspace(settings, override) {
+  const model = typeof (override == null ? void 0 : override.model) === "string" && override.model.trim() ? override.model.trim() : settings.model;
+  const permissionMode = isPermissionMode(override == null ? void 0 : override.permissionMode) ? override.permissionMode : isPermissionMode(settings.permissionMode) ? settings.permissionMode : "default";
+  const thoughtLevel = isThoughtLevel(override == null ? void 0 : override.thoughtLevel) ? override.thoughtLevel : isThoughtLevel(settings.thoughtLevel) ? settings.thoughtLevel : "enabled";
+  const customInstruction = typeof (override == null ? void 0 : override.customInstruction) === "string" ? override.customInstruction : settings.customInstruction;
+  const injectVaultContext = typeof (override == null ? void 0 : override.injectVaultContext) === "boolean" ? override.injectVaultContext : settings.injectVaultContext;
+  const injectCurrentNoteLink = typeof (override == null ? void 0 : override.injectCurrentNoteLink) === "boolean" ? override.injectCurrentNoteLink : settings.injectCurrentNoteLink;
+  return { model, permissionMode, thoughtLevel, customInstruction, injectVaultContext, injectCurrentNoteLink };
+}
 
 // src/shared/icon.ts
 var import_obsidian = require("obsidian");
@@ -3026,6 +3051,40 @@ function pruneImages(dir, keepN) {
   }
 }
 
+// src/shared/noteWriteback.ts
+function sanitizeNoteName(name) {
+  const cleaned = name.replace(/[\\/:*?"<>|]/g, "").replace(/[\r\n]+/g, " ").trim().replace(/\.+$/g, "").trim();
+  return cleaned || "workbuddian-reply";
+}
+function yamlSingleQuote(value) {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+function formatAssistantReply(conversationTitle, content, timestamp = Date.now()) {
+  const title = conversationTitle.replace(/[\r\n]+/g, " ").trim() || "workbuddian-reply";
+  const body = content.trim();
+  return [
+    "---",
+    "source: Workbuddian",
+    `conversation: ${yamlSingleQuote(title)}`,
+    `created: ${new Date(timestamp).toISOString()}`,
+    "---",
+    "",
+    body,
+    ""
+  ].join("\n");
+}
+function nextAvailableNotePath(desiredName, existingPaths) {
+  const base = sanitizeNoteName(desiredName);
+  const existing = new Set(existingPaths);
+  const first = `${base}.md`;
+  if (!existing.has(first))
+    return first;
+  let index = 2;
+  while (existing.has(`${base}-${index}.md`))
+    index++;
+  return `${base}-${index}.md`;
+}
+
 // src/features/chat/render.ts
 init_i18n();
 async function renderMessages(view) {
@@ -3109,27 +3168,6 @@ function renderNameChip(chip, name) {
   (0, import_obsidian2.setIcon)(chip.createSpan({ cls: "workbuddian-attachment-chip-icon" }), "paperclip");
   chip.createSpan({ cls: "workbuddian-attachment-chip-name", text: name });
 }
-function renderCopyButton(row, content) {
-  const actions = row.createDiv({ cls: "workbuddian-message-actions" });
-  const copyBtn = actions.createEl("button", {
-    cls: "workbuddian-message-action-btn",
-    attr: { "aria-label": t("render.copy"), title: t("render.copy") }
-  });
-  (0, import_obsidian2.setIcon)(copyBtn, "copy");
-  copyBtn.onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(content);
-      (0, import_obsidian2.setIcon)(copyBtn, "check");
-      copyBtn.setAttribute("title", t("render.copied"));
-      window.setTimeout(() => {
-        (0, import_obsidian2.setIcon)(copyBtn, "copy");
-        copyBtn.setAttribute("title", t("render.copy"));
-      }, 1500);
-    } catch (e) {
-      new import_obsidian2.Notice(t("render.copyFailed"));
-    }
-  };
-}
 function renderMessageActions(view, row, msg) {
   const actions = row.createDiv({ cls: "workbuddian-message-actions" });
   const copyBtn = actions.createEl("button", {
@@ -3158,6 +3196,49 @@ function renderMessageActions(view, row, msg) {
     (0, import_obsidian2.setIcon)(editBtn, "pencil");
     editBtn.onclick = () => editAndResendMessage(view, msg);
   } else {
+    const insertReplyBtn = actions.createEl("button", {
+      cls: "workbuddian-message-action-btn",
+      attr: { "aria-label": t("render.insertReply"), title: t("render.insertReply") }
+    });
+    (0, import_obsidian2.setIcon)(insertReplyBtn, "file-input");
+    insertReplyBtn.onclick = async () => {
+      var _a;
+      const markdownView = view.lastMarkdownView;
+      const file = (_a = markdownView == null ? void 0 : markdownView.file) != null ? _a : view.app.workspace.getActiveFile();
+      if (!file) {
+        new import_obsidian2.Notice(t("render.noActiveNote"));
+        return;
+      }
+      try {
+        if (markdownView == null ? void 0 : markdownView.editor) {
+          markdownView.editor.replaceSelection(msg.content);
+        } else {
+          await view.app.vault.append(file, `
+
+${msg.content}
+`);
+        }
+        new import_obsidian2.Notice(t("render.replyInserted"));
+      } catch (e) {
+        new import_obsidian2.Notice(t("render.insertFailed") + (e instanceof Error ? e.message : String(e)));
+      }
+    };
+    const saveReplyBtn = actions.createEl("button", {
+      cls: "workbuddian-message-action-btn",
+      attr: { "aria-label": t("render.saveReply"), title: t("render.saveReply") }
+    });
+    (0, import_obsidian2.setIcon)(saveReplyBtn, "file-plus");
+    saveReplyBtn.onclick = async () => {
+      var _a, _b;
+      const title = (_b = (_a = view.getActiveConversation()) == null ? void 0 : _a.title) != null ? _b : "workbuddian-reply";
+      const path3 = nextAvailableNotePath(title, view.app.vault.getFiles().map((f) => f.path));
+      try {
+        await view.app.vault.create(path3, formatAssistantReply(title, msg.content, msg.timestamp));
+        new import_obsidian2.Notice(t("render.savedAs").replace("{name}", path3));
+      } catch (e) {
+        new import_obsidian2.Notice(t("render.saveFailed") + (e instanceof Error ? e.message : String(e)));
+      }
+    };
     const regenBtn = actions.createEl("button", {
       cls: "workbuddian-message-action-btn",
       attr: { "aria-label": t("render.regenerate"), title: t("render.regenerate") }
@@ -3580,6 +3661,15 @@ var InstructionModal = class extends import_obsidian3.Modal {
       attr: { placeholder: t("instruction.placeholder"), rows: "6" }
     });
     ta.value = this.initial;
+    const workspace = this.view.getActiveWorkspace();
+    let injectVaultContext = workspace.injectVaultContext;
+    let injectCurrentNoteLink = workspace.injectCurrentNoteLink;
+    new import_obsidian3.Setting(contentEl).setName(t("instruction.injectVaultContext")).setDesc(t("instruction.injectVaultContextDesc")).addToggle((toggle) => toggle.setValue(injectVaultContext).onChange((value) => {
+      injectVaultContext = value;
+    }));
+    new import_obsidian3.Setting(contentEl).setName(t("instruction.injectCurrentNoteLink")).setDesc(t("instruction.injectCurrentNoteLinkDesc")).addToggle((toggle) => toggle.setValue(injectCurrentNoteLink).onChange((value) => {
+      injectCurrentNoteLink = value;
+    }));
     const bar = contentEl.createDiv({ cls: "workbuddian-instruction-buttons" });
     const clearBtn = bar.createEl("button", { text: t("instruction.clear") });
     clearBtn.onclick = () => {
@@ -3588,8 +3678,11 @@ var InstructionModal = class extends import_obsidian3.Modal {
     };
     const saveBtn = bar.createEl("button", { text: t("instruction.save"), cls: "mod-cta" });
     saveBtn.onclick = async () => {
-      this.view.settings.customInstruction = ta.value.trim();
-      await this.view.saveSettingsCallback();
+      this.view.updateActiveWorkspace({
+        customInstruction: ta.value.trim(),
+        injectVaultContext,
+        injectCurrentNoteLink
+      });
       this.view.refreshInstructionIndicator();
       this.close();
     };
@@ -3599,7 +3692,7 @@ var InstructionModal = class extends import_obsidian3.Modal {
   }
 };
 function openInstructionModal(view, addition) {
-  const existing = view.settings.customInstruction || "";
+  const existing = view.getActiveWorkspace().customInstruction || "";
   const initial = addition ? existing ? `${existing}
 ${addition}` : addition : existing;
   new InstructionModal(view, initial).open();
@@ -3786,15 +3879,6 @@ function isUsageWarning(percent) {
   return percent >= USAGE_WARNING_PERCENT;
 }
 
-// src/shared/configEvents.ts
-var CONFIG_CHANGED_EVENT = "workbuddian:config-changed";
-function emitConfigChanged(app) {
-  app.workspace.trigger(CONFIG_CHANGED_EVENT);
-}
-function onConfigChanged(app, cb) {
-  return app.workspace.on(CONFIG_CHANGED_EVENT, cb);
-}
-
 // src/features/chat/input.ts
 init_i18n();
 function suggestItems(view) {
@@ -3872,6 +3956,7 @@ function insertTextMention(view, name) {
   }
   closeSuggest(view);
   adjustTextareaHeight(view);
+  view.scheduleDraftPersist();
 }
 function insertAtReference(view, file) {
   var _a;
@@ -3904,6 +3989,7 @@ function insertAtReference(view, file) {
   closeSuggest(view);
   renderReferenceChips(view);
   adjustTextareaHeight(view);
+  view.scheduleDraftPersist();
 }
 function renderReferenceChips(view) {
   const names = parseAtReferences(view.inputEl.value);
@@ -3928,6 +4014,7 @@ function renderReferenceChips(view) {
   }
 }
 function renderAttachmentChips(view) {
+  view.scheduleDraftPersist();
   view.attachChipsEl.empty();
   if (view.attachments.length === 0) {
     view.attachChipsEl.addClass("workbuddian-hidden");
@@ -4074,26 +4161,23 @@ function renderApprovalDetail(body, detail) {
   }
 }
 function applyToolbarConfig(view, cfg) {
-  var _a;
   let changed = false;
-  if (cfg.mode && PERMISSION_MODE_CHOICES.includes(cfg.mode) && cfg.mode !== view.settings.permissionMode) {
-    view.settings.permissionMode = cfg.mode;
-    (0, import_obsidian6.setIcon)(view.permissionBtn, permissionIcon(view.settings.permissionMode));
-    view.permissionBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + view.settings.permissionMode)}`);
+  const current = view.getActiveWorkspace();
+  const patch = {};
+  if (cfg.mode && PERMISSION_MODE_CHOICES.includes(cfg.mode) && cfg.mode !== current.permissionMode) {
+    patch.permissionMode = cfg.mode;
     changed = true;
   }
-  if (cfg.model && cfg.model !== view.settings.model) {
-    view.settings.model = cfg.model;
-    (_a = view.containerEl.querySelector(".workbuddian-model-btn")) == null ? void 0 : _a.setText(modelDisplayLabel(view, cfg.model));
+  if (cfg.model && cfg.model !== current.model) {
+    patch.model = cfg.model;
     changed = true;
   }
-  if (cfg.thoughtLevel && cfg.thoughtLevel !== view.settings.thoughtLevel) {
-    view.settings.thoughtLevel = cfg.thoughtLevel;
+  if (cfg.thoughtLevel && cfg.thoughtLevel !== current.thoughtLevel) {
+    patch.thoughtLevel = cfg.thoughtLevel;
     changed = true;
   }
   if (changed) {
-    void view.saveSettingsCallback();
-    emitConfigChanged(view.app);
+    view.updateActiveWorkspace(patch);
   }
 }
 function pastedDir(view) {
@@ -4295,13 +4379,12 @@ function permissionIcon(mode) {
 }
 function openPermissionMenu(view, btn, evt) {
   const menu = new import_obsidian6.Menu();
+  const workspace = view.getActiveWorkspace();
   for (const mode of PERMISSION_MODE_CHOICES) {
-    menu.addItem((item) => item.setTitle(t("perm." + mode)).setIcon(permissionIcon(mode)).setChecked(view.settings.permissionMode === mode).onClick(async () => {
-      view.settings.permissionMode = mode;
-      view.api.setPermissionMode(mode);
+    menu.addItem((item) => item.setTitle(t("perm." + mode)).setIcon(permissionIcon(mode)).setChecked(workspace.permissionMode === mode).onClick(async () => {
+      view.updateActiveWorkspace({ permissionMode: mode });
       (0, import_obsidian6.setIcon)(btn, permissionIcon(mode));
       btn.setAttribute("title", `${t("input.permission")}: ${t("perm." + mode)}`);
-      await view.saveSettingsCallback();
     }));
   }
   menu.showAtMouseEvent(evt);
@@ -4316,15 +4399,14 @@ function modelDisplayLabel(view, id) {
 }
 function openModelMenu(view, btn) {
   const menu = new import_obsidian6.Menu();
+  const workspace = view.getActiveWorkspace();
   const ids = [.../* @__PURE__ */ new Set(["auto", ...view.api.getAvailableModels()])];
   const models = orderModels(ids);
   const labelOf = (id) => modelDisplayLabel(view, id);
   for (const id of models) {
-    menu.addItem((item) => item.setTitle(labelOf(id)).setChecked(view.settings.model === id).onClick(async () => {
-      view.settings.model = id;
-      view.api.setModel(id);
+    menu.addItem((item) => item.setTitle(labelOf(id)).setChecked(workspace.model === id).onClick(async () => {
+      view.updateActiveWorkspace({ model: id });
       btn.setText(labelOf(id));
-      await view.saveSettingsCallback();
     }));
   }
   const rect = btn.getBoundingClientRect();
@@ -4334,6 +4416,7 @@ function removeReference(view, name) {
   view.inputEl.value = removeAtReference(view.inputEl.value, name);
   renderReferenceChips(view);
   adjustTextareaHeight(view);
+  view.scheduleDraftPersist();
   view.inputEl.focus();
 }
 function updateSlashSuggest(view) {
@@ -4388,6 +4471,7 @@ function insertSlashCommand(view, name) {
     view.atSuggestEl.empty();
     adjustTextareaHeight(view);
     renderReferenceChips(view);
+    view.scheduleDraftPersist();
     return;
   }
   view.inputEl.value = `/${name} `;
@@ -4397,6 +4481,7 @@ function insertSlashCommand(view, name) {
   view.atSuggestEl.addClass("workbuddian-hidden");
   view.atSuggestEl.empty();
   adjustTextareaHeight(view);
+  view.scheduleDraftPersist();
 }
 async function buildReferenceBlock(view, text) {
   if (text.includes("@stats")) {
@@ -4471,23 +4556,27 @@ async function sendMessage(view) {
     view.inputEl.setSelectionRange(0, 0);
     adjustTextareaHeight(view);
     renderReferenceChips(view);
+    view.scheduleDraftPersist();
     return;
   }
   if ((slash == null ? void 0 : slash.name) === "clear") {
     await createNewChat(view);
     view.inputEl.value = "";
     adjustTextareaHeight(view);
+    view.persistActiveDraft();
     return;
   }
   if ((slash == null ? void 0 : slash.name) === "resume" && slash.rest === "") {
     view.inputEl.value = "";
     adjustTextareaHeight(view);
+    view.persistActiveDraft();
     openResumeModal(view);
     return;
   }
   view.inputEl.value = "";
   adjustTextareaHeight(view);
   renderReferenceChips(view);
+  view.persistActiveDraft();
   await sendText(view, text);
 }
 async function sendText(view, text, permissionModeOverride) {
@@ -4503,6 +4592,7 @@ async function sendText(view, text, permissionModeOverride) {
   if (!conv.sessionId) {
     conv.sessionId = view.api.generateId();
   }
+  const workspace = view.getActiveWorkspace();
   const vp = view.vaultPath;
   if (vp && view.attachments.length) {
     const allowed = new Set(view.settings.allowedExternalPaths);
@@ -4513,6 +4603,7 @@ async function sendText(view, text, permissionModeOverride) {
         view.inputEl.value = text;
         adjustTextareaHeight(view);
         renderReferenceChips(view);
+        view.persistActiveDraft();
         return;
       }
       if (decision === "always") {
@@ -4571,14 +4662,14 @@ async function sendText(view, text, permissionModeOverride) {
       addDirs = attachmentDirs(pathAttachments);
       const selectionBlock = view.selection ? buildSelectionBlock(view.selection.text, view.selection.note) : "";
       const extraBlock = [referenceBlock, attachmentBlock, selectionBlock].filter(Boolean).join("\n\n---\n\n");
-      const currentNoteLink = view.settings.injectCurrentNoteLink ? buildCurrentNoteLink(view) : "";
+      const currentNoteLink = workspace.injectCurrentNoteLink ? buildCurrentNoteLink(view) : "";
       contextText = assembleContextText(
         text,
         view.vaultPath,
-        view.settings.injectVaultContext,
+        workspace.injectVaultContext,
         currentNoteLink,
         extraBlock,
-        view.settings.customInstruction
+        workspace.customInstruction
       );
       if (view.attachments.length) {
         view.attachments = [];
@@ -4648,7 +4739,16 @@ async function sendText(view, text, permissionModeOverride) {
     });
     view.api.onConfigUpdate(sessionKey, (cfg) => applyToolbarConfig(view, cfg));
     const mcpNames = extractMcpNames(text);
-    for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride, images, mcpNames.length ? mcpNames : void 0)) {
+    for await (const chunk of view.api.sendMessage(
+      conv.sessionId,
+      contextText,
+      view.vaultPath,
+      addDirs,
+      permissionModeOverride,
+      images,
+      mcpNames.length ? mcpNames : void 0,
+      { model: workspace.model, mode: workspace.permissionMode, thoughtLevel: workspace.thoughtLevel }
+    )) {
       const bubble = streamingBubble;
       if (firstChunk) {
         firstChunk = false;
@@ -4846,7 +4946,7 @@ async function sendText(view, text, permissionModeOverride) {
     }
     const msgRow = streamingBubble.closest(".workbuddian-message-assistant");
     if (msgRow && !msgRow.querySelector(".workbuddian-message-actions")) {
-      renderCopyButton(msgRow, displayContent);
+      renderMessageActions(view, msgRow, { ...aiMsg, content: displayContent });
     }
     const thinkingPlaceholder = streamingBubble.querySelector(".workbuddian-thinking");
     if (thinkingPlaceholder instanceof HTMLElement) {
@@ -4864,11 +4964,8 @@ async function sendText(view, text, permissionModeOverride) {
       void maybeAutoTitle(view, convId, text);
     if ((slash == null ? void 0 : slash.name) === "effort") {
       const level = (_d = slash.rest.trim().split(/\s+/)[0]) != null ? _d : "";
-      if (isThoughtLevel(level) && level !== view.settings.thoughtLevel) {
-        view.settings.thoughtLevel = level;
-        view.api.setThoughtLevel(level);
-        await view.saveSettingsCallback();
-        emitConfigChanged(view.app);
+      if (isThoughtLevel(level) && level !== workspace.thoughtLevel) {
+        view.updateActiveWorkspace({ thoughtLevel: level });
       }
     }
   } catch (error) {
@@ -4930,6 +5027,7 @@ async function editAndResendMessage(view, msg) {
   view.inputEl.value = msg.content;
   adjustTextareaHeight(view);
   renderReferenceChips(view);
+  view.scheduleDraftPersist();
   view.inputEl.focus();
   new import_obsidian6.Notice(t("render.editResendHint"));
 }
@@ -4967,10 +5065,12 @@ function openWorkbuddianSettings(view) {
 // src/features/chat/tabs.ts
 init_i18n();
 async function createNewChat(view) {
+  view.persistActiveDraft();
   const conv = view.manager.createConversation();
   view.activeConvId = conv.id;
   renderTabs(view);
   await renderMessages(view);
+  view.restoreActiveDraft();
 }
 function openTemplateMenu(view, anchorEl) {
   const menu = new import_obsidian7.Menu();
@@ -4984,34 +5084,41 @@ function openTemplateMenu(view, anchorEl) {
   menu.showAtPosition({ x: anchorEl.getBoundingClientRect().left, y: anchorEl.getBoundingClientRect().bottom + 4 });
 }
 async function applyChatTemplate(view, tpl) {
+  view.persistActiveDraft();
   const conv = view.manager.createConversation();
   view.activeConvId = conv.id;
-  view.settings.customInstruction = tpl.instruction;
-  await view.saveSettingsCallback();
-  view.inputEl.value = tpl.opener;
-  adjustTextareaHeight(view);
+  view.manager.updateWorkspace(conv.id, { customInstruction: tpl.instruction });
   renderTabs(view);
   await renderMessages(view);
+  view.restoreActiveDraft();
+  view.inputEl.value = tpl.opener;
+  adjustTextareaHeight(view);
+  view.persistActiveDraft();
   view.inputEl.focus();
   new import_obsidian7.Notice(t("view.templateApplied").replace("{name}", tpl.name));
 }
 async function switchToChat(view, id) {
   if (!view.manager.getById(id))
     return;
+  view.persistActiveDraft();
   view.rejectPendingApprovals();
   view.activeConvId = id;
   renderTabs(view);
   await renderMessages(view);
+  view.restoreActiveDraft();
 }
 async function removeChat(view, id) {
   var _a, _b;
   const wasActive = view.activeConvId === id;
+  if (wasActive)
+    view.persistActiveDraft();
   view.manager.deleteConversation(id);
   if (wasActive) {
     view.activeConvId = (_b = (_a = view.manager.getAll()[0]) == null ? void 0 : _a.id) != null ? _b : null;
   }
   renderTabs(view);
   await renderMessages(view);
+  view.restoreActiveDraft();
 }
 function confirmAndRemoveChat(view, id) {
   const conv = view.manager.getById(id);
@@ -5261,6 +5368,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     this.titleSessionKey = null;
     /** 是否主编辑区大面板(启用 dual-pane 左侧会话列表);侧栏窄面板为 false */
     this.isMainPane = false;
+    this.draftPersistTimer = null;
     this.api = api;
     if (api instanceof HermesProvider)
       api.onModeChange(() => this.refreshHermesLiteBanner());
@@ -5297,6 +5405,58 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
   getActiveConversation() {
     return this.activeConvId ? this.manager.getById(this.activeConvId) : null;
   }
+  /** 当前会话工作区：只读覆盖项与全局设置合并，旧会话自然回落全局默认。 */
+  getActiveWorkspace() {
+    var _a;
+    return resolveConversationWorkspace(this.settings, (_a = this.getActiveConversation()) == null ? void 0 : _a.workspace);
+  }
+  /** 更新当前会话的配置覆盖项，并立即刷新工具栏；全局设置仍由设置页维护。 */
+  updateActiveWorkspace(patch) {
+    const conv = this.getActiveConversation();
+    if (!conv)
+      return;
+    this.manager.updateWorkspace(conv.id, patch);
+    const workspace = this.getActiveWorkspace();
+    const modelBtn = this.containerEl.querySelector(".workbuddian-model-btn");
+    modelBtn == null ? void 0 : modelBtn.setText(modelDisplayLabel(this, workspace.model));
+    if (this.permissionBtn) {
+      (0, import_obsidian8.setIcon)(this.permissionBtn, permissionIcon(workspace.permissionMode));
+      this.permissionBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + workspace.permissionMode)}`);
+    }
+    this.refreshInstructionIndicator();
+  }
+  /** 输入变化去抖保存，保证切换面板/会话后草稿仍可恢复。 */
+  scheduleDraftPersist() {
+    if (this.draftPersistTimer !== null)
+      window.clearTimeout(this.draftPersistTimer);
+    this.draftPersistTimer = window.setTimeout(() => {
+      this.draftPersistTimer = null;
+      this.persistActiveDraft();
+    }, 250);
+  }
+  persistActiveDraft() {
+    const conv = this.getActiveConversation();
+    if (!conv || !this.inputEl)
+      return;
+    const draft = { text: this.inputEl.value, attachments: [...this.attachments] };
+    this.manager.setDraft(conv.id, draft);
+  }
+  restoreActiveDraft() {
+    var _a, _b, _c;
+    const workspace = this.getActiveWorkspace();
+    (_a = this.containerEl.querySelector(".workbuddian-model-btn")) == null ? void 0 : _a.setText(modelDisplayLabel(this, workspace.model));
+    if (this.permissionBtn) {
+      (0, import_obsidian8.setIcon)(this.permissionBtn, permissionIcon(workspace.permissionMode));
+      this.permissionBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + workspace.permissionMode)}`);
+    }
+    this.refreshInstructionIndicator();
+    const draft = (_b = this.getActiveConversation()) == null ? void 0 : _b.draft;
+    this.inputEl.value = (_c = draft == null ? void 0 : draft.text) != null ? _c : "";
+    this.attachments = (draft == null ? void 0 : draft.attachments) ? [...draft.attachments] : [];
+    renderReferenceChips(this);
+    renderAttachmentChips(this);
+    adjustTextareaHeight(this);
+  }
   async onOpen() {
     var _a, _b;
     try {
@@ -5321,6 +5481,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
         this.activeConvId = (_b = (_a = this.manager.getActive()) == null ? void 0 : _a.id) != null ? _b : null;
         renderTabs(this);
         await renderMessages(this);
+        this.restoreActiveDraft();
       } else {
         const conversations = await this.loadDataCallback();
         await this.loadConversations(conversations);
@@ -5442,6 +5603,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
       renderReferenceChips(this);
       if (!updateSlashSuggest(this))
         updateAtSuggest(this);
+      this.scheduleDraftPersist();
     };
     this.inputEl.addEventListener("focus", () => captureNoteSelection(this));
     this.inputEl.addEventListener("paste", (e) => void handlePaste(this, e));
@@ -5461,7 +5623,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
       cls: "workbuddian-model-btn",
       attr: { "aria-label": t("settings.model"), title: t("settings.model"), role: "button", tabindex: "0" }
     });
-    modelBtn.setText(modelDisplayLabel(this, this.settings.model));
+    modelBtn.setText(modelDisplayLabel(this, this.getActiveWorkspace().model));
     modelBtn.addEventListener("click", () => openModelMenu(this, modelBtn));
     modelBtn.addEventListener("keydown", (e) => {
       if (isActivationKey(e.key)) {
@@ -5486,8 +5648,8 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
       cls: "workbuddian-toolbar-btn",
       attr: { "aria-label": t("input.permission") }
     });
-    (0, import_obsidian8.setIcon)(permBtn, permissionIcon(this.settings.permissionMode));
-    permBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + this.settings.permissionMode)}`);
+    (0, import_obsidian8.setIcon)(permBtn, permissionIcon(this.getActiveWorkspace().permissionMode));
+    permBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + this.getActiveWorkspace().permissionMode)}`);
     permBtn.onclick = (e) => openPermissionMenu(this, permBtn, e);
     this.permissionBtn = permBtn;
     const instrBtn = rightGroup.createEl("button", { cls: "workbuddian-toolbar-btn" });
@@ -5514,11 +5676,13 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
   }
   /** 语言切换后重建面板 DOM 并保持当前活跃对话与已渲染内容 */
   async refreshUI() {
+    this.persistActiveDraft();
     const keepActive = this.activeConvId;
     this.buildUI();
     this.activeConvId = keepActive;
     renderTabs(this);
     await renderMessages(this);
+    this.restoreActiveDraft();
   }
   /** Hermes http 轻量模式时显示降级顶条；codebuddy/ACP 模式恒隐藏 */
   refreshHermesLiteBanner() {
@@ -5529,11 +5693,11 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     if (lite)
       this.liteBannerEl.setText(t("hermes.liteBanner"));
   }
-  /** 按 settings.customInstruction 刷新工具栏 # 指示按钮的高亮与提示 */
+  /** 按当前会话工作区指令刷新工具栏 # 指示按钮的高亮与提示 */
   refreshInstructionIndicator() {
     if (!this.instructionBtn)
       return;
-    const on = !!this.settings.customInstruction;
+    const on = !!this.getActiveWorkspace().customInstruction;
     this.instructionBtn.toggleClass("workbuddian-instruction-active", on);
     const label = on ? t("instruction.indicatorOn") : t("instruction.indicatorOff");
     this.instructionBtn.setAttribute("title", label);
@@ -5546,6 +5710,9 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     this.pendingApprovals.clear();
   }
   async onClose() {
+    this.persistActiveDraft();
+    if (this.draftPersistTimer !== null)
+      window.clearTimeout(this.draftPersistTimer);
     this.rejectPendingApprovals();
     this.markdownComponent.unload();
   }
@@ -5555,6 +5722,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     this.activeConvId = (_b = (_a = this.manager.getActive()) == null ? void 0 : _a.id) != null ? _b : null;
     renderTabs(this);
     await renderMessages(this);
+    this.restoreActiveDraft();
   }
 };
 
@@ -5596,6 +5764,8 @@ var ConversationManager = class {
     forked.messages = src.messages.map((m) => ({ ...m, id: generateId() }));
     forked.sessionId = "";
     forked.acpSessionId = acpSessionId;
+    forked.workspace = src.workspace ? { ...src.workspace } : void 0;
+    forked.draft = void 0;
     forked.updatedAt = Date.now();
     this.commit();
     return forked;
@@ -5703,6 +5873,28 @@ var ConversationManager = class {
     conv.acpSessionId = acpSessionId;
     return true;
   }
+  /** 更新会话级工作区覆盖项；未覆盖的字段继续回落全局设置 */
+  updateWorkspace(convId, patch) {
+    const conv = this.conversations.get(convId);
+    if (!conv)
+      return false;
+    conv.workspace = { ...conv.workspace, ...patch };
+    this.commit();
+    return true;
+  }
+  /** 保存会话草稿；草稿变更不更新 updatedAt，避免用户打字时会话不断跳到顶部 */
+  setDraft(convId, draft) {
+    const conv = this.conversations.get(convId);
+    if (!conv)
+      return false;
+    if (draft && (draft.text || draft.attachments.length)) {
+      conv.draft = { text: draft.text, attachments: [...draft.attachments] };
+    } else {
+      delete conv.draft;
+    }
+    this.commit();
+    return true;
+  }
   /** 重命名对话（空名拒绝） */
   renameConversation(id, newTitle) {
     const trimmed = newTitle.trim();
@@ -5801,7 +5993,11 @@ var ConversationManager = class {
       this.createConversation();
       return;
     }
-    conversations.forEach((conv) => this.conversations.set(conv.id, { ...conv }));
+    conversations.forEach((conv) => this.conversations.set(conv.id, {
+      ...conv,
+      workspace: conv.workspace && typeof conv.workspace === "object" ? { ...conv.workspace } : void 0,
+      draft: conv.draft && typeof conv.draft.text === "string" && Array.isArray(conv.draft.attachments) ? { text: conv.draft.text, attachments: conv.draft.attachments.filter((p) => typeof p === "string") } : void 0
+    }));
     this.activeId = conversations[0].id;
   }
 };
@@ -5809,6 +6005,12 @@ var ConversationManager = class {
 // src/features/settings/tab.ts
 var import_obsidian11 = require("obsidian");
 init_i18n();
+
+// src/shared/configEvents.ts
+var CONFIG_CHANGED_EVENT = "workbuddian:config-changed";
+function onConfigChanged(app, cb) {
+  return app.workspace.on(CONFIG_CHANGED_EVENT, cb);
+}
 
 // src/features/settings/logModal.ts
 var import_obsidian9 = require("obsidian");

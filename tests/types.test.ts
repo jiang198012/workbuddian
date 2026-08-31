@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, migrateSettings, isObject, getString, getNumber, getBoolean, getErrorMessage, normalizePersistedData, exportSettings, MAX_PASTED_IMAGE_KEEP, type Conversation } from '../src/types';
+import { resolveConversationWorkspace } from '../src/shared/chatWorkspace';
 
 describe('DEFAULT_SETTINGS', () => {
     it('should accept empty codebuddyPath', () => {
@@ -302,5 +303,44 @@ describe('thoughtLevel setting', () => {
         expect(migrateSettings({}).thoughtLevel).toBe('enabled');
         expect(migrateSettings({ thoughtLevel: 42 }).thoughtLevel).toBe('enabled');
         expect(migrateSettings({ thoughtLevel: 'high' }).thoughtLevel).toBe('high');
+    });
+});
+
+describe('conversation workspace', () => {
+    it('uses global settings when a conversation has no overrides', () => {
+        expect(resolveConversationWorkspace(DEFAULT_SETTINGS)).toEqual({
+            model: 'auto',
+            permissionMode: 'default',
+            thoughtLevel: 'enabled',
+            customInstruction: '',
+            injectVaultContext: true,
+            injectCurrentNoteLink: false,
+        });
+    });
+
+    it('applies valid per-conversation overrides and ignores invalid enum values', () => {
+        expect(resolveConversationWorkspace(DEFAULT_SETTINGS, {
+            model: 'deepseek-v4-pro',
+            permissionMode: 'bypassPermissions',
+            thoughtLevel: 'high',
+            customInstruction: 'be concise',
+            injectVaultContext: false,
+            injectCurrentNoteLink: true,
+        })).toEqual({
+            model: 'deepseek-v4-pro',
+            permissionMode: 'bypassPermissions',
+            thoughtLevel: 'high',
+            customInstruction: 'be concise',
+            injectVaultContext: false,
+            injectCurrentNoteLink: true,
+        });
+        expect(resolveConversationWorkspace(DEFAULT_SETTINGS, { permissionMode: 'invalid' as never, thoughtLevel: 'invalid' })).toEqual({
+            model: 'auto',
+            permissionMode: 'default',
+            thoughtLevel: 'enabled',
+            customInstruction: '',
+            injectVaultContext: true,
+            injectCurrentNoteLink: false,
+        });
     });
 });

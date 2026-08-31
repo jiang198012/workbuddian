@@ -14,13 +14,27 @@ class InstructionModal extends Modal {
             attr: { placeholder: t('instruction.placeholder'), rows: '6' },
         });
         ta.value = this.initial;
+        const workspace = this.view.getActiveWorkspace();
+        let injectVaultContext = workspace.injectVaultContext;
+        let injectCurrentNoteLink = workspace.injectCurrentNoteLink;
+        new Setting(contentEl)
+            .setName(t('instruction.injectVaultContext'))
+            .setDesc(t('instruction.injectVaultContextDesc'))
+            .addToggle((toggle) => toggle.setValue(injectVaultContext).onChange((value) => { injectVaultContext = value; }));
+        new Setting(contentEl)
+            .setName(t('instruction.injectCurrentNoteLink'))
+            .setDesc(t('instruction.injectCurrentNoteLinkDesc'))
+            .addToggle((toggle) => toggle.setValue(injectCurrentNoteLink).onChange((value) => { injectCurrentNoteLink = value; }));
         const bar = contentEl.createDiv({ cls: 'workbuddian-instruction-buttons' });
         const clearBtn = bar.createEl('button', { text: t('instruction.clear') });
         clearBtn.onclick = () => { ta.value = ''; ta.focus(); };
         const saveBtn = bar.createEl('button', { text: t('instruction.save'), cls: 'mod-cta' });
         saveBtn.onclick = async () => {
-            this.view.settings.customInstruction = ta.value.trim();
-            await this.view.saveSettingsCallback();
+            this.view.updateActiveWorkspace({
+                customInstruction: ta.value.trim(),
+                injectVaultContext,
+                injectCurrentNoteLink,
+            });
             this.view.refreshInstructionIndicator();
             this.close();
         };
@@ -30,7 +44,7 @@ class InstructionModal extends Modal {
 
 /** 打开常驻指令弹窗；addition 非空则预填「现有指令 +（换行）+ addition」 */
 export function openInstructionModal(view: WorkbuddianChatView, addition: string) {
-    const existing = view.settings.customInstruction || '';
+    const existing = view.getActiveWorkspace().customInstruction || '';
     const initial = addition ? (existing ? `${existing}\n${addition}` : addition) : existing;
     new InstructionModal(view, initial).open();
 }

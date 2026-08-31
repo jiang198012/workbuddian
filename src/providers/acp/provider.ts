@@ -3,7 +3,7 @@ import { t } from '../../i18n';
 import { bbLog, bbError } from '../../shared/logBuffer';
 import { AcpClient, AcpStartError, type AcpStartTier } from './client';
 import {
-    SessionRegistry, type ConversationLookup, type SessionConfig, type TurnHandlers,
+    SessionRegistry, type ConversationLookup, type SessionConfig, type SessionConfigOverride, type TurnHandlers,
 } from './session';
 import { mapConfigUpdate, type AcpUpdate } from './events';
 import { ACP_DEFAULT_PROFILE, type AcpBackendProfile } from './profile';
@@ -188,6 +188,7 @@ export class AcpProvider {
         permissionModeOverride?: PermissionMode,
         images?: Array<{ data: string; mimeType: string }>,
         mcpNames?: string[],
+        configOverride?: SessionConfigOverride,
     ): AsyncGenerator<StreamChunk> {
         // v2 退役项：addDirs（--add-dir 预授权 hack）与 permissionModeOverride（计划卡重发 workaround）
         // 仅保留签名兼容，不再消费；vault 外附件的读取授权由插件侧确认弹窗把关（WB-002）
@@ -199,7 +200,7 @@ export class AcpProvider {
             // R10 context-saving MCP：消息里 @mcp/xxx 命中的服务器才注入本次会话加载；
             // 未命中任何引用时保持全局配置（兼容旧行为）
             const mcpOverride = this.resolveMcpForMessage(mcpNames);
-            await session.ensureLoaded(vaultPath, mcpOverride);
+            await session.ensureLoaded(vaultPath, mcpOverride, configOverride);
         } catch (e) {
             throw new AcpStartFailure(this.startErrorMessage(e));
         }

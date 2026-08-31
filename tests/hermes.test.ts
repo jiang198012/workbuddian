@@ -19,6 +19,14 @@ describe('HermesHttpProvider (MVP)', () => {
         expect(out).toEqual(['你好', '，世界']);
     });
 
+    it('uses the per-conversation model override for a request', async () => {
+        const p = new HermesHttpProvider();
+        globalThis.fetch = jest.fn().mockResolvedValue(sseResponse(['ok'])) as unknown as typeof fetch;
+        for await (const _ of p.sendMessage('k', 'hi', undefined, undefined, undefined, undefined, undefined, { model: 'custom-model' })) { /* drain */ }
+        const init = (globalThis.fetch as jest.Mock).mock.calls[0][1] as { body: string };
+        expect(JSON.parse(init.body).model).toBe('custom-model');
+    });
+
     it('throws on HTTP error', async () => {
         const p = new HermesHttpProvider();
         globalThis.fetch = jest.fn().mockResolvedValue(new Response('unauthorized', { status: 401 })) as unknown as typeof fetch;

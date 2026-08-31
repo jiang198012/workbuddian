@@ -18,6 +18,22 @@ export interface UsageInfo {
     inputTokens: number;
 }
 
+/** 会话级工作区覆盖项；未设置的字段回落到全局设置 */
+export interface ConversationWorkspace {
+    model: string;
+    permissionMode: PermissionMode;
+    thoughtLevel: string;
+    customInstruction: string;
+    injectVaultContext: boolean;
+    injectCurrentNoteLink: boolean;
+}
+
+/** 尚未发送的输入草稿；附件路径与正文一起恢复 */
+export interface ConversationDraft {
+    text: string;
+    attachments: string[];
+}
+
 export interface Conversation {
     id: string;
     title: string;
@@ -30,6 +46,10 @@ export interface Conversation {
     lastUsage?: UsageInfo;
     /** 会话置顶标记：置顶的会话排最前（右键菜单切换） */
     pinned?: boolean;
+    /** 会话级配置覆盖；旧数据缺省时回落全局设置 */
+    workspace?: Partial<ConversationWorkspace>;
+    /** 尚未发送的输入草稿 */
+    draft?: ConversationDraft;
 }
 
 // ==================== 窄化读取辅助 ====================

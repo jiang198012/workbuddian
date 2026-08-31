@@ -8,6 +8,7 @@
  */
 import { bbLog, bbError } from '../../shared/logBuffer';
 import type { PermissionMode } from '../../shared/cliOptions';
+import type { SessionConfigOverride } from '../acp/session';
 
 export type { StreamChunk } from '../acp/events';
 import type { StreamChunk } from '../acp/events';
@@ -90,8 +91,10 @@ export class HermesHttpProvider {
         permissionModeOverride?: PermissionMode,
         images?: Array<{ data: string; mimeType: string }>,
         mcpNames?: string[],
+        configOverride?: SessionConfigOverride,
     ): AsyncGenerator<StreamChunk> {
         void sessionKey; void vaultPath; void addDirs; void permissionModeOverride; void images; void mcpNames;
+        const model = configOverride?.model ?? this.model;
         this.abortController = new AbortController();
         const timer = setTimeout(() => this.abortController?.abort(), this.timeout);
         try {
@@ -99,7 +102,7 @@ export class HermesHttpProvider {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
                 body: JSON.stringify({
-                    model: this.model === 'auto' ? undefined : this.model,
+                    model: model === 'auto' ? undefined : model,
                     messages: [{ role: 'user', content: text }],
                     stream: true,
                 }),

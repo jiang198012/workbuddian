@@ -5,6 +5,7 @@ import { retryLastMessage, openWorkbuddianSettings, thumbSrc, renderContextUsage
 import { ensureTableBlankLines } from '../../shared/tableNormalize';
 import { fileBasename, isAbsolutePath } from '../../shared/attachments';
 import { isImagePath } from '../../shared/imageStore';
+import { formatAssistantReply, nextAvailableNotePath } from '../../shared/noteWriteback';
 import { t } from '../../i18n';
 
 export async function renderMessages(view: WorkbuddianChatView) {
@@ -162,6 +163,43 @@ export function renderMessageActions(view: WorkbuddianChatView, row: HTMLElement
         setIcon(editBtn, 'pencil');
         editBtn.onclick = () => editAndResendMessage(view, msg);
     } else {
+        const insertReplyBtn = actions.createEl('button', {
+            cls: 'workbuddian-message-action-btn',
+            attr: { 'aria-label': t('render.insertReply'), title: t('render.insertReply') }
+        });
+        setIcon(insertReplyBtn, 'file-input');
+        insertReplyBtn.onclick = async () => {
+            const markdownView = view.lastMarkdownView;
+            const file = markdownView?.file ?? view.app.workspace.getActiveFile();
+            if (!file) { new Notice(t('render.noActiveNote')); return; }
+            try {
+                if (markdownView?.editor) {
+                    markdownView.editor.replaceSelection(msg.content);
+                } else {
+                    await view.app.vault.append(file, `\n\n${msg.content}\n`);
+                }
+                new Notice(t('render.replyInserted'));
+            } catch (e) {
+                new Notice(t('render.insertFailed') + (e instanceof Error ? e.message : String(e)));
+            }
+        };
+
+        const saveReplyBtn = actions.createEl('button', {
+            cls: 'workbuddian-message-action-btn',
+            attr: { 'aria-label': t('render.saveReply'), title: t('render.saveReply') }
+        });
+        setIcon(saveReplyBtn, 'file-plus');
+        saveReplyBtn.onclick = async () => {
+            const title = view.getActiveConversation()?.title ?? 'workbuddian-reply';
+            const path = nextAvailableNotePath(title, view.app.vault.getFiles().map((f) => f.path));
+            try {
+                await view.app.vault.create(path, formatAssistantReply(title, msg.content, msg.timestamp));
+                new Notice(t('render.savedAs').replace('{name}', path));
+            } catch (e) {
+                new Notice(t('render.saveFailed') + (e instanceof Error ? e.message : String(e)));
+            }
+        };
+
         const regenBtn = actions.createEl('button', {
             cls: 'workbuddian-message-action-btn',
             attr: { 'aria-label': t('render.regenerate'), title: t('render.regenerate') }

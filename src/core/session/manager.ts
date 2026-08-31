@@ -1,4 +1,4 @@
-import type { Conversation, ChatMessage, UsageInfo } from '../../types';
+import type { Conversation, ChatMessage, UsageInfo, ConversationDraft, ConversationWorkspace } from '../../types';
 import { generateId, getErrorMessage } from '../../types';
 import { fallbackTitle } from '../../shared/autoTitle';
 import { t, matchesAnyLang } from '../../i18n';
@@ -45,6 +45,8 @@ export class ConversationManager {
         forked.messages = src.messages.map((m) => ({ ...m, id: generateId() }));
         forked.sessionId = ''; // 首次发送时生成新 key；CLI 侧上下文走 acpSessionId load
         forked.acpSessionId = acpSessionId;
+        forked.workspace = src.workspace ? { ...src.workspace } : undefined;
+        forked.draft = undefined;
         forked.updatedAt = Date.now();
         this.commit();
         return forked;
@@ -157,6 +159,28 @@ export class ConversationManager {
         return true;
     }
 
+    /** 更新会话级工作区覆盖项；未覆盖的字段继续回落全局设置 */
+    updateWorkspace(convId: string, patch: Partial<ConversationWorkspace>): boolean {
+        const conv = this.conversations.get(convId);
+        if (!conv) return false;
+        conv.workspace = { ...conv.workspace, ...patch };
+        this.commit();
+        return true;
+    }
+
+    /** 保存会话草稿；草稿变更不更新 updatedAt，避免用户打字时会话不断跳到顶部 */
+    setDraft(convId: string, draft: ConversationDraft | null): boolean {
+        const conv = this.conversations.get(convId);
+        if (!conv) return false;
+        if (draft && (draft.text || draft.attachments.length)) {
+            conv.draft = { text: draft.text, attachments: [...draft.attachments] };
+        } else {
+            delete conv.draft;
+        }
+        this.commit();
+        return true;
+    }
+
     /** 重命名对话（空名拒绝） */
     renameConversation(id: string, newTitle: string): boolean {
         const trimmed = newTitle.trim();
@@ -254,7 +278,13 @@ export class ConversationManager {
             this.createConversation();
             return;
         }
-        conversations.forEach((conv) => this.conversations.set(conv.id, { ...conv }));
+        conversations.forEach((conv) => this.conversations.set(conv.id, {
+            ...conv,
+            workspace: conv.workspace && typeof conv.workspace === 'object' ? { ...conv.workspace } : undefined,
+            draft: conv.draft && typeof conv.draft.text === 'string' && Array.isArray(conv.draft.attachments)
+                ? { text: conv.draft.text, attachments: conv.draft.attachments.filter((p): p is string => typeof p === 'string') }
+                : undefined,
+        }));
         this.activeId = conversations[0].id;
     }
 }

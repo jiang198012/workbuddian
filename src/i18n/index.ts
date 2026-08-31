@@ -256,6 +256,9 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'render.copyFailed': { zh: '复制失败', en: 'Copy failed' },
     'render.edit': { zh: '编辑并重发', en: 'Edit and resend' },
     'render.regenerate': { zh: '重新生成', en: 'Regenerate' },
+    'render.insertReply': { zh: '插入回复', en: 'Insert reply' },
+    'render.replyInserted': { zh: '回复已插入', en: 'Reply inserted' },
+    'render.saveReply': { zh: '保存回复为笔记', en: 'Save reply as note' },
     'render.editResendHint': { zh: '已载入原消息，编辑后发送', en: 'Original loaded; edit and send' },
     'render.insertToNote': { zh: '插入到当前笔记', en: 'Insert into current note' },
     'render.noActiveNote': { zh: '没有打开的笔记', en: 'No note open' },
@@ -264,6 +267,11 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'render.saveAsNote': { zh: '保存为新笔记', en: 'Save as new note' },
     'render.savedAs': { zh: '已保存为 {name}', en: 'Saved as {name}' },
     'render.saveFailed': { zh: '保存失败：', en: 'Save failed: ' },
+
+    'instruction.injectVaultContext': { zh: '注入 Vault 上下文', en: 'Inject Vault context' },
+    'instruction.injectVaultContextDesc': { zh: '将当前 Vault 路径与上下文信息带入本会话', en: 'Include the current Vault path and context in this conversation' },
+    'instruction.injectCurrentNoteLink': { zh: '注入当前笔记链接', en: 'Inject current note link' },
+    'instruction.injectCurrentNoteLinkDesc': { zh: '将当前查看的笔记名称与路径带入本会话', en: 'Include the current note name and path in this conversation' },
 
     'tabs.close': { zh: '关闭对话', en: 'Close chat' },
     'tabs.searchPlaceholder': { zh: '搜索会话…', en: 'Search chats…' },

@@ -149,6 +149,24 @@ describe('AcpSession.ensureLoaded', () => {
         expect(client.request).toHaveBeenLastCalledWith('session/load',
             expect.objectContaining({ sessionId: 'acp-stored' }));
     });
+
+    it('applies a per-call workspace override to an already loaded session', async () => {
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : undefined);
+        const lookup = makeLookup();
+        lookup.getAcpSessionId.mockReturnValue('acp-stored');
+        const s = new AcpSession('k', client, lookup, { model: 'auto', mode: 'default' });
+        await s.ensureLoaded('/vault');
+        client.request.mockClear();
+        await s.ensureLoaded('/vault', undefined, {
+            model: 'deepseek-v4-pro', mode: 'bypassPermissions', thoughtLevel: 'high',
+        });
+        expect(client.request).toHaveBeenCalledWith('session/set_config_option',
+            expect.objectContaining({ sessionId: 'acp-stored', configId: 'model', value: 'deepseek-v4-pro' }));
+        expect(client.request).toHaveBeenCalledWith('session/set_mode',
+            expect.objectContaining({ sessionId: 'acp-stored', modeId: 'bypassPermissions' }));
+        expect(client.request).toHaveBeenCalledWith('session/set_config_option',
+            expect.objectContaining({ sessionId: 'acp-stored', configId: 'thought_level', value: 'high' }));
+    });
 });
 
 describe('AcpSession.prompt + updates', () => {

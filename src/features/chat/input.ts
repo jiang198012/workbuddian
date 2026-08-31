@@ -1,12 +1,12 @@
 import { Menu, Notice, setIcon, setTooltip, TFile } from 'obsidian';
-import { getErrorMessage, DEFAULT_CONTEXT_WINDOW_SIZE, type ChatMessage } from '../../types';
+import { getErrorMessage, DEFAULT_CONTEXT_WINDOW_SIZE, type ChatMessage, type ConversationWorkspace } from '../../types';
 import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shared/atReferences';
 import { parseAgentNames, parseMcpServerNames } from '../../shared/mentionSources';
 import { extractMcpNames } from '../../shared/mcpServers';
 import { shouldSendMessage, isActivationKey, nextSuggestIndex } from '../../shared/inputKeys';
 import { assembleContextText } from '../../core/context/assembleContext';
 import type { WorkbuddianChatView } from './view';
-import { renderMessages, renderMarkdownContent, scrollToBottom, renderCopyButton } from './render';
+import { renderMessages, renderMarkdownContent, scrollToBottom, renderMessageActions } from './render';
 import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
 import { findTemplate, filterTemplates } from '../../shared/promptTemplates';
@@ -27,7 +27,6 @@ import { confirmExternalAccess } from './externalAccessModal';
 import { sanitizeTitle, shouldApplyAutoTitle } from '../../shared/autoTitle';
 import { PERMISSION_MODE_CHOICES, isThoughtLevel, orderModels, modelLabel, type PermissionMode } from '../../shared/cliOptions';
 import { contextPercent, usageTooltip, isUsageWarning } from '../../shared/contextUsage';
-import { emitConfigChanged } from '../../shared/configEvents';
 import { t } from '../../i18n';
 import { bbLog, bbError } from '../../shared/logBuffer';
 
@@ -119,6 +118,7 @@ function insertTextMention(view: WorkbuddianChatView, name: string) {
     }
     closeSuggest(view);
     adjustTextareaHeight(view);
+    view.scheduleDraftPersist();
 }
 
 export function insertAtReference(view: WorkbuddianChatView, file: TFile) {
@@ -153,6 +153,7 @@ export function insertAtReference(view: WorkbuddianChatView, file: TFile) {
     closeSuggest(view);
     renderReferenceChips(view);
     adjustTextareaHeight(view);
+    view.scheduleDraftPersist();
 }
 
 /** 渲染输入框上方的引用 chips（textarea 里 @[[...]] 的可视镜像 + 删除入口） */
@@ -181,6 +182,7 @@ export function renderReferenceChips(view: WorkbuddianChatView) {
 
 /** 渲染附件 chips：图片显示缩略图，其它显示文件名；均带 ✕ 删除 */
 export function renderAttachmentChips(view: WorkbuddianChatView) {
+    view.scheduleDraftPersist();
     view.attachChipsEl.empty();
     if (view.attachments.length === 0) {
         view.attachChipsEl.addClass('workbuddian-hidden');
@@ -356,24 +358,22 @@ function renderApprovalDetail(body: HTMLElement, detail: PermissionDetail): void
 /** CLI 为真相源：config_option_update 回流时同步工具栏与 settings（不回调 api.set*，避免回环） */
 function applyToolbarConfig(view: WorkbuddianChatView, cfg: { mode?: string; model?: string; thoughtLevel?: string }): void {
     let changed = false;
-    if (cfg.mode && (PERMISSION_MODE_CHOICES as readonly string[]).includes(cfg.mode) && cfg.mode !== view.settings.permissionMode) {
-        view.settings.permissionMode = cfg.mode as PermissionMode;
-        setIcon(view.permissionBtn, permissionIcon(view.settings.permissionMode));
-        view.permissionBtn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + view.settings.permissionMode)}`);
+    const current = view.getActiveWorkspace();
+    const patch: Partial<ConversationWorkspace> = {};
+    if (cfg.mode && (PERMISSION_MODE_CHOICES as readonly string[]).includes(cfg.mode) && cfg.mode !== current.permissionMode) {
+        patch.permissionMode = cfg.mode as PermissionMode;
         changed = true;
     }
-    if (cfg.model && cfg.model !== view.settings.model) {
-        view.settings.model = cfg.model;
-        view.containerEl.querySelector('.workbuddian-model-btn')?.setText(modelDisplayLabel(view, cfg.model));
+    if (cfg.model && cfg.model !== current.model) {
+        patch.model = cfg.model;
         changed = true;
     }
-    if (cfg.thoughtLevel && cfg.thoughtLevel !== view.settings.thoughtLevel) {
-        view.settings.thoughtLevel = cfg.thoughtLevel;
+    if (cfg.thoughtLevel && cfg.thoughtLevel !== current.thoughtLevel) {
+        patch.thoughtLevel = cfg.thoughtLevel;
         changed = true;
     }
     if (changed) {
-        void view.saveSettingsCallback();
-        emitConfigChanged(view.app); // 已打开的设置页就地刷新对应控件（WB-007）
+        view.updateActiveWorkspace(patch);
     }
 }
 
@@ -624,17 +624,16 @@ export function permissionIcon(mode: PermissionMode): string {
 /** 弹出 permission 模式菜单（仅默认 / 完全访问），选中后写设置 + 灌 CLI + 换图标 + 持久化 */
 export function openPermissionMenu(view: WorkbuddianChatView, btn: HTMLElement, evt: MouseEvent) {
     const menu = new Menu();
+    const workspace = view.getActiveWorkspace();
     for (const mode of PERMISSION_MODE_CHOICES) {
         menu.addItem(item => item
             .setTitle(t('perm.' + mode))
             .setIcon(permissionIcon(mode))
-            .setChecked(view.settings.permissionMode === mode)
+            .setChecked(workspace.permissionMode === mode)
             .onClick(async () => {
-                view.settings.permissionMode = mode;
-                view.api.setPermissionMode(mode);
+                view.updateActiveWorkspace({ permissionMode: mode });
                 setIcon(btn, permissionIcon(mode));
                 btn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + mode)}`);
-                await view.saveSettingsCallback();
             }));
     }
     menu.showAtMouseEvent(evt);
@@ -652,18 +651,17 @@ export function modelDisplayLabel(view: WorkbuddianChatView, id: string): string
 /** 弹出模型选择菜单（供悬停/点击触发），选中后写设置 + 灌 CLI + 更新按钮文字 + 持久化 */
 export function openModelMenu(view: WorkbuddianChatView, btn: HTMLElement) {
     const menu = new Menu();
+    const workspace = view.getActiveWorkspace();
     const ids = [...new Set(['auto', ...view.api.getAvailableModels()])]; // CLI 列表自带 auto，去重防双 auto
     const models = orderModels(ids); // 国内模型优先排序
     const labelOf = (id: string) => modelDisplayLabel(view, id);
     for (const id of models) {
         menu.addItem(item => item
             .setTitle(labelOf(id))
-            .setChecked(view.settings.model === id)
+            .setChecked(workspace.model === id)
             .onClick(async () => {
-                view.settings.model = id;
-                view.api.setModel(id);
+                view.updateActiveWorkspace({ model: id });
                 btn.setText(labelOf(id));
-                await view.saveSettingsCallback();
             }));
     }
     const rect = btn.getBoundingClientRect();
@@ -675,6 +673,7 @@ export function removeReference(view: WorkbuddianChatView, name: string) {
     view.inputEl.value = removeAtReference(view.inputEl.value, name);
     renderReferenceChips(view);
     adjustTextareaHeight(view);
+    view.scheduleDraftPersist();
     view.inputEl.focus();
 }
 
@@ -736,6 +735,7 @@ export function insertSlashCommand(view: WorkbuddianChatView, name: string) {
         view.atSuggestEl.empty();
         adjustTextareaHeight(view);
         renderReferenceChips(view);
+        view.scheduleDraftPersist();
         return;
     }
     view.inputEl.value = `/${name} `;
@@ -745,6 +745,7 @@ export function insertSlashCommand(view: WorkbuddianChatView, name: string) {
     view.atSuggestEl.addClass('workbuddian-hidden');
     view.atSuggestEl.empty();
     adjustTextareaHeight(view);
+    view.scheduleDraftPersist();
 }
 
 /** 解析消息里所有 @[[笔记名]] 引用，读取笔记全文拼成独立的上下文区块 */
@@ -834,6 +835,7 @@ export async function sendMessage(view: WorkbuddianChatView) {
         view.inputEl.setSelectionRange(0, 0);
         adjustTextareaHeight(view);
         renderReferenceChips(view);
+        view.scheduleDraftPersist();
         return;
     }
     if (slash?.name === 'clear') {
@@ -841,12 +843,14 @@ export async function sendMessage(view: WorkbuddianChatView) {
         await createNewChat(view);
         view.inputEl.value = '';
         adjustTextareaHeight(view);
+        view.persistActiveDraft();
         return;
     }
     if (slash?.name === 'resume' && slash.rest === '') {
         // /resume（不带参数）：本地弹出会话选择器，不发 CLI；带参数保持原透传行为
         view.inputEl.value = '';
         adjustTextareaHeight(view);
+        view.persistActiveDraft();
         openResumeModal(view);
         return;
     }
@@ -854,6 +858,7 @@ export async function sendMessage(view: WorkbuddianChatView) {
     view.inputEl.value = '';
     adjustTextareaHeight(view);
     renderReferenceChips(view);
+    view.persistActiveDraft();
     await sendText(view, text);
 }
 
@@ -872,6 +877,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
     if (!conv.sessionId) {
         conv.sessionId = view.api.generateId();
     }
+    const workspace = view.getActiveWorkspace();
 
     // vault 外附件授权闸（WB-002）：CLI default 模式对 Read 一律自动放行（含 cwd 之外，实测），
     // 因此"读 vault 外附件必须先授权"由插件侧把关；取消则整条消息不发送（内容根本到不了模型）
@@ -885,6 +891,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                 view.inputEl.value = text; // 恢复未发送的正文，附件 chips 保持不动
                 adjustTextareaHeight(view);
                 renderReferenceChips(view); // @[[引用]] 的可视镜像一并恢复
+                view.persistActiveDraft();
                 return;
             }
             if (decision === 'always') {
@@ -954,9 +961,9 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
             addDirs = attachmentDirs(pathAttachments);
             const selectionBlock = view.selection ? buildSelectionBlock(view.selection.text, view.selection.note) : '';
             const extraBlock = [referenceBlock, attachmentBlock, selectionBlock].filter(Boolean).join('\n\n---\n\n');
-            const currentNoteLink = view.settings.injectCurrentNoteLink ? buildCurrentNoteLink(view) : '';
+            const currentNoteLink = workspace.injectCurrentNoteLink ? buildCurrentNoteLink(view) : '';
             contextText = assembleContextText(
-                text, view.vaultPath, view.settings.injectVaultContext, currentNoteLink, extraBlock, view.settings.customInstruction
+                text, view.vaultPath, workspace.injectVaultContext, currentNoteLink, extraBlock, workspace.customInstruction
             );
             // 附件用完即清空；选区是实时镜像，取消选择才消失，这里不清
             if (view.attachments.length) {
@@ -1018,7 +1025,16 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
 
         // R10 context-saving MCP:本条消息里 @mcp/xxx 命中的服务器,按需注入本次会话加载
         const mcpNames = extractMcpNames(text);
-        for await (const chunk of view.api.sendMessage(conv.sessionId, contextText, view.vaultPath, addDirs, permissionModeOverride, images, mcpNames.length ? mcpNames : undefined)) {
+        for await (const chunk of view.api.sendMessage(
+            conv.sessionId,
+            contextText,
+            view.vaultPath,
+            addDirs,
+            permissionModeOverride,
+            images,
+            mcpNames.length ? mcpNames : undefined,
+            { model: workspace.model, mode: workspace.permissionMode, thoughtLevel: workspace.thoughtLevel },
+        )) {
             const bubble = streamingBubble;
 
             if (firstChunk) {
@@ -1262,7 +1278,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         // 流式结束后这里补上，与其它消息一致（已存在则不重复添加）
         const msgRow = streamingBubble.closest('.workbuddian-message-assistant') as HTMLElement | null;
         if (msgRow && !msgRow.querySelector('.workbuddian-message-actions')) {
-            renderCopyButton(msgRow, displayContent);
+            renderMessageActions(view, msgRow, { ...aiMsg, content: displayContent });
         }
 
         // 清理占位的思考指示器：正常情况下已在首个 chunk 到达时移除（见上方 firstChunk 分支），
@@ -1287,11 +1303,8 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
         // 否则 CLI 重启后 applyConfig 会把旧的 provider 值重新灌回并回流覆盖设置（WB-RT-006）
         if (slash?.name === 'effort') {
             const level = slash.rest.trim().split(/\s+/)[0] ?? '';
-            if (isThoughtLevel(level) && level !== view.settings.thoughtLevel) {
-                view.settings.thoughtLevel = level;
-                view.api.setThoughtLevel(level);
-                await view.saveSettingsCallback();
-                emitConfigChanged(view.app);
+            if (isThoughtLevel(level) && level !== workspace.thoughtLevel) {
+                view.updateActiveWorkspace({ thoughtLevel: level });
             }
         }
     } catch (error: unknown) {
@@ -1357,6 +1370,7 @@ export async function editAndResendMessage(view: WorkbuddianChatView, msg: ChatM
     view.inputEl.value = msg.content;
     adjustTextareaHeight(view);
     renderReferenceChips(view);
+    view.scheduleDraftPersist();
     view.inputEl.focus();
     new Notice(t('render.editResendHint'));
 }

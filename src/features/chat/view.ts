@@ -3,11 +3,12 @@ import type { WorkspaceLeaf } from 'obsidian';
 import { ConversationManager } from '../../core/session/manager';
 import { CodebuddyProvider } from '../../providers/codebuddy';
 import { HermesProvider } from '../../providers/hermes';
-import { type Conversation, type WorkbuddianSettings } from '../../types';
+import { type Conversation, type ConversationDraft, type ConversationWorkspace, type WorkbuddianSettings } from '../../types';
+import { resolveConversationWorkspace } from '../../shared/chatWorkspace';
 import { WORKBUDDIAN_ICON_ID } from '../../shared/icon';
 import { renderTabs, createNewChat, openTemplateMenu } from './tabs';
 import { renderMessages } from './render';
-import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, openAttachmentPicker, openPermissionMenu, openModelMenu, modelDisplayLabel, permissionIcon, captureNoteSelection, handlePaste, handleDrop } from './input';
+import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, renderAttachmentChips, openAttachmentPicker, openPermissionMenu, openModelMenu, modelDisplayLabel, permissionIcon, captureNoteSelection, handlePaste, handleDrop } from './input';
 import { openInstructionModal } from './instructionModal';
 import type { SlashCommandInfo } from '../../shared/slashCommand';
 import { isActivationKey } from '../../shared/inputKeys';
@@ -59,6 +60,7 @@ export class WorkbuddianChatView extends ItemView {
     titleSessionKey: string | null = null;
     /** 是否主编辑区大面板(启用 dual-pane 左侧会话列表);侧栏窄面板为 false */
     isMainPane: boolean = false;
+    private draftPersistTimer: number | null = null;
 
     get vaultPath(): string | undefined {
         const adapter = this.app.vault.adapter as { basePath?: string };
@@ -96,6 +98,58 @@ export class WorkbuddianChatView extends ItemView {
         return this.activeConvId ? this.manager.getById(this.activeConvId) : null;
     }
 
+    /** 当前会话工作区：只读覆盖项与全局设置合并，旧会话自然回落全局默认。 */
+    getActiveWorkspace(): ConversationWorkspace {
+        return resolveConversationWorkspace(this.settings, this.getActiveConversation()?.workspace);
+    }
+
+    /** 更新当前会话的配置覆盖项，并立即刷新工具栏；全局设置仍由设置页维护。 */
+    updateActiveWorkspace(patch: Partial<ConversationWorkspace>): void {
+        const conv = this.getActiveConversation();
+        if (!conv) return;
+        this.manager.updateWorkspace(conv.id, patch);
+        const workspace = this.getActiveWorkspace();
+        const modelBtn = this.containerEl.querySelector('.workbuddian-model-btn');
+        modelBtn?.setText(modelDisplayLabel(this, workspace.model));
+        if (this.permissionBtn) {
+            setIcon(this.permissionBtn, permissionIcon(workspace.permissionMode));
+            this.permissionBtn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + workspace.permissionMode)}`);
+        }
+        this.refreshInstructionIndicator();
+    }
+
+    /** 输入变化去抖保存，保证切换面板/会话后草稿仍可恢复。 */
+    scheduleDraftPersist(): void {
+        if (this.draftPersistTimer !== null) window.clearTimeout(this.draftPersistTimer);
+        this.draftPersistTimer = window.setTimeout(() => {
+            this.draftPersistTimer = null;
+            this.persistActiveDraft();
+        }, 250);
+    }
+
+    persistActiveDraft(): void {
+        const conv = this.getActiveConversation();
+        if (!conv || !this.inputEl) return;
+        const draft: ConversationDraft = { text: this.inputEl.value, attachments: [...this.attachments] };
+        this.manager.setDraft(conv.id, draft);
+    }
+
+    restoreActiveDraft(): void {
+        const workspace = this.getActiveWorkspace();
+        this.containerEl.querySelector('.workbuddian-model-btn')?.setText(modelDisplayLabel(this, workspace.model));
+        if (this.permissionBtn) {
+            setIcon(this.permissionBtn, permissionIcon(workspace.permissionMode));
+            this.permissionBtn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + workspace.permissionMode)}`);
+        }
+        this.refreshInstructionIndicator();
+        const draft = this.getActiveConversation()?.draft;
+        this.inputEl.value = draft?.text ?? '';
+        this.attachments = draft?.attachments ? [...draft.attachments] : [];
+        renderReferenceChips(this);
+        renderAttachmentChips(this);
+        adjustTextareaHeight(this);
+    }
+
     async onOpen() {
         // dual-pane:主编辑区大面板启用(leaf 挂载后 root 稳定);侧栏窄面板保持顶部标签
         // 判断:leaf 不在右侧栏即为 main pane(rightSplit 是侧栏,其余 main/left 都算主面板)
@@ -128,6 +182,7 @@ export class WorkbuddianChatView extends ItemView {
                 this.activeConvId = this.manager.getActive()?.id ?? null;
                 renderTabs(this);
                 await renderMessages(this);
+                this.restoreActiveDraft();
             } else {
                 const conversations = await this.loadDataCallback();
                 await this.loadConversations(conversations);
@@ -268,6 +323,7 @@ export class WorkbuddianChatView extends ItemView {
             adjustTextareaHeight(this);
             renderReferenceChips(this);
             if (!updateSlashSuggest(this)) updateAtSuggest(this);
+            this.scheduleDraftPersist();
         };
         // 聚焦输入框时抓取当前笔记的选区，作为聊天上下文 chip（selectionchange 监听在 onOpen 一次性注册）
         this.inputEl.addEventListener('focus', () => captureNoteSelection(this));
@@ -291,7 +347,7 @@ export class WorkbuddianChatView extends ItemView {
             cls: 'workbuddian-model-btn',
             attr: { 'aria-label': t('settings.model'), title: t('settings.model'), role: 'button', tabindex: '0' }
         });
-        modelBtn.setText(modelDisplayLabel(this, this.settings.model));
+        modelBtn.setText(modelDisplayLabel(this, this.getActiveWorkspace().model));
         modelBtn.addEventListener('click', () => openModelMenu(this, modelBtn));
         // role="button" 的 div 没有原生键盘激活行为，手动补上 Enter/Space
         modelBtn.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -325,8 +381,8 @@ export class WorkbuddianChatView extends ItemView {
             cls: 'workbuddian-toolbar-btn',
             attr: { 'aria-label': t('input.permission') }
         });
-        setIcon(permBtn, permissionIcon(this.settings.permissionMode));
-        permBtn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + this.settings.permissionMode)}`);
+        setIcon(permBtn, permissionIcon(this.getActiveWorkspace().permissionMode));
+        permBtn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + this.getActiveWorkspace().permissionMode)}`);
         permBtn.onclick = (e) => openPermissionMenu(this, permBtn, e);
         this.permissionBtn = permBtn;
 
@@ -359,11 +415,13 @@ export class WorkbuddianChatView extends ItemView {
 
     /** 语言切换后重建面板 DOM 并保持当前活跃对话与已渲染内容 */
     async refreshUI() {
+        this.persistActiveDraft();
         const keepActive = this.activeConvId;
         this.buildUI();
         this.activeConvId = keepActive;
         renderTabs(this);
         await renderMessages(this);
+        this.restoreActiveDraft();
     }
 
     /** Hermes http 轻量模式时显示降级顶条；codebuddy/ACP 模式恒隐藏 */
@@ -375,10 +433,10 @@ export class WorkbuddianChatView extends ItemView {
         if (lite) this.liteBannerEl.setText(t('hermes.liteBanner'));
     }
 
-    /** 按 settings.customInstruction 刷新工具栏 # 指示按钮的高亮与提示 */
+    /** 按当前会话工作区指令刷新工具栏 # 指示按钮的高亮与提示 */
     refreshInstructionIndicator() {
         if (!this.instructionBtn) return;
-        const on = !!this.settings.customInstruction;
+        const on = !!this.getActiveWorkspace().customInstruction;
         this.instructionBtn.toggleClass('workbuddian-instruction-active', on);
         const label = on ? t('instruction.indicatorOn') : t('instruction.indicatorOff');
         this.instructionBtn.setAttribute('title', label);
@@ -392,6 +450,8 @@ export class WorkbuddianChatView extends ItemView {
     }
 
     async onClose() {
+        this.persistActiveDraft();
+        if (this.draftPersistTimer !== null) window.clearTimeout(this.draftPersistTimer);
         this.rejectPendingApprovals();
         this.markdownComponent.unload();
     }
@@ -401,5 +461,6 @@ export class WorkbuddianChatView extends ItemView {
         this.activeConvId = this.manager.getActive()?.id ?? null;
         renderTabs(this);
         await renderMessages(this);
+        this.restoreActiveDraft();
     }
 }

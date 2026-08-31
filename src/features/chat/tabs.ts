@@ -9,10 +9,12 @@ import type { WorkbuddianChatView } from './view';
 import { renderMessages } from './render';
 
 export async function createNewChat(view: WorkbuddianChatView) {
+    view.persistActiveDraft();
     const conv = view.manager.createConversation();
     view.activeConvId = conv.id;
     renderTabs(view);
     await renderMessages(view);
+    view.restoreActiveDraft();
 }
 
 /** 模板新建菜单:选中模板后新建会话,应用预设常驻指令 + 预填开场白 */
@@ -30,26 +32,30 @@ export function openTemplateMenu(view: WorkbuddianChatView, anchorEl: HTMLElemen
 
 /** 应用会话模板:新建会话,设常驻指令,预填开场白 */
 export async function applyChatTemplate(view: WorkbuddianChatView, tpl: ChatTemplate) {
+    view.persistActiveDraft();
     const conv = view.manager.createConversation();
     view.activeConvId = conv.id;
     // 应用预设常驻指令(system prompt)
-    view.settings.customInstruction = tpl.instruction;
-    await view.saveSettingsCallback();
-    // 预填开场白到输入框
-    view.inputEl.value = tpl.opener;
-    adjustTextareaHeight(view);
+    view.manager.updateWorkspace(conv.id, { customInstruction: tpl.instruction });
     renderTabs(view);
     await renderMessages(view);
+    view.restoreActiveDraft();
+    // 预填开场白到输入框（放在恢复草稿之后，避免空草稿覆盖模板开场白）
+    view.inputEl.value = tpl.opener;
+    adjustTextareaHeight(view);
+    view.persistActiveDraft();
     view.inputEl.focus();
     new Notice(t('view.templateApplied').replace('{name}', tpl.name));
 }
 
 export async function switchToChat(view: WorkbuddianChatView, id: string) {
     if (!view.manager.getById(id)) return;
+    view.persistActiveDraft();
     view.rejectPendingApprovals(); // 悬挂批准卡不切走：统一答 reject，不悬挂到 CLI 侧干等
     view.activeConvId = id;
     renderTabs(view);
     await renderMessages(view);
+    view.restoreActiveDraft();
 }
 
 export async function deleteChat(view: WorkbuddianChatView, id: string, e: UIEvent) {
@@ -60,12 +66,14 @@ export async function deleteChat(view: WorkbuddianChatView, id: string, e: UIEve
 /** 删除对话并刷新（不依赖事件，供 ✕ 按钮与右键菜单共用） */
 export async function removeChat(view: WorkbuddianChatView, id: string) {
     const wasActive = view.activeConvId === id;
+    if (wasActive) view.persistActiveDraft();
     view.manager.deleteConversation(id);
     if (wasActive) {
         view.activeConvId = view.manager.getAll()[0]?.id ?? null;
     }
     renderTabs(view);
     await renderMessages(view);
+    view.restoreActiveDraft();
 }
 
 /** 删除前确认：Notice 弹"确认删除?"带按钮，点按钮才真删(防误删,3 秒内不点自动消失) */
