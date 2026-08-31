@@ -257,6 +257,7 @@ e2e 测试基建(`scripts/e2e/`)用 Playwright CDP 驱动真实 Obsidian,覆盖�
 
 ## 相关项目
 
+- **BuddyBridge**（MIT）—早期版本的部分基础设施代码曾参考/使用其实现；当前版本已独立重构。版权与来源见 `LICENSE` / `NOTICE`。
 - **Claudian**(MIT)— 在 Obsidian 里用 Claude Code 的同类插件。Workbuddian 的 UI 参考其设计模式(仅设计模式,无代码拷贝)。见 `LICENSE` / `NOTICE`。
 - **CodeBuddy / WorkBuddy** — 本插件的后端 CLI,本地编程 agent。
 

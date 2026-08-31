@@ -1,5 +1,15 @@
 # NOTICE
 
+## BuddyBridge Attribution
+
+Early versions of Workbuddian referenced and used portions of the infrastructure
+code from [BuddyBridge](https://github.com/ben4202121/buddybridge), licensed under
+the MIT License. Those portions have since been independently refactored; the
+original copyright attribution is retained in `LICENSE`.
+
+Workbuddian is maintained independently and is not affiliated with, endorsed by,
+or sponsored by BuddyBridge.
+
 ## Design References
 
 The chat UI of this project references **Claudian** (MIT) for design patterns
