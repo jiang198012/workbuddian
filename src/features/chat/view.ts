@@ -8,7 +8,7 @@ import { resolveConversationWorkspace } from '../../shared/chatWorkspace';
 import { WORKBUDDIAN_ICON_ID } from '../../shared/icon';
 import { renderTabs, createNewChat, openTemplateMenu } from './tabs';
 import { renderMessages } from './render';
-import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, renderAttachmentChips, openAttachmentPicker, openPermissionMenu, openModelMenu, modelDisplayLabel, permissionIcon, captureNoteSelection, handlePaste, handleDrop } from './input';
+import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, renderAttachmentChips, openAttachmentPicker, openPermissionMenu, openModelMenu, updateModelButton, permissionIcon, captureNoteSelection, handlePaste, handleDrop } from './input';
 import { openInstructionModal } from './instructionModal';
 import type { SlashCommandInfo } from '../../shared/slashCommand';
 import { isActivationKey } from '../../shared/inputKeys';
@@ -109,8 +109,8 @@ export class WorkbuddianChatView extends ItemView {
         if (!conv) return;
         this.manager.updateWorkspace(conv.id, patch);
         const workspace = this.getActiveWorkspace();
-        const modelBtn = this.containerEl.querySelector('.workbuddian-model-btn');
-        modelBtn?.setText(modelDisplayLabel(this, workspace.model));
+        const modelBtn = this.containerEl.querySelector<HTMLElement>('.workbuddian-model-btn');
+        if (modelBtn) updateModelButton(this, modelBtn, workspace.model);
         if (this.permissionBtn) {
             setIcon(this.permissionBtn, permissionIcon(workspace.permissionMode));
             this.permissionBtn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + workspace.permissionMode)}`);
@@ -136,7 +136,8 @@ export class WorkbuddianChatView extends ItemView {
 
     restoreActiveDraft(): void {
         const workspace = this.getActiveWorkspace();
-        this.containerEl.querySelector('.workbuddian-model-btn')?.setText(modelDisplayLabel(this, workspace.model));
+        const modelBtn = this.containerEl.querySelector<HTMLElement>('.workbuddian-model-btn');
+        if (modelBtn) updateModelButton(this, modelBtn, workspace.model);
         if (this.permissionBtn) {
             setIcon(this.permissionBtn, permissionIcon(workspace.permissionMode));
             this.permissionBtn.setAttribute('title', `${t('input.permission')}: ${t('perm.' + workspace.permissionMode)}`);
@@ -347,7 +348,7 @@ export class WorkbuddianChatView extends ItemView {
             cls: 'workbuddian-model-btn',
             attr: { 'aria-label': t('settings.model'), title: t('settings.model'), role: 'button', tabindex: '0' }
         });
-        modelBtn.setText(modelDisplayLabel(this, this.getActiveWorkspace().model));
+        updateModelButton(this, modelBtn, this.getActiveWorkspace().model);
         modelBtn.addEventListener('click', () => openModelMenu(this, modelBtn));
         // role="button" 的 div 没有原生键盘激活行为，手动补上 Enter/Space
         modelBtn.addEventListener('keydown', (e: KeyboardEvent) => {

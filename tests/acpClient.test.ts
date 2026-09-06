@@ -373,7 +373,7 @@ describe('AcpClient lifecycle', () => {
         await assertion;
     });
 
-    it('times out handshake after 10s', async () => {
+    it('times out handshake after 30s', async () => {
         jest.useFakeTimers();
         try {
             const { proc } = createFakeProc();
@@ -381,7 +381,7 @@ describe('AcpClient lifecycle', () => {
             const { client } = makeClient();
             const started = client.ensureStarted();
             const assertion = expect(started).rejects.toMatchObject({ tier: 'handshake-failed' });
-            jest.advanceTimersByTime(10_000);
+            jest.advanceTimersByTime(30_000);
             await assertion;
         } finally {
             jest.useRealTimers();

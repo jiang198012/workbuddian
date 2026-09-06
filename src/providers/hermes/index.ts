@@ -14,6 +14,7 @@ export type { StreamChunk } from '../acp/events';
 export type HermesMode = 'acp' | 'http';
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '']);
+const ACP_CHECK_TIMEOUT_MS = 15_000;
 
 function isLocalGateway(url: string): boolean {
     if (!url.trim()) return true; // 空 = 本机自动发现
@@ -41,7 +42,7 @@ export class HermesProvider {
         if (!isLocalGateway(this.gatewayUrl)) { this.setMode('http'); return; } // 远程 → 直接 http
         const cli = resolveHermesPath(this.cliPath);
         const ok = await new Promise<boolean>((resolve) => {
-            execFile(cli, ['acp', '--check'], { timeout: 5000 }, (err) => {
+            execFile(cli, ['acp', '--check'], { timeout: ACP_CHECK_TIMEOUT_MS }, (err) => {
                 // 失败详情必须进日志：设置页只显示"未检测到 CLI"，无详情无法排查（v2.6.0 教训）
                 if (err) bbLog('[WB] hermes CLI 自检失败:', cli, String(err));
                 resolve(!err);

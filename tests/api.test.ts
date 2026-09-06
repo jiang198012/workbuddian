@@ -80,6 +80,31 @@ describe('CodebuddyProvider v2 sendMessage', () => {
         expect(fake.dispose).not.toHaveBeenCalled(); // 进程保活
     });
 
+    it('cancel ends the generator even when ACP prompt response is delayed', async () => {
+        const { fake } = makeFakeClient(MockAcpClient);
+        const promptGate = deferred<{ stopReason: string }>();
+        fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
+            if (method === 'session/prompt') return promptGate.promise;
+            if (method === 'session/new') return { sessionId: 'acp-slow' };
+            if (method === 'session/load') {
+                if (String(params.sessionId).startsWith('acp-')) return {};
+                throw new Error('not found');
+            }
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        const gen = api.sendMessage('slow', 'hello', '/v');
+        const pending = gen.next();
+        await flush();
+        api.cancel('slow');
+        // 取消通知本身不保证 ACP 立即回复；UI 生成器必须先收尾。
+        await expect(Promise.race([
+            pending.then((r) => r.done),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('cancel timeout')), 100)),
+        ])).resolves.toBe(true);
+        promptGate.resolve({ stopReason: 'cancelled' });
+    });
+
     it('cancel() without args cancels every in-flight session', async () => {
         const { fake } = makeFakeClient(MockAcpClient);
         const gates = new Map<string, ReturnType<typeof deferred<{ stopReason: string }>>>();

@@ -1,4 +1,4 @@
-import { Notice, setIcon, Menu } from 'obsidian';
+import { Modal, Notice, setIcon, Menu, Setting } from 'obsidian';
 import { getErrorMessage } from '../../types';
 import { formatConversationAsMarkdown } from '../../shared/export';
 import { isActivationKey } from '../../shared/inputKeys';
@@ -67,27 +67,51 @@ export async function deleteChat(view: WorkbuddianChatView, id: string, e: UIEve
 export async function removeChat(view: WorkbuddianChatView, id: string) {
     const wasActive = view.activeConvId === id;
     if (wasActive) view.persistActiveDraft();
-    view.manager.deleteConversation(id);
-    if (wasActive) {
-        view.activeConvId = view.manager.getAll()[0]?.id ?? null;
+    if (!view.manager.deleteConversation(id)) return;
+
+    // manager 在两个 view 间共享；同步刷新所有已打开的面板，避免删除后另一面板的
+    // tab/search 仍引用已删除的会话（尤其是当前分叉会话）。
+    const leaves = view.app.workspace.getLeavesOfType(view.getViewType());
+    for (const leaf of leaves) {
+        const other = leaf.view as WorkbuddianChatView;
+        if (!other || other.manager !== view.manager) continue;
+        if (other.activeRename) other.activeRename = null;
+        if (other.activeConvId === id || !other.manager.getById(other.activeConvId ?? '')) {
+            other.activeConvId = other.manager.getAll()[0]?.id ?? null;
+        }
+        renderTabs(other);
+        await renderMessages(other);
+        other.restoreActiveDraft();
     }
-    renderTabs(view);
-    await renderMessages(view);
-    view.restoreActiveDraft();
 }
 
-/** 删除前确认：Notice 弹"确认删除?"带按钮，点按钮才真删(防误删,3 秒内不点自动消失) */
+/** 删除确认使用可访问 Modal，避免 Notice 短暂消失或无法被键盘/自动化稳定定位。 */
+class DeleteChatModal extends Modal {
+    constructor(
+        private readonly view: WorkbuddianChatView,
+        private readonly id: string,
+        private readonly label: string,
+    ) { super(view.app); }
+
+    onOpen(): void {
+        this.titleEl.setText(t('tabs.confirmDelete'));
+        this.contentEl.createEl('p', { text: `「${this.label}」？` });
+        new Setting(this.contentEl)
+            .addButton((b) => b.setButtonText(t('tabs.deleteConfirmBtn')).setCta().onClick(() => {
+                void removeChat(this.view, this.id);
+                this.close();
+            }))
+            .addButton((b) => b.setButtonText(t('approval.cancel')).onClick(() => this.close()));
+    }
+
+    onClose(): void { this.contentEl.empty(); }
+}
+
+/** 删除前确认：先显示可访问的 Modal，点确认才真正删除。 */
 export function confirmAndRemoveChat(view: WorkbuddianChatView, id: string) {
     const conv = view.manager.getById(id);
     const label = conv ? conv.title : id;
-    const notice = new Notice('', 3000);
-    const noticeEl = notice.noticeEl;
-    noticeEl.createEl('span', { text: `${t('tabs.confirmDelete')}「${label}」？` });
-    noticeEl.createEl('button', { text: t('tabs.deleteConfirmBtn'), cls: 'mod-warning' })
-        .onclick = () => {
-            void removeChat(view, id);
-            notice.hide();
-        };
+    new DeleteChatModal(view, id, label).open();
 }
 
 /** 渲染标签栏 */

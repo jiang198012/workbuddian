@@ -786,7 +786,7 @@ function classifyHandshakeFailure(stderr) {
 function isAuthError(message) {
   return /auth|logged|login|unauthorized|登录|未登录/i.test(message);
 }
-var HANDSHAKE_TIMEOUT_MS = 1e4;
+var HANDSHAKE_TIMEOUT_MS = 3e4;
 var DEFAULT_REQUEST_TIMEOUT_MS = 9e4;
 function summarizeRpcParams(method, params) {
   try {
@@ -1799,6 +1799,11 @@ var AcpProvider = class {
     this.lookup = NOOP_LOOKUP;
     this.availableModels = [];
     this.callbacks = /* @__PURE__ */ new Map();
+    /**
+     * 取消回调按会话登记。ACP 的 session/cancel 是通知，旧版/异常 CLI 可能迟迟不回 prompt
+     * 响应；先结束对应 async generator，避免 UI 一直停留在“思考中”，实际取消仍交给 session。
+     */
+    this.activeStreams = /* @__PURE__ */ new Map();
     this.availableModels = [...profile.fallbackModels];
     this.client = new AcpClient({
       onSessionUpdate: (acpSessionId, update) => this.routeSessionUpdate(acpSessionId, update),
@@ -1911,9 +1916,12 @@ var AcpProvider = class {
   }
   /** 定向 cancel：有参只停该会话在飞轮次（双面板互不影响）；无参停全部（卸载兜底） */
   cancel(sessionId) {
+    var _a;
     for (const s of this.registry.all()) {
-      if (!sessionId || s.key === sessionId)
+      if (!sessionId || s.key === sessionId) {
+        (_a = this.activeStreams.get(s.key)) == null ? void 0 : _a();
         void s.cancelTurn();
+      }
     }
   }
   /** 会话级分叉：懒加载后走 /branch，返回 CLI 分配的新 acpSessionId（启动失败沿用分级文案） */
@@ -1946,6 +1954,7 @@ var AcpProvider = class {
     const queue = [];
     let waiter = null;
     let settled = false;
+    let cancelledByCaller = false;
     let chunkCount = 0;
     const push2 = (item) => {
       if (settled)
@@ -1963,6 +1972,11 @@ var AcpProvider = class {
     const pull = () => queue.length ? Promise.resolve(queue.shift()) : new Promise((r) => {
       waiter = r;
     });
+    const cancelStream = () => {
+      cancelledByCaller = true;
+      push2({ end: true });
+    };
+    this.activeStreams.set(sessionId, cancelStream);
     const handlers = {
       onChunk: (chunk) => {
         chunkCount++;
@@ -1994,6 +2008,8 @@ var AcpProvider = class {
     }
     promptPromise.then(({ stopReason }) => {
       clearTimeout(timer);
+      if (cancelledByCaller)
+        return;
       if (stopReason === "end_turn") {
         if (chunkCount === 0)
           this.restartAfterDeadTurn(sessionId);
@@ -2016,14 +2032,20 @@ var AcpProvider = class {
       clearTimeout(timer);
       push2({ error: e.message === "session busy" ? t("provider.busy") : e.message });
     });
-    while (true) {
-      const item = await pull();
-      if (item.end)
-        return;
-      if (item.error)
-        throw new Error(item.error);
-      if (item.chunk)
-        yield item.chunk;
+    try {
+      while (true) {
+        const item = await pull();
+        if (item.end)
+          return;
+        if (item.error)
+          throw new Error(item.error);
+        if (item.chunk)
+          yield item.chunk;
+      }
+    } finally {
+      if (this.activeStreams.get(sessionId) === cancelStream) {
+        this.activeStreams.delete(sessionId);
+      }
     }
   }
   /** session/update 路由：按 acpSessionId 归会话；fork 回报可能挂在新 id 下，归给正在 fork 的会话；无归属记日志不再静默丢 */
@@ -2419,6 +2441,7 @@ var HermesHttpProvider = class {
 
 // src/providers/hermes/index.ts
 var LOCAL_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1", ""]);
+var ACP_CHECK_TIMEOUT_MS = 15e3;
 function isLocalGateway(url) {
   if (!url.trim())
     return true;
@@ -2459,7 +2482,7 @@ var HermesProvider = class {
     }
     const cli = resolveHermesPath(this.cliPath);
     const ok = await new Promise((resolve) => {
-      (0, import_child_process3.execFile)(cli, ["acp", "--check"], { timeout: 5e3 }, (err) => {
+      (0, import_child_process3.execFile)(cli, ["acp", "--check"], { timeout: ACP_CHECK_TIMEOUT_MS }, (err) => {
         if (err)
           bbLog("[WB] hermes CLI \u81EA\u68C0\u5931\u8D25:", cli, String(err));
         resolve(!err);
@@ -4397,6 +4420,13 @@ function modelDisplayLabel(view, id) {
   }
   return modelLabel(id);
 }
+function updateModelButton(view, btn, id) {
+  const label = modelDisplayLabel(view, id) || modelLabel("auto");
+  btn.setText(label);
+  btn.setAttribute("aria-label", `${t("settings.model")}: ${label}`);
+  btn.setAttribute("title", `${t("settings.model")}: ${label}`);
+  btn.setAttribute("data-model-id", id || "auto");
+}
 function openModelMenu(view, btn) {
   const menu = new import_obsidian6.Menu();
   const workspace = view.getActiveWorkspace();
@@ -4406,7 +4436,7 @@ function openModelMenu(view, btn) {
   for (const id of models) {
     menu.addItem((item) => item.setTitle(labelOf(id)).setChecked(workspace.model === id).onClick(async () => {
       view.updateActiveWorkspace({ model: id });
-      btn.setText(labelOf(id));
+      updateModelButton(view, btn, id);
     }));
   }
   const rect = btn.getBoundingClientRect();
@@ -5108,28 +5138,50 @@ async function switchToChat(view, id) {
   view.restoreActiveDraft();
 }
 async function removeChat(view, id) {
-  var _a, _b;
+  var _a, _b, _c;
   const wasActive = view.activeConvId === id;
   if (wasActive)
     view.persistActiveDraft();
-  view.manager.deleteConversation(id);
-  if (wasActive) {
-    view.activeConvId = (_b = (_a = view.manager.getAll()[0]) == null ? void 0 : _a.id) != null ? _b : null;
+  if (!view.manager.deleteConversation(id))
+    return;
+  const leaves = view.app.workspace.getLeavesOfType(view.getViewType());
+  for (const leaf of leaves) {
+    const other = leaf.view;
+    if (!other || other.manager !== view.manager)
+      continue;
+    if (other.activeRename)
+      other.activeRename = null;
+    if (other.activeConvId === id || !other.manager.getById((_a = other.activeConvId) != null ? _a : "")) {
+      other.activeConvId = (_c = (_b = other.manager.getAll()[0]) == null ? void 0 : _b.id) != null ? _c : null;
+    }
+    renderTabs(other);
+    await renderMessages(other);
+    other.restoreActiveDraft();
   }
-  renderTabs(view);
-  await renderMessages(view);
-  view.restoreActiveDraft();
 }
+var DeleteChatModal = class extends import_obsidian7.Modal {
+  constructor(view, id, label) {
+    super(view.app);
+    this.view = view;
+    this.id = id;
+    this.label = label;
+  }
+  onOpen() {
+    this.titleEl.setText(t("tabs.confirmDelete"));
+    this.contentEl.createEl("p", { text: `\u300C${this.label}\u300D\uFF1F` });
+    new import_obsidian7.Setting(this.contentEl).addButton((b) => b.setButtonText(t("tabs.deleteConfirmBtn")).setCta().onClick(() => {
+      void removeChat(this.view, this.id);
+      this.close();
+    })).addButton((b) => b.setButtonText(t("approval.cancel")).onClick(() => this.close()));
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
 function confirmAndRemoveChat(view, id) {
   const conv = view.manager.getById(id);
   const label = conv ? conv.title : id;
-  const notice = new import_obsidian7.Notice("", 3e3);
-  const noticeEl = notice.noticeEl;
-  noticeEl.createEl("span", { text: `${t("tabs.confirmDelete")}\u300C${label}\u300D\uFF1F` });
-  noticeEl.createEl("button", { text: t("tabs.deleteConfirmBtn"), cls: "mod-warning" }).onclick = () => {
-    void removeChat(view, id);
-    notice.hide();
-  };
+  new DeleteChatModal(view, id, label).open();
 }
 function renderTabs(view) {
   var _a, _b;
@@ -5418,7 +5470,8 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     this.manager.updateWorkspace(conv.id, patch);
     const workspace = this.getActiveWorkspace();
     const modelBtn = this.containerEl.querySelector(".workbuddian-model-btn");
-    modelBtn == null ? void 0 : modelBtn.setText(modelDisplayLabel(this, workspace.model));
+    if (modelBtn)
+      updateModelButton(this, modelBtn, workspace.model);
     if (this.permissionBtn) {
       (0, import_obsidian8.setIcon)(this.permissionBtn, permissionIcon(workspace.permissionMode));
       this.permissionBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + workspace.permissionMode)}`);
@@ -5442,16 +5495,18 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     this.manager.setDraft(conv.id, draft);
   }
   restoreActiveDraft() {
-    var _a, _b, _c;
+    var _a, _b;
     const workspace = this.getActiveWorkspace();
-    (_a = this.containerEl.querySelector(".workbuddian-model-btn")) == null ? void 0 : _a.setText(modelDisplayLabel(this, workspace.model));
+    const modelBtn = this.containerEl.querySelector(".workbuddian-model-btn");
+    if (modelBtn)
+      updateModelButton(this, modelBtn, workspace.model);
     if (this.permissionBtn) {
       (0, import_obsidian8.setIcon)(this.permissionBtn, permissionIcon(workspace.permissionMode));
       this.permissionBtn.setAttribute("title", `${t("input.permission")}: ${t("perm." + workspace.permissionMode)}`);
     }
     this.refreshInstructionIndicator();
-    const draft = (_b = this.getActiveConversation()) == null ? void 0 : _b.draft;
-    this.inputEl.value = (_c = draft == null ? void 0 : draft.text) != null ? _c : "";
+    const draft = (_a = this.getActiveConversation()) == null ? void 0 : _a.draft;
+    this.inputEl.value = (_b = draft == null ? void 0 : draft.text) != null ? _b : "";
     this.attachments = (draft == null ? void 0 : draft.attachments) ? [...draft.attachments] : [];
     renderReferenceChips(this);
     renderAttachmentChips(this);
@@ -5623,7 +5678,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
       cls: "workbuddian-model-btn",
       attr: { "aria-label": t("settings.model"), title: t("settings.model"), role: "button", tabindex: "0" }
     });
-    modelBtn.setText(modelDisplayLabel(this, this.getActiveWorkspace().model));
+    updateModelButton(this, modelBtn, this.getActiveWorkspace().model);
     modelBtn.addEventListener("click", () => openModelMenu(this, modelBtn));
     modelBtn.addEventListener("keydown", (e) => {
       if (isActivationKey(e.key)) {
@@ -7082,11 +7137,11 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
       void this.api.init();
     }
   }
-  /** 复用已有 leaf 或新建右侧 leaf，然后 reveal + focus；失败给分级 Notice */
-  async openPanel(createLeaf, errNotice) {
+  /** 复用已有 leaf 或新建目标 leaf，然后 reveal + focus；失败给分级 Notice */
+  async openPanel(createLeaf, errNotice, findExisting) {
     try {
       const { workspace } = this.app;
-      let leaf = workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
+      let leaf = findExisting ? findExisting() : workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
       if (!leaf) {
         leaf = createLeaf();
         if (leaf)
@@ -7111,7 +7166,20 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
     }, t("cmd.openPanelFailed"));
   }
   async activateMainPaneView() {
-    await this.openPanel(() => this.app.workspace.getLeaf("tab"), t("cmd.openMainPaneFailed"));
+    await this.openPanel(
+      () => this.app.workspace.getLeaf("tab"),
+      t("cmd.openMainPaneFailed"),
+      () => {
+        var _a;
+        return (_a = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT).find((leaf) => {
+          try {
+            return leaf.getRoot() !== this.app.workspace.rightSplit;
+          } catch (e) {
+            return false;
+          }
+        })) != null ? _a : null;
+      }
+    );
   }
   async loadPersistedConversations() {
     if (!this.chatView)

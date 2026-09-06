@@ -648,6 +648,15 @@ export function modelDisplayLabel(view: WorkbuddianChatView, id: string): string
     return modelLabel(id);
 }
 
+/** 同步模型按钮的可见文案与无障碍名称，避免 AX 只读到通用的“模型”而看不到当前值。 */
+export function updateModelButton(view: WorkbuddianChatView, btn: HTMLElement, id: string): void {
+    const label = modelDisplayLabel(view, id) || modelLabel('auto');
+    btn.setText(label);
+    btn.setAttribute('aria-label', `${t('settings.model')}: ${label}`);
+    btn.setAttribute('title', `${t('settings.model')}: ${label}`);
+    btn.setAttribute('data-model-id', id || 'auto');
+}
+
 /** 弹出模型选择菜单（供悬停/点击触发），选中后写设置 + 灌 CLI + 更新按钮文字 + 持久化 */
 export function openModelMenu(view: WorkbuddianChatView, btn: HTMLElement) {
     const menu = new Menu();
@@ -661,7 +670,7 @@ export function openModelMenu(view: WorkbuddianChatView, btn: HTMLElement) {
             .setChecked(workspace.model === id)
             .onClick(async () => {
                 view.updateActiveWorkspace({ model: id });
-                btn.setText(labelOf(id));
+                updateModelButton(view, btn, id);
             }));
     }
     const rect = btn.getBoundingClientRect();

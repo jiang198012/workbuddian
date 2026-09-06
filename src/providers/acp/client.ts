@@ -43,7 +43,9 @@ export function isAuthError(message: string): boolean {
     return /auth|logged|login|unauthorized|登录|未登录/i.test(message);
 }
 
-const HANDSHAKE_TIMEOUT_MS = 10_000;
+// Hermes 启动时会同步发现/加载插件；在低速机器上超过 10s 会被误判为 ACP 不可用，
+// 随即粘性降级到 HTTP 轻量模式。给握手留出合理的冷启动窗口，普通 RPC 仍使用独立超时。
+const HANDSHAKE_TIMEOUT_MS = 30_000;
 /** 普通 RPC 的兜底超时：请求发出后无人应答不能永久悬挂（WB-005 的"会话正在响应中"即悬挂后遗症） */
 const DEFAULT_REQUEST_TIMEOUT_MS = 90_000;
 

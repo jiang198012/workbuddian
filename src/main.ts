@@ -269,11 +269,13 @@ export default class WorkbuddianPlugin extends Plugin {
         }
     }
 
-    /** 复用已有 leaf 或新建右侧 leaf，然后 reveal + focus；失败给分级 Notice */
-    private async openPanel(createLeaf: () => WorkspaceLeaf | null, errNotice: string) {
+    /** 复用已有 leaf 或新建目标 leaf，然后 reveal + focus；失败给分级 Notice */
+    private async openPanel(createLeaf: () => WorkspaceLeaf | null, errNotice: string, findExisting?: () => WorkspaceLeaf | null) {
         try {
             const { workspace } = this.app;
-            let leaf = workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
+            // 不要把右侧窄面板误当成主编辑区面板：两个命令的 view 必须各自复用正确位置。
+            // 传入 findExisting 时严格限定目标位置；返回 null 代表创建新 leaf，不能再回退到另一位置的旧面板。
+            let leaf = findExisting ? findExisting() : workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
             if (!leaf) {
                 // setViewState 只对新 leaf 调用：对已有 leaf 重设会重建视图、丢掉输入框/滚动状态
                 leaf = createLeaf();
@@ -301,7 +303,15 @@ export default class WorkbuddianPlugin extends Plugin {
     }
 
     async activateMainPaneView() {
-        await this.openPanel(() => this.app.workspace.getLeaf('tab'), t('cmd.openMainPaneFailed'));
+        await this.openPanel(
+            () => this.app.workspace.getLeaf('tab'),
+            t('cmd.openMainPaneFailed'),
+            () => this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)
+                .find((leaf) => {
+                    try { return leaf.getRoot() !== this.app.workspace.rightSplit; }
+                    catch { return false; }
+                }) ?? null,
+        );
     }
 
     async loadPersistedConversations() {

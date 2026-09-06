@@ -39,6 +39,11 @@ export class AcpProvider {
     private lookup: ConversationLookup = NOOP_LOOKUP;
     private availableModels: string[] = [];
     private callbacks = new Map<string, SessionCallbacks>();
+    /**
+     * 取消回调按会话登记。ACP 的 session/cancel 是通知，旧版/异常 CLI 可能迟迟不回 prompt
+     * 响应；先结束对应 async generator，避免 UI 一直停留在“思考中”，实际取消仍交给 session。
+     */
+    private activeStreams = new Map<string, () => void>();
 
     constructor(
         protected readonly profile: AcpBackendProfile = ACP_DEFAULT_PROFILE,
@@ -158,7 +163,10 @@ export class AcpProvider {
     /** 定向 cancel：有参只停该会话在飞轮次（双面板互不影响）；无参停全部（卸载兜底） */
     cancel(sessionId?: string): void {
         for (const s of this.registry.all()) {
-            if (!sessionId || s.key === sessionId) void s.cancelTurn();
+            if (!sessionId || s.key === sessionId) {
+                this.activeStreams.get(s.key)?.();
+                void s.cancelTurn();
+            }
         }
     }
 
@@ -210,6 +218,7 @@ export class AcpProvider {
         const queue: QueueItem[] = [];
         let waiter: ((item: QueueItem) => void) | null = null;
         let settled = false;
+        let cancelledByCaller = false;
         let chunkCount = 0; // 本轮实际到达的 chunk 数：零 chunk 落账是 CLI 状态机卡死的特征
         const push = (item: QueueItem) => {
             if (settled) return;
@@ -224,6 +233,12 @@ export class AcpProvider {
         };
         const pull = (): Promise<QueueItem> =>
             queue.length ? Promise.resolve(queue.shift()!) : new Promise((r) => { waiter = r; });
+
+        const cancelStream = () => {
+            cancelledByCaller = true;
+            push({ end: true });
+        };
+        this.activeStreams.set(sessionId, cancelStream);
 
         const handlers: TurnHandlers = {
             onChunk: (chunk) => { chunkCount++; push({ chunk }); },
@@ -250,6 +265,7 @@ export class AcpProvider {
         }
         promptPromise.then(({ stopReason }) => {
             clearTimeout(timer);
+            if (cancelledByCaller) return;
             if (stopReason === 'end_turn') {
                 if (chunkCount === 0) this.restartAfterDeadTurn(sessionId);
                 push({
@@ -272,11 +288,18 @@ export class AcpProvider {
             push({ error: e.message === 'session busy' ? t('provider.busy') : e.message });
         });
 
-        while (true) {
-            const item = await pull();
-            if (item.end) return;
-            if (item.error) throw new Error(item.error);
-            if (item.chunk) yield item.chunk;
+        try {
+            while (true) {
+                const item = await pull();
+                if (item.end) return;
+                if (item.error) throw new Error(item.error);
+                if (item.chunk) yield item.chunk;
+            }
+        } finally {
+            // 只删除本轮登记的回调，避免旧轮 finally 把新轮的取消句柄删掉。
+            if (this.activeStreams.get(sessionId) === cancelStream) {
+                this.activeStreams.delete(sessionId);
+            }
         }
     }
 
