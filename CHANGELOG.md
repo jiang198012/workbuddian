@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.6.5 — 2026-09-05
+
+**Skill 调用**：发现并调用 WorkBuddy / CodeBuddy 已安装技能，补齐 issue #6 的 `/` 补全入口。
+
+### 新增
+- **Skill 发现**：扫描用户级 `~/.workbuddy/skills`、`~/.codebuddy/skills` 与 Vault 级 `.workbuddy/skills`、`.codebuddy/skills` 下的 `SKILL.md`。
+- **Skill 补全**：输入 `/` 显示技能名称与描述，选择后填入 `/skill-name `，由 CodeBuddy CLI 按官方 Skills 规则加载。
+- **安全边界**：插件仅读取 `name`/`description` 做补全，不默认注入或执行技能正文；技能工具仍受权限模式和批准卡控制。
+- **文档同步**：README 更新 2.6.5 状态、Skill 目录、调用方式与 What's New。
+
+### 验证
+- `npm run build` 通过。
+- Skill 与斜杠命令测试通过。
+
 ## v2.6.4 — 2026-09-05
 
 **全功能测试问题修复**：修复 demo-vault Computer Use 验收中发现的停止生成、ACP 降级、主编辑区面板、模型可见性和删除会话同步问题。

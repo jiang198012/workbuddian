@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (v2.6.2)
+status: stable (v2.6.5)
 license: MIT
 -->
 
@@ -52,6 +52,7 @@ license: MIT
 | **多语言界面** | 中文 / English 即时切换,自定义主色 |
 | **对比终端直接用 CLI** | 可视化界面、批准卡、一键撤销、面板集成都在 Obsidian 内完成,不必切到终端 |
 | **指令模式 `#`** | 设一条常驻指令 / 人设,对所有对话生效 |
+| **WorkBuddy Skills** | 自动发现 `~/.workbuddy/skills`、`~/.codebuddy/skills` 与 Vault 内技能,输入 `/` 选择并调用已安装技能 |
 
 ## 安全与权限
 
@@ -133,6 +134,17 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 
 笔记里选中的文字会自动作为只读上下文随消息发送。
 
+### 调用已安装 Skill
+
+输入 `/` 打开补全列表即可看到 WorkBuddy / CodeBuddy 已安装的技能。选择技能后会填入 `/skill-name `,继续输入任务并发送；CodeBuddy 会按官方 Skills 约定加载对应的 `SKILL.md`。
+
+插件只读取技能的 `name` 与 `description` 用于补全，不会默认把全部技能正文发送给模型。支持的目录：
+
+- 用户级：`~/.workbuddy/skills/<name>/SKILL.md`、`~/.codebuddy/skills/<name>/SKILL.md`
+- Vault 级：`<Vault>/.workbuddy/skills/<name>/SKILL.md`、`<Vault>/.codebuddy/skills/<name>/SKILL.md`（同名时覆盖用户级）
+
+技能本身的工具调用仍受当前权限模式与批准卡控制。
+
 ### 气泡内批准卡
 
 Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计划模式出「计划已就绪」卡,批准后**同一轮**继续执行。
@@ -192,7 +204,9 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 v2.6.2**
+**最新版本 v2.6.5**
+
+- **v2.6.5** — **Skill 调用**：发现 WorkBuddy / CodeBuddy 已安装技能,输入 `/` 选择后直接调用。
 
 - **v2.6.2** — **后端切换卫生**:
   - 切到 Hermes 后不再残留 CodeBuddy 模型:自动回落 auto(跟随 Hermes 默认模型),旧配置启动自愈

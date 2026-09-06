@@ -205,6 +205,7 @@ var init_i18n = __esm({
       "input.ariaLabel": { zh: "\u804A\u5929\u8F93\u5165\u6846", en: "Chat input" },
       "a11y.newReply": { zh: "\u65B0\u56DE\u590D\uFF1A", en: "New reply: " },
       "input.customCommand": { zh: "\uFF08\u81EA\u5B9A\u4E49\u547D\u4EE4\uFF09", en: "(Custom command)" },
+      "input.skillCommand": { zh: "\u8C03\u7528\u5DF2\u5B89\u88C5\u6280\u80FD", en: "Invoke installed skill" },
       "input.attach": { zh: "\u9644\u52A0\u6587\u4EF6", en: "Attach files" },
       "input.imageSaveFailed": { zh: "\u56FE\u7247\u4FDD\u5B58\u5931\u8D25", en: "Failed to save image" },
       "input.contextUsage": { zh: "\u4E0A\u4E0B\u6587\u7528\u91CF", en: "Context usage" },
@@ -2890,6 +2891,75 @@ function parseMcpServerNames(json) {
   }
 }
 
+// src/shared/skills.ts
+var import_fs2 = require("fs");
+var import_os2 = require("os");
+var import_path2 = require("path");
+function parseSkillFrontmatter(content) {
+  var _a, _b, _c, _d, _e, _f;
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  const frontmatter = match ? match[1] : "";
+  const name = (_c = (_b = (_a = frontmatter.match(/^name:\s*(.*)$/m)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
+  const description = (_f = (_e = (_d = frontmatter.match(/^description(?:_zh)?:\s*["']?(.+?)["']?\s*$/m)) == null ? void 0 : _d[1]) == null ? void 0 : _e.trim()) != null ? _f : "";
+  return { name, description };
+}
+function scanRoot(root, source) {
+  const results = [];
+  const walk = (dir, depth) => {
+    if (depth > 3)
+      return;
+    let entries;
+    try {
+      entries = (0, import_fs2.readdirSync)(dir, { withFileTypes: true });
+    } catch (e) {
+      return;
+    }
+    for (const entry of entries) {
+      const fullPath = (0, import_path2.join)(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath, depth + 1);
+        continue;
+      }
+      if (entry.name !== "SKILL.md")
+        continue;
+      try {
+        if ((0, import_fs2.statSync)(fullPath).size > 256 * 1024)
+          continue;
+        const metadata = parseSkillFrontmatter((0, import_fs2.readFileSync)(fullPath, "utf8"));
+        const relativeName = (0, import_path2.relative)(root, dir).split("\\").join("/");
+        const fallbackName = relativeName || entry.name.replace(/\.md$/, "");
+        const name = metadata.name || fallbackName;
+        if (!/^[A-Za-z0-9][A-Za-z0-9_-]*(?:\/[A-Za-z0-9][A-Za-z0-9_-]*)*$/.test(name))
+          continue;
+        results.push({ name, description: metadata.description, path: fullPath, source });
+      } catch (e) {
+      }
+    }
+  };
+  walk(root, 0);
+  return results;
+}
+function discoverSkills(vaultPath, homePath = (0, import_os2.homedir)()) {
+  const roots = [
+    { path: (0, import_path2.join)(homePath, ".workbuddy", "skills"), source: "user" },
+    { path: (0, import_path2.join)(homePath, ".codebuddy", "skills"), source: "user" }
+  ];
+  if (vaultPath) {
+    roots.push(
+      { path: (0, import_path2.join)(vaultPath, ".workbuddy", "skills"), source: "vault" },
+      { path: (0, import_path2.join)(vaultPath, ".codebuddy", "skills"), source: "vault" }
+    );
+  }
+  const byName = /* @__PURE__ */ new Map();
+  for (const root of roots) {
+    for (const skill of scanRoot(root.path, root.source)) {
+      if (!byName.has(skill.name) || skill.source === "vault")
+        byName.set(skill.name, skill);
+    }
+  }
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 // src/shared/instruction.ts
 function parseInstructionInput(text) {
   const trimmed = text.trim();
@@ -4455,11 +4525,13 @@ function updateSlashSuggest(view) {
   const query = extractSlashQuery(view.inputEl.value, cursorPos);
   if (query === null)
     return false;
+  view.installedSkills = discoverSkills(view.vaultPath);
   void loadCustomCommands(view);
   const q = query.toLowerCase();
   const matches = [
     ...filterSlashCommands(query),
     ...view.customCommands.filter((c) => c.name.toLowerCase().startsWith(q)),
+    ...view.installedSkills.filter((s) => s.name.toLowerCase().startsWith(q)).map((s) => ({ name: s.name, desc: `\u26A1 ${s.description || t("input.skillCommand")} (${s.source === "vault" ? "Vault" : "WorkBuddy"})` })),
     // A1 模板命令:prefix 加 ⚡ 标识,与 CLI/自定义命令区分
     ...filterTemplates(query).map((t2) => ({ name: t2.name, desc: `\u26A1 ${t2.desc}` }))
   ];
@@ -4490,6 +4562,7 @@ async function loadCustomCommands(view) {
     cmds.push({ name: commandNameFromPath(rel), desc: fm.description || t("input.customCommand") });
   }
   view.customCommands = cmds;
+  view.installedSkills = discoverSkills(view.vaultPath);
 }
 function insertSlashCommand(view, name) {
   const template = findTemplate(name);
@@ -5411,6 +5484,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
     this.activeRename = null;
     this.activeConvId = null;
     this.customCommands = [];
+    this.installedSkills = [];
     this.attachments = [];
     this.suggestIndex = -1;
     // 补全下拉当前高亮项，-1 = 无
@@ -6167,34 +6241,34 @@ var McpServerModal = class extends import_obsidian10.Modal {
 };
 
 // src/shared/codebuddyPlugins.ts
-var import_fs2 = require("fs");
-var import_path2 = require("path");
+var import_fs3 = require("fs");
+var import_path3 = require("path");
 function str(d, key) {
   const v = d[key];
   return typeof v === "string" ? v : "";
 }
 function discoverPlugins(pluginsRoot = codebuddyPluginsRoot()) {
   const out = [];
-  const marketsDir = (0, import_path2.join)(pluginsRoot, "marketplaces");
+  const marketsDir = (0, import_path3.join)(pluginsRoot, "marketplaces");
   let markets;
   try {
-    markets = (0, import_fs2.readdirSync)(marketsDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.endsWith(".zip")).map((e) => e.name);
+    markets = (0, import_fs3.readdirSync)(marketsDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.endsWith(".zip")).map((e) => e.name);
   } catch (e) {
     return [];
   }
   for (const market of markets) {
-    const pluginsDir = (0, import_path2.join)(marketsDir, market, "plugins");
+    const pluginsDir = (0, import_path3.join)(marketsDir, market, "plugins");
     let pluginDirs;
     try {
-      pluginDirs = (0, import_fs2.readdirSync)(pluginsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+      pluginDirs = (0, import_fs3.readdirSync)(pluginsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
     } catch (e) {
       continue;
     }
     for (const pdir of pluginDirs) {
-      const manifestPath = (0, import_path2.join)(pluginsDir, pdir, ".codebuddy-plugin", "plugin.json");
+      const manifestPath = (0, import_path3.join)(pluginsDir, pdir, ".codebuddy-plugin", "plugin.json");
       let raw;
       try {
-        raw = JSON.parse((0, import_fs2.readFileSync)(manifestPath, "utf-8"));
+        raw = JSON.parse((0, import_fs3.readFileSync)(manifestPath, "utf-8"));
       } catch (e) {
         continue;
       }
@@ -6206,14 +6280,14 @@ function discoverPlugins(pluginsRoot = codebuddyPluginsRoot()) {
         name,
         description: str(rec, "description"),
         marketplace: market,
-        dir: (0, import_path2.join)(pluginsDir, pdir)
+        dir: (0, import_path3.join)(pluginsDir, pdir)
       });
     }
   }
   return out;
 }
 function codebuddyPluginsRoot() {
-  return (0, import_path2.join)(homeDir(), ".codebuddy", "plugins");
+  return (0, import_path3.join)(homeDir(), ".codebuddy", "plugins");
 }
 function homeDir() {
   var _a, _b;

@@ -11,6 +11,7 @@ import { renderMessages } from './render';
 import { handleKeydown, sendMessage, adjustTextareaHeight, updateAtSuggest, updateSlashSuggest, loadCustomCommands, renderReferenceChips, renderAttachmentChips, openAttachmentPicker, openPermissionMenu, openModelMenu, updateModelButton, permissionIcon, captureNoteSelection, handlePaste, handleDrop } from './input';
 import { openInstructionModal } from './instructionModal';
 import type { SlashCommandInfo } from '../../shared/slashCommand';
+import type { SkillInfo } from '../../shared/skills';
 import { isActivationKey } from '../../shared/inputKeys';
 import { t } from '../../i18n';
 import { bbError } from '../../shared/logBuffer';
@@ -48,6 +49,7 @@ export class WorkbuddianChatView extends ItemView {
     loadDataCallback: () => Promise<Conversation[]>;
     saveSettingsCallback: () => Promise<void>;
     customCommands: SlashCommandInfo[] = [];
+    installedSkills: SkillInfo[] = [];
     attachChipsEl!: HTMLElement;
     attachments: string[] = [];
     selectionEl!: HTMLElement;

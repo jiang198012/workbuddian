@@ -2,6 +2,7 @@ import { Menu, Notice, setIcon, setTooltip, TFile } from 'obsidian';
 import { getErrorMessage, DEFAULT_CONTEXT_WINDOW_SIZE, type ChatMessage, type ConversationWorkspace } from '../../types';
 import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shared/atReferences';
 import { parseAgentNames, parseMcpServerNames } from '../../shared/mentionSources';
+import { discoverSkills } from '../../shared/skills';
 import { extractMcpNames } from '../../shared/mcpServers';
 import { shouldSendMessage, isActivationKey, nextSuggestIndex } from '../../shared/inputKeys';
 import { assembleContextText } from '../../core/context/assembleContext';
@@ -692,12 +693,17 @@ export function updateSlashSuggest(view: WorkbuddianChatView): boolean {
     const query = extractSlashQuery(view.inputEl.value, cursorPos);
     if (query === null) return false;
 
+    // 技能只读本地元数据，先同步刷新，保证第一次输入 `/` 就能看到已安装技能。
+    view.installedSkills = discoverSkills(view.vaultPath);
     void loadCustomCommands(view); // 后台刷新自定义命令缓存，供下次补全使用
 
     const q = query.toLowerCase();
     const matches: Array<{ name: string; desc: string }> = [
         ...filterSlashCommands(query),
         ...view.customCommands.filter(c => c.name.toLowerCase().startsWith(q)),
+        ...view.installedSkills
+            .filter(s => s.name.toLowerCase().startsWith(q))
+            .map(s => ({ name: s.name, desc: `⚡ ${s.description || t('input.skillCommand')} (${s.source === 'vault' ? 'Vault' : 'WorkBuddy'})` })),
         // A1 模板命令:prefix 加 ⚡ 标识,与 CLI/自定义命令区分
         ...filterTemplates(query).map(t => ({ name: t.name, desc: `⚡ ${t.desc}` })),
     ];
@@ -731,6 +737,7 @@ export async function loadCustomCommands(view: WorkbuddianChatView): Promise<voi
         cmds.push({ name: commandNameFromPath(rel), desc: fm.description || t('input.customCommand') });
     }
     view.customCommands = cmds;
+    view.installedSkills = discoverSkills(view.vaultPath);
 }
 
 export function insertSlashCommand(view: WorkbuddianChatView, name: string) {

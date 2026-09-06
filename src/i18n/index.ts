@@ -178,6 +178,7 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'input.ariaLabel': { zh: '聊天输入框', en: 'Chat input' },
     'a11y.newReply': { zh: '新回复：', en: 'New reply: ' },
     'input.customCommand': { zh: '（自定义命令）', en: '(Custom command)' },
+    'input.skillCommand': { zh: '调用已安装技能', en: 'Invoke installed skill' },
     'input.attach': { zh: '附加文件', en: 'Attach files' },
     'input.imageSaveFailed': { zh: '图片保存失败', en: 'Failed to save image' },
     'input.contextUsage': { zh: '上下文用量', en: 'Context usage' },

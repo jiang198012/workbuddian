@@ -27,6 +27,7 @@
 - **Line-level diffs with one-click undo** for vault edits, guarded by three safety checks.
 - **Conversation forking** and **two truly isolated panels** (sidebar + main area, separate sessions).
 - **Visual MCP server management** with two-way JSON sync; custom subagents in JSON.
+- **Installed Skills** — discover skills from `~/.workbuddy/skills`, `~/.codebuddy/skills`, and vault-local skill folders; type `/` to choose and invoke one.
 - **Bilingual UI** (中文 / English) with instant switching.
 - **Beyond using the CLI directly** — visual interface, approval cards, one-click undo, and panel integration all live inside Obsidian.
 
@@ -50,6 +51,12 @@ Or via [BRAT](https://github.com/TfTHacker/obsidian42-brat) with `jiang198012/wo
 ## Documentation
 
 The complete documentation (usage, settings, auto-discovery, FAQ, changelog) is maintained in **Simplified Chinese**: [README.md](./README.md) — the canonical source.
+
+## What's New
+
+**Latest version v2.6.5**
+
+- **v2.6.5 — Skill invocation**: discover installed WorkBuddy/CodeBuddy skills and invoke one from the `/` completion list.
 
 ## Support
 
