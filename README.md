@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (v2.6.5)
+status: stable (v2.6.6)
 license: MIT
 -->
 
@@ -27,7 +27,7 @@ license: MIT
 > ⚠️ **仅桌面端**（Windows / macOS），需 Obsidian 1.7.2+。Linux 暂不支持。
 
 <p align="center">
-  <img src="docs/assets/workbuddian-demo.gif" alt="Workbuddian 核心流程演示——在笔记里 @ 引用,AI 读取内容并回答(30 秒循环)" width="85%"/>
+  <img src="docs/assets/workbuddian-demo.gif" alt="Workbuddian 核心流程演示——在笔记里 @ 引用,AI 读取内容并回答(约 46 秒循环)" width="85%"/>
 </p>
 
 <p align="center">
@@ -204,9 +204,18 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 v2.6.5**
+**最新版本 v2.6.6**
+
+- **v2.6.6** — **演示流程更新**：重录并重剪 README GIF，恢复高信息密度的 `@` 引用、回复结果与笔记地图演示，并补充 `/summarize` 新流程。
 
 - **v2.6.5** — **Skill 调用**：发现 WorkBuddy / CodeBuddy 已安装技能,输入 `/` 选择后直接调用。
+
+- **v2.6.4** — **全功能测试问题修复**:
+  - 停止生成即时取消,避免迟到的 ACP 响应重新触发生成;放宽 ACP 握手与 Hermes 自检超时
+  - 修复主编辑区大面板误用侧栏、模型按钮状态不可见、删除会话后双面板标签/搜索结果残留
+- **v2.6.3** — **会话工作区与回复写回**:
+  - 会话级模型/授权/推理强度/常驻指令覆盖,并支持 Vault 上下文与当前笔记链接独立开关
+  - 草稿与附件按会话恢复;助手回复可插入当前笔记或保存为带来源元数据的新笔记
 
 - **v2.6.2** — **后端切换卫生**:
   - 切到 Hermes 后不再残留 CodeBuddy 模型:自动回落 auto(跟随 Hermes 默认模型),旧配置启动自愈

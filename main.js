@@ -3974,6 +3974,13 @@ function isUsageWarning(percent) {
 
 // src/features/chat/input.ts
 init_i18n();
+
+// src/shared/inputHeight.ts
+function clampTextareaHeight(scrollHeight, minHeight, maxHeight) {
+  return Math.min(Math.max(scrollHeight, minHeight), maxHeight);
+}
+
+// src/features/chat/input.ts
 function suggestItems(view) {
   return Array.from(view.atSuggestEl.querySelectorAll(".workbuddian-at-suggest-item"));
 }
@@ -3991,7 +3998,9 @@ function highlightSuggest(view, idx) {
   });
 }
 function adjustTextareaHeight(view) {
-  view.inputEl.style.setProperty("--workbuddian-input-height", `${view.inputEl.scrollHeight}px`);
+  view.inputEl.style.setProperty("--workbuddian-input-height", "auto");
+  const height = clampTextareaHeight(view.inputEl.scrollHeight, 30, 200);
+  view.inputEl.style.setProperty("--workbuddian-input-height", `${height}px`);
 }
 function updateAtSuggest(view) {
   var _a;

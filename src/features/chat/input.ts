@@ -30,6 +30,7 @@ import { PERMISSION_MODE_CHOICES, isThoughtLevel, orderModels, modelLabel, type 
 import { contextPercent, usageTooltip, isUsageWarning } from '../../shared/contextUsage';
 import { t } from '../../i18n';
 import { bbLog, bbError } from '../../shared/logBuffer';
+import { clampTextareaHeight } from '../../shared/inputHeight';
 
 /** 补全下拉当前的条目列表（@ 与斜杠命令共用同一个下拉容器） */
 function suggestItems(view: WorkbuddianChatView): HTMLElement[] {
@@ -53,7 +54,10 @@ export function highlightSuggest(view: WorkbuddianChatView, idx: number) {
 }
 
 export function adjustTextareaHeight(view: WorkbuddianChatView) {
-    view.inputEl.style.setProperty('--workbuddian-input-height', `${view.inputEl.scrollHeight}px`);
+    // 先恢复自然高度再测量，否则 textarea.scrollHeight 会被当前撑高的 clientHeight 托住，无法收缩。
+    view.inputEl.style.setProperty('--workbuddian-input-height', 'auto');
+    const height = clampTextareaHeight(view.inputEl.scrollHeight, 30, 200);
+    view.inputEl.style.setProperty('--workbuddian-input-height', `${height}px`);
 }
 
 export function updateAtSuggest(view: WorkbuddianChatView) {
