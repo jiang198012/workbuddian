@@ -3998,9 +3998,9 @@ function highlightSuggest(view, idx) {
   });
 }
 function adjustTextareaHeight(view) {
-  view.inputEl.style.setProperty("--workbuddian-input-height", "auto");
+  view.inputEl.setCssProps({ "--workbuddian-input-height": "auto" });
   const height = clampTextareaHeight(view.inputEl.scrollHeight, 30, 200);
-  view.inputEl.style.setProperty("--workbuddian-input-height", `${height}px`);
+  view.inputEl.setCssProps({ "--workbuddian-input-height": `${height}px` });
 }
 function updateAtSuggest(view) {
   var _a;

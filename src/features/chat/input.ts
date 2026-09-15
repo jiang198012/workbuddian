@@ -55,9 +55,9 @@ export function highlightSuggest(view: WorkbuddianChatView, idx: number) {
 
 export function adjustTextareaHeight(view: WorkbuddianChatView) {
     // 先恢复自然高度再测量，否则 textarea.scrollHeight 会被当前撑高的 clientHeight 托住，无法收缩。
-    view.inputEl.style.setProperty('--workbuddian-input-height', 'auto');
+    view.inputEl.setCssProps({ '--workbuddian-input-height': 'auto' });
     const height = clampTextareaHeight(view.inputEl.scrollHeight, 30, 200);
-    view.inputEl.style.setProperty('--workbuddian-input-height', `${height}px`);
+    view.inputEl.setCssProps({ '--workbuddian-input-height': `${height}px` });
 }
 
 export function updateAtSuggest(view: WorkbuddianChatView) {

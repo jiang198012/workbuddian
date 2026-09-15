@@ -204,7 +204,9 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 2.6.7**
+**最新版本 2.6.8**
+
+- **2.6.8** — **Obsidian 规范修复**：使用 `setCssProps` 设置输入框高度，消除静态样式赋值 lint 报错。
 
 - **2.6.7** — **GitHub 发布资产完善**：Release 直接附带 `main.js`、`manifest.json` 和 `styles.css`，可从 GitHub Release 安装插件。
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.8 — 2026-09-15
+
+**Obsidian 规范修复**：使用 `setCssProps` 设置输入框高度，消除静态样式赋值 lint 报错。
+
 ## 2.6.7 — 2026-09-14
 
 **GitHub 发布资产完善**：Release 直接附带 `main.js`、`manifest.json` 和 `styles.css`，可从 GitHub Release 安装插件。
