@@ -204,7 +204,9 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 2.6.6**
+**最新版本 2.6.7**
+
+- **2.6.7** — **GitHub 发布资产完善**：Release 直接附带 `main.js`、`manifest.json` 和 `styles.css`，可从 GitHub Release 安装插件。
 
 - **2.6.6** — **演示流程更新**：重录并重剪 README GIF，恢复高信息密度的 `@` 引用、回复结果与笔记地图演示，并补充 `/summarize` 新流程。
 
