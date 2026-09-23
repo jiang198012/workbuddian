@@ -32,6 +32,13 @@ export function modelLabel(id: string): string {
     return MODEL_LABELS[id] ?? id;
 }
 
+/** WorkBuddy 将免费/付费变体返回为相同展示名；插件只保留基础入口，避免菜单出现重复项。 */
+const DUPLICATE_MODEL_IDS_TO_HIDE = new Set(['hy3-x', 'hy4-preview']);
+
+export function normalizeAvailableModelIds(ids: string[]): string[] {
+    return [...new Set(ids)].filter((id) => !DUPLICATE_MODEL_IDS_TO_HIDE.has(id));
+}
+
 /** 模型顺序（菜单展示排序；未列出的排后面） */
 export const MODEL_ORDER: string[] = [
     'glm-5.2', 'glm-5.1', 'glm-5v-turbo',
@@ -51,10 +58,12 @@ export function sanitizeModelForBackend(backend: string, model: string): string 
     return model in MODEL_OPTIONS ? 'auto' : model;
 }
 
-/** 把模型 id 列表按 MODEL_ORDER 排序（未收录的按原序附尾） */
-export function orderModels(ids: string[]): string[] {
-    const ranked = MODEL_ORDER.filter((m) => ids.includes(m));
-    const rest = ids.filter((m) => !MODEL_ORDER.includes(m));
+/** 把模型 id 列表排序；有运行时顺序时优先尊重后端返回（未收录的按原序附尾） */
+export function orderModels(ids: string[], preferredOrder: string[] = MODEL_ORDER): string[] {
+    const uniqueIds = [...new Set(ids)];
+    const uniquePreferredOrder = [...new Set(preferredOrder)];
+    const ranked = uniquePreferredOrder.filter((m) => uniqueIds.includes(m));
+    const rest = uniqueIds.filter((m) => !uniquePreferredOrder.includes(m));
     return [...ranked, ...rest];
 }
 

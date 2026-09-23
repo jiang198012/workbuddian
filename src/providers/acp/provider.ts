@@ -38,6 +38,9 @@ export class AcpProvider {
     private readonly config: SessionConfig = { model: 'auto', mode: 'default', mcpServers: [] };
     private lookup: ConversationLookup = NOOP_LOOKUP;
     private availableModels: string[] = [];
+    protected modelPairs: Array<{ id: string; name?: string }> = [];
+    private modelRefreshPromise: Promise<void> | null = null;
+    private modelDiscoveryComplete = false;
     private callbacks = new Map<string, SessionCallbacks>();
     /**
      * 取消回调按会话登记。ACP 的 session/cancel 是通知，旧版/异常 CLI 可能迟迟不回 prompt
@@ -50,6 +53,7 @@ export class AcpProvider {
         timeout: number = TIMEOUT,
     ) {
         this.availableModels = [...profile.fallbackModels]; // 握手前种子按后端方言给（hermes 不泄 codebuddy 列表）
+        this.modelPairs = this.availableModels.map((id) => ({ id }));
         this.client = new AcpClient({
             onSessionUpdate: (acpSessionId, update) => this.routeSessionUpdate(acpSessionId, update),
             onPermissionRequest: (requestId, params) => this.routePermissionRequest(requestId, params),
@@ -90,11 +94,50 @@ export class AcpProvider {
         for (const s of this.registry.all()) void s.applyRemoteConfig();
     }
 
-    setAvailableModels(models: string[]): void { this.availableModels = models; }
+    setAvailableModels(models: string[]): void {
+        const ids = [...new Set(models.filter((id) => typeof id === 'string' && id.length > 0))];
+        this.availableModels = ids;
+        this.modelPairs = ids.map((id) => ({ id }));
+        this.modelDiscoveryComplete = true;
+    }
     getAvailableModels(): string[] { return [...this.availableModels]; }
-    /** client onModels 事件入口：子类可覆写以保留更多字段（hermes 存 name） */
+    /** ACP 握手/会话返回的展示名；没有 name 时回落模型 id。 */
+    getAvailableModelLabels(): Array<{ id: string; label: string }> {
+        return this.modelPairs.map((m) => ({ id: m.id, label: m.name ?? m.id }));
+    }
+    /** 在首条消息前主动触发一次 ACP session/new，获取当前 CLI 的真实模型列表。 */
+    async refreshAvailableModels(cwd = ''): Promise<void> {
+        if (this.modelDiscoveryComplete) return;
+        if (this.modelRefreshPromise) return this.modelRefreshPromise;
+        this.modelRefreshPromise = (async () => {
+            try {
+                await this.client.ensureStarted();
+                const result = await this.client.request<{
+                    models?: { availableModels?: Array<{ modelId?: unknown; name?: unknown }> };
+                }>('session/new', { cwd, mcpServers: this.config.mcpServers ?? [] });
+                const raw = result?.models?.availableModels;
+                const models = Array.isArray(raw)
+                    ? raw.filter((m) => m?.modelId != null && String(m.modelId) !== '').map((m) => ({
+                        id: String(m.modelId),
+                        ...(typeof m.name === 'string' && m.name ? { name: m.name } : {}),
+                    }))
+                    : [];
+                if (models.length) this.onModels(models);
+            } catch (e) {
+                bbLog('[WB] ACP 模型列表刷新失败，保留兜底列表:', e);
+            } finally {
+                this.modelRefreshPromise = null;
+            }
+        })();
+        return this.modelRefreshPromise;
+    }
+    /** client onModels 事件入口：子类可覆写以保留更多字段（默认也保留 name） */
     protected onModels(models: Array<{ id: string; name?: string }>): void {
-        this.availableModels = models.map((m) => m.id);
+        const valid = models.filter((m) => m.id.length > 0);
+        if (!valid.length) return;
+        this.modelPairs = valid;
+        this.availableModels = valid.map((m) => m.id);
+        this.modelDiscoveryComplete = valid.length > 0;
     }
     getScriptPath(): string { return this.client.getScriptPath(); }
 

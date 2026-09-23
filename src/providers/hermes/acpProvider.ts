@@ -14,13 +14,4 @@ export class HermesAcpProvider extends AcpProvider {
     /** 路由器灌入：自定义 CLI 路径（--check 探测与 spawn 同一路径来源） */
     setCliPath(p: string): void { this.client.setCliPath(p); }
 
-    /** 设置页模型下拉展示用：label 来自握手 availableModels 的 name 字段（探针实证），缺省回落 id */
-    getAvailableModelLabels(): Array<{ id: string; label: string }> {
-        return this.modelPairs.map((m) => ({ id: m.id, label: m.name ?? m.id }));
-    }
-    protected modelPairs: Array<{ id: string; name?: string }> = [];
-    protected override onModels(models: Array<{ id: string; name?: string }>): void {
-        this.modelPairs = models;
-        super.onModels(models);
-    }
 }

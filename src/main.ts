@@ -37,6 +37,11 @@ export default class WorkbuddianPlugin extends Plugin {
 
             this.api = this.settings.backend === 'hermes' ? new HermesProvider() : new CodebuddyProvider();
             this.applySettingsToApi();
+            // CodeBuddy 的模型列表以 ACP session/new 返回为准；后台发现不阻塞插件启动。
+            if (this.api instanceof CodebuddyProvider) {
+                const vaultPath = (this.app.vault.adapter as { basePath?: string }).basePath;
+                void this.api.refreshAvailableModels(vaultPath).then(() => this.refreshOpenViews());
+            }
 
             // 所有聊天视图共享同一个 ConversationManager：避免侧边栏 + 主编辑区
             // 两个面板各自持有内存状态、互相用旧快照覆盖对方的改动

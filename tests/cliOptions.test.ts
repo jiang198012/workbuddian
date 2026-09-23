@@ -1,4 +1,4 @@
-import { modelLabel, orderModels, sanitizeModelForBackend, MODEL_LABELS } from '../src/shared/cliOptions';
+import { modelLabel, orderModels, sanitizeModelForBackend, MODEL_LABELS, normalizeAvailableModelIds } from '../src/shared/cliOptions';
 
 describe('modelLabel (国内模型中文名)', () => {
     it('maps known domestic model ids to Chinese labels', () => {
@@ -28,6 +28,22 @@ describe('orderModels (国内模型排序)', () => {
     });
     it('does not duplicate ids', () => {
         expect(orderModels(['glm-5.2', 'glm-5.2', 'hy3'])).toEqual(['glm-5.2', 'hy3']);
+    });
+    it('可用动态顺序时不再把新模型塞到旧静态顺序之后', () => {
+        expect(orderModels(['auto', 'glm-5.3', 'hy3'], ['auto', 'glm-5.3', 'hy3']))
+            .toEqual(['auto', 'glm-5.3', 'hy3']);
+    });
+    it('动态顺序自身含重复项时只展示一次', () => {
+        expect(orderModels(['auto', 'hy3', 'hy3-x'], ['auto', 'auto', 'hy3', 'hy3-x']))
+            .toEqual(['auto', 'hy3', 'hy3-x']);
+    });
+});
+
+describe('normalizeAvailableModelIds (重复模型清理)', () => {
+    it('保留基础模型，删除当前重复的付费变体并去重', () => {
+        expect(normalizeAvailableModelIds([
+            'auto', 'hy3', 'hy3-x', 'hy4-preview-f', 'hy4-preview', 'hy3',
+        ])).toEqual(['auto', 'hy3', 'hy4-preview-f']);
     });
 });
 

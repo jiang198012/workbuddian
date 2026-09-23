@@ -310,6 +310,28 @@ describe('models & config sync', () => {
         expect(api.getAvailableModels()).toEqual(['auto', 'hy3', 'glm-5.2']);
     });
 
+    it('保留 ACP 动态模型名称，未知模型不再回落旧的静态标签', () => {
+        const kit = makeFakeClient(MockAcpClient);
+        const api = new CodebuddyProvider();
+        kit.events().onModels([{ id: 'glm-5.3', name: 'GLM-5.3' }]);
+        expect(api.getAvailableModelLabels()).toEqual([{ id: 'glm-5.3', label: 'GLM-5.3' }]);
+    });
+
+    it('首次打开菜单前可主动从 ACP session/new 刷新模型列表', async () => {
+        const kit = makeFakeClient(MockAcpClient);
+        kit.fake.request.mockImplementation(async (method: string) => {
+            if (method === 'session/new') {
+                return { sessionId: 'model-discovery', models: { availableModels: [{ modelId: 'glm-5.3', name: 'GLM-5.3' }] } };
+            }
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        await api.refreshAvailableModels('/vault');
+        expect(kit.fake.ensureStarted).toHaveBeenCalled();
+        expect(api.getAvailableModels()).toEqual(['glm-5.3']);
+        expect(api.getAvailableModelLabels()).toEqual([{ id: 'glm-5.3', label: 'GLM-5.3' }]);
+    });
+
     it('setModel applies set_config_option to every loaded session', async () => {
         const kit = makeFakeClient(MockAcpClient);
         kit.fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {

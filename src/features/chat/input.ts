@@ -19,14 +19,14 @@ import { renderDiffRows } from '../../shared/diffRows';
 import { pickOptionId, type PermissionCardData, type PermissionDetail } from '../../providers/acp/permission';
 import { extForMime, mimeForExt, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
 import { parseInstructionInput } from '../../shared/instruction';
-import { HermesProvider } from '../../providers/hermes';
+import { CodebuddyProvider } from '../../providers/codebuddy';
 import { openInstructionModal } from './instructionModal';
 import { openResumeModal } from './resumeModal';
 import { buildSelectionBlock } from '../../shared/selection';
 import { pickFinalContent, appendTextChunk } from '../../shared/responseFinalize';
 import { confirmExternalAccess } from './externalAccessModal';
 import { sanitizeTitle, shouldApplyAutoTitle } from '../../shared/autoTitle';
-import { PERMISSION_MODE_CHOICES, isThoughtLevel, orderModels, modelLabel, type PermissionMode } from '../../shared/cliOptions';
+import { PERMISSION_MODE_CHOICES, isThoughtLevel, normalizeAvailableModelIds, orderModels, modelLabel, type PermissionMode } from '../../shared/cliOptions';
 import { contextPercent, usageTooltip, isUsageWarning } from '../../shared/contextUsage';
 import { t } from '../../i18n';
 import { bbLog, bbError } from '../../shared/logBuffer';
@@ -644,12 +644,10 @@ export function openPermissionMenu(view: WorkbuddianChatView, btn: HTMLElement, 
     menu.showAtMouseEvent(evt);
 }
 
-/** 模型显示名：hermes ACP 模式用握手 availableModels 的 name 字段（modelId 原样往返，不解码），其余走内置 label */
+/** 模型显示名优先使用后端握手返回的 name，旧静态标签只作为兜底。 */
 export function modelDisplayLabel(view: WorkbuddianChatView, id: string): string {
-    if (view.api instanceof HermesProvider) {
-        const hit = view.api.getAvailableModelLabels().find((m) => m.id === id);
-        if (hit) return hit.label;
-    }
+    const hit = view.api.getAvailableModelLabels().find((m) => m.id === id);
+    if (hit && hit.label !== id) return hit.label;
     return modelLabel(id);
 }
 
@@ -664,10 +662,15 @@ export function updateModelButton(view: WorkbuddianChatView, btn: HTMLElement, i
 
 /** 弹出模型选择菜单（供悬停/点击触发），选中后写设置 + 灌 CLI + 更新按钮文字 + 持久化 */
 export function openModelMenu(view: WorkbuddianChatView, btn: HTMLElement) {
+    if (view.api instanceof CodebuddyProvider) void view.api.refreshAvailableModels(view.vaultPath);
     const menu = new Menu();
     const workspace = view.getActiveWorkspace();
-    const ids = [...new Set(['auto', ...view.api.getAvailableModels()])]; // CLI 列表自带 auto，去重防双 auto
-    const models = orderModels(ids); // 国内模型优先排序
+    updateModelButton(view, btn, workspace.model);
+    const availableModels = view.api instanceof CodebuddyProvider
+        ? normalizeAvailableModelIds(view.api.getAvailableModels())
+        : view.api.getAvailableModels();
+    const ids = [...new Set(['auto', ...availableModels])]; // CLI 列表自带 auto，去重防双 auto
+    const models = orderModels(ids, ['auto', ...availableModels]); // 动态列表优先保持后端顺序
     const labelOf = (id: string) => modelDisplayLabel(view, id);
     for (const id of models) {
         menu.addItem(item => item

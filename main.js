@@ -704,6 +704,10 @@ function modelLabel(id) {
   var _a;
   return (_a = MODEL_LABELS[id]) != null ? _a : id;
 }
+var DUPLICATE_MODEL_IDS_TO_HIDE = /* @__PURE__ */ new Set(["hy3-x", "hy4-preview"]);
+function normalizeAvailableModelIds(ids) {
+  return [...new Set(ids)].filter((id) => !DUPLICATE_MODEL_IDS_TO_HIDE.has(id));
+}
 var MODEL_ORDER = [
   "glm-5.2",
   "glm-5.1",
@@ -723,9 +727,11 @@ function sanitizeModelForBackend(backend, model) {
     return "auto";
   return model in MODEL_OPTIONS ? "auto" : model;
 }
-function orderModels(ids) {
-  const ranked = MODEL_ORDER.filter((m) => ids.includes(m));
-  const rest = ids.filter((m) => !MODEL_ORDER.includes(m));
+function orderModels(ids, preferredOrder = MODEL_ORDER) {
+  const uniqueIds = [...new Set(ids)];
+  const uniquePreferredOrder = [...new Set(preferredOrder)];
+  const ranked = uniquePreferredOrder.filter((m) => uniqueIds.includes(m));
+  const rest = uniqueIds.filter((m) => !uniquePreferredOrder.includes(m));
   return [...ranked, ...rest];
 }
 var FALLBACK_MODEL_OPTIONS = MODEL_OPTIONS;
@@ -1799,6 +1805,9 @@ var AcpProvider = class {
     this.config = { model: "auto", mode: "default", mcpServers: [] };
     this.lookup = NOOP_LOOKUP;
     this.availableModels = [];
+    this.modelPairs = [];
+    this.modelRefreshPromise = null;
+    this.modelDiscoveryComplete = false;
     this.callbacks = /* @__PURE__ */ new Map();
     /**
      * 取消回调按会话登记。ACP 的 session/cancel 是通知，旧版/异常 CLI 可能迟迟不回 prompt
@@ -1806,6 +1815,7 @@ var AcpProvider = class {
      */
     this.activeStreams = /* @__PURE__ */ new Map();
     this.availableModels = [...profile.fallbackModels];
+    this.modelPairs = this.availableModels.map((id) => ({ id }));
     this.client = new AcpClient({
       onSessionUpdate: (acpSessionId, update) => this.routeSessionUpdate(acpSessionId, update),
       onPermissionRequest: (requestId, params) => this.routePermissionRequest(requestId, params),
@@ -1844,14 +1854,55 @@ var AcpProvider = class {
       void s.applyRemoteConfig();
   }
   setAvailableModels(models) {
-    this.availableModels = models;
+    const ids = [...new Set(models.filter((id) => typeof id === "string" && id.length > 0))];
+    this.availableModels = ids;
+    this.modelPairs = ids.map((id) => ({ id }));
+    this.modelDiscoveryComplete = true;
   }
   getAvailableModels() {
     return [...this.availableModels];
   }
-  /** client onModels 事件入口：子类可覆写以保留更多字段（hermes 存 name） */
+  /** ACP 握手/会话返回的展示名；没有 name 时回落模型 id。 */
+  getAvailableModelLabels() {
+    return this.modelPairs.map((m) => {
+      var _a;
+      return { id: m.id, label: (_a = m.name) != null ? _a : m.id };
+    });
+  }
+  /** 在首条消息前主动触发一次 ACP session/new，获取当前 CLI 的真实模型列表。 */
+  async refreshAvailableModels(cwd = "") {
+    if (this.modelDiscoveryComplete)
+      return;
+    if (this.modelRefreshPromise)
+      return this.modelRefreshPromise;
+    this.modelRefreshPromise = (async () => {
+      var _a, _b;
+      try {
+        await this.client.ensureStarted();
+        const result = await this.client.request("session/new", { cwd, mcpServers: (_a = this.config.mcpServers) != null ? _a : [] });
+        const raw = (_b = result == null ? void 0 : result.models) == null ? void 0 : _b.availableModels;
+        const models = Array.isArray(raw) ? raw.filter((m) => (m == null ? void 0 : m.modelId) != null && String(m.modelId) !== "").map((m) => ({
+          id: String(m.modelId),
+          ...typeof m.name === "string" && m.name ? { name: m.name } : {}
+        })) : [];
+        if (models.length)
+          this.onModels(models);
+      } catch (e) {
+        bbLog("[WB] ACP \u6A21\u578B\u5217\u8868\u5237\u65B0\u5931\u8D25\uFF0C\u4FDD\u7559\u515C\u5E95\u5217\u8868:", e);
+      } finally {
+        this.modelRefreshPromise = null;
+      }
+    })();
+    return this.modelRefreshPromise;
+  }
+  /** client onModels 事件入口：子类可覆写以保留更多字段（默认也保留 name） */
   onModels(models) {
-    this.availableModels = models.map((m) => m.id);
+    const valid = models.filter((m) => m.id.length > 0);
+    if (!valid.length)
+      return;
+    this.modelPairs = valid;
+    this.availableModels = valid.map((m) => m.id);
+    this.modelDiscoveryComplete = valid.length > 0;
   }
   getScriptPath() {
     return this.client.getScriptPath();
@@ -2215,7 +2266,6 @@ var HERMES_PROFILE = {
 var HermesAcpProvider = class extends AcpProvider {
   constructor(timeout) {
     super(HERMES_PROFILE, timeout);
-    this.modelPairs = [];
   }
   /** hermes acp 无 --agents 旗标：空操作（main.ts 会无条件灌 customAgentsJson） */
   setCustomAgentsJson(_json) {
@@ -2223,17 +2273,6 @@ var HermesAcpProvider = class extends AcpProvider {
   /** 路由器灌入：自定义 CLI 路径（--check 探测与 spawn 同一路径来源） */
   setCliPath(p) {
     this.client.setCliPath(p);
-  }
-  /** 设置页模型下拉展示用：label 来自握手 availableModels 的 name 字段（探针实证），缺省回落 id */
-  getAvailableModelLabels() {
-    return this.modelPairs.map((m) => {
-      var _a;
-      return { id: m.id, label: (_a = m.name) != null ? _a : m.id };
-    });
-  }
-  onModels(models) {
-    this.modelPairs = models;
-    super.onModels(models);
   }
 };
 
@@ -4492,11 +4531,9 @@ function openPermissionMenu(view, btn, evt) {
   menu.showAtMouseEvent(evt);
 }
 function modelDisplayLabel(view, id) {
-  if (view.api instanceof HermesProvider) {
-    const hit = view.api.getAvailableModelLabels().find((m) => m.id === id);
-    if (hit)
-      return hit.label;
-  }
+  const hit = view.api.getAvailableModelLabels().find((m) => m.id === id);
+  if (hit && hit.label !== id)
+    return hit.label;
   return modelLabel(id);
 }
 function updateModelButton(view, btn, id) {
@@ -4507,10 +4544,14 @@ function updateModelButton(view, btn, id) {
   btn.setAttribute("data-model-id", id || "auto");
 }
 function openModelMenu(view, btn) {
+  if (view.api instanceof CodebuddyProvider)
+    void view.api.refreshAvailableModels(view.vaultPath);
   const menu = new import_obsidian6.Menu();
   const workspace = view.getActiveWorkspace();
-  const ids = [.../* @__PURE__ */ new Set(["auto", ...view.api.getAvailableModels()])];
-  const models = orderModels(ids);
+  updateModelButton(view, btn, workspace.model);
+  const availableModels = view.api instanceof CodebuddyProvider ? normalizeAvailableModelIds(view.api.getAvailableModels()) : view.api.getAvailableModels();
+  const ids = [.../* @__PURE__ */ new Set(["auto", ...availableModels])];
+  const models = orderModels(ids, ["auto", ...availableModels]);
   const labelOf = (id) => modelDisplayLabel(view, id);
   for (const id of models) {
     menu.addItem((item) => item.setTitle(labelOf(id)).setChecked(workspace.model === id).onClick(async () => {
@@ -6989,6 +7030,10 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
       applyPrimaryColor(this.settings.primaryColor);
       this.api = this.settings.backend === "hermes" ? new HermesProvider() : new CodebuddyProvider();
       this.applySettingsToApi();
+      if (this.api instanceof CodebuddyProvider) {
+        const vaultPath = this.app.vault.adapter.basePath;
+        void this.api.refreshAvailableModels(vaultPath).then(() => this.refreshOpenViews());
+      }
       this.manager = new ConversationManager();
       this.manager.setPersistCallback((conversations) => this.persistConversations(conversations));
       this.api.setConversationLookup({

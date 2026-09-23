@@ -176,11 +176,11 @@ describe('AcpClient codec & dispatch', () => {
         emitJson({
             jsonrpc: '2.0', id: 2, result: {
                 sessionId: 's1',
-                models: { availableModels: [{ modelId: 'auto' }, { modelId: 'hy3' }] },
+                models: { availableModels: [{ modelId: 'auto' }, { modelId: 'hy3', name: 'Hy3' }] },
             },
         });
         await req;
-        expect(events.onModels).toHaveBeenCalledWith([{ id: 'auto' }, { id: 'hy3' }]);
+        expect(events.onModels).toHaveBeenCalledWith([{ id: 'auto' }, { id: 'hy3', name: 'Hy3' }]);
     });
 
     it('handles fragmented and batched stdout lines', async () => {

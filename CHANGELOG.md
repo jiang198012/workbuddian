@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.6.9 — 2026-09-23
+
+**模型菜单去重**：同步 CodeBuddy/WorkBuddy 的动态模型列表，删除 `Auto`、`Hy3`、`Hy4 preview` 的重复入口；保留 `hy3` 与 `hy4-preview-f` 基础模型，避免同名付费变体重复显示。
+
+### 验证
+- 72 项相关测试通过。
+- 在 `demo-vault` 中实测模型菜单无重复项。
+
 ## 2.6.8 — 2026-09-15
 
 **Obsidian 规范修复**：使用 `setCssProps` 设置输入框高度，消除静态样式赋值 lint 报错。
