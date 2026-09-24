@@ -1,3 +1,5 @@
+import { posix, win32 } from 'path';
+
 /** 从绝对路径取文件名（跨平台，兼容 / 与 \） */
 export function fileBasename(p: string): string {
     const parts = p.split(/[\\/]/);
@@ -45,4 +47,3 @@ export function isPathInsideVault(candidatePath: string, vaultPath: string): boo
             && !comparable.startsWith(`..${pathApi.sep}`)
             && !pathApi.isAbsolute(comparable));
 }
-import { posix, win32 } from 'path';
