@@ -413,6 +413,8 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                         this.plugin.settings.inputMinHeight = num;
                         await this.plugin.saveSettings();
                         this.plugin.refreshOpenViews();
+                    } else {
+                        new Notice(t('settings.inputHeightInvalid'));
                     }
                 }));
 
@@ -429,6 +431,8 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                         this.plugin.settings.inputMaxHeight = num;
                         await this.plugin.saveSettings();
                         this.plugin.refreshOpenViews();
+                    } else {
+                        new Notice(t('settings.inputHeightInvalid'));
                     }
                 }));
 

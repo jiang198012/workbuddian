@@ -139,6 +139,7 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'settings.inputMinHeight': { zh: '输入框最小高度（像素）', en: 'Input minimum height (px)' },
     'settings.inputMaxHeight': { zh: '输入框最大高度（像素）', en: 'Input maximum height (px)' },
     'settings.inputHeightDesc': { zh: '范围 20–600，且最小值必须小于最大值。', en: 'Use 20–600; the minimum must be smaller than the maximum.' },
+    'settings.inputHeightInvalid': { zh: '输入框高度范围无效：请输入 20–600 的整数，且最小值必须小于最大值。', en: 'Invalid input height range: use integers from 20–600, with minimum smaller than maximum.' },
     'settings.appearance': { zh: '外观', en: 'Appearance' },
     'settings.language': { zh: '界面语言', en: 'Interface language' },
     'settings.languageDesc': { zh: '插件界面显示语言。Auto 跟随 Obsidian。聊天面板即时切换；命令面板名称需 Cmd+R 后更新。', en: 'Plugin UI language. Auto follows Obsidian. Chat panels switch instantly; command-palette names update after a reload.' },

@@ -168,6 +168,7 @@ var init_i18n = __esm({
       "settings.inputMinHeight": { zh: "\u8F93\u5165\u6846\u6700\u5C0F\u9AD8\u5EA6\uFF08\u50CF\u7D20\uFF09", en: "Input minimum height (px)" },
       "settings.inputMaxHeight": { zh: "\u8F93\u5165\u6846\u6700\u5927\u9AD8\u5EA6\uFF08\u50CF\u7D20\uFF09", en: "Input maximum height (px)" },
       "settings.inputHeightDesc": { zh: "\u8303\u56F4 20\u2013600\uFF0C\u4E14\u6700\u5C0F\u503C\u5FC5\u987B\u5C0F\u4E8E\u6700\u5927\u503C\u3002", en: "Use 20\u2013600; the minimum must be smaller than the maximum." },
+      "settings.inputHeightInvalid": { zh: "\u8F93\u5165\u6846\u9AD8\u5EA6\u8303\u56F4\u65E0\u6548\uFF1A\u8BF7\u8F93\u5165 20\u2013600 \u7684\u6574\u6570\uFF0C\u4E14\u6700\u5C0F\u503C\u5FC5\u987B\u5C0F\u4E8E\u6700\u5927\u503C\u3002", en: "Invalid input height range: use integers from 20\u2013600, with minimum smaller than maximum." },
       "settings.appearance": { zh: "\u5916\u89C2", en: "Appearance" },
       "settings.language": { zh: "\u754C\u9762\u8BED\u8A00", en: "Interface language" },
       "settings.languageDesc": { zh: "\u63D2\u4EF6\u754C\u9762\u663E\u793A\u8BED\u8A00\u3002Auto \u8DDF\u968F Obsidian\u3002\u804A\u5929\u9762\u677F\u5373\u65F6\u5207\u6362\uFF1B\u547D\u4EE4\u9762\u677F\u540D\u79F0\u9700 Cmd+R \u540E\u66F4\u65B0\u3002", en: "Plugin UI language. Auto follows Obsidian. Chat panels switch instantly; command-palette names update after a reload." },
@@ -6660,6 +6661,8 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
         this.plugin.settings.inputMinHeight = num;
         await this.plugin.saveSettings();
         this.plugin.refreshOpenViews();
+      } else {
+        new import_obsidian11.Notice(t("settings.inputHeightInvalid"));
       }
     }));
     new import_obsidian11.Setting(containerEl).setName(t("settings.inputMaxHeight")).setDesc(t("settings.inputHeightDesc")).addText((text) => text.setPlaceholder("200").setValue(String(this.plugin.settings.inputMaxHeight)).onChange(async (value) => {
@@ -6669,6 +6672,8 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
         this.plugin.settings.inputMaxHeight = num;
         await this.plugin.saveSettings();
         this.plugin.refreshOpenViews();
+      } else {
+        new import_obsidian11.Notice(t("settings.inputHeightInvalid"));
       }
     }));
     new import_obsidian11.Setting(containerEl).setName(t("settings.appearance")).setHeading();
