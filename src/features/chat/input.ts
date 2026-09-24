@@ -30,7 +30,7 @@ import { PERMISSION_MODE_CHOICES, isThoughtLevel, normalizeAvailableModelIds, or
 import { contextPercent, usageTooltip, isUsageWarning } from '../../shared/contextUsage';
 import { t } from '../../i18n';
 import { bbLog, bbError } from '../../shared/logBuffer';
-import { clampTextareaHeight } from '../../shared/inputHeight';
+import { clampTextareaHeight, normalizeTextareaHeightBounds } from '../../shared/inputHeight';
 
 /** 补全下拉当前的条目列表（@ 与斜杠命令共用同一个下拉容器） */
 function suggestItems(view: WorkbuddianChatView): HTMLElement[] {
@@ -54,9 +54,18 @@ export function highlightSuggest(view: WorkbuddianChatView, idx: number) {
 }
 
 export function adjustTextareaHeight(view: WorkbuddianChatView) {
+    const bounds = normalizeTextareaHeightBounds(view.settings.inputMinHeight, view.settings.inputMaxHeight);
+    view.inputEl.setCssProps({
+        '--workbuddian-input-min-height': `${bounds.minHeight}px`,
+        '--workbuddian-input-max-height': `${bounds.maxHeight}px`,
+        '--workbuddian-input-height': 'auto',
+    });
+    view.inputEl.toggleClass('workbuddian-input-manual', !view.settings.inputAutoResize);
+    if (!view.settings.inputAutoResize) return;
+
     // 先恢复自然高度再测量，否则 textarea.scrollHeight 会被当前撑高的 clientHeight 托住，无法收缩。
     view.inputEl.setCssProps({ '--workbuddian-input-height': 'auto' });
-    const height = clampTextareaHeight(view.inputEl.scrollHeight, 30, 200);
+    const height = clampTextareaHeight(view.inputEl.scrollHeight, bounds.minHeight, bounds.maxHeight);
     view.inputEl.setCssProps({ '--workbuddian-input-height': `${height}px` });
 }
 

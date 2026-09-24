@@ -1,5 +1,6 @@
 import { type PermissionMode, isPermissionMode } from '../shared/cliOptions';
 import { t } from '../i18n';
+import { DEFAULT_INPUT_MAX_HEIGHT, DEFAULT_INPUT_MIN_HEIGHT, normalizeTextareaHeightBounds } from '../shared/inputHeight';
 
 // ==================== 聊天类型 ====================
 
@@ -124,10 +125,16 @@ export interface WorkbuddianSettings {
     hermesApiKey: string;
     /** Hermes CLI 自定义路径(空=自动发现 ~/.local/bin/hermes 等) */
     hermesCliPath: string;
+    /** 输入框是否按内容自动调整高度 */
+    inputAutoResize: boolean;
+    /** 输入框最小高度（像素） */
+    inputMinHeight: number;
+    /** 输入框最大高度（像素） */
+    inputMaxHeight: number;
     version: number;
 }
 
-const CURRENT_SETTINGS_VERSION = 14;
+const CURRENT_SETTINGS_VERSION = 15;
 export const DEFAULT_CONTEXT_WINDOW_SIZE = 200000;
 const DEFAULT_PASTED_IMAGE_KEEP = 20;
 /** 粘贴图保留数量上限；0 表示不限制 */
@@ -154,6 +161,9 @@ export const DEFAULT_SETTINGS: WorkbuddianSettings = {
     hermesGatewayUrl: '',
     hermesApiKey: '',
     hermesCliPath: '',
+    inputAutoResize: true,
+    inputMinHeight: DEFAULT_INPUT_MIN_HEIGHT,
+    inputMaxHeight: DEFAULT_INPUT_MAX_HEIGHT,
     allowedExternalPaths: [],
     version: CURRENT_SETTINGS_VERSION
 };
@@ -194,6 +204,9 @@ const FIELD_RULES: FieldRule[] = [
     { key: 'hermesGatewayUrl', read: (s) => getString(s, 'hermesGatewayUrl') },
     { key: 'hermesApiKey', read: (s) => getString(s, 'hermesApiKey') },
     { key: 'hermesCliPath', read: (s) => getString(s, 'hermesCliPath') },
+    { key: 'inputAutoResize', read: (s) => getBoolean(s, 'inputAutoResize') },
+    { key: 'inputMinHeight', read: (s) => getNumber(s, 'inputMinHeight') },
+    { key: 'inputMaxHeight', read: (s) => getNumber(s, 'inputMaxHeight') },
     {
         key: 'allowedExternalPaths',
         read: (s) => Array.isArray(s.allowedExternalPaths)
@@ -211,6 +224,12 @@ export function migrateSettings(stored: unknown): WorkbuddianSettings {
         const value = rule.read(stored);
         if (value !== undefined) out[rule.key] = value;
     }
+    const inputBounds = normalizeTextareaHeightBounds(
+        out.inputMinHeight as number,
+        out.inputMaxHeight as number,
+    );
+    out.inputMinHeight = inputBounds.minHeight;
+    out.inputMaxHeight = inputBounds.maxHeight;
     out.version = CURRENT_SETTINGS_VERSION;
     return out as unknown as WorkbuddianSettings;
 }

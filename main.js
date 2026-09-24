@@ -163,6 +163,11 @@ var init_i18n = __esm({
       "settings.injectNoteDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u53D1\u9001\u6D88\u606F\u90FD\u4F1A\u9644\u4E0A\u5F53\u524D\u6B63\u5728\u67E5\u770B\u7684\u7B14\u8BB0\u6807\u9898\u548C\u8DEF\u5F84\uFF08\u4E0D\u5305\u542B\u6B63\u6587\u5185\u5BB9\uFF09", en: "When on, every message includes the current note title and path (not its content)." },
       "settings.pastedKeep": { zh: "\u7C98\u8D34\u56FE\u4FDD\u7559\u6570\u91CF", en: "Pasted image retention" },
       "settings.pastedKeepDesc": { zh: "\u63D2\u4EF6\u76EE\u5F55\u5185\u6700\u591A\u4FDD\u7559\u591A\u5C11\u5F20\u7C98\u8D34\u7684\u56FE\u7247\uFF0C\u8D85\u51FA\u7684\u81EA\u52A8\u5220\u9664\u3002\u586B 0 \u8868\u793A\u4E0D\u9650\u5236\uFF08\u5386\u53F2\u6D88\u606F\u91CC\u7684\u7F29\u7565\u56FE\u4E0D\u4F1A\u5931\u6548\uFF0C\u4F46\u56FE\u7247\u4F1A\u4E00\u76F4\u7D2F\u79EF\uFF09\u3002\u9ED8\u8BA4 20\uFF0C\u6700\u5927 500\u3002", en: "How many pasted images to keep in the plugin folder; older ones are deleted automatically. 0 means unlimited (thumbnails in old messages stay valid, but images accumulate). Default 20, max 500." },
+      "settings.inputAutoResize": { zh: "\u8F93\u5165\u6846\u81EA\u52A8\u8C03\u6574\u9AD8\u5EA6", en: "Auto-resize chat input" },
+      "settings.inputAutoResizeDesc": { zh: "\u5F00\u542F\u540E\uFF0C\u8F93\u5165\u5185\u5BB9\u53D8\u957F\u6216\u53D8\u77ED\u65F6\u81EA\u52A8\u8C03\u6574\uFF1B\u5173\u95ED\u540E\u53EF\u76F4\u63A5\u62D6\u62FD\u8F93\u5165\u6846\u9AD8\u5EA6\u3002", en: "Automatically grow or shrink with the text; turn off to resize the input by dragging." },
+      "settings.inputMinHeight": { zh: "\u8F93\u5165\u6846\u6700\u5C0F\u9AD8\u5EA6\uFF08\u50CF\u7D20\uFF09", en: "Input minimum height (px)" },
+      "settings.inputMaxHeight": { zh: "\u8F93\u5165\u6846\u6700\u5927\u9AD8\u5EA6\uFF08\u50CF\u7D20\uFF09", en: "Input maximum height (px)" },
+      "settings.inputHeightDesc": { zh: "\u8303\u56F4 20\u2013600\uFF0C\u4E14\u6700\u5C0F\u503C\u5FC5\u987B\u5C0F\u4E8E\u6700\u5927\u503C\u3002", en: "Use 20\u2013600; the minimum must be smaller than the maximum." },
       "settings.appearance": { zh: "\u5916\u89C2", en: "Appearance" },
       "settings.language": { zh: "\u754C\u9762\u8BED\u8A00", en: "Interface language" },
       "settings.languageDesc": { zh: "\u63D2\u4EF6\u754C\u9762\u663E\u793A\u8BED\u8A00\u3002Auto \u8DDF\u968F Obsidian\u3002\u804A\u5929\u9762\u677F\u5373\u65F6\u5207\u6362\uFF1B\u547D\u4EE4\u9762\u677F\u540D\u79F0\u9700 Cmd+R \u540E\u66F4\u65B0\u3002", en: "Plugin UI language. Auto follows Obsidian. Chat panels switch instantly; command-palette names update after a reload." },
@@ -2689,6 +2694,25 @@ var import_obsidian7 = require("obsidian");
 
 // src/types/index.ts
 init_i18n();
+
+// src/shared/inputHeight.ts
+var DEFAULT_INPUT_MIN_HEIGHT = 30;
+var DEFAULT_INPUT_MAX_HEIGHT = 200;
+var MIN_CONFIGURED_INPUT_HEIGHT = 20;
+var MAX_CONFIGURED_INPUT_HEIGHT = 600;
+function normalizeTextareaHeightBounds(minHeight, maxHeight) {
+  const validMin = Number.isInteger(minHeight) && minHeight >= MIN_CONFIGURED_INPUT_HEIGHT && minHeight <= MAX_CONFIGURED_INPUT_HEIGHT;
+  const validMax = Number.isInteger(maxHeight) && maxHeight >= MIN_CONFIGURED_INPUT_HEIGHT && maxHeight <= MAX_CONFIGURED_INPUT_HEIGHT;
+  if (!validMin || !validMax || minHeight >= maxHeight) {
+    return { minHeight: DEFAULT_INPUT_MIN_HEIGHT, maxHeight: DEFAULT_INPUT_MAX_HEIGHT };
+  }
+  return { minHeight, maxHeight };
+}
+function clampTextareaHeight(scrollHeight, minHeight, maxHeight) {
+  return Math.min(Math.max(scrollHeight, minHeight), maxHeight);
+}
+
+// src/types/index.ts
 function isObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -2719,7 +2743,7 @@ function getErrorMessage(error) {
   }
   return t("common.unknownError");
 }
-var CURRENT_SETTINGS_VERSION = 14;
+var CURRENT_SETTINGS_VERSION = 15;
 var DEFAULT_CONTEXT_WINDOW_SIZE = 2e5;
 var DEFAULT_PASTED_IMAGE_KEEP = 20;
 var MAX_PASTED_IMAGE_KEEP = 500;
@@ -2744,6 +2768,9 @@ var DEFAULT_SETTINGS = {
   hermesGatewayUrl: "",
   hermesApiKey: "",
   hermesCliPath: "",
+  inputAutoResize: true,
+  inputMinHeight: DEFAULT_INPUT_MIN_HEIGHT,
+  inputMaxHeight: DEFAULT_INPUT_MAX_HEIGHT,
   allowedExternalPaths: [],
   version: CURRENT_SETTINGS_VERSION
 };
@@ -2786,6 +2813,9 @@ var FIELD_RULES = [
   { key: "hermesGatewayUrl", read: (s) => getString(s, "hermesGatewayUrl") },
   { key: "hermesApiKey", read: (s) => getString(s, "hermesApiKey") },
   { key: "hermesCliPath", read: (s) => getString(s, "hermesCliPath") },
+  { key: "inputAutoResize", read: (s) => getBoolean(s, "inputAutoResize") },
+  { key: "inputMinHeight", read: (s) => getNumber(s, "inputMinHeight") },
+  { key: "inputMaxHeight", read: (s) => getNumber(s, "inputMaxHeight") },
   {
     key: "allowedExternalPaths",
     read: (s) => Array.isArray(s.allowedExternalPaths) ? s.allowedExternalPaths.filter((p) => typeof p === "string") : void 0
@@ -2801,6 +2831,12 @@ function migrateSettings(stored) {
     if (value !== void 0)
       out[rule.key] = value;
   }
+  const inputBounds = normalizeTextareaHeightBounds(
+    out.inputMinHeight,
+    out.inputMaxHeight
+  );
+  out.inputMinHeight = inputBounds.minHeight;
+  out.inputMaxHeight = inputBounds.maxHeight;
   out.version = CURRENT_SETTINGS_VERSION;
   return out;
 }
@@ -4013,13 +4049,6 @@ function isUsageWarning(percent) {
 
 // src/features/chat/input.ts
 init_i18n();
-
-// src/shared/inputHeight.ts
-function clampTextareaHeight(scrollHeight, minHeight, maxHeight) {
-  return Math.min(Math.max(scrollHeight, minHeight), maxHeight);
-}
-
-// src/features/chat/input.ts
 function suggestItems(view) {
   return Array.from(view.atSuggestEl.querySelectorAll(".workbuddian-at-suggest-item"));
 }
@@ -4037,8 +4066,17 @@ function highlightSuggest(view, idx) {
   });
 }
 function adjustTextareaHeight(view) {
+  const bounds = normalizeTextareaHeightBounds(view.settings.inputMinHeight, view.settings.inputMaxHeight);
+  view.inputEl.setCssProps({
+    "--workbuddian-input-min-height": `${bounds.minHeight}px`,
+    "--workbuddian-input-max-height": `${bounds.maxHeight}px`,
+    "--workbuddian-input-height": "auto"
+  });
+  view.inputEl.toggleClass("workbuddian-input-manual", !view.settings.inputAutoResize);
+  if (!view.settings.inputAutoResize)
+    return;
   view.inputEl.setCssProps({ "--workbuddian-input-height": "auto" });
-  const height = clampTextareaHeight(view.inputEl.scrollHeight, 30, 200);
+  const height = clampTextareaHeight(view.inputEl.scrollHeight, bounds.minHeight, bounds.maxHeight);
   view.inputEl.setCssProps({ "--workbuddian-input-height": `${height}px` });
 }
 function updateAtSuggest(view) {
@@ -6598,6 +6636,29 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
       if (!isNaN(num) && num >= 0 && num <= MAX_PASTED_IMAGE_KEEP) {
         this.plugin.settings.pastedImageKeep = num;
         await this.plugin.saveSettings();
+      }
+    }));
+    new import_obsidian11.Setting(containerEl).setName(t("settings.inputAutoResize")).setDesc(t("settings.inputAutoResizeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.inputAutoResize).onChange(async (value) => {
+      this.plugin.settings.inputAutoResize = value;
+      await this.plugin.saveSettings();
+      this.plugin.refreshOpenViews();
+    }));
+    new import_obsidian11.Setting(containerEl).setName(t("settings.inputMinHeight")).setDesc(t("settings.inputHeightDesc")).addText((text) => text.setPlaceholder("30").setValue(String(this.plugin.settings.inputMinHeight)).onChange(async (value) => {
+      const num = parseInt(value, 10);
+      const bounds = normalizeTextareaHeightBounds(num, this.plugin.settings.inputMaxHeight);
+      if (bounds.minHeight === num && bounds.maxHeight === this.plugin.settings.inputMaxHeight) {
+        this.plugin.settings.inputMinHeight = num;
+        await this.plugin.saveSettings();
+        this.plugin.refreshOpenViews();
+      }
+    }));
+    new import_obsidian11.Setting(containerEl).setName(t("settings.inputMaxHeight")).setDesc(t("settings.inputHeightDesc")).addText((text) => text.setPlaceholder("200").setValue(String(this.plugin.settings.inputMaxHeight)).onChange(async (value) => {
+      const num = parseInt(value, 10);
+      const bounds = normalizeTextareaHeightBounds(this.plugin.settings.inputMinHeight, num);
+      if (bounds.maxHeight === num && bounds.minHeight === this.plugin.settings.inputMinHeight) {
+        this.plugin.settings.inputMaxHeight = num;
+        await this.plugin.saveSettings();
+        this.plugin.refreshOpenViews();
       }
     }));
     new import_obsidian11.Setting(containerEl).setName(t("settings.appearance")).setHeading();

@@ -769,8 +769,8 @@
 .workbuddian-input {
     flex: none;
     width: 100%;
-    min-height: 30px;
-    max-height: 200px;
+    min-height: var(--workbuddian-input-min-height, 30px);
+    max-height: var(--workbuddian-input-max-height, 200px);
     height: var(--workbuddian-input-height, auto);
     padding: 2px;
     border: none;
@@ -781,6 +781,12 @@
     line-height: 1.55;
     resize: none;
     overflow-y: hidden;
+}
+
+.workbuddian-input.workbuddian-input-manual {
+    height: auto;
+    resize: vertical;
+    overflow-y: auto;
 }
 
 .workbuddian-input:focus {

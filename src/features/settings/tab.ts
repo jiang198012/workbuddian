@@ -1,6 +1,7 @@
 import { App, Notice, PluginSettingTab, Setting, type DropdownComponent, type TextAreaComponent, type TextComponent } from 'obsidian';
 import type WorkbuddianPlugin from '../../main';
 import { DEFAULT_SETTINGS, migrateSettings, exportSettings, MAX_PASTED_IMAGE_KEEP } from '../../types';
+import { normalizeTextareaHeightBounds } from '../../shared/inputHeight';
 import { applyLang, t } from '../../i18n';
 import { onConfigChanged } from '../../shared/configEvents';
 import { resolveCodebuddyPath } from '../../utils/cliPath';
@@ -385,6 +386,49 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                     if (!isNaN(num) && num >= 0 && num <= MAX_PASTED_IMAGE_KEEP) {
                         this.plugin.settings.pastedImageKeep = num;
                         await this.plugin.saveSettings();
+                    }
+                }));
+
+        new Setting(containerEl)
+            .setName(t('settings.inputAutoResize'))
+            .setDesc(t('settings.inputAutoResizeDesc'))
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.inputAutoResize)
+                .onChange(async (value) => {
+                    this.plugin.settings.inputAutoResize = value;
+                    await this.plugin.saveSettings();
+                    this.plugin.refreshOpenViews();
+                }));
+
+        new Setting(containerEl)
+            .setName(t('settings.inputMinHeight'))
+            .setDesc(t('settings.inputHeightDesc'))
+            .addText(text => text
+                .setPlaceholder('30')
+                .setValue(String(this.plugin.settings.inputMinHeight))
+                .onChange(async (value) => {
+                    const num = parseInt(value, 10);
+                    const bounds = normalizeTextareaHeightBounds(num, this.plugin.settings.inputMaxHeight);
+                    if (bounds.minHeight === num && bounds.maxHeight === this.plugin.settings.inputMaxHeight) {
+                        this.plugin.settings.inputMinHeight = num;
+                        await this.plugin.saveSettings();
+                        this.plugin.refreshOpenViews();
+                    }
+                }));
+
+        new Setting(containerEl)
+            .setName(t('settings.inputMaxHeight'))
+            .setDesc(t('settings.inputHeightDesc'))
+            .addText(text => text
+                .setPlaceholder('200')
+                .setValue(String(this.plugin.settings.inputMaxHeight))
+                .onChange(async (value) => {
+                    const num = parseInt(value, 10);
+                    const bounds = normalizeTextareaHeightBounds(this.plugin.settings.inputMinHeight, num);
+                    if (bounds.maxHeight === num && bounds.minHeight === this.plugin.settings.inputMinHeight) {
+                        this.plugin.settings.inputMaxHeight = num;
+                        await this.plugin.saveSettings();
+                        this.plugin.refreshOpenViews();
                     }
                 }));
 

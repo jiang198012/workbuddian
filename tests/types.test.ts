@@ -32,14 +32,19 @@ describe('DEFAULT_SETTINGS', () => {
     it('should default language to auto', () => {
         expect(DEFAULT_SETTINGS.language).toBe('auto');
     });
-    it('should have settings version 14', () => {
-        expect(DEFAULT_SETTINGS.version).toBe(14);
+    it('should have settings version 15', () => {
+        expect(DEFAULT_SETTINGS.version).toBe(15);
     });
     it('should default customInstruction to empty string', () => {
         expect(DEFAULT_SETTINGS.customInstruction).toBe('');
     });
     it('should default pastedImageKeep to 20', () => {
         expect(DEFAULT_SETTINGS.pastedImageKeep).toBe(20);
+    });
+    it('should default input height management to automatic 30-200px', () => {
+        expect(DEFAULT_SETTINGS.inputAutoResize).toBe(true);
+        expect(DEFAULT_SETTINGS.inputMinHeight).toBe(30);
+        expect(DEFAULT_SETTINGS.inputMaxHeight).toBe(200);
     });
 });
 
@@ -157,8 +162,20 @@ describe('migrateSettings', () => {
         expect(migrateSettings({ language: 'fr' }).language).toBe('auto');
         expect(migrateSettings({ language: 5 }).language).toBe('auto');
     });
-    it('should migrate an older stored version up to 14', () => {
-        expect(migrateSettings({ version: 4 }).version).toBe(14);
+    it('should migrate an older stored version up to 15', () => {
+        expect(migrateSettings({ version: 4 }).version).toBe(15);
+    });
+    it('should preserve valid input height settings', () => {
+        const migrated = migrateSettings({ inputAutoResize: false, inputMinHeight: 48, inputMaxHeight: 320 });
+        expect(migrated.inputAutoResize).toBe(false);
+        expect(migrated.inputMinHeight).toBe(48);
+        expect(migrated.inputMaxHeight).toBe(320);
+    });
+    it('should fall back to input height defaults for invalid settings', () => {
+        const migrated = migrateSettings({ inputAutoResize: 'yes', inputMinHeight: 0, inputMaxHeight: 48 });
+        expect(migrated.inputAutoResize).toBe(true);
+        expect(migrated.inputMinHeight).toBe(30);
+        expect(migrated.inputMaxHeight).toBe(200);
     });
     it('should default customInstruction to empty when missing', () => {
         expect(migrateSettings({}).customInstruction).toBe('');
@@ -285,7 +302,7 @@ describe('v11+ MCP/agents settings', () => {
         const s = migrateSettings({});
         expect(s.mcpServersJson).toBe('');
         expect(s.customAgentsJson).toBe('');
-        expect(s.version).toBe(14);
+        expect(s.version).toBe(15);
     });
     it('defaults allowedExternalPaths to empty and filters non-strings (WB-002)', () => {
         expect(migrateSettings({}).allowedExternalPaths).toEqual([]);
