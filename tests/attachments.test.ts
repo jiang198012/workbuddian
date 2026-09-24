@@ -1,4 +1,4 @@
-import { fileBasename, fileDir, attachmentDirs, buildAttachmentBlock, isAbsolutePath } from '../src/shared/attachments';
+import { fileBasename, fileDir, attachmentDirs, buildAttachmentBlock, isAbsolutePath, isPathInsideVault } from '../src/shared/attachments';
 
 describe('fileBasename', () => {
     it('extracts the filename from a POSIX path', () => {
@@ -71,5 +71,21 @@ describe('isAbsolutePath', () => {
     });
     it('rejects an empty string', () => {
         expect(isAbsolutePath('')).toBe(false);
+    });
+});
+
+describe('isPathInsideVault', () => {
+    it('accepts the vault directory and its descendants', () => {
+        expect(isPathInsideVault('/tmp/demo-vault', '/tmp/demo-vault')).toBe(true);
+        expect(isPathInsideVault('/tmp/demo-vault/docs/note.md', '/tmp/demo-vault')).toBe(true);
+    });
+
+    it('rejects a path that only shares the vault prefix', () => {
+        expect(isPathInsideVault('/tmp/demo-vault-evil/secret.txt', '/tmp/demo-vault')).toBe(false);
+    });
+
+    it('handles Windows drive paths without treating a sibling as inside', () => {
+        expect(isPathInsideVault('C:\\Vault\\docs\\note.md', 'C:\\Vault')).toBe(true);
+        expect(isPathInsideVault('C:\\Vault-evil\\secret.txt', 'C:\\Vault')).toBe(false);
     });
 });

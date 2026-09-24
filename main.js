@@ -3127,6 +3127,7 @@ function isTableRowish(line) {
 }
 
 // src/shared/attachments.ts
+var import_path3 = require("path");
 function fileBasename(p) {
   const parts = p.split(/[\\/]/);
   return parts[parts.length - 1] || p;
@@ -3152,6 +3153,15 @@ function buildAttachmentBlock(paths) {
 }
 function isAbsolutePath(p) {
   return /^([\\/]|[A-Za-z]:[\\/])/.test(p);
+}
+function isPathInsideVault(candidatePath, vaultPath) {
+  if (!isAbsolutePath(candidatePath) || !isAbsolutePath(vaultPath))
+    return false;
+  const windowsPath = /^[A-Za-z]:[\\/]|^\\\\/.test(candidatePath) || /^[A-Za-z]:[\\/]|^\\\\/.test(vaultPath);
+  const pathApi = windowsPath ? import_path3.win32 : import_path3.posix;
+  const relativePath = pathApi.relative(pathApi.resolve(vaultPath), pathApi.resolve(candidatePath));
+  const comparable = windowsPath ? relativePath.toLowerCase() : relativePath;
+  return comparable === "" || comparable !== ".." && !comparable.startsWith(`..${pathApi.sep}`) && !pathApi.isAbsolute(comparable);
 }
 
 // src/shared/imageStore.ts
@@ -4231,7 +4241,7 @@ var thumbCache = /* @__PURE__ */ new Map();
 var MAX_THUMB_SOURCE_BYTES = 5 * 1024 * 1024;
 function thumbSrc(view, absPath) {
   const base = view.vaultPath;
-  if (base && absPath.startsWith(base)) {
+  if (base && isPathInsideVault(absPath, base)) {
     const rel = absPath.slice(base.length).replace(/^[\\/]/, "");
     return view.app.vault.adapter.getResourcePath(rel);
   }
@@ -4787,7 +4797,7 @@ async function sendText(view, text, permissionModeOverride) {
   const vp = view.vaultPath;
   if (vp && view.attachments.length) {
     const allowed = new Set(view.settings.allowedExternalPaths);
-    const pendingExternal = view.attachments.filter((p) => isAbsolutePath(p) && !p.startsWith(vp) && !allowed.has(p));
+    const pendingExternal = view.attachments.filter((p) => isAbsolutePath(p) && !isPathInsideVault(p, vp) && !allowed.has(p));
     if (pendingExternal.length) {
       const decision = await confirmExternalAccess(view.app, pendingExternal);
       if (decision === "cancel") {
@@ -4834,7 +4844,7 @@ async function sendText(view, text, permissionModeOverride) {
       const referenceBlock = await buildReferenceBlock(view, text);
       const pathAttachments = [];
       for (const attachPath of view.attachments) {
-        if (isImagePath(attachPath) && view.vaultPath && attachPath.startsWith(view.vaultPath)) {
+        if (isImagePath(attachPath) && view.vaultPath && isPathInsideVault(attachPath, view.vaultPath)) {
           try {
             const rel = attachPath.slice(view.vaultPath.length).replace(/^[\\/]/, "");
             const buf = await view.app.vault.adapter.readBinary(rel);
@@ -5043,7 +5053,7 @@ async function sendText(view, text, permissionModeOverride) {
             });
             diffHeader.createSpan({ text: `${t("tool.diffTitle")} ${fileBasename(change.path)}` });
             const diffChevron = diffHeader.createSpan({ text: "\u25BE" });
-            if (change.kind === "edit" && change.newText !== "" && view.vaultPath && change.path.startsWith(view.vaultPath)) {
+            if (change.kind === "edit" && change.newText !== "" && view.vaultPath && isPathInsideVault(change.path, view.vaultPath)) {
               const undoBtn = diffHeader.createEl("button", {
                 cls: "workbuddian-tool-diff-undo",
                 text: t("tool.undo"),
@@ -6330,14 +6340,14 @@ var McpServerModal = class extends import_obsidian10.Modal {
 
 // src/shared/codebuddyPlugins.ts
 var import_fs3 = require("fs");
-var import_path3 = require("path");
+var import_path4 = require("path");
 function str(d, key) {
   const v = d[key];
   return typeof v === "string" ? v : "";
 }
 function discoverPlugins(pluginsRoot = codebuddyPluginsRoot()) {
   const out = [];
-  const marketsDir = (0, import_path3.join)(pluginsRoot, "marketplaces");
+  const marketsDir = (0, import_path4.join)(pluginsRoot, "marketplaces");
   let markets;
   try {
     markets = (0, import_fs3.readdirSync)(marketsDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.endsWith(".zip")).map((e) => e.name);
@@ -6345,7 +6355,7 @@ function discoverPlugins(pluginsRoot = codebuddyPluginsRoot()) {
     return [];
   }
   for (const market of markets) {
-    const pluginsDir = (0, import_path3.join)(marketsDir, market, "plugins");
+    const pluginsDir = (0, import_path4.join)(marketsDir, market, "plugins");
     let pluginDirs;
     try {
       pluginDirs = (0, import_fs3.readdirSync)(pluginsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
@@ -6353,7 +6363,7 @@ function discoverPlugins(pluginsRoot = codebuddyPluginsRoot()) {
       continue;
     }
     for (const pdir of pluginDirs) {
-      const manifestPath = (0, import_path3.join)(pluginsDir, pdir, ".codebuddy-plugin", "plugin.json");
+      const manifestPath = (0, import_path4.join)(pluginsDir, pdir, ".codebuddy-plugin", "plugin.json");
       let raw;
       try {
         raw = JSON.parse((0, import_fs3.readFileSync)(manifestPath, "utf-8"));
@@ -6368,14 +6378,14 @@ function discoverPlugins(pluginsRoot = codebuddyPluginsRoot()) {
         name,
         description: str(rec, "description"),
         marketplace: market,
-        dir: (0, import_path3.join)(pluginsDir, pdir)
+        dir: (0, import_path4.join)(pluginsDir, pdir)
       });
     }
   }
   return out;
 }
 function codebuddyPluginsRoot() {
-  return (0, import_path3.join)(homeDir(), ".codebuddy", "plugins");
+  return (0, import_path4.join)(homeDir(), ".codebuddy", "plugins");
 }
 function homeDir() {
   var _a, _b;

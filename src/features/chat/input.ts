@@ -12,7 +12,7 @@ import { renderTabs, createNewChat } from './tabs';
 import { parseSlashCommand, extractSlashQuery, filterSlashCommands, commandNameFromPath, parseCommandFrontmatter, type SlashCommandInfo } from '../../shared/slashCommand';
 import { findTemplate, filterTemplates } from '../../shared/promptTemplates';
 import { buildVaultStats } from '../../shared/vaultStats';
-import { fileBasename, buildAttachmentBlock, attachmentDirs, isAbsolutePath } from '../../shared/attachments';
+import { fileBasename, buildAttachmentBlock, attachmentDirs, isAbsolutePath, isPathInsideVault } from '../../shared/attachments';
 import { parseFileChange, type FileEdit, type FileWrite } from '../../shared/toolDetail';
 import { lineDiff, type DiffLine } from '../../shared/lineDiff';
 import { renderDiffRows } from '../../shared/diffRows';
@@ -239,7 +239,7 @@ const MAX_THUMB_SOURCE_BYTES = 5 * 1024 * 1024; // 超过 5MB 不内联，降级
 /** 缩略图源：vault 内文件用 Obsidian 资源路径（轻量，不缓存），vault 外文件读盘转 data URL（缓存）；失败或过大返回空串 */
 export function thumbSrc(view: WorkbuddianChatView, absPath: string): string {
     const base = view.vaultPath;
-    if (base && absPath.startsWith(base)) {
+    if (base && isPathInsideVault(absPath, base)) {
         const rel = absPath.slice(base.length).replace(/^[\\/]/, '');
         return view.app.vault.adapter.getResourcePath(rel);
     }
@@ -916,7 +916,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
     const vp = view.vaultPath;
     if (vp && view.attachments.length) {
         const allowed = new Set(view.settings.allowedExternalPaths);
-        const pendingExternal = view.attachments.filter((p) => isAbsolutePath(p) && !p.startsWith(vp) && !allowed.has(p));
+        const pendingExternal = view.attachments.filter((p) => isAbsolutePath(p) && !isPathInsideVault(p, vp) && !allowed.has(p));
         if (pendingExternal.length) {
             const decision = await confirmExternalAccess(view.app, pendingExternal);
             if (decision === 'cancel') {
@@ -972,7 +972,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
             const referenceBlock = await buildReferenceBlock(view, text);
             const pathAttachments: string[] = [];
             for (const attachPath of view.attachments) {
-                if (isImagePath(attachPath) && view.vaultPath && attachPath.startsWith(view.vaultPath)) {
+                if (isImagePath(attachPath) && view.vaultPath && isPathInsideVault(attachPath, view.vaultPath)) {
                     try {
                         const rel = attachPath.slice(view.vaultPath.length).replace(/^[\\/]/, '');
                         const buf = await view.app.vault.adapter.readBinary(rel);
@@ -1196,7 +1196,7 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                         // newText === '' 时排除：这是纯删除操作，indexOf('') 恒返回 0，
                         // 无法区分「文件未变」与「已面目全非」，也没有任何锚点能定位当初删除的位置——
                         // 任何插入都是猜测，因此和 Write 一样归为不可安全回滚，不显示按钮。
-                        if (change.kind === 'edit' && change.newText !== '' && view.vaultPath && change.path.startsWith(view.vaultPath)) {
+                        if (change.kind === 'edit' && change.newText !== '' && view.vaultPath && isPathInsideVault(change.path, view.vaultPath)) {
                             const undoBtn = diffHeader.createEl('button', {
                                 cls: 'workbuddian-tool-diff-undo',
                                 text: t('tool.undo'),

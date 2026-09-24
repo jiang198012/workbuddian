@@ -32,3 +32,17 @@ export function buildAttachmentBlock(paths: string[]): string {
 export function isAbsolutePath(p: string): boolean {
     return /^([\\/]|[A-Za-z]:[\\/])/.test(p);
 }
+
+/** 判断绝对路径是否位于 Vault 目录本身或其子目录，避免相似前缀绕过边界。 */
+export function isPathInsideVault(candidatePath: string, vaultPath: string): boolean {
+    if (!isAbsolutePath(candidatePath) || !isAbsolutePath(vaultPath)) return false;
+    const windowsPath = /^[A-Za-z]:[\\/]|^\\\\/.test(candidatePath) || /^[A-Za-z]:[\\/]|^\\\\/.test(vaultPath);
+    const pathApi = windowsPath ? win32 : posix;
+    const relativePath = pathApi.relative(pathApi.resolve(vaultPath), pathApi.resolve(candidatePath));
+    const comparable = windowsPath ? relativePath.toLowerCase() : relativePath;
+    return comparable === ''
+        || (comparable !== '..'
+            && !comparable.startsWith(`..${pathApi.sep}`)
+            && !pathApi.isAbsolute(comparable));
+}
+import { posix, win32 } from 'path';
