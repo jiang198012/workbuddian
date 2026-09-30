@@ -1,8 +1,11 @@
 import { spawn } from 'child_process';
 import { AcpClient, buildSpawnCommand, classifyHandshakeFailure, isAuthError, type AcpClientEvents } from '../src/providers/acp/client';
 import { HERMES_PROFILE } from '../src/providers/hermes/profile';
+import { ACP_DEFAULT_PROFILE } from '../src/providers/acp/profile';
 
 jest.mock('child_process');
+jest.mock('../src/providers/codebuddy/workbuddySidecar', () => ({ startWorkbuddySidecar: jest.fn() }));
+jest.mock('../src/providers/codebuddy/workbuddyHost', () => ({ WorkbuddyHostConnection: { connect: jest.fn() } }));
 const mockedSpawn = spawn as jest.MockedFunction<typeof spawn>;
 
 beforeEach(() => { mockedSpawn.mockReset(); });
@@ -73,6 +76,13 @@ async function startClient(client: AcpClient, emitJson: (msg: unknown) => void) 
 }
 
 describe('AcpClient codec & dispatch', () => {
+    it('reports missing WorkBuddy without spawning a fallback CLI', async () => {
+        const { events } = makeClient();
+        const client = new AcpClient(events, { ...ACP_DEFAULT_PROFILE, resolveCliPath: () => '' });
+        await expect(client.ensureStarted()).rejects.toMatchObject({ tier: 'cli-not-found' });
+        expect(mockedSpawn).not.toHaveBeenCalled();
+    });
+
     it('writes newline-delimited JSON-RPC requests with incrementing ids', async () => {
         const { proc, emitJson, stdinWrites } = createFakeProc();
         mockedSpawn.mockReturnValue(proc as any);
@@ -155,6 +165,71 @@ describe('AcpClient codec & dispatch', () => {
         const req = client.request('session/new', { cwd: '/v', mcpServers: [] });
         emitJson({ jsonrpc: '2.0', id: 2, error: { code: -1, message: 'boom' } });
         await expect(req).rejects.toThrow('boom');
+    });
+
+    it.each([
+        { code: -32000, message: 'Authentication required', data: { category: 'auth' } },
+        { code: -32000, message: 'Request refused', data: { category: 'auth' } },
+    ])('classifies WorkBuddy structured refusal without stderr (#10): %j', async (error) => {
+        const { proc, emitJson } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client } = makeClient();
+        await startClient(client, emitJson);
+        const req = client.rawRequest('session/prompt', { sessionId: 's1', prompt: [] });
+        emitJson({ jsonrpc: '2.0', id: 2, result: {
+            stopReason: 'refusal', _meta: { 'codebuddy.ai/errorMessage': JSON.stringify(error) },
+        } });
+        await expect(req).rejects.toMatchObject({ tier: 'auth-required' });
+        client.dispose();
+    });
+
+    it.each(['{invalid', 'null', JSON.stringify({ code: -32003, message: 'Quota exceeded', data: { category: 'quota' } })])(
+        'does not mistake non-auth or malformed refusal metadata for authentication: %s', async (detail) => {
+            const { proc, emitJson } = createFakeProc();
+            mockedSpawn.mockReturnValue(proc as any);
+            const { client } = makeClient();
+            await startClient(client, emitJson);
+            const req = client.rawRequest('session/prompt', { sessionId: 's1', prompt: [] });
+            const result = { stopReason: 'refusal', _meta: { 'codebuddy.ai/errorMessage': detail } };
+            emitJson({ jsonrpc: '2.0', id: 2, result });
+            await expect(req).resolves.toEqual(result);
+            client.dispose();
+        },
+    );
+
+    it('reports WorkBuddy missing-key evidence when a prompt is refused (#10)', async () => {
+        const { proc, emit, emitJson } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client } = makeClient();
+        await startClient(client, emitJson);
+        emit('stderr', 'data', Buffer.from('[AtRestEncryption] unavailable category=missing-'));
+        emit('stderr', 'data', Buffer.from('key role=cbc\n'));
+        const req = client.rawRequest('session/prompt', { sessionId: 's1', prompt: [] });
+        emitJson({ jsonrpc: '2.0', id: 2, result: { stopReason: 'refusal' } });
+        await expect(req).rejects.toMatchObject({ tier: 'credential-unavailable' });
+        client.dispose();
+    });
+
+    it('keeps a refusal without authentication evidence unchanged', async () => {
+        const { proc, emitJson } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client } = makeClient();
+        await startClient(client, emitJson);
+        const req = client.rawRequest('session/prompt', { sessionId: 's1', prompt: [] });
+        emitJson({ jsonrpc: '2.0', id: 2, result: { stopReason: 'refusal' } });
+        await expect(req).resolves.toEqual({ stopReason: 'refusal' });
+        client.dispose();
+    });
+
+    it('classifies authentication errors after initialize, including session/new', async () => {
+        const { proc, emitJson } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client } = makeClient();
+        await startClient(client, emitJson);
+        const req = client.request('session/new', { cwd: '/v', mcpServers: [] });
+        emitJson({ jsonrpc: '2.0', id: 2, error: { code: -32000, message: 'Authentication required' } });
+        await expect(req).rejects.toMatchObject({ tier: 'auth-required' });
+        client.dispose();
     });
 
     it('routes _codebuddy.ai/* notifications to onAgentNotification', async () => {
@@ -305,6 +380,8 @@ describe('buildSpawnCommand / classifyHandshakeFailure / isAuthError', () => {
         expect(isAuthError('authentication required')).toBe(true);
         expect(isAuthError('not logged in')).toBe(true);
         expect(isAuthError('请先登录')).toBe(true);
+        expect(isAuthError('Failed to authorize tool execution')).toBe(false);
+        expect(isAuthError('Cannot edit login.ts')).toBe(false);
         expect(isAuthError('boom')).toBe(false);
     });
 });
@@ -433,6 +510,34 @@ describe('AcpClient lifecycle', () => {
         expect(client.running).toBe(true);
     });
 
+    it('ignores late output and close from the previous process after switching CLI paths', async () => {
+        const first = createFakeProc();
+        mockedSpawn.mockReturnValue(first.proc as any);
+        const { client, events } = makeClient();
+        await startClient(client, first.emitJson);
+        client.setCliPath('/fake/standalone-codebuddy');
+        expect(events.onExit).toHaveBeenCalledTimes(1);
+        (events.onExit as jest.Mock).mockClear();
+        const second = createFakeProc();
+        mockedSpawn.mockReturnValue(second.proc as any);
+        const restarted = client.ensureStarted();
+        const id = JSON.parse(second.stdinWrites[0]).id;
+        first.emit('stderr', 'data', Buffer.from('[AtRestEncryption] unavailable category=missing-key role=cbc\n'));
+        first.emit('', 'close', null, 'SIGTERM');
+        first.emitJson({ jsonrpc: '2.0', method: 'session/update', params: {
+            sessionId: 's1', update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'stale' } },
+        } });
+        second.emitJson({ jsonrpc: '2.0', id, result: { protocolVersion: 1 } });
+        await restarted;
+        expect(client.running).toBe(true);
+        expect(events.onExit).not.toHaveBeenCalled();
+        expect(events.onSessionUpdate).not.toHaveBeenCalled();
+        const req = client.rawRequest('session/prompt', { sessionId: 's1', prompt: [] });
+        second.emitJson({ jsonrpc: '2.0', id: id + 1, result: { stopReason: 'refusal' } });
+        await expect(req).resolves.toEqual({ stopReason: 'refusal' });
+        client.dispose();
+    });
+
     it('dispose rejects pending, kills proc, and swallows the resulting close', async () => {
         const { proc, emit, emitJson } = createFakeProc();
         mockedSpawn.mockReturnValue(proc as any);
@@ -479,5 +584,123 @@ describe('AcpClient extraArgs & dispose-on-change', () => {
         client.setExtraArgs(['--agents', '{}']); // 同值不变 → 不重启
         expect(second.proc.kill).not.toHaveBeenCalled();
         expect(client.running).toBe(true);
+    });
+});
+
+describe('AcpClient WorkBuddy hosted transport', () => {
+    const startHost = jest.requireMock('../src/providers/codebuddy/workbuddySidecar').startWorkbuddySidecar as jest.Mock;
+    const connect = jest.requireMock('../src/providers/codebuddy/workbuddyHost').WorkbuddyHostConnection.connect as jest.Mock;
+
+    beforeEach(() => { startHost.mockReset(); connect.mockReset(); });
+
+    function hostTransport() {
+        let receive: (message: Record<string, unknown>) => void;
+        let disconnected: (error: Error) => void;
+        const runtime = { endpoint: 'http://127.0.0.1:9876', dispose: jest.fn(async () => {}) };
+        const connection = {
+            send: jest.fn(async (message: Record<string, unknown>) => {
+                if (message.method === 'initialize') receive({ jsonrpc: '2.0', id: message.id, result: { protocolVersion: 1 } });
+            }),
+            dispose: jest.fn(async () => {}),
+        };
+        startHost.mockResolvedValue(runtime);
+        connect.mockImplementation(async (_url, onMessage, onDisconnect) => {
+            receive = onMessage;
+            disconnected = onDisconnect;
+            return connection;
+        });
+        return { runtime, connection, receive: (message: Record<string, unknown>) => receive(message), disconnect: (error: Error) => disconnected(error) };
+    }
+
+    it('starts a dedicated Vault worker and uses the original ACP dispatch for replies and permissions', async () => {
+        const host = hostTransport();
+        const { client, events } = makeClient();
+        await client.ensureStarted('/vault');
+        expect(startHost).toHaveBeenCalledWith('C:\\fake\\codebuddy.exe', '/vault', 'C:\\fake\\codebuddy.exe', ['--serve'], expect.any(AbortSignal));
+        expect(mockedSpawn).not.toHaveBeenCalled();
+        const request = client.request('session/new', { cwd: '/vault', mcpServers: [] });
+        const sent = host.connection.send.mock.calls.at(-1)![0];
+        host.receive({ jsonrpc: '2.0', id: sent.id, result: { sessionId: 'own-session' } });
+        await expect(request).resolves.toEqual({ sessionId: 'own-session' });
+        host.receive({ jsonrpc: '2.0', id: 99, method: 'session/request_permission', params: { sessionId: 'own-session' } });
+        expect(events.onPermissionRequest).toHaveBeenCalledWith(99, { sessionId: 'own-session' });
+        client.respond(99, { outcome: { outcome: 'cancelled' } });
+        expect(host.connection.send).toHaveBeenLastCalledWith({ jsonrpc: '2.0', id: 99, result: { outcome: { outcome: 'cancelled' } } });
+        client.dispose();
+        await Promise.resolve();
+        expect(host.connection.dispose).toHaveBeenCalledTimes(1);
+        expect(host.runtime.dispose).toHaveBeenCalledTimes(1);
+    });
+
+    it('marks sessions stale on disconnect and ignores late events from a disposed connection', async () => {
+        const host = hostTransport();
+        const { client, events } = makeClient();
+        await client.ensureStarted('/vault');
+        const request = client.request('session/new', { cwd: '/vault' });
+        const assertion = expect(request).rejects.toThrow('connection lost');
+        host.disconnect(new Error('connection lost'));
+        await assertion;
+        expect(client.running).toBe(false);
+        expect(events.onExit).toHaveBeenCalledTimes(1);
+        host.receive({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'old', update: { sessionUpdate: 'agent_message_chunk' } } });
+        expect(events.onSessionUpdate).not.toHaveBeenCalled();
+        client.dispose();
+    });
+
+    it('cleans a worker whose startup completes after disposal', async () => {
+        const host = hostTransport();
+        let finish!: (value: typeof host.runtime) => void;
+        startHost.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+        const { client } = makeClient();
+        const starting = client.ensureStarted('/vault');
+        const assertion = expect(starting).rejects.toThrow('disposed');
+        client.dispose();
+        finish(host.runtime);
+        await assertion;
+        expect(connect).not.toHaveBeenCalled();
+        expect(host.runtime.dispose).toHaveBeenCalledTimes(1);
+    });
+
+    it('waits for the old worker to exit even if HTTP disposal fails first', async () => {
+        const host = hostTransport();
+        const { client } = makeClient();
+        await client.ensureStarted('/vault');
+        let finish!: () => void;
+        host.connection.dispose.mockRejectedValueOnce(new Error('HTTP already closed'));
+        host.runtime.dispose.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+        client.dispose();
+        const restart = client.ensureStarted('/vault');
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(startHost).toHaveBeenCalledTimes(1);
+        finish();
+        await restart;
+        expect(startHost).toHaveBeenCalledTimes(2);
+        client.dispose();
+    });
+
+    it('deduplicates startup and rejects a different Vault for a bound worker', async () => {
+        const host = hostTransport();
+        const { client } = makeClient();
+        await Promise.all([client.ensureStarted('/vault'), client.ensureStarted('/vault')]);
+        expect(startHost).toHaveBeenCalledTimes(1);
+        await expect(client.ensureStarted('/another-vault')).rejects.toThrow('different Vault');
+        expect(host.runtime.dispose).not.toHaveBeenCalled();
+        client.notify('session/cancel', { sessionId: 'own-session' });
+        expect(host.connection.send).toHaveBeenLastCalledWith({ jsonrpc: '2.0', method: 'session/cancel', params: { sessionId: 'own-session' } });
+        client.dispose();
+    });
+
+    it.each(['node', 'agents'])('marks loaded sessions stale when %s configuration restarts a worker', async (setting) => {
+        hostTransport();
+        const { client, events } = makeClient();
+        await client.ensureStarted('/vault');
+        if (setting === 'node') client.setNodePath('/another/node');
+        else client.setExtraArgs(['--agents', '{}']);
+        expect(events.onExit).toHaveBeenCalledTimes(1);
+        expect(client.running).toBe(false);
+        await client.ensureStarted('/vault');
+        expect(startHost).toHaveBeenCalledTimes(2);
+        client.dispose();
     });
 });

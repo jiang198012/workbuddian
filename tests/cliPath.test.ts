@@ -1,9 +1,63 @@
-import { resolveHermesPath } from '../src/utils/cliPath';
+import { resolveCodebuddyPath, resolveHermesPath } from '../src/utils/cliPath';
 import * as fs from 'fs';
 import * as path from 'path';
 
 jest.mock('fs');
 const existsSync = fs.existsSync as jest.Mock;
+
+describe('WorkBuddy account-preserving discovery (#10)', () => {
+    const originalEnv = process.env;
+    const originalPlatform = process.platform;
+    beforeEach(() => jest.resetAllMocks());
+    afterEach(() => {
+        process.env = originalEnv;
+        Object.defineProperty(process, 'platform', { value: originalPlatform });
+    });
+
+    it.each(['darwin', 'win32'])('keeps WorkBuddy on %s and only uses another CLI when explicitly selected', (platform) => {
+        (fs.realpathSync as unknown as jest.Mock).mockImplementation((p) => p);
+        Object.defineProperty(process, 'platform', { value: platform });
+        process.env = { HOME: '/fake', APPDATA: '/fake/appdata', LOCALAPPDATA: '/fake/local', PATH: '' };
+        const standalone = platform === 'win32' ? '/fake/appdata/npm/codebuddy.cmd' : '/fake/.local/bin/codebuddy';
+        const bundled = platform === 'win32'
+            ? '/fake/local/Programs/WorkBuddy/Resources/app.asar.unpacked/cli/bin/codebuddy.exe'
+            : '/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy';
+        existsSync.mockImplementation((p) => p === standalone || p === bundled);
+        expect(resolveCodebuddyPath('')).toBe(bundled);
+        expect(resolveCodebuddyPath(standalone)).toBe(standalone);
+        expect(resolveCodebuddyPath(bundled)).toBe(bundled);
+        existsSync.mockImplementation((p) => p === standalone);
+        expect(resolveCodebuddyPath('')).toBe('');
+        expect(resolveCodebuddyPath(bundled)).toBe(bundled);
+        process.env.CODEBUDDY_PATH = bundled;
+        expect(resolveCodebuddyPath('')).toBe(bundled);
+    });
+
+    it.each(['darwin', 'win32'])('finds WorkBuddy later on PATH without selecting an unrelated CLI on %s', (platform) => {
+        Object.defineProperty(process, 'platform', { value: platform });
+        const executable = platform === 'win32' ? 'codebuddy.cmd' : 'codebuddy';
+        const bundled = path.join('/custom/workbuddy', executable);
+        const standalone = path.join('/custom/npm', executable);
+        process.env = { HOME: '/fake', PATH: ['/custom/npm', '/custom/workbuddy'].join(platform === 'win32' ? ';' : ':') };
+        existsSync.mockImplementation((p) => p === bundled || p === standalone);
+        (fs.statSync as jest.Mock).mockImplementation((p) => ({ isFile: () => p === bundled || p === standalone }));
+        (fs.realpathSync as unknown as jest.Mock).mockImplementation((p) => p === bundled
+            ? '/WorkBuddy/Resources/app.asar.unpacked/cli/bin/codebuddy' : p);
+        expect(resolveCodebuddyPath('')).toBe(bundled);
+        (fs.realpathSync as unknown as jest.Mock).mockImplementation((p) => p === bundled
+            ? '/OtherProduct/Resources/app.asar.unpacked/cli/bin/codebuddy' : p);
+        expect(resolveCodebuddyPath('')).toBe('');
+    });
+
+    it('detects WorkBuddy installed in Program Files (x86) on another drive', () => {
+        Object.defineProperty(process, 'platform', { value: 'win32' });
+        process.env = { USERPROFILE: 'C:\\Users\\fake', 'ProgramFiles(x86)': 'C:\\Program Files (x86)', PATH: '' };
+        const bundled = path.join('D:\\Program Files (x86)', 'WorkBuddy', 'Resources', 'app.asar.unpacked', 'cli', 'bin', 'codebuddy');
+        existsSync.mockImplementation((p) => p === bundled);
+        (fs.realpathSync as unknown as jest.Mock).mockImplementation((p) => p);
+        expect(resolveCodebuddyPath('')).toBe(bundled);
+    });
+});
 
 describe('resolveHermesPath', () => {
     const HOME = process.platform === 'win32' ? 'C:\\Users\\fake' : '/home/fake';

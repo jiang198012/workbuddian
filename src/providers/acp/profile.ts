@@ -11,7 +11,7 @@ export interface ModelConfigClient {
 /** 后端方言剖面：ACP 共享引擎与具体 CLI 之间的全部差异点 */
 export interface AcpBackendProfile {
     readonly id: 'codebuddy' | 'hermes';
-    /** CLI 路径解析：自定义覆盖 → 自动发现 → bare fallback */
+    /** CLI 路径解析；空值表示未找到可用的后端，不得自动切换其他产品。 */
     resolveCliPath(customPath: string): string;
     /** spawn 时 CLI 后的 ACP 入口参数 */
     readonly acpArgs: readonly string[];

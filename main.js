@@ -73,7 +73,8 @@ var init_i18n = __esm({
       "provider.cliNotFound": { zh: "\u627E\u4E0D\u5230 codebuddy CLI\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 WorkBuddy \u684C\u9762\u7248\uFF0C\u6216\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u6307\u5B9A codebuddy \u8DEF\u5F84\u3002", en: "codebuddy CLI not found. Make sure WorkBuddy desktop is installed, or set the codebuddy path in the plugin settings." },
       "provider.nodeNotFound": { zh: "\u627E\u4E0D\u5230 Node.js \u6765\u8FD0\u884C codebuddy\uFF08\u8DEF\u5F84\uFF1A{path}\uFF09\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 Node.js\u3002", en: "Node.js not found to run codebuddy (path: {path}). Make sure Node.js is installed." },
       "provider.acpUnsupported": { zh: "\u5F53\u524D codebuddy CLI \u7248\u672C\u8FC7\u65E7\uFF0C\u4E0D\u652F\u6301 ACP \u6301\u4E45\u4F1A\u8BDD\u3002\u8BF7\u5347\u7EA7 WorkBuddy \u684C\u9762\u7248\u3002", en: "Your codebuddy CLI is too old for ACP persistent sessions. Please upgrade WorkBuddy." },
-      "provider.notLoggedIn": { zh: "codebuddy CLI \u7591\u4F3C\u672A\u767B\u5F55\u3002\u8BF7\u5148\u5728 WorkBuddy \u684C\u9762\u7248\u4E2D\u767B\u5F55\u3002", en: "codebuddy CLI appears logged out. Please log in via WorkBuddy first." },
+      "provider.notLoggedIn": { zh: "\u5F53\u524D CLI \u8BA4\u8BC1\u5931\u8D25\u3002\u82E5\u4F7F\u7528 WorkBuddy\uFF0C\u8BF7\u786E\u8BA4\u539F\u684C\u9762\u7AEF\u5DF2\u767B\u5F55\u3001\u4FDD\u6301\u8FD0\u884C\u4E14\u53EF\u6B63\u5E38\u5BF9\u8BDD\uFF1B\u5BBF\u4E3B\u51ED\u636E\u901A\u8DEF\u4E0D\u53EF\u7528\u4E0D\u7B49\u4E8E\u672A\u767B\u5F55\uFF0C\u91CD\u65B0\u767B\u5F55\u4E0D\u4FDD\u8BC1\u89E3\u51B3\u3002\u63D2\u4EF6\u4E0D\u4F1A\u81EA\u52A8\u5207\u6362\u8D26\u53F7\u6216\u989D\u5EA6\u6765\u6E90\u3002", en: "The selected CLI could not authenticate. If using WorkBuddy, keep the original desktop app running and logged in, and check that desktop chat works. An unavailable host credential channel does not mean you are logged out; logging in again is not a guaranteed remedy. The plugin does not automatically switch accounts or quota sources." },
+      "provider.credentialUnavailable": { zh: "WorkBuddy \u5BBF\u4E3B\u51ED\u636E\u901A\u8DEF\u5F53\u524D\u4E0D\u53EF\u7528\uFF08missing-key\uFF0C\u89C1 Issue #10\uFF09\u3002\u8BF7\u786E\u8BA4\u539F\u684C\u9762\u7AEF\u5DF2\u767B\u5F55\u5E76\u4FDD\u6301\u8FD0\u884C\uFF1B\u6B64\u9519\u8BEF\u4E0D\u7B49\u4E8E\u672A\u767B\u5F55\uFF0C\u91CD\u65B0\u767B\u5F55\u4E0D\u4FDD\u8BC1\u89E3\u51B3\u3002\u63D2\u4EF6\u4E0D\u8BFB\u53D6\u3001\u590D\u5236\u6216\u89E3\u5BC6\u767B\u5F55\u51ED\u636E\uFF0C\u4E5F\u4E0D\u4F1A\u6539\u7528\u72EC\u7ACB CodeBuddy \u8D26\u53F7\u6216\u989D\u5EA6\u3002", en: "The WorkBuddy host credential channel is currently unavailable (missing-key; see Issue #10). Keep the original desktop app running and logged in. This error does not mean you are logged out; logging in again is not a guaranteed remedy. The plugin does not read, copy, or decrypt login credentials, or switch to a standalone CodeBuddy account or quota." },
       "provider.handshakeFailed": { zh: "codebuddy CLI \u63E1\u624B\u5931\u8D25\uFF1A{detail}", en: "codebuddy CLI handshake failed: {detail}" },
       "provider.turnTimeout": { zh: "\u672C\u8F6E\u54CD\u5E94\u8D85\u65F6\uFF0C\u5DF2\u4E2D\u65AD", en: "Turn timed out and was interrupted" },
       "provider.turnFailed": { zh: "\u672C\u8F6E\u4E2D\u65AD\uFF1A{reason}", en: "Turn interrupted: {reason}" },
@@ -122,11 +123,11 @@ var init_i18n = __esm({
       "plugins.opDone": { zh: "\u63D2\u4EF6\u300C{name}\u300D\u5DF2{action}", en: 'Plugin "{name}" {action}' },
       "plugins.noDesc": { zh: "(\u65E0\u63CF\u8FF0)", en: "(No description)" },
       "settings.path": { zh: "CodeBuddy \u8DEF\u5F84", en: "CodeBuddy path" },
-      "settings.pathDesc": { zh: "codebuddy \u53EF\u6267\u884C\u6587\u4EF6\u8DEF\u5F84\u3002\u5982 WorkBuddy \u81EA\u5B9A\u4E49\u5B89\u88C5\uFF0C\u8DEF\u5F84\u901A\u5E38\u4E3A\uFF1A\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy\uFF08\u53F3\u952E WorkBuddy \u5FEB\u6377\u65B9\u5F0F \u2192 \u6253\u5F00\u6587\u4EF6\u4F4D\u7F6E \u53EF\u627E\u5230\u5B89\u88C5\u76EE\u5F55\uFF09", en: "Path to the codebuddy executable. For a custom WorkBuddy install it is usually: <InstallDir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy (right-click the WorkBuddy shortcut \u2192 Open file location)." },
+      "settings.pathDesc": { zh: "WorkBuddy \u5185\u7F6E codebuddy \u8DEF\u5F84\uFF0C\u7559\u7A7A\u65F6\u4EC5\u81EA\u52A8\u68C0\u6D4B WorkBuddy\u3002\u5BBF\u4E3B\u6A21\u5F0F\u9700\u539F\u684C\u9762\u7AEF\u5DF2\u767B\u5F55\u5E76\u4FDD\u6301\u8FD0\u884C\uFF0C\u6CBF\u7528\u539F\u8D26\u53F7\u4E0E\u989D\u5EA6\uFF0C\u4E0D\u4F1A\u81EA\u52A8\u5207\u6362\u72EC\u7ACB CLI\u3002\u624B\u52A8\u6307\u5B9A\u5176\u4ED6 CLI \u5C06\u4F7F\u7528\u8BE5 CLI \u81EA\u8EAB\u7684\u8BA4\u8BC1\u4E0E\u989D\u5EA6\u3002", en: "Path to WorkBuddy\u2019s bundled codebuddy. Automatic detection only selects WorkBuddy. Hosted mode requires the original desktop app to stay running and logged in, and uses the same account and quota without switching to a standalone CLI. An explicitly selected alternative CLI uses its own authentication and quota." },
       "settings.pathPlaceholder": { zh: "WorkBuddy\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy", en: "<WorkBuddy install dir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy" },
       "settings.pathDetect": { zh: "\u81EA\u52A8\u68C0\u6D4B", en: "Auto-detect" },
       "settings.pathDetected": { zh: "\u5DF2\u586B\u5165\u68C0\u6D4B\u5230\u7684\u8DEF\u5F84\uFF1A{path}", en: "Filled in the detected path: {path}" },
-      "settings.pathNotFound": { zh: "\u672A\u627E\u5230 WorkBuddy \u9ED8\u8BA4\u5B89\u88C5\uFF0C\u8BF7\u624B\u52A8\u6307\u5B9A\u8DEF\u5F84", en: "WorkBuddy default install not found; set the path manually." },
+      "settings.pathNotFound": { zh: "\u672A\u627E\u5230 WorkBuddy \u5185\u7F6E CLI\uFF0C\u8BF7\u786E\u8BA4\u5B89\u88C5\u4F4D\u7F6E\u6216\u624B\u52A8\u6307\u5B9A\u8DEF\u5F84\uFF1B\u672A\u5207\u6362\u5230\u5176\u4ED6 CLI\u3002", en: "WorkBuddy bundled CLI not found; check its installation or set the path manually. No alternative CLI was selected." },
       "settings.node": { zh: "\u624B\u52A8\u6307\u5B9A Node.js \u8DEF\u5F84", en: "Node.js path (manual)" },
       "settings.nodeDesc": { zh: "\u7559\u7A7A\u5219\u81EA\u52A8\u63A2\u6D4B\u3002\u5982\u679C\u81EA\u52A8\u63A2\u6D4B\u5931\u8D25\uFF08\u4F8B\u5982\u975E\u6807\u51C6\u5B89\u88C5\u8DEF\u5F84\uFF09\uFF0C\u53EF\u4EE5\u5728\u8FD9\u91CC\u624B\u52A8\u6307\u5B9A node \u53EF\u6267\u884C\u6587\u4EF6\u7684\u5B8C\u6574\u8DEF\u5F84", en: "Leave empty to auto-detect. If detection fails (e.g. non-standard install), set the full path to the node executable here." },
       "settings.nodePlaceholder": { zh: "\u7559\u7A7A = \u81EA\u52A8\u63A2\u6D4B", en: "Empty = auto-detect" },
@@ -535,14 +536,14 @@ function firstHit(candidates) {
   }
   return null;
 }
-function findOnPath(names) {
+function findOnPath(names, accept = () => true) {
   const sep = isWin() ? ";" : ":";
   for (const dir of env("PATH").split(sep)) {
     if (!dir)
       continue;
     for (const name of names) {
       const p = path.join(dir, name);
-      if (isFile(p))
+      if (isFile(p) && accept(p))
         return p;
     }
   }
@@ -628,27 +629,48 @@ function codebuddyCandidates() {
     ...wbExe(path.join(pf86, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"])
   );
   for (const drive of ["C:", "D:", "E:"]) {
-    list.push(...wbExe(path.join(`${drive}\\Program Files`, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
+    for (const dir of ["Program Files", "Program Files (x86)"]) {
+      list.push(...wbExe(path.join(`${drive}\\${dir}`, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
+    }
   }
   return list;
 }
 function resolveCodebuddyPath(customPath) {
-  if (customPath && fs.existsSync(customPath))
+  if (customPath)
     return customPath;
   const fromEnv = env("CODEBUDDY_PATH");
-  if (fromEnv && fs.existsSync(fromEnv))
+  if (fromEnv)
     return fromEnv;
   const extra = [
     env("NVM_BIN") && path.join(env("NVM_BIN"), "codebuddy"),
     env("npm_config_prefix") && path.join(env("npm_config_prefix"), "bin", "codebuddy")
   ];
-  const hit = firstHit([...codebuddyCandidates(), ...extra]);
+  const candidates = [...codebuddyCandidates(), ...extra];
+  const names = isWin() ? ["codebuddy.exe", "codebuddy.cmd", "codebuddy"] : ["codebuddy"];
+  const onPath = findOnPath(names, isWorkbuddyBundledCli);
+  const all = [...candidates, ...onPath ? [onPath] : []];
+  const hit = firstHit(all.filter(isWorkbuddyBundledCli));
   if (hit) {
     bbLog("[WB] resolved codebuddy path:", hit);
     return hit;
   }
-  const onPath = findOnPath(isWin() ? ["codebuddy.exe", "codebuddy.cmd", "codebuddy"] : ["codebuddy"]);
-  return onPath != null ? onPath : "codebuddy";
+  return "";
+}
+function isWorkbuddyBundledCli(scriptPath) {
+  var _a;
+  let realPath = scriptPath;
+  try {
+    realPath = fs.realpathSync(scriptPath);
+  } catch (e) {
+  }
+  if (/[\\/]WorkBuddy(?:\.app[\\/]Contents)?[\\/]Resources[\\/]app\.asar\.unpacked[\\/]cli[\\/]/i.test(realPath))
+    return true;
+  try {
+    const product = JSON.parse(fs.readFileSync(path.join(path.dirname(realPath), "..", "product.json"), "utf8"));
+    return (product == null ? void 0 : product.productName) === "WorkBuddy" || ((_a = product == null ? void 0 : product.authentication) == null ? void 0 : _a.id) === "workbuddy-desktop";
+  } catch (e) {
+    return false;
+  }
 }
 function resolveHermesPath(customPath) {
   const custom = customPath.trim();
@@ -778,6 +800,511 @@ var ACP_DEFAULT_PROFILE = {
   normalizeToolCall: () => ({})
 };
 
+// src/providers/codebuddy/workbuddyHost.ts
+var import_http = require("http");
+var import_string_decoder = require("string_decoder");
+var MAX_FRAME_LENGTH = 4 * 1024 * 1024;
+function parseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error("WorkBuddy returned invalid JSON");
+  }
+}
+var WorkbuddyHostConnection = class {
+  constructor(endpoint, onMessage, onDisconnect) {
+    this.endpoint = endpoint;
+    this.onMessage = onMessage;
+    this.onDisconnect = onDisconnect;
+    this.requests = /* @__PURE__ */ new Set();
+    this.connectionId = "";
+    this.sessionToken = "";
+    this.closed = false;
+    this.disposal = null;
+  }
+  static async connect(endpoint, onMessage, onDisconnect) {
+    let url;
+    try {
+      url = new URL(endpoint);
+    } catch (e) {
+      throw new Error("Invalid WorkBuddy loopback endpoint");
+    }
+    if (url.protocol !== "http:" || !["127.0.0.1", "[::1]", "localhost"].includes(url.hostname) || url.username || url.password || url.pathname !== "/" || /[?\#@]/.test(endpoint)) {
+      throw new Error("WorkBuddy endpoint must be an HTTP loopback root URL");
+    }
+    const connection = new WorkbuddyHostConnection(url, onMessage, onDisconnect);
+    try {
+      const result = await connection.request("POST", "/api/v1/acp/connect");
+      if (!result || typeof result.connectionId !== "string" || !result.connectionId || typeof result.sessionToken !== "string" || !result.sessionToken || /[\r\n]/.test(result.connectionId + result.sessionToken)) {
+        throw new Error("WorkBuddy returned invalid connection credentials");
+      }
+      connection.connectionId = result.connectionId;
+      connection.sessionToken = result.sessionToken;
+      await connection.request("GET", "/api/v1/acp", void 0, true);
+      return connection;
+    } catch (error) {
+      await connection.dispose().catch(() => {
+      });
+      throw error;
+    }
+  }
+  async send(message) {
+    if (this.closed)
+      throw new Error("WorkBuddy host connection is closed");
+    try {
+      await this.request("POST", "/api/v1/acp", JSON.stringify(message));
+    } catch (error) {
+      this.disconnect(error);
+      throw error;
+    }
+  }
+  dispose() {
+    if (this.disposal)
+      return this.disposal;
+    this.closed = true;
+    for (const req of this.requests)
+      req.destroy(new Error("WorkBuddy host connection disposed"));
+    this.disposal = (async () => {
+      try {
+        if (this.connectionId)
+          await this.request("DELETE", "/api/v1/acp");
+      } finally {
+        this.connectionId = "";
+        this.sessionToken = "";
+      }
+    })();
+    return this.disposal;
+  }
+  disconnect(error) {
+    if (this.closed)
+      return;
+    this.closed = true;
+    for (const req of this.requests)
+      req.destroy(error);
+    this.onDisconnect(error);
+  }
+  receive(text) {
+    const message = parseJson(text);
+    if (!message || typeof message !== "object" || Array.isArray(message) || message.jsonrpc !== "2.0") {
+      throw new Error("WorkBuddy returned an invalid JSON-RPC message");
+    }
+    this.onMessage(message);
+  }
+  request(method, pathname, body, subscription = false) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let subscribed = false;
+      const headers = {
+        "X-CodeBuddy-Request": "1",
+        Accept: subscription ? "text/event-stream" : "application/json, text/event-stream"
+      };
+      if (pathname.endsWith("/connect"))
+        headers.Accept = "application/json";
+      if (this.connectionId) {
+        headers["acp-connection-id"] = this.connectionId;
+        headers["acp-session-token"] = this.sessionToken;
+      }
+      if (body !== void 0)
+        headers["Content-Type"] = "application/json";
+      const req = (0, import_http.request)(new URL(pathname, this.endpoint), {
+        method,
+        headers,
+        // localhost 必须固定连回环，不能受本机 DNS/hosts 改写影响。
+        ...this.endpoint.hostname === "localhost" ? { hostname: "127.0.0.1" } : {}
+      });
+      this.requests.add(req);
+      const fail = (error) => {
+        if (!settled) {
+          settled = true;
+          reject(error);
+        }
+        if (subscribed)
+          this.disconnect(error);
+        req.destroy();
+      };
+      req.on("error", fail);
+      req.on("close", () => this.requests.delete(req));
+      req.setTimeout(1e4, () => fail(new Error("WorkBuddy HTTP request timed out")));
+      req.on("response", (res) => {
+        var _a, _b;
+        const status = (_a = res.statusCode) != null ? _a : 0;
+        if (status < 200 || status >= 300) {
+          res.resume();
+          fail(new Error(`WorkBuddy HTTP ${status}`));
+          return;
+        }
+        const sse = /^text\/event-stream(?:;|$)/i.test((_b = res.headers["content-type"]) != null ? _b : "");
+        if (subscription && !sse) {
+          res.resume();
+          fail(new Error("WorkBuddy subscription is not an event stream"));
+          return;
+        }
+        if (sse)
+          req.setTimeout(0);
+        const decoder = new import_string_decoder.StringDecoder("utf8");
+        let buffer2 = "";
+        let data = [];
+        let frameLength = 0;
+        let trailingCr = false;
+        const consume = (text) => {
+          if (sse && text) {
+            if (trailingCr && text[0] === "\n")
+              text = text.slice(1);
+            trailingCr = false;
+          }
+          buffer2 += text;
+          if (buffer2.length + frameLength > MAX_FRAME_LENGTH)
+            throw new Error("WorkBuddy response is too large");
+          if (!sse)
+            return;
+          let newline;
+          while (newline = /\r\n|\r|\n/.exec(buffer2)) {
+            trailingCr = newline[0] === "\r" && newline.index === buffer2.length - 1;
+            const line = buffer2.slice(0, newline.index);
+            buffer2 = buffer2.slice(newline.index + newline[0].length);
+            if (!line) {
+              if (data.length)
+                this.receive(data.join("\n"));
+              data = [];
+              frameLength = 0;
+            } else if (line === "data" || line.startsWith("data:")) {
+              const value = line.slice(5).replace(/^ /, "");
+              data.push(value);
+              frameLength += value.length;
+            }
+          }
+        };
+        res.on("data", (chunk) => {
+          try {
+            consume(decoder.write(chunk));
+          } catch (error) {
+            fail(error);
+          }
+        });
+        res.on("aborted", () => fail(new Error("WorkBuddy HTTP response was interrupted")));
+        res.on("error", () => fail(new Error("WorkBuddy HTTP response failed")));
+        res.on("end", () => {
+          if (subscription) {
+            fail(new Error("WorkBuddy event stream closed"));
+            return;
+          }
+          if (settled)
+            return;
+          try {
+            consume(decoder.end());
+            let result;
+            if (sse) {
+              if (buffer2.trim() || data.length)
+                throw new Error("WorkBuddy returned an incomplete SSE frame");
+            } else if (body !== void 0 && status !== 202 && status !== 204) {
+              this.receive(buffer2);
+            } else if (pathname.endsWith("/connect")) {
+              result = parseJson(buffer2);
+            }
+            settled = true;
+            resolve(result);
+          } catch (error) {
+            fail(error);
+          }
+        });
+        if (subscription) {
+          subscribed = true;
+          settled = true;
+          resolve(void 0);
+        }
+      });
+      req.end(body);
+    });
+  }
+};
+
+// src/providers/codebuddy/workbuddySidecar.ts
+var fs2 = __toESM(require("fs"));
+var net = __toESM(require("net"));
+var os = __toESM(require("os"));
+var path2 = __toESM(require("path"));
+var import_crypto = require("crypto");
+var hash = (value, length) => (0, import_crypto.createHash)("sha1").update(value).digest("hex").slice(0, length);
+function runtimeDirectory(configDir) {
+  var _a, _b;
+  const token = hash(configDir, 12);
+  const uid = (_a = process.getuid) == null ? void 0 : _a.call(process);
+  if (process.platform === "linux") {
+    for (const dir of [(_b = process.env.XDG_RUNTIME_DIR) == null ? void 0 : _b.trim(), uid === void 0 ? void 0 : `/run/user/${uid}`]) {
+      if (!dir)
+        continue;
+      try {
+        if (!fs2.statSync(dir).isDirectory())
+          continue;
+        fs2.accessSync(dir, fs2.constants.W_OK);
+        return path2.join(dir, "workbuddy", token);
+      } catch (e) {
+      }
+    }
+  }
+  return path2.join(os.tmpdir().trim(), uid === void 0 ? "wb" : `wb-${hash(String(uid), 6)}`, token);
+}
+function requireOwned(file, kind) {
+  const stat = fs2.lstatSync(file);
+  const correctType = kind === "directory" ? stat.isDirectory() : kind === "file" ? stat.isFile() : stat.isSocket();
+  if (!correctType || process.getuid && stat.uid !== process.getuid())
+    throw new Error("Untrusted WorkBuddy runtime");
+  return stat;
+}
+async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
+  var _a, _b;
+  let productPath;
+  let product;
+  try {
+    productPath = path2.join(path2.dirname(fs2.realpathSync(scriptPath)), "..", "product.json");
+    product = JSON.parse(fs2.readFileSync(productPath, "utf8"));
+  } catch (e) {
+    return null;
+  }
+  if ((product == null ? void 0 : product.productName) !== "WorkBuddy")
+    return null;
+  const bootstrapMarker = Buffer.from("CODEBUDDY_SIDECAR_CREDENTIAL_BOOTSTRAP_SOCKET");
+  const requiresHost = ["codebuddy-lite-wb.mjs", "codebuddy-headless.js"].some((bundle) => {
+    try {
+      return fs2.readFileSync(path2.join(path2.dirname(productPath), "dist", bundle)).includes(bootstrapMarker);
+    } catch (e) {
+      return false;
+    }
+  });
+  if (!requiresHost)
+    return null;
+  try {
+    if (!path2.isAbsolute(cwd) || !fs2.statSync(cwd).isDirectory())
+      throw new Error();
+  } catch (e) {
+    throw new Error("WorkBuddy worker requires an existing absolute cwd directory");
+  }
+  if (signal == null ? void 0 : signal.aborted)
+    throw new Error("WorkBuddy worker creation cancelled");
+  const dataFolder = product.dataFolderName || ".workbuddy";
+  const configDir = ((_a = process.env.WORKBUDDY_CONFIG_DIR) == null ? void 0 : _a.trim()) || ((_b = process.env.CODEBUDDY_CONFIG_DIR) == null ? void 0 : _b.trim()) || path2.join(os.homedir(), dataFolder);
+  const runtimeDir = runtimeDirectory(configDir);
+  const pidFile = path2.join(runtimeDir, "sidecar.pid");
+  const readIdentity = () => {
+    requireOwned(runtimeDir, "directory");
+    requireOwned(pidFile, "file");
+    const { pid: pid2, version, controlPipeUuid } = JSON.parse(fs2.readFileSync(pidFile, "utf8"));
+    if (!Number.isSafeInteger(pid2) || pid2 <= 0 || version !== 6 || !/^[a-f0-9]{8}$/.test(controlPipeUuid != null ? controlPipeUuid : ""))
+      throw new Error();
+    return { pid: pid2, controlPipeUuid };
+  };
+  let identity;
+  let socketPath;
+  let socketIdentity;
+  try {
+    identity = readIdentity();
+    socketPath = process.platform === "win32" ? `\\\\.\\pipe\\workbuddy-${hash(configDir, 12)}-sidecar-control-${identity.controlPipeUuid}` : path2.join(runtimeDir, `sidecar-${identity.controlPipeUuid}.sock`);
+    if (process.platform !== "win32")
+      socketIdentity = requireOwned(socketPath, "socket");
+  } catch (e) {
+    throw new Error("WorkBuddy sidecar v6 is not running. \u8BF7\u542F\u52A8\u5E76\u767B\u5F55 WorkBuddy 5.6.2 \u540E\u91CD\u8BD5\u3002");
+  }
+  const ownedId = `workbuddian-${(0, import_crypto.randomUUID)()}`;
+  let runtimeId;
+  let pid;
+  let socket;
+  let serial = 0;
+  let submitted = false;
+  let disposing;
+  const pending = /* @__PURE__ */ new Map();
+  const rejectPending = (error) => {
+    for (const entry of pending.values()) {
+      clearTimeout(entry.timer);
+      entry.reject(error);
+    }
+    pending.clear();
+  };
+  const open = async () => {
+    const current = readIdentity();
+    if (current.pid !== identity.pid || current.controlPipeUuid !== identity.controlPipeUuid)
+      throw new Error("WorkBuddy sidecar instance changed");
+    if (socketIdentity) {
+      const stat = requireOwned(socketPath, "socket");
+      if (stat.ino !== socketIdentity.ino || stat.dev !== socketIdentity.dev)
+        throw new Error("WorkBuddy sidecar socket changed");
+    }
+    const client = net.createConnection(socketPath);
+    socket = client;
+    client.setEncoding("utf8");
+    let buffer2 = "";
+    client.on("data", (chunk) => {
+      if (socket !== client)
+        return;
+      buffer2 += chunk;
+      try {
+        if (buffer2.length > 1024 * 1024)
+          throw new Error();
+        let newline;
+        while ((newline = buffer2.indexOf("\n")) >= 0) {
+          const line = buffer2.slice(0, newline);
+          buffer2 = buffer2.slice(newline + 1);
+          if (!line.trim())
+            continue;
+          const message = JSON.parse(line);
+          if (!message || message.method || message.jsonrpc !== "2.0")
+            continue;
+          const entry = pending.get(message.id);
+          if (!entry)
+            continue;
+          pending.delete(message.id);
+          clearTimeout(entry.timer);
+          if (message.error)
+            entry.reject(new Error("WorkBuddy sidecar request failed"));
+          else
+            entry.resolve(message.result);
+        }
+      } catch (e) {
+        rejectPending(new Error("Invalid WorkBuddy sidecar response"));
+        client.destroy();
+      }
+    });
+    client.on("error", () => {
+      if (socket === client)
+        rejectPending(new Error("WorkBuddy sidecar connection failed"));
+    });
+    client.on("close", () => {
+      if (socket === client)
+        rejectPending(new Error("WorkBuddy sidecar connection closed"));
+    });
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        client.destroy();
+        reject(new Error("WorkBuddy sidecar connection timed out"));
+      }, 5e3);
+      client.once("connect", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+      client.once("error", () => {
+        clearTimeout(timer);
+        reject(new Error("WorkBuddy sidecar connection failed"));
+      });
+      client.once("close", () => {
+        clearTimeout(timer);
+        reject(new Error("WorkBuddy sidecar connection closed"));
+      });
+    });
+  };
+  const rpc = (method, params, timeout) => new Promise((resolve, reject) => {
+    if (!socket || socket.destroyed) {
+      reject(new Error("WorkBuddy sidecar connection closed"));
+      return;
+    }
+    const id = ++serial;
+    const timer = setTimeout(() => {
+      pending.delete(id);
+      reject(new Error(`WorkBuddy ${method} timed out`));
+    }, timeout);
+    pending.set(id, { resolve, reject, timer });
+    socket.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n", (error) => {
+      if (error) {
+        clearTimeout(timer);
+        pending.delete(id);
+        reject(new Error("WorkBuddy sidecar connection failed"));
+      }
+    });
+  });
+  const dispose = () => {
+    if (disposing)
+      return disposing;
+    signal == null ? void 0 : signal.removeEventListener("abort", abort);
+    rejectPending(new Error("WorkBuddy worker creation cancelled"));
+    disposing = (async () => {
+      try {
+        if (!submitted)
+          return;
+        if (!socket || socket.destroyed)
+          await open();
+        await rpc("session.kill", { sessionId: ownedId, ...runtimeId ? { expectedRuntimeId: runtimeId } : {} }, 5e3);
+        const deadline = Date.now() + 3e3;
+        while (pid) {
+          try {
+            process.kill(pid, 0);
+          } catch (error) {
+            if (error.code === "ESRCH")
+              break;
+            throw new Error("WorkBuddy worker cleanup could not be confirmed");
+          }
+          if (Date.now() >= deadline)
+            throw new Error("WorkBuddy worker cleanup could not be confirmed");
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+      } catch (error) {
+        if (pid) {
+          try {
+            process.kill(pid, 0);
+          } catch (probeError) {
+            if (probeError.code === "ESRCH")
+              return;
+          }
+        }
+        throw error;
+      } finally {
+        socket == null ? void 0 : socket.destroy();
+        rejectPending(new Error("WorkBuddy worker disposed"));
+      }
+    })();
+    return disposing;
+  };
+  const abort = () => {
+    void dispose().catch(() => {
+    });
+  };
+  signal == null ? void 0 : signal.addEventListener("abort", abort, { once: true });
+  try {
+    await open();
+    if ((signal == null ? void 0 : signal.aborted) || disposing)
+      throw new Error("WorkBuddy worker creation cancelled");
+    submitted = true;
+    const result = await rpc("session.create", {
+      sessionId: ownedId,
+      command,
+      args,
+      cwd,
+      port: 0,
+      env: {
+        ELECTRON_RUN_AS_NODE: "1",
+        CODEBUDDY_FORCE_LITE_WB_BUNDLE: "1",
+        CODEBUDDY_CONFIG_DIR: configDir,
+        WORKBUDDY_CONFIG_DIR: configDir,
+        WORKBUDDY_DATA_FOLDER_NAME: dataFolder,
+        ACC_PRODUCT_CONFIG_PATH: productPath,
+        CODEBUDDY_API_KEY_HELPER_DISABLED: "1",
+        CODEBUDDY_API_KEY: "",
+        ANTHROPIC_API_KEY: "",
+        OPENAI_API_KEY: "",
+        CODEBUDDY_GATEWAY_AUTH: "password",
+        CODEBUDDY_GATEWAY_PASSWORD: (0, import_crypto.randomBytes)(32).toString("hex"),
+        CODEBUDDY_GATEWAY_DISABLE_API_DOCS: "1",
+        DISABLE_AUTOUPDATER: "1"
+      }
+    }, 195e3);
+    if ((result == null ? void 0 : result.sessionId) !== ownedId || typeof result.runtimeId !== "string" || !result.runtimeId || !Number.isSafeInteger(result.pid) || result.pid <= 0)
+      throw new Error("Unexpected WorkBuddy worker identity");
+    runtimeId = result.runtimeId;
+    pid = result.pid;
+    const endpoint = new URL(result.acpEndpoint);
+    if (endpoint.protocol !== "http:" || endpoint.hostname !== "127.0.0.1" || !endpoint.port || endpoint.pathname !== "/api/v1/acp" || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {
+      throw new Error("Invalid WorkBuddy worker endpoint");
+    }
+    if ((signal == null ? void 0 : signal.aborted) || disposing)
+      throw new Error("WorkBuddy worker creation cancelled");
+    return { endpoint: endpoint.origin, dispose };
+  } catch (error) {
+    try {
+      await dispose();
+    } catch (e) {
+      throw new Error(`${error instanceof Error ? error.message : "WorkBuddy creation failed"}; own worker cleanup could not be confirmed`);
+    }
+    throw error;
+  }
+}
+
 // src/providers/acp/client.ts
 var AcpStartError = class extends Error {
   constructor(tier, message) {
@@ -797,7 +1324,7 @@ function classifyHandshakeFailure(stderr) {
   return /unrecogni[sz]ed|unknown (option|command|flag)|invalid option|unknown argument/i.test(stderr) ? "acp-unsupported" : "handshake-failed";
 }
 function isAuthError(message) {
-  return /auth|logged|login|unauthorized|登录|未登录/i.test(message);
+  return /\bauth(?:entication)? (?:required|failed|failure|error)\b|\b(?:not logged in|not authenticated|unauthorized|login required|account list is empty)\b|请先登录|未登录/i.test(message);
 }
 var HANDSHAKE_TIMEOUT_MS = 3e4;
 var DEFAULT_REQUEST_TIMEOUT_MS = 9e4;
@@ -824,10 +1351,17 @@ var AcpClient = class {
     this.extraArgs = [];
     // 追加在 acpArgs 之后的 CLI 旗标（如 --agents）
     this.proc = null;
+    this.host = null;
+    this.hostRuntime = null;
+    this.hostCwd = "";
+    this.hostCleanup = null;
+    this.startupAbort = null;
+    this.generation = 0;
     this.nextId = 1;
     this.pending = /* @__PURE__ */ new Map();
     this.buffer = "";
     this.stderrTail = "";
+    this.credentialUnavailable = false;
     this.startPromise = null;
     this.disposed = false;
     this.handshakeDone = false;
@@ -849,41 +1383,54 @@ var AcpClient = class {
     if (next === this.scriptPath)
       return;
     this.scriptPath = next;
-    if (this.proc)
+    if (this.running || this.startPromise) {
       this.dispose();
+      this.events.onExit(null, null);
+    }
   }
   setNodePath(p) {
     if (p === this.nodePath)
       return;
     this.nodePath = p;
-    if (this.proc)
+    if (this.running || this.startPromise) {
       this.dispose();
+      this.events.onExit(null, null);
+    }
   }
   setExtraArgs(args) {
     if (args.join("\n") === this.extraArgs.join("\n"))
       return;
     this.extraArgs = args;
-    if (this.proc)
+    if (this.running || this.startPromise) {
       this.dispose();
+      this.events.onExit(null, null);
+    }
   }
   getScriptPath() {
     return this.scriptPath;
   }
   get running() {
-    return this.proc !== null;
+    return this.proc !== null || this.host !== null;
   }
-  ensureStarted() {
-    if (this.proc)
-      return Promise.resolve();
+  ensureStarted(cwd = "") {
+    if (this.hostCwd && cwd && cwd !== this.hostCwd) {
+      return Promise.reject(new Error("WorkBuddy worker is bound to a different Vault"));
+    }
     if (this.startPromise)
       return this.startPromise;
+    if (this.running)
+      return Promise.resolve();
     this.disposed = false;
-    this.startPromise = this.spawnAndHandshake().then(
+    const generation = this.generation;
+    const start = this.profile.id === "codebuddy" && cwd ? this.startWorkbuddy(cwd, generation) : this.spawnAndHandshake();
+    this.startPromise = start.then(
       () => {
-        this.startPromise = null;
+        if (this.generation === generation)
+          this.startPromise = null;
       },
       (e) => {
-        this.startPromise = null;
+        if (this.generation === generation)
+          this.startPromise = null;
         throw e;
       }
     );
@@ -919,13 +1466,12 @@ var AcpClient = class {
     return this.doRequest(method, params, timeout);
   }
   doRequest(method, params, timeoutMs) {
-    if (!this.proc)
+    if (!this.running)
       return Promise.reject(new Error("acp client not started"));
     const loadKey = method === "session/load" && typeof params.sessionId === "string" ? params.sessionId : "";
     if (loadKey)
       this.loadingSessions.add(loadKey);
     const id = this.nextId++;
-    this.write({ jsonrpc: "2.0", id, method, params });
     bbLog("[WB] acp \u8BF7\u6C42:", method, summarizeRpcParams(method, params));
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -949,33 +1495,44 @@ var AcpClient = class {
           reject(e);
         }
       });
+      this.write({ jsonrpc: "2.0", id, method, params });
     });
   }
   notify(method, params) {
-    if (!this.proc) {
-      bbLog("[WB] acp notify \u65F6\u8FDB\u7A0B\u4E0D\u5728:", method);
+    if (!this.running) {
+      bbLog("[WB] acp notify \u65F6\u8FDE\u63A5\u4E0D\u5728:", method);
       return;
     }
     this.write({ jsonrpc: "2.0", method, params });
     bbLog("[WB] acp \u901A\u77E5\u51FA\u7AD9:", method);
   }
   respond(requestId, result) {
-    if (!this.proc) {
-      bbLog("[WB] acp respond \u65F6\u8FDB\u7A0B\u4E0D\u5728:", requestId);
+    if (!this.running) {
+      bbLog("[WB] acp respond \u65F6\u8FDE\u63A5\u4E0D\u5728:", requestId);
       return;
     }
     this.write({ jsonrpc: "2.0", id: requestId, result });
   }
   /** 对 agent→client 请求的错误应答（未支持的方法）：防止 CLI 干等响应把 prompt 挂死 */
   respondError(requestId, message) {
-    if (!this.proc)
+    if (!this.running)
       return;
     this.write({ jsonrpc: "2.0", id: requestId, error: { code: -32601, message } });
   }
   dispose() {
+    var _a;
     this.disposed = true;
+    this.generation++;
+    (_a = this.startupAbort) == null ? void 0 : _a.abort();
+    this.startupAbort = null;
     const proc = this.proc;
+    const host = this.host;
+    const runtime = this.hostRuntime;
     this.proc = null;
+    this.host = null;
+    this.hostRuntime = null;
+    this.hostCwd = "";
+    this.handshakeDone = false;
     this.startPromise = null;
     this.failAllPending(new Error("acp client disposed"));
     if (proc) {
@@ -984,11 +1541,88 @@ var AcpClient = class {
       } catch (e) {
       }
     }
+    if (host || runtime) {
+      const cleanup = Promise.all([host == null ? void 0 : host.dispose().catch(() => {
+      }), runtime == null ? void 0 : runtime.dispose()]).then(() => {
+      });
+      this.hostCleanup = cleanup;
+      void cleanup.then(
+        () => {
+          if (this.hostCleanup === cleanup)
+            this.hostCleanup = null;
+        },
+        (error) => bbError("[WB] \u81EA\u6709 WorkBuddy worker \u6E05\u7406\u5931\u8D25:", error)
+      );
+    }
   }
   // ---- 内部 ----
   write(msg) {
     var _a, _b;
-    (_b = (_a = this.proc) == null ? void 0 : _a.stdin) == null ? void 0 : _b.write(JSON.stringify(msg) + "\n");
+    if (this.host) {
+      const generation = this.generation;
+      void this.host.send(msg).catch((error) => this.hostDisconnected(error, generation));
+    } else
+      (_b = (_a = this.proc) == null ? void 0 : _a.stdin) == null ? void 0 : _b.write(JSON.stringify(msg) + "\n");
+  }
+  hostDisconnected(error, generation) {
+    if (this.generation !== generation)
+      return;
+    const hadStarted = this.handshakeDone;
+    this.failAllPending(error);
+    this.dispose();
+    if (hadStarted)
+      this.events.onExit(null, null);
+  }
+  async startWorkbuddy(cwd, generation) {
+    const controller = new AbortController();
+    this.startupAbort = controller;
+    try {
+      if (this.hostCleanup)
+        await this.hostCleanup;
+      if (this.generation !== generation)
+        throw new Error("acp client disposed");
+      const { command, args } = buildSpawnCommand(this.scriptPath, this.nodePath, ["--serve", ...this.extraArgs]);
+      const runtime = await startWorkbuddySidecar(this.scriptPath, cwd, command, args, controller.signal);
+      if (this.generation !== generation) {
+        await (runtime == null ? void 0 : runtime.dispose());
+        throw new Error("acp client disposed");
+      }
+      if (!runtime)
+        return await this.spawnAndHandshake();
+      this.hostRuntime = runtime;
+      this.hostCwd = cwd;
+      const host = await WorkbuddyHostConnection.connect(
+        runtime.endpoint,
+        (message) => {
+          if (this.generation === generation)
+            this.handleLine(JSON.stringify(message));
+        },
+        (error) => this.hostDisconnected(error, generation)
+      );
+      if (this.generation !== generation) {
+        await host.dispose().catch(() => {
+        });
+        throw new Error("acp client disposed");
+      }
+      this.host = host;
+      this.credentialUnavailable = false;
+      this.stderrTail = "";
+      await this.request("initialize", {
+        protocolVersion: 1,
+        clientInfo: { name: "workbuddian", version: "2" },
+        clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }
+      });
+      if (this.generation !== generation)
+        throw new Error("acp client disposed");
+      this.handshakeDone = true;
+    } catch (error) {
+      if (this.generation === generation)
+        this.dispose();
+      throw error;
+    } finally {
+      if (this.startupAbort === controller)
+        this.startupAbort = null;
+    }
   }
   failAllPending(err) {
     for (const p of this.pending.values())
@@ -996,6 +1630,7 @@ var AcpClient = class {
     this.pending.clear();
   }
   handleLine(line) {
+    var _a, _b;
     let msg;
     try {
       msg = JSON.parse(line);
@@ -1020,8 +1655,33 @@ var AcpClient = class {
       const p = this.pending.get(msg.id);
       this.pending.delete(msg.id);
       if (msg.error) {
-        p.reject(new Error(msg.error.message || "acp rpc error"));
+        const message = msg.error.message || "acp rpc error";
+        p.reject(this.profile.id === "codebuddy" && isAuthError(message) ? new AcpStartError(this.credentialUnavailable ? "credential-unavailable" : "auth-required", message) : new Error(message));
         return;
+      }
+      const result = msg.result;
+      const stopReason = result == null ? void 0 : result.stopReason;
+      if (this.profile.id === "codebuddy" && stopReason === "refusal") {
+        const detail = (_a = result == null ? void 0 : result._meta) == null ? void 0 : _a["codebuddy.ai/errorMessage"];
+        let authRequired = false;
+        if (typeof detail === "string") {
+          try {
+            const error = JSON.parse(detail);
+            authRequired = ((_b = error == null ? void 0 : error.data) == null ? void 0 : _b.category) === "auth" || typeof (error == null ? void 0 : error.message) === "string" && isAuthError(error.message);
+          } catch (e) {
+          }
+        }
+        if (this.credentialUnavailable || authRequired) {
+          p.reject(new AcpStartError(
+            this.credentialUnavailable ? "credential-unavailable" : "auth-required",
+            "CodeBuddy authentication required"
+          ));
+          return;
+        }
+      }
+      if (stopReason === "end_turn") {
+        this.credentialUnavailable = false;
+        this.stderrTail = "";
       }
       this.reportModels(msg.result);
       p.resolve(msg.result);
@@ -1050,6 +1710,10 @@ var AcpClient = class {
   }
   spawnAndHandshake() {
     return new Promise((resolve, reject) => {
+      if (!this.scriptPath) {
+        reject(new AcpStartError("cli-not-found", "WorkBuddy CLI not found"));
+        return;
+      }
       const acpArgs = [...this.profile.acpArgs, ...this.extraArgs];
       const { command, args, shell } = this.profile.spawnViaNode ? buildSpawnCommand(this.scriptPath, this.nodePath, acpArgs) : { command: this.scriptPath, args: acpArgs, shell: needsWindowsShell(this.scriptPath) };
       let proc;
@@ -1062,24 +1726,30 @@ var AcpClient = class {
       this.proc = proc;
       this.buffer = "";
       this.stderrTail = "";
+      this.credentialUnavailable = false;
+      this.handshakeDone = false;
       let settled = false;
       const fail = (err) => {
         if (settled)
           return;
         settled = true;
         clearTimeout(timer);
-        this.proc = null;
+        if (this.proc === proc) {
+          this.proc = null;
+          this.failAllPending(err);
+        }
         try {
           proc.kill();
         } catch (e) {
         }
-        this.failAllPending(err);
         reject(err);
       };
       const timer = setTimeout(() => {
         fail(new AcpStartError("handshake-failed", `handshake timeout after ${HANDSHAKE_TIMEOUT_MS}ms`));
       }, HANDSHAKE_TIMEOUT_MS);
       proc.stdout.on("data", (data) => {
+        if (this.proc !== proc)
+          return;
         this.buffer += data.toString("utf8");
         let idx;
         while ((idx = this.buffer.indexOf("\n")) >= 0) {
@@ -1090,14 +1760,23 @@ var AcpClient = class {
         }
       });
       proc.stderr.on("data", (data) => {
+        if (this.proc !== proc)
+          return;
         const text = data.toString("utf8");
         bbLog("[WB] acp stderr:", text.trim());
         this.stderrTail = (this.stderrTail + text).slice(-2e3);
+        if (/\[AtRestEncryption\][\s\S]*category=missing-key/.test(this.stderrTail)) {
+          this.credentialUnavailable = true;
+        }
       });
       proc.on("error", (e) => {
+        if (this.proc !== proc)
+          return;
         fail(new AcpStartError(e.message.includes("ENOENT") ? "cli-not-found" : "handshake-failed", e.message));
       });
       proc.on("close", (code, signal) => {
+        if (this.proc !== proc)
+          return;
         const wasStarting = !settled;
         const wasDisposed = this.disposed;
         const hadStarted = this.handshakeDone;
@@ -1107,7 +1786,7 @@ var AcpClient = class {
         this.failAllPending(new Error("acp process exited"));
         if (wasStarting) {
           fail(new AcpStartError(
-            classifyHandshakeFailure(this.stderrTail),
+            this.profile.id === "codebuddy" && this.credentialUnavailable ? "credential-unavailable" : classifyHandshakeFailure(this.stderrTail),
             this.stderrTail.trim().slice(-300) || `process exited (${code}) before handshake`
           ));
           return;
@@ -1126,7 +1805,7 @@ var AcpClient = class {
         this.handshakeDone = true;
         resolve();
       }, (e) => {
-        fail(new AcpStartError(isAuthError(e.message) ? "auth-required" : "handshake-failed", e.message));
+        fail(e instanceof AcpStartError ? e : new AcpStartError(isAuthError(e.message) ? "auth-required" : "handshake-failed", e.message));
       });
     });
   }
@@ -1258,14 +1937,14 @@ function summarize(rawInput) {
 function buildDetail(toolName, rawInput, isPlan) {
   if (isPlan)
     return { kind: "plan" };
-  const path3 = typeof rawInput.file_path === "string" ? rawInput.file_path : typeof rawInput.path === "string" ? rawInput.path : "";
+  const path4 = typeof rawInput.file_path === "string" ? rawInput.file_path : typeof rawInput.path === "string" ? rawInput.path : "";
   if ((toolName === "Write" || toolName === "write_file") && typeof rawInput.content === "string") {
-    return { kind: "write", path: path3, lines: rawInput.content.split("\n").length };
+    return { kind: "write", path: path4, lines: rawInput.content.split("\n").length };
   }
   if (toolName === "Edit" || toolName === "MultiEdit") {
     return {
       kind: "edit",
-      path: path3,
+      path: path4,
       oldText: typeof rawInput.old_string === "string" ? rawInput.old_string : "",
       newText: typeof rawInput.new_string === "string" ? rawInput.new_string : ""
     };
@@ -1338,6 +2017,8 @@ var AcpSession = class {
     this.profile = profile;
     this.activation = activation;
     this.acpSessionId = null;
+    this.loadingAcpSessionId = null;
+    // 首次 load 应答前也让 registry 能将历史事件路由回来
     this.status = "idle";
     this.lastUsage = null;
     /** fork 轮进行中标记：fork 回报（session_info_update）可能挂在新会话 id 下，provider 据此把事件归给本会话（WB-004） */
@@ -1358,6 +2039,8 @@ var AcpSession = class {
     this.cancelPending = false;
     // 排队/在飞轮次被取消：到队首直接作废，不再占用 CLI
     this.configOverride = {};
+    this.completedMessageIds = /* @__PURE__ */ new Set();
+    this.turnMessageIds = /* @__PURE__ */ new Set();
   }
   /** 是否处于轮次内（有活跃 handlers）：轮外的 config 更新由 provider 旁路直推，不经本对象（WB-007） */
   get inTurn() {
@@ -1381,6 +2064,7 @@ var AcpSession = class {
     try {
       if (!this.acpSessionId) {
         const candidate = (_b = this.lookup.getAcpSessionId(this.key)) != null ? _b : this.key;
+        this.loadingAcpSessionId = candidate;
         const loaded = await this.client.request(
           "session/load",
           { sessionId: candidate, cwd: vaultPath != null ? vaultPath : "", mcpServers }
@@ -1403,6 +2087,7 @@ var AcpSession = class {
       this.needsReload = false;
       await this.applyConfig();
     } finally {
+      this.loadingAcpSessionId = null;
       this.status = "idle";
     }
   }
@@ -1501,6 +2186,9 @@ var AcpSession = class {
     } finally {
       if (this.pendingPermissions.size)
         this.rejectPendingPermissions();
+      for (const id of this.turnMessageIds)
+        this.rememberCompletedMessage(id);
+      this.turnMessageIds.clear();
       this.status = "idle";
       this.handlers = null;
       this.cancelPending = false;
@@ -1508,12 +2196,18 @@ var AcpSession = class {
   }
   handleUpdate(update) {
     var _a, _b, _c, _d, _e, _f, _g;
-    if (this.status === "loading" || this.profile.isReplayUpdate(update))
+    const meta = update._meta;
+    const rawMessageId = update.messageId || (meta == null ? void 0 : meta["codebuddy.ai/messageId"]);
+    const messageId = this.profile.id === "codebuddy" && update.sessionUpdate === "agent_message_chunk" && typeof rawMessageId === "string" && rawMessageId ? rawMessageId : null;
+    if (this.status === "loading" || this.profile.isReplayUpdate(update)) {
+      if (messageId)
+        this.rememberCompletedMessage(messageId);
       return;
+    }
     if (update.sessionUpdate === "session_info_update") {
-      const meta = update._meta;
-      const forked = meta == null ? void 0 : meta["codebuddy.ai/newSessionId"];
-      if ((meta == null ? void 0 : meta["codebuddy.ai/sessionReset"]) && typeof forked === "string") {
+      const meta2 = update._meta;
+      const forked = meta2 == null ? void 0 : meta2["codebuddy.ai/newSessionId"];
+      if ((meta2 == null ? void 0 : meta2["codebuddy.ai/sessionReset"]) && typeof forked === "string") {
         this.lastForkedSessionId = forked;
       }
     }
@@ -1556,6 +2250,11 @@ var AcpSession = class {
     }
     const chunk = mapSessionUpdate(update, this.profile);
     if (chunk) {
+      if (chunk.type === "text" && messageId) {
+        if (this.completedMessageIds.has(messageId))
+          return;
+        this.turnMessageIds.add(messageId);
+      }
       if (chunk.type === "tool" && typeof update.toolCallId === "string") {
         this.toolNames.set(update.toolCallId, (_e = chunk.toolName) != null ? _e : "tool");
         this.toolInputs.set(
@@ -1570,6 +2269,13 @@ var AcpSession = class {
         return;
       }
       handlers.onChunk(chunk);
+    }
+  }
+  rememberCompletedMessage(id) {
+    this.completedMessageIds.delete(id);
+    this.completedMessageIds.add(id);
+    if (this.completedMessageIds.size > 512) {
+      this.completedMessageIds.delete(this.completedMessageIds.values().next().value);
     }
   }
   handlePermissionRequest(requestId, params) {
@@ -1705,9 +2411,10 @@ var SessionRegistry = class {
     return this.sessions.get(key);
   }
   byAcpId(acpSessionId) {
-    for (const s of this.sessions.values())
-      if (s.acpSessionId === acpSessionId)
+    for (const s of this.sessions.values()) {
+      if (s.acpSessionId === acpSessionId || s.loadingAcpSessionId === acpSessionId)
         return s;
+    }
     return void 0;
   }
   all() {
@@ -1884,7 +2591,7 @@ var AcpProvider = class {
     this.modelRefreshPromise = (async () => {
       var _a, _b;
       try {
-        await this.client.ensureStarted();
+        await this.client.ensureStarted(cwd);
         const result = await this.client.request("session/new", { cwd, mcpServers: (_a = this.config.mcpServers) != null ? _a : [] });
         const raw = (_b = result == null ? void 0 : result.models) == null ? void 0 : _b.availableModels;
         const models = Array.isArray(raw) ? raw.filter((m) => (m == null ? void 0 : m.modelId) != null && String(m.modelId) !== "").map((m) => ({
@@ -1986,7 +2693,7 @@ var AcpProvider = class {
   async forkSession(sessionKey, name, vaultPath) {
     const session = this.registry.get(sessionKey);
     try {
-      await this.client.ensureStarted();
+      await this.client.ensureStarted(vaultPath);
       await session.ensureLoaded(vaultPath);
     } catch (e) {
       throw new AcpStartFailure(this.startErrorMessage(e));
@@ -2002,7 +2709,7 @@ var AcpProvider = class {
     var _a;
     const session = this.registry.get(sessionId);
     try {
-      await this.client.ensureStarted();
+      await this.client.ensureStarted(vaultPath);
       const mcpOverride = this.resolveMcpForMessage(mcpNames);
       await session.ensureLoaded(vaultPath, mcpOverride, configOverride);
     } catch (e) {
@@ -2088,7 +2795,7 @@ var AcpProvider = class {
       }
     }, (e) => {
       clearTimeout(timer);
-      push2({ error: e.message === "session busy" ? t("provider.busy") : e.message });
+      push2({ error: e.message === "session busy" ? t("provider.busy") : this.startErrorMessage(e) });
     });
     try {
       while (true) {
@@ -2110,7 +2817,7 @@ var AcpProvider = class {
   routeSessionUpdate(acpSessionId, update) {
     var _a, _b, _c, _d;
     const target = this.registry.byAcpId(acpSessionId);
-    if (target == null ? void 0 : target.inTurn) {
+    if (target && (target.inTurn || target.status === "loading")) {
       target.handleUpdate(update);
       return;
     }
@@ -2178,6 +2885,7 @@ var AcpProvider = class {
         "cli-not-found": t("provider.cliNotFound"),
         "acp-unsupported": t("provider.acpUnsupported"),
         "auth-required": t("provider.notLoggedIn"),
+        "credential-unavailable": t("provider.credentialUnavailable"),
         "handshake-failed": t("provider.handshakeFailed").replace("{detail}", e.message)
       };
       return byTier[e.tier];
@@ -3166,8 +3874,8 @@ function isPathInsideVault(candidatePath, vaultPath) {
 }
 
 // src/shared/imageStore.ts
-var fs2 = __toESM(require("fs"));
-var path2 = __toESM(require("path"));
+var fs3 = __toESM(require("fs"));
+var path3 = __toESM(require("path"));
 var IMAGE_EXTS = /* @__PURE__ */ new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"]);
 var MIME_EXT = {
   "image/png": ".png",
@@ -3198,12 +3906,12 @@ function pastedImageName(seq, ext = ".png") {
   return `paste-${seq}${ext}`;
 }
 function isImagePath(p) {
-  return IMAGE_EXTS.has(path2.extname(p).toLowerCase());
+  return IMAGE_EXTS.has(path3.extname(p).toLowerCase());
 }
 function writeImageFile(dir, bytes, name) {
-  fs2.mkdirSync(dir, { recursive: true });
-  const full = path2.join(dir, name);
-  fs2.writeFileSync(full, bytes);
+  fs3.mkdirSync(dir, { recursive: true });
+  const full = path3.join(dir, name);
+  fs3.writeFileSync(full, bytes);
   return full;
 }
 function pruneImages(dir, keepN) {
@@ -3211,20 +3919,20 @@ function pruneImages(dir, keepN) {
     return;
   let names;
   try {
-    names = fs2.readdirSync(dir);
+    names = fs3.readdirSync(dir);
   } catch (e) {
     return;
   }
-  const files = names.map((n) => path2.join(dir, n)).filter((p) => {
+  const files = names.map((n) => path3.join(dir, n)).filter((p) => {
     try {
-      return fs2.statSync(p).isFile();
+      return fs3.statSync(p).isFile();
     } catch (e) {
       return false;
     }
-  }).map((p) => ({ p, mtime: fs2.statSync(p).mtimeMs })).sort((a, b) => b.mtime - a.mtime);
+  }).map((p) => ({ p, mtime: fs3.statSync(p).mtimeMs })).sort((a, b) => b.mtime - a.mtime);
   for (const { p } of files.slice(keepN)) {
     try {
-      fs2.unlinkSync(p);
+      fs3.unlinkSync(p);
     } catch (e) {
     }
   }
@@ -3410,10 +4118,10 @@ ${msg.content}
     saveReplyBtn.onclick = async () => {
       var _a, _b;
       const title = (_b = (_a = view.getActiveConversation()) == null ? void 0 : _a.title) != null ? _b : "workbuddian-reply";
-      const path3 = nextAvailableNotePath(title, view.app.vault.getFiles().map((f) => f.path));
+      const path4 = nextAvailableNotePath(title, view.app.vault.getFiles().map((f) => f.path));
       try {
-        await view.app.vault.create(path3, formatAssistantReply(title, msg.content, msg.timestamp));
-        new import_obsidian2.Notice(t("render.savedAs").replace("{name}", path3));
+        await view.app.vault.create(path4, formatAssistantReply(title, msg.content, msg.timestamp));
+        new import_obsidian2.Notice(t("render.savedAs").replace("{name}", path4));
       } catch (e) {
         new import_obsidian2.Notice(t("render.saveFailed") + (e instanceof Error ? e.message : String(e)));
       }
@@ -3704,21 +4412,21 @@ function parseFileChange(toolName, toolDetail) {
   if (typeof input !== "object" || input === null)
     return null;
   const obj = input;
-  const path3 = typeof obj.file_path === "string" ? obj.file_path : "";
-  if (!path3)
+  const path4 = typeof obj.file_path === "string" ? obj.file_path : "";
+  if (!path4)
     return null;
   if (toolName === "Edit") {
     const oldText = obj.old_string;
     const newText = obj.new_string;
     if (typeof oldText !== "string" || typeof newText !== "string")
       return null;
-    return { kind: "edit", path: path3, oldText, newText };
+    return { kind: "edit", path: path4, oldText, newText };
   }
   if (toolName === "Write") {
     const content = obj.content;
     if (typeof content !== "string")
       return null;
-    return { kind: "write", path: path3, newText: content };
+    return { kind: "write", path: path4, newText: content };
   }
   return null;
 }
@@ -4251,9 +4959,9 @@ function thumbSrc(view, absPath) {
     return cached;
   let result = "";
   try {
-    const fs3 = require("fs");
-    if (fs3.statSync(absPath).size <= MAX_THUMB_SOURCE_BYTES) {
-      const buf = fs3.readFileSync(absPath);
+    const fs4 = require("fs");
+    if (fs4.statSync(absPath).size <= MAX_THUMB_SOURCE_BYTES) {
+      const buf = fs4.readFileSync(absPath);
       const ext = require("path").extname(absPath);
       result = `data:${mimeForExt(ext)};base64,${buf.toString("base64")}`;
     }
@@ -4265,8 +4973,8 @@ function thumbSrc(view, absPath) {
 }
 function undoEdit(change, btn) {
   try {
-    const fs3 = require("fs");
-    const content = fs3.readFileSync(change.path, "utf8");
+    const fs4 = require("fs");
+    const content = fs4.readFileSync(change.path, "utf8");
     const idx = content.indexOf(change.newText);
     if (idx === -1) {
       new import_obsidian6.Notice(t("tool.undoStale"));
@@ -4277,7 +4985,7 @@ function undoEdit(change, btn) {
       return;
     }
     const reverted = content.slice(0, idx) + change.oldText + content.slice(idx + change.newText.length);
-    fs3.writeFileSync(change.path, reverted, "utf8");
+    fs4.writeFileSync(change.path, reverted, "utf8");
     btn.disabled = true;
     btn.setText(t("tool.undone"));
     btn.setAttribute("title", t("tool.undone"));
@@ -6761,7 +7469,7 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
   /** R7:CodeBuddy 插件管理——市场默认折叠 + 紧凑行 + 过滤(清单不再撑爆设置页) */
   renderCodebuddyPlugins(containerEl) {
     var _a;
-    const codebuddyPath = this.plugin.settings.codebuddyPath || "codebuddy";
+    const codebuddyPath = resolveCodebuddyPath(this.plugin.settings.codebuddyPath);
     const plugins = discoverPlugins();
     if (!plugins.length) {
       new import_obsidian11.Setting(containerEl).setDesc(t("plugins.empty")).setDisabled(true);
@@ -6811,6 +7519,10 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
     infoEl.createSpan({ cls: "workbuddian-plugin-desc", text: plugin.description || t("plugins.noDesc") });
     const actions = row.createDiv({ cls: "workbuddian-plugin-actions" });
     const runPluginCmd = (args, btn) => {
+      if (!codebuddyPath) {
+        new import_obsidian11.Notice(t("settings.pathNotFound"));
+        return;
+      }
       const label = t(args[0] === "enable" ? "plugins.enable" : args[0] === "disable" ? "plugins.disable" : "plugins.update");
       btn.disabled = true;
       btn.setText(t("plugins.working"));

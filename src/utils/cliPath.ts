@@ -31,13 +31,13 @@ function firstHit(candidates: string[]): string | null {
 }
 
 /** 在系统 PATH 里找可执行文件（Windows 依次试 .exe/.cmd/无扩展名） */
-function findOnPath(names: string[]): string | null {
+function findOnPath(names: string[], accept: (p: string) => boolean = () => true): string | null {
     const sep = isWin() ? ';' : ':';
     for (const dir of (env('PATH')).split(sep)) {
         if (!dir) continue;
         for (const name of names) {
             const p = path.join(dir, name);
-            if (isFile(p)) return p;
+            if (isFile(p) && accept(p)) return p;
         }
     }
     return null;
@@ -130,29 +130,45 @@ function codebuddyCandidates(): string[] {
         ...wbExe(path.join(pf86, 'WorkBuddy'), ['codebuddy.exe', 'codebuddy.cmd', 'codebuddy']),
     );
     for (const drive of ['C:', 'D:', 'E:']) {
-        list.push(...wbExe(path.join(`${drive}\\Program Files`, 'WorkBuddy'), ['codebuddy.exe', 'codebuddy.cmd', 'codebuddy']));
+        for (const dir of ['Program Files', 'Program Files (x86)']) {
+            list.push(...wbExe(path.join(`${drive}\\${dir}`, 'WorkBuddy'), ['codebuddy.exe', 'codebuddy.cmd', 'codebuddy']));
+        }
     }
     return list;
 }
 
 export function resolveCodebuddyPath(customPath: string): string {
-    // 优先级：用户指定 > 环境变量 > 常见安装位置 > PATH > 裸命令兜底
-    if (customPath && fs.existsSync(customPath)) return customPath;
+    // 显式路径保持原样；自动发现只选 WorkBuddy，避免静默切换账号和额度。
+    if (customPath) return customPath;
     const fromEnv = env('CODEBUDDY_PATH');
-    if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
+    if (fromEnv) return fromEnv;
 
     const extra = [
         env('NVM_BIN') && path.join(env('NVM_BIN'), 'codebuddy'),
         env('npm_config_prefix') && path.join(env('npm_config_prefix'), 'bin', 'codebuddy'),
     ];
-    const hit = firstHit([...codebuddyCandidates(), ...extra]);
+    const candidates = [...codebuddyCandidates(), ...extra];
+    const names = isWin() ? ['codebuddy.exe', 'codebuddy.cmd', 'codebuddy'] : ['codebuddy'];
+    const onPath = findOnPath(names, isWorkbuddyBundledCli);
+    const all = [...candidates, ...(onPath ? [onPath] : [])];
+    const hit = firstHit(all.filter(isWorkbuddyBundledCli));
     if (hit) {
         bbLog('[WB] resolved codebuddy path:', hit);
         return hit;
     }
 
-    const onPath = findOnPath(isWin() ? ['codebuddy.exe', 'codebuddy.cmd', 'codebuddy'] : ['codebuddy']);
-    return onPath ?? 'codebuddy';
+    return '';
+}
+
+/** 识别 WorkBuddy 内置 CLI，兼容符号链接和带产品标识的自定义安装目录。 */
+function isWorkbuddyBundledCli(scriptPath: string): boolean {
+    let realPath = scriptPath;
+    try { realPath = fs.realpathSync(scriptPath); } catch { /* 尚未安装或 PATH 裸命令 */ }
+    if (/[\\/]WorkBuddy(?:\.app[\\/]Contents)?[\\/]Resources[\\/]app\.asar\.unpacked[\\/]cli[\\/]/i.test(realPath)) return true;
+    try {
+        const product = JSON.parse(fs.readFileSync(path.join(path.dirname(realPath), '..', 'product.json'), 'utf8'));
+        return product?.productName === 'WorkBuddy' || product?.authentication?.id === 'workbuddy-desktop';
+    } catch { return false; }
 }
 
 /** Hermes CLI 发现：自定义覆盖（原样，不校验存在性）→ 常见安装位 → PATH → bare fallback（'hermes' 交 OS 解析） */

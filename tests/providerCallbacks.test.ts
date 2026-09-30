@@ -1,5 +1,5 @@
 import { CodebuddyProvider } from '../src/providers/codebuddy';
-import { AcpClient } from '../src/providers/acp/client';
+import { AcpClient, AcpStartError } from '../src/providers/acp/client';
 import type { PermissionCardData } from '../src/providers/acp/permission';
 import { t } from '../src/i18n';
 import { getLogs, clearLogs } from '../src/shared/logBuffer';
@@ -34,6 +34,7 @@ describe('provider side channels', () => {
         api.onPermissionRequest('s1', (data) => cards.push(data));
         const streaming = consume(api.sendMessage('s1', 'write', '/v'));
         await flush();
+        expect(kit.fake.ensureStarted).toHaveBeenCalledWith('/v');
         kit.events().onPermissionRequest(0, PERMISSION_PARAMS);
         expect(cards).toHaveLength(1);
         expect(cards[0]).toMatchObject({ requestId: 0, toolName: 'Write', isPlanApproval: false });
@@ -171,6 +172,7 @@ describe('provider side channels', () => {
         await consume(api.sendMessage('s1', 'x', '/v')); // s1 加载为 acp-1
         const forked = api.forkSession('s1', '分叉 - 测试', '/v');
         await flush();
+        expect(kit.fake.ensureStarted).toHaveBeenLastCalledWith('/v');
         // CLI 把分叉回报挂在新会话 id 下：路由层归给正在 fork 的会话
         kit.events().onSessionUpdate('acp-brand-new', {
             sessionUpdate: 'session_info_update',
@@ -230,6 +232,48 @@ describe('provider side channels', () => {
         expect(kit.fake.dispose).toHaveBeenCalled();
     });
 
+    it('routes first-load history to its loading session instead of another in-flight turn', async () => {
+        const kit = makeFakeClient(MockAcpClient);
+        const load = deferred<{ models: {}; modes: {} }>();
+        const activeTurn = deferred<{ stopReason: string }>();
+        const loadingTurn = deferred<{ stopReason: string }>();
+        kit.fake.request.mockImplementation(async (method, params) => {
+            if (method === 'session/load') {
+                return params.sessionId === 'acp-loading' ? load.promise : { models: {}, modes: {} };
+            }
+            if (method === 'session/prompt') {
+                return params.sessionId === 'acp-active' ? activeTurn.promise : loadingTurn.promise;
+            }
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        api.setConversationLookup({ getAcpSessionId: (key) => `acp-${key}`, setAcpSessionId: () => {} });
+        const active = consume(api.sendMessage('active', 'current', '/v'));
+        await flush();
+        const loading = consume(api.sendMessage('loading', 'next', '/v'));
+        await flush();
+        const history = {
+            sessionUpdate: 'agent_message_chunk', messageId: 'old-loading-message',
+            content: { type: 'text', text: 'other conversation history' },
+        };
+        kit.events().onSessionUpdate('acp-loading', history);
+        kit.events().onSessionUpdate('acp-active', {
+            sessionUpdate: 'agent_message_chunk', messageId: 'active-answer', content: { type: 'text', text: 'current answer' },
+        });
+        activeTurn.resolve({ stopReason: 'end_turn' });
+        const activeChunks = await active;
+        load.resolve({ models: {}, modes: {} });
+        await flush();
+        kit.events().onSessionUpdate('acp-loading', history); // 新轮无 history 标记的同 ID 回放也应被过滤。
+        kit.events().onSessionUpdate('acp-loading', {
+            sessionUpdate: 'agent_message_chunk', messageId: 'loading-answer', content: { type: 'text', text: 'next answer' },
+        });
+        loadingTurn.resolve({ stopReason: 'end_turn' });
+        const loadingChunks = await loading;
+        expect(activeChunks.filter((chunk) => chunk.type === 'text')).toEqual([{ type: 'text', content: 'current answer' }]);
+        expect(loadingChunks.filter((chunk) => chunk.type === 'text')).toEqual([{ type: 'text', content: 'next answer' }]);
+    });
+
     it('does not restart after a turn that produced chunks', async () => {
         const kit = makeFakeClient(MockAcpClient);
         const promptGate = deferred<{ stopReason: string }>();
@@ -284,6 +328,20 @@ describe('provider side channels', () => {
 });
 
 describe('provider turnFailed stopReason', () => {
+    it.each([
+        ['auth-required', 'provider.notLoggedIn'],
+        ['credential-unavailable', 'provider.credentialUnavailable'],
+    ] as const)('shows recovery guidance for a %s error during the prompt', async (tier, messageKey) => {
+        const kit = makeFakeClient(MockAcpClient);
+        const request = kit.fake.request.getMockImplementation()!;
+        kit.fake.request.mockImplementation(async (method, params) => {
+            if (method === 'session/prompt') throw new AcpStartError(tier, 'Authentication required');
+            return request(method, params);
+        });
+        const api = new CodebuddyProvider();
+        await expect(consume(api.sendMessage('s1', 'x', '/v'))).rejects.toThrow(t(messageKey));
+    });
+
     it('throws localized error for non-standard stopReason (refusal 等)', async () => {
         const kit = makeFakeClient(MockAcpClient);
         kit.fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
@@ -327,7 +385,7 @@ describe('models & config sync', () => {
         });
         const api = new CodebuddyProvider();
         await api.refreshAvailableModels('/vault');
-        expect(kit.fake.ensureStarted).toHaveBeenCalled();
+        expect(kit.fake.ensureStarted).toHaveBeenCalledWith('/vault');
         expect(api.getAvailableModels()).toEqual(['glm-5.3']);
         expect(api.getAvailableModelLabels()).toEqual([{ id: 'glm-5.3', label: 'GLM-5.3' }]);
     });

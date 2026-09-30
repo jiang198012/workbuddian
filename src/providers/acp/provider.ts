@@ -111,7 +111,7 @@ export class AcpProvider {
         if (this.modelRefreshPromise) return this.modelRefreshPromise;
         this.modelRefreshPromise = (async () => {
             try {
-                await this.client.ensureStarted();
+                await this.client.ensureStarted(cwd);
                 const result = await this.client.request<{
                     models?: { availableModels?: Array<{ modelId?: unknown; name?: unknown }> };
                 }>('session/new', { cwd, mcpServers: this.config.mcpServers ?? [] });
@@ -217,7 +217,7 @@ export class AcpProvider {
     async forkSession(sessionKey: string, name: string, vaultPath?: string): Promise<string> {
         const session = this.registry.get(sessionKey);
         try {
-            await this.client.ensureStarted();
+            await this.client.ensureStarted(vaultPath);
             await session.ensureLoaded(vaultPath);
         } catch (e) {
             throw new AcpStartFailure(this.startErrorMessage(e));
@@ -247,7 +247,7 @@ export class AcpProvider {
 
         const session = this.registry.get(sessionId);
         try {
-            await this.client.ensureStarted();
+            await this.client.ensureStarted(vaultPath);
             // R10 context-saving MCP：消息里 @mcp/xxx 命中的服务器才注入本次会话加载；
             // 未命中任何引用时保持全局配置（兼容旧行为）
             const mcpOverride = this.resolveMcpForMessage(mcpNames);
@@ -328,7 +328,7 @@ export class AcpProvider {
         }, (e: Error) => {
             clearTimeout(timer);
             // session busy 走本地化文案（async 函数的"同步"throw 实际都落到这个拒绝分支）
-            push({ error: e.message === 'session busy' ? t('provider.busy') : e.message });
+            push({ error: e.message === 'session busy' ? t('provider.busy') : this.startErrorMessage(e) });
         });
 
         try {
@@ -349,7 +349,8 @@ export class AcpProvider {
     /** session/update 路由：按 acpSessionId 归会话；fork 回报可能挂在新 id 下，归给正在 fork 的会话；无归属记日志不再静默丢 */
     private routeSessionUpdate(acpSessionId: string, update: AcpUpdate): void {
         const target = this.registry.byAcpId(acpSessionId);
-        if (target?.inTurn) {
+        // 明确的 load 回放必须归原目标登记消息 ID，不能纠偏进另一会话的在飞轮次。
+        if (target && (target.inTurn || target.status === 'loading')) {
             target.handleUpdate(update);
             return;
         }
@@ -427,6 +428,7 @@ export class AcpProvider {
                 'cli-not-found': t('provider.cliNotFound'),
                 'acp-unsupported': t('provider.acpUnsupported'),
                 'auth-required': t('provider.notLoggedIn'),
+                'credential-unavailable': t('provider.credentialUnavailable'),
                 'handshake-failed': t('provider.handshakeFailed').replace('{detail}', e.message),
             };
             return byTier[e.tier];

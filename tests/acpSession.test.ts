@@ -3,6 +3,8 @@ import {
     type AcpClientFacade, type ConversationLookup, type TurnHandlers,
 } from '../src/providers/acp/session';
 import type { PermissionCardData } from '../src/providers/acp/permission';
+import { ACP_DEFAULT_PROFILE } from '../src/providers/acp/profile';
+import type { AcpUpdate } from '../src/providers/acp/events';
 
 type FakeClient = AcpClientFacade & {
     request: jest.Mock; notify: jest.Mock; respond: jest.Mock; enqueuePrompt: jest.Mock; rawRequest: jest.Mock;
@@ -177,6 +179,107 @@ describe('AcpSession.prompt + updates', () => {
         await s.ensureLoaded('/v');
         return s;
     }
+
+    describe('CodeBuddy cross-turn assistant replay', () => {
+        const textUpdate = (text: string, identity: Record<string, unknown> = {}): AcpUpdate => ({
+            sessionUpdate: 'agent_message_chunk', content: { type: 'text', text }, ...identity,
+        });
+        async function twoTurns(first: AcpUpdate[], second: AcpUpdate[], provider: 'codebuddy' | 'hermes' = 'codebuddy') {
+            const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK
+                : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);
+            const s = new AcpSession('k', client, makeLookup(), { model: '', mode: '' },
+                { ...ACP_DEFAULT_PROFILE, id: provider });
+            await s.ensureLoaded('/v');
+            const outputs: unknown[][] = [];
+            for (const updates of [first, second]) {
+                const chunks: unknown[] = [];
+                const done = s.prompt('next', { onChunk: (chunk) => chunks.push(chunk), onError: () => {} });
+                for (const update of updates) s.handleUpdate(update);
+                await done;
+                outputs.push(chunks);
+            }
+            return outputs;
+        }
+
+        it.each([
+            ['top-level', { messageId: 'assistant-old' }],
+            ['metadata', { _meta: { 'codebuddy.ai/messageId': 'assistant-old' } }],
+        ])('drops a prior completed turn message via %s ID but keeps all current deltas', async (_source, identity) => {
+            const outputs = await twoTurns(
+                [textUpdate('old', identity as Record<string, unknown>)],
+                [textUpdate('old', identity as Record<string, unknown>),
+                    textUpdate('new ', { messageId: 'assistant-new' }),
+                    textUpdate('answer', { messageId: 'assistant-new' })],
+            );
+            expect(outputs).toEqual([
+                [{ type: 'text', content: 'old' }],
+                [{ type: 'text', content: 'new ' }, { type: 'text', content: 'answer' }],
+            ]);
+        });
+
+        it('keeps ID-less and empty-ID text, and identical text with a fresh message ID', async () => {
+            const outputs = await twoTurns(
+                [textUpdate('same', { messageId: 'old' })],
+                [textUpdate('same'), textUpdate('same', { messageId: '' }), textUpdate('same', { messageId: 'new' })],
+            );
+            expect(outputs[1]).toEqual(Array(3).fill({ type: 'text', content: 'same' }));
+        });
+
+        it('does not deduplicate by requestId or suppress thinking and tools', async () => {
+            const meta = { 'codebuddy.ai/requestId': 'shared-request' };
+            const outputs = await twoTurns(
+                [textUpdate('old', { messageId: 'old', _meta: meta })],
+                [textUpdate('new', { messageId: 'new', _meta: meta }),
+                    { sessionUpdate: 'agent_thought_chunk', messageId: 'old', content: { type: 'text', text: 'thinking' } },
+                    { sessionUpdate: 'tool_call', messageId: 'old', toolCallId: 'tool-1', title: 'Read', rawInput: {} }],
+            );
+            expect(outputs[1]).toEqual([
+                { type: 'text', content: 'new' }, { type: 'thinking', content: 'thinking' },
+                expect.objectContaining({ type: 'tool', toolCallId: 'tool-1' }),
+            ]);
+        });
+
+        it('leaves non-CodeBuddy providers unchanged', async () => {
+            const update = textUpdate('same', { messageId: 'provider-reused-id' });
+            const outputs = await twoTurns([update], [update], 'hermes');
+            expect(outputs[1]).toEqual([{ type: 'text', content: 'same' }]);
+        });
+
+        it.each([false, true])('records replay IDs routed during first load (history marker: %s)', async (marked) => {
+            let registry: SessionRegistry;
+            const client = makeFakeClient((m) => {
+                if (m === 'session/load') {
+                    registry.byAcpId('acp-stored')?.handleUpdate(textUpdate('old history', {
+                        messageId: 'history-message',
+                        ...(marked ? { _meta: { 'codebuddy.ai': { mode: 'history' } } } : {}),
+                    }));
+                    return LOAD_OK;
+                }
+                if (m === 'session/prompt') return { stopReason: 'end_turn' };
+                return undefined;
+            });
+            const lookup = makeLookup();
+            lookup.getAcpSessionId.mockReturnValue('acp-stored');
+            registry = new SessionRegistry(client, lookup, { model: '', mode: '' });
+            const s = registry.get('conversation');
+            await s.ensureLoaded('/v');
+            const chunks: unknown[] = [];
+            const done = s.prompt('new', { onChunk: (chunk) => chunks.push(chunk), onError: () => {} });
+            s.handleUpdate(textUpdate('old history', { messageId: 'history-message' }));
+            s.handleUpdate(textUpdate('new answer', { messageId: 'fresh-message' }));
+            await done;
+            expect(chunks).toEqual([{ type: 'text', content: 'new answer' }]);
+        });
+
+        it('bounds remembered IDs while retaining the latest completed messages', async () => {
+            const outputs = await twoTurns(
+                Array.from({ length: 513 }, (_, i) => textUpdate('old', { messageId: `old-${i}` })),
+                [textUpdate('evicted', { messageId: 'old-0' }), textUpdate('old', { messageId: 'old-512' }),
+                    textUpdate('new', { messageId: 'fresh' })],
+            );
+            expect(outputs[1]).toEqual([{ type: 'text', content: 'evicted' }, { type: 'text', content: 'new' }]);
+        });
+    });
 
     it('maps updates to chunks during prompting and resolves on end_turn', async () => {
         const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : m === 'session/prompt' ? { stopReason: 'end_turn' } : undefined);

@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (2.6.6)
+status: stable (2.6.11)
 license: MIT
 -->
 
@@ -81,7 +81,7 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 
 - **Obsidian 1.7.2+**(桌面版)
 - **Windows 或 macOS**(Linux 不支持)
-- 已安装 **WorkBuddy 桌面版**(≥ 5.0.5),内含 CodeBuddy CLI
+- 已安装 **WorkBuddy 桌面版**（≥ 5.0.5），内含 CodeBuddy CLI。WorkBuddy 5.6.2 的兼容说明见下文。
 
 ### 从社区插件目录安装(推荐)
 
@@ -101,6 +101,21 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 3. 重启 Obsidian,在 **设置 → 第三方插件** 里启用
 
 ## 快速开始
+
+### WorkBuddy 5.6.2 认证失败（Issue #10）
+
+如果桌面端正常、插件却报 `missing-key`、`Authentication required` 或 `refusal`，可能是宿主凭据通路不可用，不能据此认定 WorkBuddy 未登录，重新登录也不保证解决。**2.6.11** 针对 [Issue #10](https://github.com/jiang198012/workbuddian/issues/10) 适配 WorkBuddy 自有 sidecar，创建独立 Vault worker：需原桌面端已登录并保持运行，沿用原账号与额度；旧版未提供 bootstrap 的 WorkBuddy 继续使用 stdio。
+
+macOS 已实测原账号对话、Vault 读写与重载续聊，**Windows 实机待验证**；Issue #10 保持开放等待反馈。此适配依赖 WorkBuddy 内部 IPC，并非官方承诺稳定的公开接口。详见[验收报告](docs/issue-10-host-acceptance-2026-09-29.md)。2.6.10 及更早版本不包含本次适配。
+
+- 自动检测仅选择 WorkBuddy 内置 CLI（包括指向它的符号链接）。未找到时明确提示，不会改用独立 CodeBuddy 的账号或额度。
+- 保留手动指定路径及 `CODEBUDDY_PATH`；路径失效时不自动替换到另一产品。若主动指定独立 CLI，它使用自己的认证与额度，不代表共享 WorkBuddy 订阅。
+- 插件不读取、复制或解密 WorkBuddy 登录凭据，也不会自动要求安装或登录另一个 CLI。
+- 切换 CLI 路径后会重启插件管理的进程并重新加载会话，不会自动重发失败请求。
+
+插件会读取 ACP 返回的结构化认证错误（包括 `refusal` 中的错误元数据），不依赖 CLI 日志是否输出到 stderr。检测到 `missing-key` 时显示凭据通道提示；没有认证证据的普通拒绝不会被误判为登录失败。
+
+### 打开对话
 
 1. 点击左侧 **机器人图标**,或运行命令 **"Workbuddian: 打开聊天面板"**
 2. 如果插件找不到 CodeBuddy / Node.js,把下面这段**完整复制**到 WorkBuddy 对话中执行一次:
@@ -191,7 +206,7 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## 自动发现
 
-插件启动时自动搜索以下位置的 CodeBuddy CLI 与 Node.js:
+插件启动时搜索以下位置；CLI 自动选择仅接受已识别的 WorkBuddy 内置程序或其符号链接，不会选择独立 npm CLI。手动路径与 `CODEBUDDY_PATH` 不受自动发现限制，Node.js 仍可从其他安装来源查找：
 
 | 搜索目标 | Windows | macOS |
 |----------|---------|-------|
@@ -204,7 +219,11 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 2.6.9**
+**最新版本 2.6.11**
+
+- **2.6.11** — **WorkBuddy 原账号调用恢复**：适配 5.6.2 宿主凭据通路，修复连续回复夹带旧消息及重连清理；不自动切换独立账号。macOS 已验收核心流程，**Windows 待实机验证，Issue #10 暂不关闭**。
+
+- **2.6.10** — **输入体验与路径保护**：输入框支持最小/最大高度和随文本自动收缩，修复 Vault 相似前缀路径误判。
 
 - **2.6.9** — **模型菜单去重**：同步动态模型列表，删除 `Auto`、`Hy3`、`Hy4 preview` 的重复入口，保留基础模型选项。
 

@@ -50,6 +50,7 @@ export type SessionConfigOverride = Partial<Pick<SessionConfig, 'model' | 'mode'
  */
 export class AcpSession {
     acpSessionId: string | null = null;
+    loadingAcpSessionId: string | null = null; // 首次 load 应答前也让 registry 能将历史事件路由回来
     status: SessionStatus = 'idle';
     lastUsage: { used: number; size: number } | null = null;
     /** fork 轮进行中标记：fork 回报（session_info_update）可能挂在新会话 id 下，provider 据此把事件归给本会话（WB-004） */
@@ -65,6 +66,8 @@ export class AcpSession {
     private agentRelay = ''; // Agent 窗口内累积的中继文本，完成时挂为该行输出块
     private cancelPending = false; // 排队/在飞轮次被取消：到队首直接作废，不再占用 CLI
     private configOverride: SessionConfigOverride = {};
+    private completedMessageIds = new Set<string>();
+    private turnMessageIds = new Set<string>();
 
     constructor(
         readonly key: string,
@@ -102,6 +105,7 @@ export class AcpSession {
             if (!this.acpSessionId) {
                 // 懒加载链：插件存的 acpSessionId → 先试 v1 uuid（--session-id 时代 CLI 侧可能真存着）→ session/new 回写
                 const candidate = this.lookup.getAcpSessionId(this.key) ?? this.key;
+                this.loadingAcpSessionId = candidate;
                 const loaded = await this.client.request<unknown>(
                     'session/load', { sessionId: candidate, cwd: vaultPath ?? '', mcpServers }).catch(() => null);
                 // miss 判定（双端活探针 2026-08-25）：hermes 返回 {}；codebuddy 从不 miss（load 即建空会话，
@@ -124,6 +128,7 @@ export class AcpSession {
             this.needsReload = false;
             await this.applyConfig();
         } finally {
+            this.loadingAcpSessionId = null;
             this.status = 'idle';
         }
     }
@@ -220,6 +225,8 @@ export class AcpSession {
             return { stopReason: typeof result.stopReason === 'string' ? result.stopReason : 'end_turn' };
         } finally {
             if (this.pendingPermissions.size) this.rejectPendingPermissions();
+            for (const id of this.turnMessageIds) this.rememberCompletedMessage(id);
+            this.turnMessageIds.clear();
             this.status = 'idle';
             this.handlers = null;
             this.cancelPending = false;
@@ -227,7 +234,14 @@ export class AcpSession {
     }
 
     handleUpdate(update: AcpUpdate): void {
-        if (this.status === 'loading' || this.profile.isReplayUpdate(update)) return;
+        const meta = update._meta as Record<string, unknown> | undefined;
+        const rawMessageId = update.messageId || meta?.['codebuddy.ai/messageId'];
+        const messageId = this.profile.id === 'codebuddy' && update.sessionUpdate === 'agent_message_chunk'
+            && typeof rawMessageId === 'string' && rawMessageId ? rawMessageId : null;
+        if (this.status === 'loading' || this.profile.isReplayUpdate(update)) {
+            if (messageId) this.rememberCompletedMessage(messageId);
+            return;
+        }
         // 分叉回报须在 handlers 空检查之前捕获：fork 轮走丢弃 handlers，id 不能跟着被丢
         if (update.sessionUpdate === 'session_info_update') {
             const meta = update._meta as Record<string, unknown> | undefined;
@@ -276,6 +290,12 @@ export class AcpSession {
         }
         const chunk = mapSessionUpdate(update, this.profile);
         if (chunk) {
+            // WorkBuddy 的 ReplaySubject(0) 实际保留一项，新轮会重发旧 assistant，且不标 history。
+            // 按已结束轮的稳定 messageId 过滤，当前轮同 ID 的多个 delta 和无 ID 正文不变。
+            if (chunk.type === 'text' && messageId) {
+                if (this.completedMessageIds.has(messageId)) return;
+                this.turnMessageIds.add(messageId);
+            }
             if (chunk.type === 'tool' && typeof update.toolCallId === 'string') {
                 this.toolNames.set(update.toolCallId, chunk.toolName ?? 'tool');
                 this.toolInputs.set(update.toolCallId,
@@ -289,6 +309,14 @@ export class AcpSession {
                 return;
             }
             handlers.onChunk(chunk);
+        }
+    }
+
+    private rememberCompletedMessage(id: string): void {
+        this.completedMessageIds.delete(id);
+        this.completedMessageIds.add(id);
+        if (this.completedMessageIds.size > 512) {
+            this.completedMessageIds.delete(this.completedMessageIds.values().next().value!);
         }
     }
 
@@ -425,7 +453,9 @@ export class SessionRegistry {
     find(key: string): AcpSession | undefined { return this.sessions.get(key); }
 
     byAcpId(acpSessionId: string): AcpSession | undefined {
-        for (const s of this.sessions.values()) if (s.acpSessionId === acpSessionId) return s;
+        for (const s of this.sessions.values()) {
+            if (s.acpSessionId === acpSessionId || s.loadingAcpSessionId === acpSessionId) return s;
+        }
         return undefined;
     }
 

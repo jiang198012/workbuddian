@@ -351,9 +351,9 @@ describe('resolveCodebuddyPath', () => {
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
-    it('resolves codebuddy from known candidate paths', () => {
+    it('does not automatically switch to a standalone npm CLI', () => {
         const result = resolveCodebuddyPath('');
-        expect(result).toBe(path.join(tempDir, 'npm', 'codebuddy.cmd'));
+        expect(result).toBe('');
     });
 });
 
@@ -390,13 +390,13 @@ describe('resolveCodebuddyPath on macOS', () => {
         expect(result).toBe(path.join(appDir, 'codebuddy'));
     });
 
-    it('falls back to ~/.local/bin/codebuddy when no WorkBuddy.app bundle exists', () => {
+    it('does not switch accounts through ~/.local/bin/codebuddy when WorkBuddy is absent', () => {
         const binDir = path.join(tempDir, '.local', 'bin');
         fs.mkdirSync(binDir, { recursive: true });
         fs.writeFileSync(path.join(binDir, 'codebuddy'), '');
 
         const result = resolveCodebuddyPath('');
-        expect(result).toBe(path.join(binDir, 'codebuddy'));
+        expect(result).toBe('');
     });
 });
 

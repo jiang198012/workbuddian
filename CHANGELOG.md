@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.6.11 — 2026-09-29
+
+**WorkBuddy 原账号调用恢复**：适配 WorkBuddy 5.6.2 升级后的宿主凭据通路（[#10](https://github.com/jiang198012/workbuddian/issues/10)）。
+
+### 修复
+- 由已登录、运行中的 WorkBuddy sidecar 创建插件自己的 Vault worker，通过 HTTP/SSE ACP 对话；不要求独立 CodeBuddy 登录、API key 或新云端后端。
+- 过滤新版 CLI 在下一轮重放的旧回复；保留当前轮正常增量，避免历史消息串入其他正在响应的会话。
+- 修复启动、断线、配置切换及宿主重启后的自有 worker 清理；旧版无 bootstrap 的 WorkBuddy 保留 stdio。
+- 自动发现仅选 WorkBuddy 内置 CLI，保留显式路径；认证提示不再把宿主凭据不可用直接说成未登录。
+
+### 验证与限制
+- 发布验证：当前仓库 48 套、589 项测试全部通过，测试进程自然退出（退出码 0）；`npm run build` 通过。统计排除本机 `.claude/worktrees` 下不参与发布的旧副本。
+- macOS / WorkBuddy 5.6.2 / Obsidian 1.13.7：原账号对话、Vault 读写、插件重载后续聊通过，见[验收报告](docs/issue-10-host-acceptance-2026-09-29.md)。
+- **Windows 尚无实机验证，Issue #10 保持开放等待复测反馈。** 协议审批卡/拒绝 GUI 与账单余额差额未独立核验，不宣称全功能验收完成。
+- WorkBuddy 需保持运行且已登录；此适配依赖内部 IPC，不是官方承诺稳定的公开接口。插件不提取、复制或解密账号登录凭据。
+
 ## 2.6.10 — 2026-09-24
 
 **测试问题修复与输入体验增强**：完成 demo-vault 全功能测试后的首批 issue 处理。

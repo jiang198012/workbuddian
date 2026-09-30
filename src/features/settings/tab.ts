@@ -562,7 +562,7 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
 
     /** R7:CodeBuddy 插件管理——市场默认折叠 + 紧凑行 + 过滤(清单不再撑爆设置页) */
     private renderCodebuddyPlugins(containerEl: HTMLElement): void {
-        const codebuddyPath = this.plugin.settings.codebuddyPath || 'codebuddy';
+        const codebuddyPath = resolveCodebuddyPath(this.plugin.settings.codebuddyPath);
         const plugins = discoverPlugins();
         if (!plugins.length) {
             new Setting(containerEl)
@@ -622,6 +622,10 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
 
         const actions = row.createDiv({ cls: 'workbuddian-plugin-actions' });
         const runPluginCmd = (args: string[], btn: HTMLButtonElement) => {
+            if (!codebuddyPath) {
+                new Notice(t('settings.pathNotFound'));
+                return;
+            }
             const label = t(args[0] === 'enable' ? 'plugins.enable' : args[0] === 'disable' ? 'plugins.disable' : 'plugins.update');
             btn.disabled = true;
             btn.setText(t('plugins.working'));
