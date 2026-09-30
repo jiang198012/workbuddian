@@ -4,7 +4,7 @@
 
 ## 结论
 
-**本机 macOS 的“Obsidian → WorkBuddy 原账号”核心调用已恢复：真实对话、Vault 读写、插件重载后续聊均通过。修复纳入 2.6.11，Windows 实机待验证，Issue #10 保持开放。**
+**本机 macOS 的“Obsidian → WorkBuddy 原账号”核心调用已恢复：真实对话、Vault 读写、插件重载后续聊均通过。修复纳入 2.6.12，Windows 实机待验证，Issue #10 保持开放。**
 
 插件通过正在运行的 WorkBuddy 自有 sidecar 创建独立 Vault worker，并复用 HTTP/SSE ACP 通路。需原 WorkBuddy 桌面端保持运行且已登录；没有改用新账号、独立 API key 或云端任务。连续回复夹带旧消息的问题已修复，并完成真实协议对照验证。
 
@@ -32,13 +32,22 @@
 - 仓库 `main.js` 与 demo 安装副本 SHA-256 相同：`59ef5ae6673aa0626643fa40c054999e07152c57d07d1caf4596fb51660d0cb2`；通过第三方插件开关实际重载，而非仅复制文件。
 - 定向测试记录、构建日志及重放问题真实协议对照保留在本机临时目录，不随仓库发布；以上为升版前验收快照，发布验证另见下文。
 
-## 2.6.11 发布验证
+## 2.6.11 发布前本机验证快照
 
 - 当前仓库全量测试：`npm test -- --runInBand --testPathIgnorePatterns="/node_modules/|/\.claude/" --detectOpenHandles --json`。Jest JSON 核对为 48 套、589 项全部通过，0 失败、0 待执行；结果仅包含仓库 `tests/`，排除本机 `.claude/worktrees` 下不参与发布的旧副本。
 - 测试进程自然退出，退出码 0，未使用 `--forceExit`。诊断发现既有 Hermes 取消测试保留了一个 300000ms 计时器，等待其到期后退出；相关实现和测试未在本次修改。
 - `npm run build`（包含 TypeScript）通过；`package.json`、`package-lock.json`、`manifest.json` 与 `versions.json` 版本统一为 `2.6.11`。
 - 发布构建 `main.js` SHA-256：`59ef5ae6673aa0626643fa40c054999e07152c57d07d1caf4596fb51660d0cb2`，与实际重载验收的 demo 构建一致。
 - `manifest.json` SHA-256：`4a16364b2e80ec1a67cbf185a4049911a42a9648dced0efc7abfc2d04ed79a30`；`styles.css` SHA-256：`1ab3b4f4507ea9f017c2093b03aa3f193c6b1af2e403a1bcbb374628e11d83f4`。
+
+## 2.6.12 发布修正
+
+- 2.6.11 的 GitHub Linux 构建成功，但 sidecar 测试夹具仍按 macOS 临时目录布局创建，Linux 实现优先使用 XDG/run-user 目录，因此 12 项失败；未创建 Release，也未重写已推送标签。
+- 仅修正测试夹具：显式隔离 `XDG_RUNTIME_DIR`，在 Linux 下创建对应 `workbuddy/<configHash>` 目录，并恢复测试前环境变量；生产代码保持不变。
+- 本机模拟 Linux 平台和可用 XDG 目录，修正前复现 12 失败、4 通过。此检查仅验证路径分支，不等于 Linux 桌面或 Windows 实机验收。
+- 修正后同一 sidecar 测试在原生 macOS 与模拟 Linux 路径各 16 项通过，退出码均为 0；`npm run build` 通过。生产 `main.js`、`styles.css` 哈希与以上验收快照一致。
+- 2.6.12 `manifest.json` SHA-256：`039306eabf438542e4b80323e7fd58f68944a73a659f68e83abe719bd4b03d16`。
+- 正式发布版本顺延为 2.6.12；Windows 实机、协议审批卡/拒绝 GUI 和账单核验边界不变。
 
 ## 接入与安全边界
 
@@ -48,7 +57,7 @@
 - sidecar 属于内部 IPC，本报告不宣称它是官方公开、稳定承诺的接口；仍依赖原桌面端运行和登录状态。
 - 不带 bootstrap 的旧 WorkBuddy 保留 stdio；新机制宿主不可用时明确报错，不静默改用独立 CLI。
 - 宿主重启清理异常时，仅在自有 worker PID 明确已消失后解除清理屏障；存活或无法确认时保持失败，避免双 writer。新增定向测试覆盖死、活及无权限状态。
-- 2.6.11 提供此修复供用户复测，不自动关闭 Issue；用户 `CLAUDE.md` 的本地修改不纳入发布提交。
+- 2.6.12 提供此修复供用户复测，不自动关闭 Issue；用户 `CLAUDE.md` 的本地修改不纳入发布提交。
 
 ## 保留的合成验收文件
 

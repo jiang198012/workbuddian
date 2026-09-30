@@ -18,6 +18,7 @@ describe('WorkBuddy owned sidecar worker', () => {
     let requests: Rpc[];
     let sockets: Set<net.Socket>;
     const originalConfig = process.env.WORKBUDDY_CONFIG_DIR;
+    const originalRuntime = process.env.XDG_RUNTIME_DIR;
     const hash = (value: string, length: number) => createHash('sha1').update(value).digest('hex').slice(0, length);
     const reply = (socket: net.Socket, request: Rpc, result: unknown) => socket.write(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }) + '\n');
     const created = (request: Rpc) => ({ sessionId: request.params.sessionId, runtimeId: 'owned-runtime', pid: 2147483000, acpEndpoint: 'http://127.0.0.1:34567/api/v1/acp' });
@@ -34,8 +35,9 @@ describe('WorkBuddy owned sidecar worker', () => {
         fs.writeFileSync(path.join(root, 'cli', 'product.json'), JSON.stringify({ productName: 'WorkBuddy', dataFolderName: '.workbuddy' }));
         fs.writeFileSync(path.join(root, 'cli', 'dist', 'codebuddy-lite-wb.mjs'), 'CODEBUDDY_SIDECAR_CREDENTIAL_BOOTSTRAP_SOCKET');
         process.env.WORKBUDDY_CONFIG_DIR = configDir;
+        process.env.XDG_RUNTIME_DIR = root;
         jest.spyOn(require('os'), 'tmpdir').mockReturnValue(root);
-        runtimeDir = path.join(root, `wb-${hash(String(process.getuid!()), 6)}`, hash(configDir, 12));
+        runtimeDir = path.join(root, process.platform === 'linux' ? 'workbuddy' : `wb-${hash(String(process.getuid!()), 6)}`, hash(configDir, 12));
         socketPath = path.join(runtimeDir, 'sidecar-1234abcd.sock');
         requests = [];
         sockets = new Set();
@@ -51,6 +53,8 @@ describe('WorkBuddy owned sidecar worker', () => {
         jest.restoreAllMocks();
         if (originalConfig === undefined) delete process.env.WORKBUDDY_CONFIG_DIR;
         else process.env.WORKBUDDY_CONFIG_DIR = originalConfig;
+        if (originalRuntime === undefined) delete process.env.XDG_RUNTIME_DIR;
+        else process.env.XDG_RUNTIME_DIR = originalRuntime;
         fs.rmSync(root, { recursive: true, force: true });
     });
 

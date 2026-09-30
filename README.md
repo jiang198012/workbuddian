@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (2.6.11)
+status: stable (2.6.12)
 license: MIT
 -->
 
@@ -104,7 +104,7 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 
 ### WorkBuddy 5.6.2 认证失败（Issue #10）
 
-如果桌面端正常、插件却报 `missing-key`、`Authentication required` 或 `refusal`，可能是宿主凭据通路不可用，不能据此认定 WorkBuddy 未登录，重新登录也不保证解决。**2.6.11** 针对 [Issue #10](https://github.com/jiang198012/workbuddian/issues/10) 适配 WorkBuddy 自有 sidecar，创建独立 Vault worker：需原桌面端已登录并保持运行，沿用原账号与额度；旧版未提供 bootstrap 的 WorkBuddy 继续使用 stdio。
+如果桌面端正常、插件却报 `missing-key`、`Authentication required` 或 `refusal`，可能是宿主凭据通路不可用，不能据此认定 WorkBuddy 未登录，重新登录也不保证解决。**2.6.12** 针对 [Issue #10](https://github.com/jiang198012/workbuddian/issues/10) 适配 WorkBuddy 自有 sidecar，创建独立 Vault worker：需原桌面端已登录并保持运行，沿用原账号与额度；旧版未提供 bootstrap 的 WorkBuddy 继续使用 stdio。
 
 macOS 已实测原账号对话、Vault 读写与重载续聊，**Windows 实机待验证**；Issue #10 保持开放等待反馈。此适配依赖 WorkBuddy 内部 IPC，并非官方承诺稳定的公开接口。详见[验收报告](docs/issue-10-host-acceptance-2026-09-29.md)。2.6.10 及更早版本不包含本次适配。
 
@@ -219,9 +219,9 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 2.6.11**
+**最新版本 2.6.12**
 
-- **2.6.11** — **WorkBuddy 原账号调用恢复**：适配 5.6.2 宿主凭据通路，修复连续回复夹带旧消息及重连清理；不自动切换独立账号。macOS 已验收核心流程，**Windows 待实机验证，Issue #10 暂不关闭**。
+- **2.6.12** — **WorkBuddy 原账号调用恢复**：适配 5.6.2 宿主凭据通路，修复连续回复夹带旧消息及重连清理；不自动切换独立账号。macOS 已验收核心流程，**Windows 待实机验证，Issue #10 暂不关闭**。2.6.11 因 Linux 测试夹具路径问题未生成 Release；2.6.12 修复夹具后发布，未重写旧标签。
 
 - **2.6.10** — **输入体验与路径保护**：输入框支持最小/最大高度和随文本自动收缩，修复 Vault 相似前缀路径误判。
 
