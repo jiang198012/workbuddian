@@ -332,6 +332,10 @@ var init_i18n = __esm({
       "cmd.newChat": { zh: "\u65B0\u5EFA\u5BF9\u8BDD", en: "New conversation" },
       "cmd.editInstruction": { zh: "\u7F16\u8F91\u5E38\u9A7B\u6307\u4EE4", en: "Edit persistent instruction" },
       "cmd.openSettings": { zh: "\u6253\u5F00 Workbuddian \u8BBE\u7F6E", en: "Open Workbuddian settings" },
+      "warmup.install": { zh: "\u5B89\u88C5 WorkBuddy \u672C\u5730\u8FDE\u63A5\u6269\u5C55", en: "Install WorkBuddy local connector" },
+      "warmup.desc": { zh: "\u5728 WorkBuddy \u7528\u6237\u76EE\u5F55\u5B89\u88C5\u672C\u63D2\u4EF6\u7684\u540E\u53F0\u8FDE\u63A5\u6269\u5C55\uFF0C\u4EC5\u8C03\u7528\u56FA\u5B9A\u7684\u5BBF\u4E3B\u9884\u70ED\u5165\u53E3\u3002\u4E0D\u53D1\u9001\u6A21\u578B\u6D88\u606F\u3001\u4E0D\u8BFB\u53D6\u767B\u5F55\u51ED\u636E\uFF0C\u4E0D\u6388\u4E88\u4F1A\u8BDD\u6216\u4EFB\u610F RPC \u6743\u9650\u3002\u5B89\u88C5\u540E\u9700\u91CD\u542F WorkBuddy \u4E00\u6B21\uFF1B\u63D2\u4EF6\u4E0D\u4F1A\u66FF\u4F60\u4E2D\u65AD\u4EFB\u52A1\u6216\u91CD\u542F\u5BBF\u4E3B\u3002", en: "Install this plugin\u2019s background connector in the WorkBuddy user directory. It only invokes a fixed host warmup method: no model prompts, login-credential access, conversation grants, or arbitrary RPC. Restart WorkBuddy once after installation; the plugin never interrupts tasks or restarts the host for you." },
+      "warmup.confirm": { zh: "\u786E\u8BA4\u5B89\u88C5", en: "Confirm installation" },
+      "warmup.installed": { zh: "\u8FDE\u63A5\u6269\u5C55\u5DF2\u5B89\u88C5\u3002\u8BF7\u4FDD\u5B58\u4EFB\u52A1\u540E\u91CD\u542F WorkBuddy\uFF0C\u7136\u540E\u56DE\u5230 Obsidian \u91CD\u8BD5\uFF0C\u65E0\u9700\u91CD\u65B0\u767B\u5F55\u3002", en: "Connector installed. Save your tasks and restart WorkBuddy, then retry in Obsidian. No new login is needed." },
       "cmd.exportChat": { zh: "\u5BFC\u51FA\u5F53\u524D\u4F1A\u8BDD\u4E3A\u7B14\u8BB0", en: "Export current conversation as note" },
       "cmd.exportAllChats": { zh: "\u5BFC\u51FA\u6240\u6709\u4F1A\u8BDD\u4E3A\u7B14\u8BB0", en: "Export all conversations as note" },
       "cmd.openChatFirst": { zh: "\u8BF7\u5148\u6253\u5F00\u804A\u5929\u9762\u677F", en: "Please open the chat panel first" },
@@ -470,6 +474,224 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 var import_obsidian14 = require("obsidian");
 
+// src/providers/codebuddy/workbuddyWarmup.ts
+var fs = __toESM(require("fs"));
+var net = __toESM(require("net"));
+var path = __toESM(require("path"));
+var os = __toESM(require("os"));
+var import_crypto = require("crypto");
+var ID = "workbuddian-warmup";
+var workbuddyConfigDirectory = (dataFolder = ".workbuddy") => {
+  var _a, _b;
+  return ((_a = process.env.WORKBUDDY_CONFIG_DIR) == null ? void 0 : _a.trim()) || ((_b = process.env.CODEBUDDY_CONFIG_DIR) == null ? void 0 : _b.trim()) || path.join(os.homedir(), dataFolder);
+};
+var extensionDirectory = (configDir) => path.join(configDir, "extensions", ID);
+var endpointFor = (dir) => process.platform === "win32" ? `\\\\.\\pipe\\workbuddian-warmup-${(0, import_crypto.createHash)("sha256").update(dir).digest("hex").slice(0, 16)}` : path.join(dir, "warmup.sock");
+function owned(file, kind) {
+  const stat = fs.lstatSync(file);
+  if (process.getuid && stat.uid !== process.getuid() || !(kind === "file" ? stat.isFile() : kind === "directory" ? stat.isDirectory() : stat.isSocket())) {
+    throw new Error("WorkBuddy \u8FDE\u63A5\u6269\u5C55\u8DEF\u5F84\u4E0D\u53EF\u4FE1");
+  }
+}
+var serviceSource = String.raw`
+const fs = require('fs'), path = require('path'), net = require('net'), crypto = require('crypto');
+exports.activate = async function(wb) {
+    const dir = __dirname, meta = path.join(dir, 'endpoint.json');
+    const endpoint = process.platform === 'win32'
+        ? '\\\\.\\pipe\\workbuddian-warmup-' + crypto.createHash('sha256').update(dir).digest('hex').slice(0, 16)
+        : path.join(dir, 'warmup.sock');
+    const token = crypto.randomBytes(32).toString('hex');
+    let closed = false, pending;
+    const sockets = new Set();
+    function warmup() {
+        if (pending) return pending;
+        let timer;
+        const invoke = Promise.resolve().then(async () => {
+            if (closed) throw new Error('WorkBuddy 连接扩展已关闭');
+            // 宿主扩展的既有固定入口会 ensureStarted；不创建任务，不转发返回的会话信息。
+            const result = await wb.invoke('listSidecarSessions');
+            if (!Array.isArray(result)) throw new Error('Unsupported WorkBuddy sidecar API');
+        });
+        pending = Promise.race([invoke, new Promise((resolve, reject) => {
+            timer = setTimeout(() => reject(new Error('WorkBuddy host warmup timed out')), 90000);
+        })]).finally(() => { clearTimeout(timer); pending = undefined; });
+        return pending;
+    }
+    // 不接收 prompt、Vault 路径、任意 RPC 或权限参数；认证 nonce 只用于本机的这一服务实例。
+    const server = net.createServer(socket => {
+        if (closed || sockets.size >= 16) { socket.destroy(); return; }
+        sockets.add(socket);
+        socket.on('close', () => sockets.delete(socket));
+        socket.on('error', () => {});
+        socket.setEncoding('utf8');
+        socket.setTimeout(100000, () => socket.destroy());
+        let buffer = '', handled = false;
+        socket.on('data', chunk => {
+            if (handled) return;
+            buffer += chunk;
+            if (buffer.length > 1024) { handled = true; socket.destroy(); return; }
+            if (!buffer.includes('\n')) return;
+            handled = true;
+            let request;
+            try { request = JSON.parse(buffer.trim()); } catch { socket.destroy(); return; }
+            if (!request || typeof request !== 'object' || Array.isArray(request)
+                || request.method !== 'warmup' || typeof request.token !== 'string'
+                || !/^[a-f0-9]{64}$/.test(request.token)
+                || !crypto.timingSafeEqual(Buffer.from(request.token), Buffer.from(token))) {
+                socket.end(JSON.stringify({ready:false, error:'WorkBuddy 连接扩展认证失败'}) + '\n'); return;
+            }
+            warmup().then(
+                () => { if (!socket.destroyed) socket.end(JSON.stringify({ready:true, version:1}) + '\n'); },
+                () => { if (!socket.destroyed) socket.end(JSON.stringify({ready:false, error:'WorkBuddy 初始化失败，请检查宿主登录或稍后重试'}) + '\n'); }
+            );
+        });
+    });
+    // 只回收上次已退出的本扩展实例；不能抢占还活着的服务。
+    if (fs.existsSync(meta)) {
+        const stat = fs.lstatSync(meta);
+        if (!stat.isFile() || (process.getuid && stat.uid !== process.getuid())) throw new Error('Untrusted warmup metadata');
+        const previous = JSON.parse(fs.readFileSync(meta, 'utf8'));
+        if (!Number.isSafeInteger(previous.pid) || previous.pid <= 0) throw new Error('Invalid warmup metadata');
+        try { process.kill(previous.pid, 0); throw new Error('Warmup service already active'); }
+        catch(error) { if (error.code !== 'ESRCH') throw error; }
+        fs.unlinkSync(meta);
+    }
+    if (process.platform !== 'win32' && fs.existsSync(endpoint)) {
+        const stat = fs.lstatSync(endpoint);
+        if (!stat.isSocket() || (process.getuid && stat.uid !== process.getuid())) throw new Error('Untrusted warmup socket');
+        fs.unlinkSync(endpoint);
+    }
+    await new Promise((resolve, reject) => { server.once('error', reject); server.listen(endpoint, resolve); });
+    if (process.platform !== 'win32') fs.chmodSync(endpoint, 0o600);
+    fs.writeFileSync(meta, JSON.stringify({pid:process.pid, endpoint, token, version:1}), {mode:0o600, flag:'wx'});
+    return { async dispose() {
+        closed = true;
+        for (const socket of sockets) socket.destroy();
+        await new Promise(resolve => server.close(resolve));
+        if (pending) await pending.catch(() => {});
+        if (fs.existsSync(meta) && JSON.parse(fs.readFileSync(meta, 'utf8')).token === token) fs.unlinkSync(meta);
+    } };
+};
+`;
+function installWorkbuddyWarmup(configDir) {
+  owned(configDir, "directory");
+  const root = path.join(configDir, "extensions");
+  if (!fs.existsSync(root))
+    fs.mkdirSync(root, { mode: 448 });
+  owned(root, "directory");
+  const dir = extensionDirectory(configDir);
+  if (fs.existsSync(dir)) {
+    owned(dir, "directory");
+    const file = path.join(dir, "extension.json");
+    owned(file, "file");
+    const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (manifest.id !== ID || manifest.managedBy !== "workbuddian")
+      throw new Error("\u5DF2\u6709\u6269\u5C55\u4E0D\u5C5E\u4E8E Workbuddian\uFF0C\u62D2\u7EDD\u8986\u76D6");
+  } else
+    fs.mkdirSync(dir, { mode: 448 });
+  const files = {
+    "extension.json": JSON.stringify({
+      id: ID,
+      name: "Workbuddian \u672C\u5730\u8FDE\u63A5",
+      version: "1.0.0",
+      managedBy: "workbuddian",
+      service: { entry: "./index.cjs", process: "fork", activationEvents: ["onStartup"] }
+    }),
+    "distribution.json": JSON.stringify({
+      extensionId: ID,
+      version: "1.0.0",
+      kind: "platform",
+      grantedPermissions: [],
+      resident: true,
+      processPolicy: { server: "fork", renderer: null },
+      rollout: { strategy: "full", percentage: 100 },
+      status: "active"
+    }),
+    "index.cjs": serviceSource
+  };
+  for (const name of Object.keys(files)) {
+    const file = path.join(dir, name);
+    if (fs.existsSync(file))
+      owned(file, "file");
+    const temporary = `${file}.${(0, import_crypto.randomUUID)()}.tmp`;
+    try {
+      fs.writeFileSync(temporary, files[name], { mode: 384, flag: "wx" });
+      fs.renameSync(temporary, file);
+    } finally {
+      if (fs.existsSync(temporary))
+        fs.unlinkSync(temporary);
+    }
+  }
+  return dir;
+}
+async function warmupWorkbuddy(configDir, signal) {
+  var _a;
+  if (signal == null ? void 0 : signal.aborted)
+    throw new Error("WorkBuddy \u521D\u59CB\u5316\u53D6\u6D88");
+  const dir = extensionDirectory(configDir);
+  let metadata;
+  try {
+    owned(configDir, "directory");
+    owned(path.dirname(dir), "directory");
+    owned(dir, "directory");
+    const file = path.join(dir, "endpoint.json");
+    owned(file, "file");
+    metadata = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (metadata.version !== 1 || metadata.endpoint !== endpointFor(dir) || !Number.isSafeInteger(metadata.pid) || metadata.pid <= 0 || !/^[a-f0-9]{64}$/.test(metadata.token))
+      throw new Error("Invalid warmup metadata");
+    process.kill(metadata.pid, 0);
+    if (process.platform !== "win32")
+      owned(metadata.endpoint, "socket");
+  } catch (error) {
+    if (["ENOENT", "ESRCH"].includes((_a = error.code) != null ? _a : "")) {
+      throw new Error("WorkBuddy \u672C\u5730\u4EFB\u52A1\u670D\u52A1\u5C1A\u672A\u521D\u59CB\u5316\u3002\u8BF7\u8FD0\u884C\u201C\u5B89\u88C5 WorkBuddy \u672C\u5730\u8FDE\u63A5\u6269\u5C55\u201D\u547D\u4EE4\u5E76\u6388\u6743\uFF0C\u5B89\u88C5\u540E\u91CD\u542F WorkBuddy\uFF1B\u4E5F\u53EF\u5148\u5728 WorkBuddy \u521D\u59CB\u5316\u4EFB\u52A1\u540E\u91CD\u8BD5\u3002\u65E0\u9700\u91CD\u65B0\u767B\u5F55\u3002");
+    }
+    throw new Error("WorkBuddy \u8FDE\u63A5\u6269\u5C55\u6821\u9A8C\u5931\u8D25\uFF0C\u672A\u6269\u5927\u6743\u9650\u6216\u5207\u6362\u8D26\u53F7");
+  }
+  await new Promise((resolve, reject) => {
+    const socket = net.createConnection(metadata.endpoint);
+    let buffer2 = "", settled = false;
+    const finish = (error) => {
+      if (settled)
+        return;
+      settled = true;
+      clearTimeout(timer);
+      signal == null ? void 0 : signal.removeEventListener("abort", abort);
+      socket.destroy();
+      if (error)
+        reject(error);
+      else
+        resolve();
+    };
+    const abort = () => finish(new Error("WorkBuddy \u521D\u59CB\u5316\u53D6\u6D88"));
+    const timer = setTimeout(() => finish(new Error("WorkBuddy \u521D\u59CB\u5316\u8D85\u65F6\uFF0C\u672A\u91CD\u53D1\u4EFB\u4F55\u7528\u6237\u6D88\u606F\uFF0C\u8BF7\u68C0\u67E5\u5BBF\u4E3B\u540E\u91CD\u8BD5")), 95e3);
+    signal == null ? void 0 : signal.addEventListener("abort", abort, { once: true });
+    if (signal == null ? void 0 : signal.aborted) {
+      abort();
+      return;
+    }
+    socket.setEncoding("utf8");
+    socket.on("connect", () => socket.write(JSON.stringify({ method: "warmup", token: metadata.token }) + "\n"));
+    socket.on("error", () => finish(new Error("WorkBuddy \u8FDE\u63A5\u6269\u5C55\u8FDE\u63A5\u5931\u8D25\uFF0C\u8BF7\u786E\u8BA4\u5BBF\u4E3B\u5DF2\u542F\u52A8")));
+    socket.on("close", () => finish(new Error("WorkBuddy \u8FDE\u63A5\u6269\u5C55\u5DF2\u65AD\u5F00\uFF0C\u8BF7\u91CD\u8BD5")));
+    socket.on("data", (chunk) => {
+      buffer2 += chunk;
+      if (buffer2.length > 1024) {
+        finish(new Error("Invalid WorkBuddy warmup response"));
+        return;
+      }
+      if (!buffer2.includes("\n"))
+        return;
+      try {
+        const result = JSON.parse(buffer2.trim());
+        finish(result.ready === true && result.version === 1 ? void 0 : new Error("WorkBuddy \u521D\u59CB\u5316\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u5BBF\u4E3B\u767B\u5F55\u6216\u7A0D\u540E\u91CD\u8BD5"));
+      } catch (e) {
+        finish(new Error("Invalid WorkBuddy warmup response"));
+      }
+    });
+  });
+}
+
 // src/providers/acp/provider.ts
 init_i18n();
 
@@ -513,8 +735,8 @@ function clearLogs() {
 var import_child_process2 = require("child_process");
 
 // src/utils/cliPath.ts
-var path = __toESM(require("path"));
-var fs = __toESM(require("fs"));
+var path2 = __toESM(require("path"));
+var fs2 = __toESM(require("fs"));
 var import_child_process = require("child_process");
 var isWin = () => process.platform === "win32";
 var home = () => process.env.HOME || process.env.USERPROFILE || "";
@@ -524,14 +746,14 @@ function env(name) {
 }
 function isFile(p) {
   try {
-    return fs.statSync(p).isFile();
+    return fs2.statSync(p).isFile();
   } catch (e) {
     return false;
   }
 }
 function firstHit(candidates) {
   for (const p of candidates) {
-    if (p && fs.existsSync(p))
+    if (p && fs2.existsSync(p))
       return p;
   }
   return null;
@@ -542,7 +764,7 @@ function findOnPath(names, accept = () => true) {
     if (!dir)
       continue;
     for (const name of names) {
-      const p = path.join(dir, name);
+      const p = path2.join(dir, name);
       if (isFile(p) && accept(p))
         return p;
     }
@@ -552,41 +774,41 @@ function findOnPath(names, accept = () => true) {
 function nodeCandidates() {
   if (!isWin()) {
     return [
-      path.join(home(), ".local", "bin"),
-      path.join(home(), ".npm-global", "bin"),
-      path.join(home(), ".volta", "bin"),
-      path.join(home(), "bin"),
+      path2.join(home(), ".local", "bin"),
+      path2.join(home(), ".npm-global", "bin"),
+      path2.join(home(), ".volta", "bin"),
+      path2.join(home(), "bin"),
       "/usr/local/bin",
       "/opt/homebrew/bin",
       env("NVM_BIN")
-    ].map((dir) => dir && path.join(dir, nodeBinName()));
+    ].map((dir) => dir && path2.join(dir, nodeBinName()));
   }
-  const dirs = [path.dirname(process.execPath)];
+  const dirs = [path2.dirname(process.execPath)];
   const appData = env("APPDATA");
   if (appData)
-    dirs.push(appData, path.join(appData, "npm"));
+    dirs.push(appData, path2.join(appData, "npm"));
   const pf = env("ProgramFiles") || "C:\\Program Files";
   const pf86 = env("ProgramFiles(x86)") || "C:\\Program Files (x86)";
-  dirs.push(path.join(pf, "nodejs"), path.join(pf86, "nodejs"));
+  dirs.push(path2.join(pf, "nodejs"), path2.join(pf86, "nodejs"));
   const lad = env("LOCALAPPDATA");
   if (lad)
-    dirs.push(path.join(lad, "Programs", "nodejs"));
+    dirs.push(path2.join(lad, "Programs", "nodejs"));
   if (env("NVM_SYMLINK"))
     dirs.push(env("NVM_SYMLINK"));
   if (home()) {
-    const versionsDir = path.join(home(), ".workbuddy", "binaries", "node", "versions");
+    const versionsDir = path2.join(home(), ".workbuddy", "binaries", "node", "versions");
     try {
-      for (const v of fs.readdirSync(versionsDir))
-        dirs.push(path.join(versionsDir, v));
+      for (const v of fs2.readdirSync(versionsDir))
+        dirs.push(path2.join(versionsDir, v));
     } catch (e) {
     }
   }
   for (const drive of ["C:", "D:", "E:"]) {
-    if (`${drive}\\` !== path.parse(pf).root.toUpperCase()) {
-      dirs.push(path.join(`${drive}\\Program Files`, "nodejs"));
+    if (`${drive}\\` !== path2.parse(pf).root.toUpperCase()) {
+      dirs.push(path2.join(`${drive}\\Program Files`, "nodejs"));
     }
   }
-  return dirs.map((dir) => dir && path.join(dir, nodeBinName()));
+  return dirs.map((dir) => dir && path2.join(dir, nodeBinName()));
 }
 function findNodeExecutable() {
   const hit = firstHit(nodeCandidates().filter(isFile));
@@ -602,11 +824,11 @@ function codebuddyCandidates() {
   if (!isWin()) {
     return [
       "/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy",
-      path.join(home(), "Applications", "WorkBuddy.app", "Contents", ...WB_CLI_REL, "codebuddy"),
-      path.join(home(), ".local", "bin", "codebuddy"),
-      path.join(home(), ".npm-global", "bin", "codebuddy"),
-      path.join(home(), ".volta", "bin", "codebuddy"),
-      path.join(home(), "bin", "codebuddy"),
+      path2.join(home(), "Applications", "WorkBuddy.app", "Contents", ...WB_CLI_REL, "codebuddy"),
+      path2.join(home(), ".local", "bin", "codebuddy"),
+      path2.join(home(), ".npm-global", "bin", "codebuddy"),
+      path2.join(home(), ".volta", "bin", "codebuddy"),
+      path2.join(home(), "bin", "codebuddy"),
       "/usr/local/bin/codebuddy",
       "/opt/homebrew/bin/codebuddy"
     ];
@@ -616,21 +838,21 @@ function codebuddyCandidates() {
   const pf = env("ProgramFiles") || "C:\\Program Files";
   const pf86 = env("ProgramFiles(x86)") || "C:\\Program Files (x86)";
   const list = [];
-  const wbExe = (root, names) => names.map((n) => path.join(root, ...WB_CLI_REL, n));
+  const wbExe = (root, names) => names.map((n) => path2.join(root, ...WB_CLI_REL, n));
   if (lad)
-    list.push(...wbExe(path.join(lad, "Programs", "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
+    list.push(...wbExe(path2.join(lad, "Programs", "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
   if (appData)
-    list.push(path.join(appData, "npm", "codebuddy.cmd"), path.join(appData, "npm", "codebuddy"));
+    list.push(path2.join(appData, "npm", "codebuddy.cmd"), path2.join(appData, "npm", "codebuddy"));
   list.push(
-    path.join(pf, "nodejs", "codebuddy.cmd"),
-    path.join(pf, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
-    path.join(pf86, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
-    ...wbExe(path.join(pf, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]),
-    ...wbExe(path.join(pf86, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"])
+    path2.join(pf, "nodejs", "codebuddy.cmd"),
+    path2.join(pf, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
+    path2.join(pf86, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
+    ...wbExe(path2.join(pf, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]),
+    ...wbExe(path2.join(pf86, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"])
   );
   for (const drive of ["C:", "D:", "E:"]) {
     for (const dir of ["Program Files", "Program Files (x86)"]) {
-      list.push(...wbExe(path.join(`${drive}\\${dir}`, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
+      list.push(...wbExe(path2.join(`${drive}\\${dir}`, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
     }
   }
   return list;
@@ -642,8 +864,8 @@ function resolveCodebuddyPath(customPath) {
   if (fromEnv)
     return fromEnv;
   const extra = [
-    env("NVM_BIN") && path.join(env("NVM_BIN"), "codebuddy"),
-    env("npm_config_prefix") && path.join(env("npm_config_prefix"), "bin", "codebuddy")
+    env("NVM_BIN") && path2.join(env("NVM_BIN"), "codebuddy"),
+    env("npm_config_prefix") && path2.join(env("npm_config_prefix"), "bin", "codebuddy")
   ];
   const candidates = [...codebuddyCandidates(), ...extra];
   const names = isWin() ? ["codebuddy.exe", "codebuddy.cmd", "codebuddy"] : ["codebuddy"];
@@ -660,13 +882,13 @@ function isWorkbuddyBundledCli(scriptPath) {
   var _a;
   let realPath = scriptPath;
   try {
-    realPath = fs.realpathSync(scriptPath);
+    realPath = fs2.realpathSync(scriptPath);
   } catch (e) {
   }
   if (/[\\/]WorkBuddy(?:\.app[\\/]Contents)?[\\/]Resources[\\/]app\.asar\.unpacked[\\/]cli[\\/]/i.test(realPath))
     return true;
   try {
-    const product = JSON.parse(fs.readFileSync(path.join(path.dirname(realPath), "..", "product.json"), "utf8"));
+    const product = JSON.parse(fs2.readFileSync(path2.join(path2.dirname(realPath), "..", "product.json"), "utf8"));
     return (product == null ? void 0 : product.productName) === "WorkBuddy" || ((_a = product == null ? void 0 : product.authentication) == null ? void 0 : _a.id) === "workbuddy-desktop";
   } catch (e) {
     return false;
@@ -676,9 +898,9 @@ function resolveHermesPath(customPath) {
   const custom = customPath.trim();
   if (custom)
     return custom;
-  const candidates = isWin() ? [path.join(home(), ".local", "bin", "hermes.exe"), path.join(home(), ".hermes", "bin", "hermes.exe")] : [
-    path.join(home(), ".local", "bin", "hermes"),
-    path.join(home(), ".hermes", "bin", "hermes"),
+  const candidates = isWin() ? [path2.join(home(), ".local", "bin", "hermes.exe"), path2.join(home(), ".hermes", "bin", "hermes.exe")] : [
+    path2.join(home(), ".local", "bin", "hermes"),
+    path2.join(home(), ".hermes", "bin", "hermes"),
     "/usr/local/bin/hermes",
     "/opt/homebrew/bin/hermes"
   ];
@@ -692,13 +914,13 @@ function resolveHermesPath(customPath) {
 }
 var WRAPPER_EXTS = /* @__PURE__ */ new Set([".cmd", ".exe", ".bat"]);
 function isWindowsWrapper(scriptPath) {
-  return WRAPPER_EXTS.has(path.extname(scriptPath).toLowerCase());
+  return WRAPPER_EXTS.has(path2.extname(scriptPath).toLowerCase());
 }
 function isBareFallback(scriptPath) {
-  return scriptPath === "codebuddy" || !path.isAbsolute(scriptPath);
+  return scriptPath === "codebuddy" || !path2.isAbsolute(scriptPath);
 }
 function needsWindowsShell(scriptPath) {
-  const ext = path.extname(scriptPath).toLowerCase();
+  const ext = path2.extname(scriptPath).toLowerCase();
   return isWin() && (ext === ".cmd" || ext === ".bat");
 }
 
@@ -1019,12 +1241,12 @@ var WorkbuddyHostConnection = class {
 };
 
 // src/providers/codebuddy/workbuddySidecar.ts
-var fs2 = __toESM(require("fs"));
-var net = __toESM(require("net"));
-var os = __toESM(require("os"));
-var path2 = __toESM(require("path"));
-var import_crypto = require("crypto");
-var hash = (value, length) => (0, import_crypto.createHash)("sha1").update(value).digest("hex").slice(0, length);
+var fs3 = __toESM(require("fs"));
+var net2 = __toESM(require("net"));
+var os2 = __toESM(require("os"));
+var path3 = __toESM(require("path"));
+var import_crypto2 = require("crypto");
+var hash = (value, length) => (0, import_crypto2.createHash)("sha1").update(value).digest("hex").slice(0, length);
 function runtimeDirectory(configDir) {
   var _a, _b;
   const token = hash(configDir, 12);
@@ -1034,30 +1256,30 @@ function runtimeDirectory(configDir) {
       if (!dir)
         continue;
       try {
-        if (!fs2.statSync(dir).isDirectory())
+        if (!fs3.statSync(dir).isDirectory())
           continue;
-        fs2.accessSync(dir, fs2.constants.W_OK);
-        return path2.join(dir, "workbuddy", token);
+        fs3.accessSync(dir, fs3.constants.W_OK);
+        return path3.join(dir, "workbuddy", token);
       } catch (e) {
       }
     }
   }
-  return path2.join(os.tmpdir().trim(), uid === void 0 ? "wb" : `wb-${hash(String(uid), 6)}`, token);
+  return path3.join(os2.tmpdir().trim(), uid === void 0 ? "wb" : `wb-${hash(String(uid), 6)}`, token);
 }
 function requireOwned(file, kind) {
-  const stat = fs2.lstatSync(file);
+  const stat = fs3.lstatSync(file);
   const correctType = kind === "directory" ? stat.isDirectory() : kind === "file" ? stat.isFile() : stat.isSocket();
   if (!correctType || process.getuid && stat.uid !== process.getuid())
     throw new Error("Untrusted WorkBuddy runtime");
   return stat;
 }
 async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
-  var _a, _b;
+  var _a;
   let productPath;
   let product;
   try {
-    productPath = path2.join(path2.dirname(fs2.realpathSync(scriptPath)), "..", "product.json");
-    product = JSON.parse(fs2.readFileSync(productPath, "utf8"));
+    productPath = path3.join(path3.dirname(fs3.realpathSync(scriptPath)), "..", "product.json");
+    product = JSON.parse(fs3.readFileSync(productPath, "utf8"));
   } catch (e) {
     return null;
   }
@@ -1066,7 +1288,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
   const bootstrapMarker = Buffer.from("CODEBUDDY_SIDECAR_CREDENTIAL_BOOTSTRAP_SOCKET");
   const requiresHost = ["codebuddy-lite-wb.mjs", "codebuddy-headless.js"].some((bundle) => {
     try {
-      return fs2.readFileSync(path2.join(path2.dirname(productPath), "dist", bundle)).includes(bootstrapMarker);
+      return fs3.readFileSync(path3.join(path3.dirname(productPath), "dist", bundle)).includes(bootstrapMarker);
     } catch (e) {
       return false;
     }
@@ -1074,7 +1296,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
   if (!requiresHost)
     return null;
   try {
-    if (!path2.isAbsolute(cwd) || !fs2.statSync(cwd).isDirectory())
+    if (!path3.isAbsolute(cwd) || !fs3.statSync(cwd).isDirectory())
       throw new Error();
   } catch (e) {
     throw new Error("WorkBuddy worker requires an existing absolute cwd directory");
@@ -1082,35 +1304,49 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
   if (signal == null ? void 0 : signal.aborted)
     throw new Error("WorkBuddy worker creation cancelled");
   const dataFolder = product.dataFolderName || ".workbuddy";
-  const configDir = ((_a = process.env.WORKBUDDY_CONFIG_DIR) == null ? void 0 : _a.trim()) || ((_b = process.env.CODEBUDDY_CONFIG_DIR) == null ? void 0 : _b.trim()) || path2.join(os.homedir(), dataFolder);
+  const configDir = workbuddyConfigDirectory(dataFolder);
   const runtimeDir = runtimeDirectory(configDir);
-  const pidFile = path2.join(runtimeDir, "sidecar.pid");
+  const pidFile = path3.join(runtimeDir, "sidecar.pid");
   const readIdentity = () => {
     requireOwned(runtimeDir, "directory");
     requireOwned(pidFile, "file");
-    const { pid: pid2, version, controlPipeUuid } = JSON.parse(fs2.readFileSync(pidFile, "utf8"));
+    const { pid: pid2, version, controlPipeUuid } = JSON.parse(fs3.readFileSync(pidFile, "utf8"));
     if (!Number.isSafeInteger(pid2) || pid2 <= 0 || version !== 6 || !/^[a-f0-9]{8}$/.test(controlPipeUuid != null ? controlPipeUuid : ""))
       throw new Error();
     return { pid: pid2, controlPipeUuid };
   };
-  let identity;
-  let socketPath;
-  let socketIdentity;
+  const locate = () => {
+    const identity2 = readIdentity();
+    process.kill(identity2.pid, 0);
+    const socketPath2 = process.platform === "win32" ? `\\\\.\\pipe\\workbuddy-${hash(configDir, 12)}-sidecar-control-${identity2.controlPipeUuid}` : path3.join(runtimeDir, `sidecar-${identity2.controlPipeUuid}.sock`);
+    const socketIdentity2 = process.platform !== "win32" ? requireOwned(socketPath2, "socket") : void 0;
+    return { identity: identity2, socketPath: socketPath2, socketIdentity: socketIdentity2 };
+  };
+  let located;
   try {
-    identity = readIdentity();
-    socketPath = process.platform === "win32" ? `\\\\.\\pipe\\workbuddy-${hash(configDir, 12)}-sidecar-control-${identity.controlPipeUuid}` : path2.join(runtimeDir, `sidecar-${identity.controlPipeUuid}.sock`);
-    if (process.platform !== "win32")
-      socketIdentity = requireOwned(socketPath, "socket");
-  } catch (e) {
-    throw new Error("WorkBuddy sidecar v6 is not running. \u8BF7\u542F\u52A8\u5E76\u767B\u5F55 WorkBuddy 5.6.2 \u540E\u91CD\u8BD5\u3002");
+    located = locate();
+  } catch (error) {
+    if (!["ENOENT", "ESRCH"].includes((_a = error.code) != null ? _a : "")) {
+      throw new Error("WorkBuddy \u672C\u5730\u4EFB\u52A1\u670D\u52A1\u6821\u9A8C\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u8FD0\u884C\u76EE\u5F55\u6743\u9650\u548C sidecar \u534F\u8BAE\u517C\u5BB9\u6027\uFF1B\u8FD9\u4E0D\u4EE3\u8868\u4F60\u672A\u767B\u5F55\u3002");
+    }
+    await warmupWorkbuddy(configDir, signal);
+    if (signal == null ? void 0 : signal.aborted)
+      throw new Error("WorkBuddy worker creation cancelled");
+    try {
+      located = locate();
+    } catch (e) {
+      throw new Error("WorkBuddy \u672C\u5730\u4EFB\u52A1\u670D\u52A1\u4ECD\u672A\u5C31\u7EEA\uFF0C\u672A\u521B\u5EFA worker\uFF1B\u8BF7\u68C0\u67E5\u5BBF\u4E3B\u6216\u8FDE\u63A5\u6269\u5C55\u517C\u5BB9\u6027");
+    }
   }
-  const ownedId = `workbuddian-${(0, import_crypto.randomUUID)()}`;
+  const { identity, socketPath, socketIdentity } = located;
+  const ownedId = `workbuddian-${(0, import_crypto2.randomUUID)()}`;
   let runtimeId;
   let pid;
   let socket;
   let serial = 0;
   let submitted = false;
   let disposing;
+  let cleanupFailed = false;
   const pending = /* @__PURE__ */ new Map();
   const rejectPending = (error) => {
     for (const entry of pending.values()) {
@@ -1128,7 +1364,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
       if (stat.ino !== socketIdentity.ino || stat.dev !== socketIdentity.dev)
         throw new Error("WorkBuddy sidecar socket changed");
     }
-    const client = net.createConnection(socketPath);
+    const client = net2.createConnection(socketPath);
     socket = client;
     client.setEncoding("utf8");
     let buffer2 = "";
@@ -1210,6 +1446,16 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
     });
   });
   const dispose = () => {
+    if (disposing && cleanupFailed && pid) {
+      try {
+        process.kill(pid, 0);
+      } catch (error) {
+        if (error.code === "ESRCH") {
+          cleanupFailed = false;
+          disposing = Promise.resolve();
+        }
+      }
+    }
     if (disposing)
       return disposing;
     signal == null ? void 0 : signal.removeEventListener("abort", abort);
@@ -1249,6 +1495,9 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
         rejectPending(new Error("WorkBuddy worker disposed"));
       }
     })();
+    void disposing.catch(() => {
+      cleanupFailed = true;
+    });
     return disposing;
   };
   const abort = () => {
@@ -1279,7 +1528,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
         ANTHROPIC_API_KEY: "",
         OPENAI_API_KEY: "",
         CODEBUDDY_GATEWAY_AUTH: "password",
-        CODEBUDDY_GATEWAY_PASSWORD: (0, import_crypto.randomBytes)(32).toString("hex"),
+        CODEBUDDY_GATEWAY_PASSWORD: (0, import_crypto2.randomBytes)(32).toString("hex"),
         CODEBUDDY_GATEWAY_DISABLE_API_DOCS: "1",
         DISABLE_AUTOUPDATER: "1"
       }
@@ -1299,7 +1548,10 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
     try {
       await dispose();
     } catch (e) {
-      throw new Error(`${error instanceof Error ? error.message : "WorkBuddy creation failed"}; own worker cleanup could not be confirmed`);
+      throw Object.assign(
+        new Error(`${error instanceof Error ? error.message : "WorkBuddy creation failed"}; own worker cleanup could not be confirmed`),
+        { workbuddyCleanup: dispose }
+      );
     }
     throw error;
   }
@@ -1355,6 +1607,7 @@ var AcpClient = class {
     this.hostRuntime = null;
     this.hostCwd = "";
     this.hostCleanup = null;
+    this.hostCleanupRetry = null;
     this.startupAbort = null;
     this.generation = 0;
     this.nextId = 1;
@@ -1528,6 +1781,7 @@ var AcpClient = class {
     const proc = this.proc;
     const host = this.host;
     const runtime = this.hostRuntime;
+    const starting = this.hostCwd ? this.startPromise : null;
     this.proc = null;
     this.host = null;
     this.hostRuntime = null;
@@ -1541,15 +1795,25 @@ var AcpClient = class {
       } catch (e) {
       }
     }
-    if (host || runtime) {
-      const cleanup = Promise.all([host == null ? void 0 : host.dispose().catch(() => {
+    if (host || runtime || starting && !this.hostCleanup) {
+      const cleanup = host || runtime ? Promise.all([host == null ? void 0 : host.dispose().catch(() => {
       }), runtime == null ? void 0 : runtime.dispose()]).then(() => {
+      }) : starting.catch((error) => {
+        const retry = error == null ? void 0 : error.workbuddyCleanup;
+        if (typeof retry === "function") {
+          if (this.hostCleanup === cleanup)
+            this.hostCleanupRetry = retry;
+          throw error;
+        }
       });
       this.hostCleanup = cleanup;
+      this.hostCleanupRetry = runtime ? () => runtime.dispose() : null;
       void cleanup.then(
         () => {
-          if (this.hostCleanup === cleanup)
+          if (this.hostCleanup === cleanup) {
             this.hostCleanup = null;
+            this.hostCleanupRetry = null;
+          }
         },
         (error) => bbError("[WB] \u81EA\u6709 WorkBuddy worker \u6E05\u7406\u5931\u8D25:", error)
       );
@@ -1574,23 +1838,48 @@ var AcpClient = class {
       this.events.onExit(null, null);
   }
   async startWorkbuddy(cwd, generation) {
+    this.hostCwd = cwd;
     const controller = new AbortController();
     this.startupAbort = controller;
     try {
-      if (this.hostCleanup)
-        await this.hostCleanup;
+      if (this.hostCleanup) {
+        const cleanup = this.hostCleanup;
+        try {
+          await cleanup;
+        } catch (error) {
+          if (this.generation !== generation)
+            throw new Error("acp client disposed");
+          if (!this.hostCleanupRetry)
+            throw error;
+          await this.hostCleanupRetry();
+          if (this.hostCleanup === cleanup) {
+            this.hostCleanup = null;
+            this.hostCleanupRetry = null;
+          }
+        }
+      }
       if (this.generation !== generation)
         throw new Error("acp client disposed");
       const { command, args } = buildSpawnCommand(this.scriptPath, this.nodePath, ["--serve", ...this.extraArgs]);
       const runtime = await startWorkbuddySidecar(this.scriptPath, cwd, command, args, controller.signal);
       if (this.generation !== generation) {
-        await (runtime == null ? void 0 : runtime.dispose());
+        if (runtime) {
+          try {
+            await runtime.dispose();
+          } catch (error) {
+            throw Object.assign(
+              error instanceof Error ? error : new Error("WorkBuddy worker cleanup could not be confirmed"),
+              { workbuddyCleanup: () => runtime.dispose() }
+            );
+          }
+        }
         throw new Error("acp client disposed");
       }
-      if (!runtime)
+      if (!runtime) {
+        this.hostCwd = "";
         return await this.spawnAndHandshake();
+      }
       this.hostRuntime = runtime;
-      this.hostCwd = cwd;
       const host = await WorkbuddyHostConnection.connect(
         runtime.endpoint,
         (message) => {
@@ -1937,14 +2226,14 @@ function summarize(rawInput) {
 function buildDetail(toolName, rawInput, isPlan) {
   if (isPlan)
     return { kind: "plan" };
-  const path4 = typeof rawInput.file_path === "string" ? rawInput.file_path : typeof rawInput.path === "string" ? rawInput.path : "";
+  const path5 = typeof rawInput.file_path === "string" ? rawInput.file_path : typeof rawInput.path === "string" ? rawInput.path : "";
   if ((toolName === "Write" || toolName === "write_file") && typeof rawInput.content === "string") {
-    return { kind: "write", path: path4, lines: rawInput.content.split("\n").length };
+    return { kind: "write", path: path5, lines: rawInput.content.split("\n").length };
   }
   if (toolName === "Edit" || toolName === "MultiEdit") {
     return {
       kind: "edit",
-      path: path4,
+      path: path5,
       oldText: typeof rawInput.old_string === "string" ? rawInput.old_string : "",
       newText: typeof rawInput.new_string === "string" ? rawInput.new_string : ""
     };
@@ -2527,6 +2816,7 @@ var AcpProvider = class {
      * 响应；先结束对应 async generator，避免 UI 一直停留在“思考中”，实际取消仍交给 session。
      */
     this.activeStreams = /* @__PURE__ */ new Map();
+    this.startingTurns = /* @__PURE__ */ new Map();
     this.availableModels = [...profile.fallbackModels];
     this.modelPairs = this.availableModels.map((id) => ({ id }));
     this.client = new AcpClient({
@@ -2682,6 +2972,12 @@ var AcpProvider = class {
   /** 定向 cancel：有参只停该会话在飞轮次（双面板互不影响）；无参停全部（卸载兜底） */
   cancel(sessionId) {
     var _a;
+    const starting = [...this.startingTurns.entries()].filter(([key]) => !sessionId || key === sessionId);
+    const cancelStartup = starting.length > 0 && starting.length === this.startingTurns.size && this.activeStreams.size === 0 && !this.client.running;
+    for (const [, cancel] of starting)
+      cancel();
+    if (cancelStartup)
+      this.client.dispose();
     for (const s of this.registry.all()) {
       if (!sessionId || s.key === sessionId) {
         (_a = this.activeStreams.get(s.key)) == null ? void 0 : _a();
@@ -2702,19 +2998,43 @@ var AcpProvider = class {
   }
   /** 卸载：拒悬挂批准 → terminate 进程 */
   dispose() {
+    for (const cancel of this.startingTurns.values())
+      cancel();
     this.rejectPendingPermissions();
     this.client.dispose();
   }
   async *sendMessage(sessionId, text, vaultPath, addDirs = [], permissionModeOverride, images, mcpNames, configOverride) {
     var _a;
+    if (this.startingTurns.has(sessionId))
+      throw new Error(t("provider.busy"));
     const session = this.registry.get(sessionId);
+    let preflightCancelled = false;
+    let cancelPreflight;
+    const cancellation = new Promise((resolve) => {
+      cancelPreflight = () => {
+        preflightCancelled = true;
+        resolve();
+      };
+    });
+    this.startingTurns.set(sessionId, cancelPreflight);
     try {
-      await this.client.ensureStarted(vaultPath);
-      const mcpOverride = this.resolveMcpForMessage(mcpNames);
-      await session.ensureLoaded(vaultPath, mcpOverride, configOverride);
+      await Promise.race([(async () => {
+        await this.client.ensureStarted(vaultPath);
+        if (preflightCancelled)
+          return;
+        const mcpOverride = this.resolveMcpForMessage(mcpNames);
+        await session.ensureLoaded(vaultPath, mcpOverride, configOverride);
+      })(), cancellation]);
     } catch (e) {
+      if (preflightCancelled)
+        return;
       throw new AcpStartFailure(this.startErrorMessage(e));
+    } finally {
+      if (this.startingTurns.get(sessionId) === cancelPreflight)
+        this.startingTurns.delete(sessionId);
     }
+    if (preflightCancelled)
+      return;
     const cbs = (_a = this.callbacks.get(sessionId)) != null ? _a : {};
     const queue = [];
     let waiter = null;
@@ -3874,8 +4194,8 @@ function isPathInsideVault(candidatePath, vaultPath) {
 }
 
 // src/shared/imageStore.ts
-var fs3 = __toESM(require("fs"));
-var path3 = __toESM(require("path"));
+var fs4 = __toESM(require("fs"));
+var path4 = __toESM(require("path"));
 var IMAGE_EXTS = /* @__PURE__ */ new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"]);
 var MIME_EXT = {
   "image/png": ".png",
@@ -3906,12 +4226,12 @@ function pastedImageName(seq, ext = ".png") {
   return `paste-${seq}${ext}`;
 }
 function isImagePath(p) {
-  return IMAGE_EXTS.has(path3.extname(p).toLowerCase());
+  return IMAGE_EXTS.has(path4.extname(p).toLowerCase());
 }
 function writeImageFile(dir, bytes, name) {
-  fs3.mkdirSync(dir, { recursive: true });
-  const full = path3.join(dir, name);
-  fs3.writeFileSync(full, bytes);
+  fs4.mkdirSync(dir, { recursive: true });
+  const full = path4.join(dir, name);
+  fs4.writeFileSync(full, bytes);
   return full;
 }
 function pruneImages(dir, keepN) {
@@ -3919,20 +4239,20 @@ function pruneImages(dir, keepN) {
     return;
   let names;
   try {
-    names = fs3.readdirSync(dir);
+    names = fs4.readdirSync(dir);
   } catch (e) {
     return;
   }
-  const files = names.map((n) => path3.join(dir, n)).filter((p) => {
+  const files = names.map((n) => path4.join(dir, n)).filter((p) => {
     try {
-      return fs3.statSync(p).isFile();
+      return fs4.statSync(p).isFile();
     } catch (e) {
       return false;
     }
-  }).map((p) => ({ p, mtime: fs3.statSync(p).mtimeMs })).sort((a, b) => b.mtime - a.mtime);
+  }).map((p) => ({ p, mtime: fs4.statSync(p).mtimeMs })).sort((a, b) => b.mtime - a.mtime);
   for (const { p } of files.slice(keepN)) {
     try {
-      fs3.unlinkSync(p);
+      fs4.unlinkSync(p);
     } catch (e) {
     }
   }
@@ -4118,10 +4438,10 @@ ${msg.content}
     saveReplyBtn.onclick = async () => {
       var _a, _b;
       const title = (_b = (_a = view.getActiveConversation()) == null ? void 0 : _a.title) != null ? _b : "workbuddian-reply";
-      const path4 = nextAvailableNotePath(title, view.app.vault.getFiles().map((f) => f.path));
+      const path5 = nextAvailableNotePath(title, view.app.vault.getFiles().map((f) => f.path));
       try {
-        await view.app.vault.create(path4, formatAssistantReply(title, msg.content, msg.timestamp));
-        new import_obsidian2.Notice(t("render.savedAs").replace("{name}", path4));
+        await view.app.vault.create(path5, formatAssistantReply(title, msg.content, msg.timestamp));
+        new import_obsidian2.Notice(t("render.savedAs").replace("{name}", path5));
       } catch (e) {
         new import_obsidian2.Notice(t("render.saveFailed") + (e instanceof Error ? e.message : String(e)));
       }
@@ -4412,21 +4732,21 @@ function parseFileChange(toolName, toolDetail) {
   if (typeof input !== "object" || input === null)
     return null;
   const obj = input;
-  const path4 = typeof obj.file_path === "string" ? obj.file_path : "";
-  if (!path4)
+  const path5 = typeof obj.file_path === "string" ? obj.file_path : "";
+  if (!path5)
     return null;
   if (toolName === "Edit") {
     const oldText = obj.old_string;
     const newText = obj.new_string;
     if (typeof oldText !== "string" || typeof newText !== "string")
       return null;
-    return { kind: "edit", path: path4, oldText, newText };
+    return { kind: "edit", path: path5, oldText, newText };
   }
   if (toolName === "Write") {
     const content = obj.content;
     if (typeof content !== "string")
       return null;
-    return { kind: "write", path: path4, newText: content };
+    return { kind: "write", path: path5, newText: content };
   }
   return null;
 }
@@ -4959,9 +5279,9 @@ function thumbSrc(view, absPath) {
     return cached;
   let result = "";
   try {
-    const fs4 = require("fs");
-    if (fs4.statSync(absPath).size <= MAX_THUMB_SOURCE_BYTES) {
-      const buf = fs4.readFileSync(absPath);
+    const fs5 = require("fs");
+    if (fs5.statSync(absPath).size <= MAX_THUMB_SOURCE_BYTES) {
+      const buf = fs5.readFileSync(absPath);
       const ext = require("path").extname(absPath);
       result = `data:${mimeForExt(ext)};base64,${buf.toString("base64")}`;
     }
@@ -4973,8 +5293,8 @@ function thumbSrc(view, absPath) {
 }
 function undoEdit(change, btn) {
   try {
-    const fs4 = require("fs");
-    const content = fs4.readFileSync(change.path, "utf8");
+    const fs5 = require("fs");
+    const content = fs5.readFileSync(change.path, "utf8");
     const idx = content.indexOf(change.newText);
     if (idx === -1) {
       new import_obsidian6.Notice(t("tool.undoStale"));
@@ -4985,7 +5305,7 @@ function undoEdit(change, btn) {
       return;
     }
     const reverted = content.slice(0, idx) + change.oldText + content.slice(idx + change.newText.length);
-    fs4.writeFileSync(change.path, reverted, "utf8");
+    fs5.writeFileSync(change.path, reverted, "utf8");
     btn.disabled = true;
     btn.setText(t("tool.undone"));
     btn.setAttribute("title", t("tool.undone"));
@@ -7860,6 +8180,23 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
     return view;
   }
   registerCommands() {
+    this.addCommand({ id: "install-workbuddy-connector", name: t("warmup.install"), callback: () => {
+      const configDir = workbuddyConfigDirectory();
+      const modal = new import_obsidian14.Modal(this.app);
+      modal.titleEl.setText(t("warmup.install"));
+      modal.contentEl.createEl("p", { text: t("warmup.desc") });
+      modal.contentEl.createEl("p", { text: configDir });
+      new import_obsidian14.Setting(modal.contentEl).addButton((button) => button.setButtonText(t("warmup.confirm")).setCta().onClick(() => {
+        try {
+          installWorkbuddyWarmup(configDir);
+          new import_obsidian14.Notice(t("warmup.installed"), 1e4);
+          modal.close();
+        } catch (error) {
+          new import_obsidian14.Notice(getErrorMessage(error));
+        }
+      })).addButton((button) => button.setButtonText(t("approval.cancel")).onClick(() => modal.close()));
+      modal.open();
+    } });
     this.addCommand({ id: "open-chat", name: t("cmd.openChat"), callback: () => void this.activateView() });
     this.addCommand({
       id: "open-chat-main-pane",

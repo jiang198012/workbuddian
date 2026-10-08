@@ -3,6 +3,10 @@ import * as net from 'net';
 import * as path from 'path';
 import { createHash } from 'crypto';
 import { startWorkbuddySidecar } from '../src/providers/codebuddy/workbuddySidecar';
+import { warmupWorkbuddy } from '../src/providers/codebuddy/workbuddyWarmup';
+jest.mock('../src/providers/codebuddy/workbuddyWarmup', () => ({
+    ...jest.requireActual('../src/providers/codebuddy/workbuddyWarmup'), warmupWorkbuddy: jest.fn(),
+}));
 
 type Rpc = { id: number; method: string; params: Record<string, any> };
 
@@ -41,6 +45,7 @@ describe('WorkBuddy owned sidecar worker', () => {
         socketPath = path.join(runtimeDir, 'sidecar-1234abcd.sock');
         requests = [];
         sockets = new Set();
+        (warmupWorkbuddy as jest.Mock).mockReset().mockRejectedValue(new Error('请安装连接扩展并重启 WorkBuddy'));
     });
 
     afterEach(async () => {
@@ -118,10 +123,40 @@ describe('WorkBuddy owned sidecar worker', () => {
     });
 
     it('requires an existing runtime and an explicit existing absolute cwd', async () => {
-        await expect(startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve'])).rejects.toThrow(/running|启动|运行/);
+        await expect(startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve']))
+            .rejects.toThrow('重启 WorkBuddy');
         await listen();
         await expect(startWorkbuddySidecar(scriptPath, 'relative-vault', '/test/node', [scriptPath, '--serve'])).rejects.toThrow(/cwd|directory|目录/);
         await expect(startWorkbuddySidecar(scriptPath, path.join(root, 'missing'), '/test/node', [scriptPath, '--serve'])).rejects.toThrow(/cwd|directory|目录/);
+        expect(requests).toHaveLength(0);
+    });
+
+    it('initializes the cold host before creating a Vault worker and revalidates its runtime', async () => {
+        (warmupWorkbuddy as jest.Mock).mockImplementation(async () => { await listen(); });
+        worker = await startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve']);
+        expect(worker?.endpoint).toBe('http://127.0.0.1:34567');
+        expect(warmupWorkbuddy).toHaveBeenCalledWith(configDir, undefined);
+        expect(requests.map(r => r.method)).toEqual(['session.create']);
+    });
+
+    it('does not submit a worker if host warmup completes without an actual sidecar', async () => {
+        (warmupWorkbuddy as jest.Mock).mockResolvedValue(undefined);
+        await expect(startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve'])).rejects.toThrow(/未就绪/);
+        expect(requests).toHaveLength(0);
+    });
+
+    it('never submits a worker after cancellation during cold initialization', async () => {
+        const controller = new AbortController();
+        (warmupWorkbuddy as jest.Mock).mockImplementation(async () => { await listen(); controller.abort(); });
+        await expect(startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve'], controller.signal)).rejects.toThrow(/cancel|取消/);
+        expect(requests).toHaveLength(0);
+    });
+
+    it('does not misreport invalid sidecar metadata as a stopped or logged-out host', async () => {
+        await listen();
+        fs.writeFileSync(path.join(runtimeDir, 'sidecar.pid'), JSON.stringify({ pid: process.pid, version: 7, controlPipeUuid: '1234abcd' }));
+        await expect(startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve']))
+            .rejects.toThrow('本地任务服务校验失败');
         expect(requests).toHaveLength(0);
     });
 
@@ -201,6 +236,30 @@ describe('WorkBuddy owned sidecar worker', () => {
         expect(probe.mock.calls.length).toBeGreaterThan(1);
         expect(probe.mock.calls.every(([pid, signal]) => pid === 2147483000 && signal === 0)).toBe(true);
         expect(requests.map((r) => r.method)).toEqual(['session.create', 'session.kill']);
+    });
+
+    it('rechecks a failed cleanup but releases it only after its own PID is confirmed gone', async () => {
+        await listen();
+        worker = await startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve']);
+        const probe = jest.spyOn(process, 'kill').mockReturnValue(true);
+        await expect(worker!.dispose()).rejects.toThrow('cleanup could not be confirmed');
+        probe.mockImplementation(() => { throw Object.assign(new Error('Not permitted'), { code: 'EPERM' }); });
+        await expect(worker!.dispose()).rejects.toThrow();
+        probe.mockImplementation(() => { throw Object.assign(new Error('Gone'), { code: 'ESRCH' }); });
+        await expect(worker!.dispose()).resolves.toBeUndefined();
+        expect(requests.map(r => r.method)).toEqual(['session.create', 'session.kill']);
+    });
+
+    it('retains the original cleanup callback when startup fails before returning its runtime', async () => {
+        await listen((socket, request) => reply(socket, request, { ...created(request), acpEndpoint: 'https://invalid.example/api/v1/acp' }));
+        const probe = jest.spyOn(process, 'kill').mockReturnValue(true);
+        let clock = 0;
+        jest.spyOn(Date, 'now').mockImplementation(() => clock += 4_000);
+        const failure = await startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve']).catch(error => error);
+        expect(failure.message).toContain('cleanup could not be confirmed');
+        probe.mockImplementation(() => { throw Object.assign(new Error('Gone'), { code: 'ESRCH' }); });
+        await expect(failure.workbuddyCleanup()).resolves.toBeUndefined();
+        expect(requests.map(r => r.method)).toEqual(['session.create', 'session.kill']);
     });
 
     it('completes cleanup after host restart only when its known worker PID is confirmed gone', async () => {

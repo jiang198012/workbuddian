@@ -33,7 +33,7 @@
 
 ## Installation
 
-**Prerequisites**: Obsidian 1.7.2+ (desktop), Windows or macOS, and the **WorkBuddy desktop app** (≥ 5.0.5), which bundles the CodeBuddy CLI. See the WorkBuddy 5.6.2 compatibility notes below.
+**Prerequisites**: Obsidian 1.7.2+ (desktop), Windows or macOS, and the **WorkBuddy desktop app** (≥ 5.0.5), which bundles the CodeBuddy CLI. See the WorkBuddy 5.6.2 / 5.7.6 compatibility notes below.
 
 1. In Obsidian: **Settings → Community plugins → Browse**.
 2. Search **"Workbuddian"** → **Install** → **Enable**.
@@ -42,9 +42,11 @@ Or via [BRAT](https://github.com/TfTHacker/obsidian42-brat) with `jiang198012/wo
 
 ## Quick Start
 
+**WorkBuddy 5.7.6 cold start (2.6.13)**: if the logged-in desktop app is running but the plugin reports `sidecar v6 is not running` or that its local task service is not initialized, run **“Workbuddian: Install WorkBuddy local connector”** from Obsidian's command palette and confirm the target directory. Save your tasks and normally restart WorkBuddy once, then send a message in Obsidian. No new login or preliminary WorkBuddy message is needed. This resident connector only invokes a fixed host warmup method; it sends no model prompts, reads no login credentials, and receives no conversation or arbitrary-RPC grants. The plugin never installs it or restarts WorkBuddy automatically. Cold start and original-conversation recovery after a host restart were tested on macOS; **Windows hardware and long-running stability remain unverified**. See the [cold-start acceptance report](docs/issue-10-cold-start-diagnosis-2026-10-07.md).
+
 **WorkBuddy 5.6.2 compatibility ([#10](https://github.com/jiang198012/workbuddian/issues/10))**: **2.6.12** creates a dedicated Vault worker through WorkBuddy's own sidecar. Keep the original desktop app running and logged in; the worker uses the same account and quota. Older WorkBuddy versions without bootstrap retain stdio. Original-account chat, Vault read/write and conversation recovery after plugin reload have been tested on macOS; **Windows hardware validation is pending**, so #10 remains open for feedback. This uses internal IPC, not an officially guaranteed public API. Version 2.6.10 and earlier do not include this adaptation. See the [acceptance report](docs/issue-10-host-acceptance-2026-09-29.md).
 
-An unavailable host credential channel does not mean WorkBuddy is logged out, and logging in again is not a guaranteed remedy. Automatic detection only selects WorkBuddy and never switches to a standalone CodeBuddy account or quota. Explicit paths and `CODEBUDDY_PATH` are preserved, including when unavailable. A manually selected alternative CLI uses its own authentication and quota. The plugin does not read, copy, or decrypt WorkBuddy login credentials. See the [Chinese compatibility notes](./README.md#workbuddy-562-认证失败issue-10).
+An unavailable host credential channel does not mean WorkBuddy is logged out, and logging in again is not a guaranteed remedy. Automatic detection only selects WorkBuddy and never switches to a standalone CodeBuddy account or quota. Explicit paths and `CODEBUDDY_PATH` are preserved, including when unavailable. A manually selected alternative CLI uses its own authentication and quota. The plugin does not read, copy, or decrypt WorkBuddy login credentials. See the [Chinese compatibility notes](./README.md#快速开始).
 
 1. Click the **robot ribbon icon** or run **"Workbuddian: Open chat panel"**.
 2. If the plugin can't find CodeBuddy / Node.js, run the environment-setup prompt once in WorkBuddy (full prompt in the [Chinese README](./README.md#快速开始)).
@@ -58,7 +60,9 @@ The complete documentation (usage, settings, auto-discovery, FAQ, changelog) is 
 
 ## What's New
 
-**Latest version 2.6.12**
+**Latest version 2.6.13**
+
+- **2.6.13 — WorkBuddy cold start and recovery**: an explicitly confirmed local connector fixes the missing-sidecar startup path in 5.7.6. Add startup timeout, cancellation, duplicate-send and worker-cleanup guards without replaying prompts. Cold start and host-restart recovery passed in demo-vault on macOS; **Windows and long-running validation pending, #10 remains open**.
 
 - **2.6.12 — Original WorkBuddy account restored**: adapt the 5.6.2 host credential channel, filter stale reply replays and fix worker cleanup on reconnect. No automatic switch to a standalone account. Core flows verified on macOS; **Windows hardware validation pending, #10 remains open**. The 2.6.11 tag did not produce a Release because of a Linux test-fixture path mismatch; 2.6.12 corrects the fixture without rewriting that tag.
 - **2.6.10 — Input sizing and path protection**: configurable min/max input height, automatic shrinking and safer Vault path boundaries.

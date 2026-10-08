@@ -1,4 +1,5 @@
-import { Notice, Plugin, WorkspaceLeaf } from 'obsidian';
+import { Notice, Plugin, WorkspaceLeaf, Modal, Setting } from 'obsidian';
+import { installWorkbuddyWarmup, workbuddyConfigDirectory } from './providers/codebuddy/workbuddyWarmup';
 import { CodebuddyProvider } from './providers/codebuddy';
 import { HermesProvider } from './providers/hermes';
 import { discoverHermes } from './shared/hermesDiscover';
@@ -83,6 +84,20 @@ export default class WorkbuddianPlugin extends Plugin {
     }
 
     private registerCommands() {
+        this.addCommand({ id: 'install-workbuddy-connector', name: t('warmup.install'), callback: () => {
+            const configDir = workbuddyConfigDirectory();
+            const modal = new Modal(this.app);
+            modal.titleEl.setText(t('warmup.install'));
+            modal.contentEl.createEl('p', { text: t('warmup.desc') });
+            modal.contentEl.createEl('p', { text: configDir });
+            new Setting(modal.contentEl)
+                .addButton(button => button.setButtonText(t('warmup.confirm')).setCta().onClick(() => {
+                    try { installWorkbuddyWarmup(configDir); new Notice(t('warmup.installed'), 10_000); modal.close(); }
+                    catch (error) { new Notice(getErrorMessage(error)); }
+                }))
+                .addButton(button => button.setButtonText(t('approval.cancel')).onClick(() => modal.close()));
+            modal.open();
+        } });
         this.addCommand({ id: 'open-chat', name: t('cmd.openChat'), callback: () => void this.activateView() });
         this.addCommand({
             id: 'open-chat-main-pane',

@@ -80,6 +80,75 @@ describe('CodebuddyProvider v2 sendMessage', () => {
         expect(fake.dispose).not.toHaveBeenCalled(); // 进程保活
     });
 
+    it('cancels a cold startup immediately and never sends its late user prompt', async () => {
+        const { fake } = makeFakeClient(MockAcpClient);
+        const gate = deferred<void>();
+        fake.running = false;
+        fake.ensureStarted.mockReturnValue(gate.promise);
+        const api = new CodebuddyProvider();
+        const pending = api.sendMessage('cold', 'do not send this', '/v').next();
+        await flush();
+        api.cancel('cold');
+        const outcome = await Promise.race([
+            pending.then(r => r.done), new Promise(resolve => setTimeout(() => resolve('timeout'), 100)),
+        ]).finally(() => gate.resolve());
+        expect(outcome).toBe(true);
+        await flush();
+        expect(fake.request.mock.calls.some(([method]) => method === 'session/prompt')).toBe(false);
+        expect(fake.dispose).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancels one cold waiter without disrupting another conversation sharing startup', async () => {
+        const { fake, events } = makeFakeClient(MockAcpClient);
+        const gate = deferred<void>();
+        fake.running = false;
+        fake.ensureStarted.mockReturnValue(gate.promise);
+        fake.request.mockImplementation(async (method: string) => {
+            if (method === 'session/new') return { sessionId: 'survivor' };
+            if (method === 'session/load') throw new Error('not found');
+            if (method === 'session/prompt') {
+                events().onSessionUpdate('survivor', { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'OK' } });
+                return { stopReason: 'end_turn' };
+            }
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        const cancelled = api.sendMessage('cold-a', 'cancel me', '/v').next();
+        const survivor = consume(api.sendMessage('cold-b', 'keep me', '/v'));
+        await flush(); api.cancel('cold-a');
+        const outcome = await Promise.race([
+            cancelled.then(r => r.done), new Promise(resolve => setTimeout(() => resolve('timeout'), 100)),
+        ]).finally(() => gate.resolve());
+        expect(outcome).toBe(true);
+        expect(fake.dispose).not.toHaveBeenCalled();
+        expect(await survivor).toContainEqual({ type: 'text', content: 'OK' });
+        expect(fake.request.mock.calls.filter(([method]) => method === 'session/prompt')).toHaveLength(1);
+    });
+
+    it('rejects a duplicate cold send so cancelling its session cannot leave an earlier prompt behind', async () => {
+        const { fake, events } = makeFakeClient(MockAcpClient);
+        const gate = deferred<void>();
+        fake.ensureStarted.mockReturnValue(gate.promise);
+        fake.request.mockImplementation(async (method: string) => {
+            if (method === 'session/new') return { sessionId: 'only-other' };
+            if (method === 'session/load') throw new Error('not found');
+            if (method === 'session/prompt') {
+                events().onSessionUpdate('only-other', { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'OK' } });
+                return { stopReason: 'end_turn' };
+            }
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        const first = api.sendMessage('same', 'cancel first', '/v').next();
+        const duplicate = api.sendMessage('same', 'cancel second', '/v').next().catch(e => e.message);
+        const other = consume(api.sendMessage('other', 'keep this', '/v'));
+        await flush(); api.cancel('same'); gate.resolve();
+        expect(await duplicate).toBe(t('provider.busy'));
+        expect((await first).done).toBe(true);
+        await other;
+        expect(fake.request.mock.calls.filter(([method]) => method === 'session/prompt')).toHaveLength(1);
+    });
+
     it('cancel ends the generator even when ACP prompt response is delayed', async () => {
         const { fake } = makeFakeClient(MockAcpClient);
         const promptGate = deferred<{ stopReason: string }>();

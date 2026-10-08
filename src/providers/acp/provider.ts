@@ -47,6 +47,7 @@ export class AcpProvider {
      * 响应；先结束对应 async generator，避免 UI 一直停留在“思考中”，实际取消仍交给 session。
      */
     private activeStreams = new Map<string, () => void>();
+    private startingTurns = new Map<string, () => void>();
 
     constructor(
         protected readonly profile: AcpBackendProfile = ACP_DEFAULT_PROFILE,
@@ -205,6 +206,11 @@ export class AcpProvider {
 
     /** 定向 cancel：有参只停该会话在飞轮次（双面板互不影响）；无参停全部（卸载兜底） */
     cancel(sessionId?: string): void {
+        const starting = [...this.startingTurns.entries()].filter(([key]) => !sessionId || key === sessionId);
+        const cancelStartup = starting.length > 0 && starting.length === this.startingTurns.size
+            && this.activeStreams.size === 0 && !this.client.running;
+        for (const [, cancel] of starting) cancel();
+        if (cancelStartup) this.client.dispose();
         for (const s of this.registry.all()) {
             if (!sessionId || s.key === sessionId) {
                 this.activeStreams.get(s.key)?.();
@@ -227,6 +233,7 @@ export class AcpProvider {
 
     /** 卸载：拒悬挂批准 → terminate 进程 */
     dispose(): void {
+        for (const cancel of this.startingTurns.values()) cancel();
         this.rejectPendingPermissions();
         this.client.dispose();
     }
@@ -245,16 +252,28 @@ export class AcpProvider {
         // 仅保留签名兼容，不再消费；vault 外附件的读取授权由插件侧确认弹窗把关（WB-002）
         void addDirs; void permissionModeOverride;
 
+        if (this.startingTurns.has(sessionId)) throw new Error(t('provider.busy'));
         const session = this.registry.get(sessionId);
+        let preflightCancelled = false;
+        let cancelPreflight!: () => void;
+        const cancellation = new Promise<void>(resolve => {
+            cancelPreflight = () => { preflightCancelled = true; resolve(); };
+        });
+        this.startingTurns.set(sessionId, cancelPreflight);
         try {
-            await this.client.ensureStarted(vaultPath);
-            // R10 context-saving MCP：消息里 @mcp/xxx 命中的服务器才注入本次会话加载；
-            // 未命中任何引用时保持全局配置（兼容旧行为）
-            const mcpOverride = this.resolveMcpForMessage(mcpNames);
-            await session.ensureLoaded(vaultPath, mcpOverride, configOverride);
+            await Promise.race([(async () => {
+                await this.client.ensureStarted(vaultPath);
+                if (preflightCancelled) return;
+                const mcpOverride = this.resolveMcpForMessage(mcpNames);
+                await session.ensureLoaded(vaultPath, mcpOverride, configOverride);
+            })(), cancellation]);
         } catch (e) {
+            if (preflightCancelled) return;
             throw new AcpStartFailure(this.startErrorMessage(e));
+        } finally {
+            if (this.startingTurns.get(sessionId) === cancelPreflight) this.startingTurns.delete(sessionId);
         }
+        if (preflightCancelled) return;
 
         const cbs = this.callbacks.get(sessionId) ?? {};
         type QueueItem = { chunk?: StreamChunk; end?: boolean; error?: string };

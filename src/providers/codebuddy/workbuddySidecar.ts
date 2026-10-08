@@ -3,6 +3,7 @@ import * as net from 'net';
 import * as os from 'os';
 import * as path from 'path';
 import { createHash, randomBytes, randomUUID } from 'crypto';
+import { warmupWorkbuddy, workbuddyConfigDirectory } from './workbuddyWarmup';
 
 const hash = (value: string, length: number) => createHash('sha1').update(value).digest('hex').slice(0, length);
 
@@ -29,7 +30,7 @@ function requireOwned(file: string, kind: 'directory' | 'file' | 'socket'): fs.S
     return stat;
 }
 
-/** WorkBuddy 5.6.2 sidecar v6；仅连接已运行的宿主，绝不启动、重启或关闭宿主。 */
+/** WorkBuddy sidecar v6；仅连接已运行的宿主，绝不启动、重启或关闭宿主。 */
 export async function startWorkbuddySidecar(
     scriptPath: string, cwd: string, command: string, args: string[], signal?: AbortSignal,
 ): Promise<{ endpoint: string; dispose(): Promise<void> } | null> {
@@ -52,7 +53,7 @@ export async function startWorkbuddySidecar(
     } catch { throw new Error('WorkBuddy worker requires an existing absolute cwd directory'); }
     if (signal?.aborted) throw new Error('WorkBuddy worker creation cancelled');
     const dataFolder = product.dataFolderName || '.workbuddy';
-    const configDir = process.env.WORKBUDDY_CONFIG_DIR?.trim() || process.env.CODEBUDDY_CONFIG_DIR?.trim() || path.join(os.homedir(), dataFolder);
+    const configDir = workbuddyConfigDirectory(dataFolder);
     const runtimeDir = runtimeDirectory(configDir);
     const pidFile = path.join(runtimeDir, 'sidecar.pid');
     // PID 元数据含宿主 token；只取实例身份字段，绝不复制、输出或发送该 token。
@@ -63,16 +64,28 @@ export async function startWorkbuddySidecar(
         if (!Number.isSafeInteger(pid) || pid <= 0 || version !== 6 || !/^[a-f0-9]{8}$/.test(controlPipeUuid ?? '')) throw new Error();
         return { pid: pid as number, controlPipeUuid: controlPipeUuid as string };
     };
-    let identity: ReturnType<typeof readIdentity>;
-    let socketPath: string;
-    let socketIdentity: fs.Stats | undefined;
-    try {
-        identity = readIdentity();
-        socketPath = process.platform === 'win32'
+    const locate = () => {
+        const identity = readIdentity();
+        process.kill(identity.pid, 0);
+        const socketPath = process.platform === 'win32'
             ? `\\\\.\\pipe\\workbuddy-${hash(configDir, 12)}-sidecar-control-${identity.controlPipeUuid}`
             : path.join(runtimeDir, `sidecar-${identity.controlPipeUuid}.sock`);
-        if (process.platform !== 'win32') socketIdentity = requireOwned(socketPath, 'socket');
-    } catch { throw new Error('WorkBuddy sidecar v6 is not running. 请启动并登录 WorkBuddy 5.6.2 后重试。'); }
+        const socketIdentity = process.platform !== 'win32' ? requireOwned(socketPath, 'socket') : undefined;
+        return { identity, socketPath, socketIdentity };
+    };
+    let located: ReturnType<typeof locate>;
+    try {
+        located = locate();
+    } catch (error) {
+        if (!['ENOENT', 'ESRCH'].includes((error as NodeJS.ErrnoException).code ?? '')) {
+            throw new Error('WorkBuddy 本地任务服务校验失败，请检查运行目录权限和 sidecar 协议兼容性；这不代表你未登录。');
+        }
+        await warmupWorkbuddy(configDir, signal);
+        if (signal?.aborted) throw new Error('WorkBuddy worker creation cancelled');
+        try { located = locate(); }
+        catch { throw new Error('WorkBuddy 本地任务服务仍未就绪，未创建 worker；请检查宿主或连接扩展兼容性'); }
+    }
+    const { identity, socketPath, socketIdentity } = located;
 
     const ownedId = `workbuddian-${randomUUID()}`;
     let runtimeId: string | undefined;
@@ -81,6 +94,7 @@ export async function startWorkbuddySidecar(
     let serial = 0;
     let submitted = false;
     let disposing: Promise<void> | undefined;
+    let cleanupFailed = false;
     const pending = new Map<number, { resolve(value: any): void; reject(error: Error): void; timer: ReturnType<typeof setTimeout> }>();
     const rejectPending = (error: Error) => {
         for (const entry of pending.values()) { clearTimeout(entry.timer); entry.reject(error); }
@@ -146,6 +160,13 @@ export async function startWorkbuddySidecar(
         });
     });
     const dispose = (): Promise<void> => {
+        if (disposing && cleanupFailed && pid) {
+            // 失败屏障只可被“原自有 PID 确实已退出”解除，绝不追随或终止新宿主。
+            try { process.kill(pid, 0); }
+            catch (error) {
+                if ((error as NodeJS.ErrnoException).code === 'ESRCH') { cleanupFailed = false; disposing = Promise.resolve(); }
+            }
+        }
         if (disposing) return disposing;
         signal?.removeEventListener('abort', abort);
         rejectPending(new Error('WorkBuddy worker creation cancelled'));
@@ -176,6 +197,7 @@ export async function startWorkbuddySidecar(
                 rejectPending(new Error('WorkBuddy worker disposed'));
             }
         })();
+        void disposing.catch(() => { cleanupFailed = true; });
         return disposing;
     };
     const abort = () => { void dispose().catch(() => {}); };
@@ -208,7 +230,11 @@ export async function startWorkbuddySidecar(
         return { endpoint: endpoint.origin, dispose };
     } catch (error) {
         try { await dispose(); }
-        catch { throw new Error(`${error instanceof Error ? error.message : 'WorkBuddy creation failed'}; own worker cleanup could not be confirmed`); }
+        catch {
+            // 在启动尚未返回 runtime 时也保留清理能力，供 client 阻止重叠创建并重验原 PID。
+            throw Object.assign(new Error(`${error instanceof Error ? error.message : 'WorkBuddy creation failed'}; own worker cleanup could not be confirmed`),
+                { workbuddyCleanup: dispose });
+        }
         throw error;
     }
 }

@@ -647,6 +647,33 @@ describe('AcpClient WorkBuddy hosted transport', () => {
         client.dispose();
     });
 
+    it('fails an in-flight prompt without resending it and ignores old events after recovery', async () => {
+        const oldHost = hostTransport();
+        const { client, events } = makeClient();
+        await client.ensureStarted('/vault');
+        const prompt = client.request('session/prompt', { sessionId: 'own-session', prompt: [{ type: 'text', text: 'once only' }] });
+        const failure = expect(prompt).rejects.toThrow('connection lost');
+        await Promise.resolve();
+        expect(oldHost.connection.send.mock.calls.filter(([message]) => message.method === 'session/prompt')).toHaveLength(1);
+        oldHost.disconnect(new Error('connection lost'));
+        await failure;
+
+        const recoveredHost = hostTransport();
+        await client.ensureStarted('/vault');
+        oldHost.receive({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'own-session', update: { sessionUpdate: 'agent_message_chunk' } } });
+        oldHost.receive({ jsonrpc: '2.0', id: 99, method: 'session/request_permission', params: { sessionId: 'own-session' } });
+        oldHost.disconnect(new Error('late old disconnect'));
+        expect(events.onSessionUpdate).not.toHaveBeenCalled();
+        expect(events.onPermissionRequest).not.toHaveBeenCalled();
+        expect(events.onExit).toHaveBeenCalledTimes(1);
+        expect(client.running).toBe(true);
+        expect(recoveredHost.connection.send.mock.calls.filter(([message]) => message.method === 'session/prompt')).toHaveLength(0);
+        const update = { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'current' } };
+        recoveredHost.receive({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'own-session', update } });
+        expect(events.onSessionUpdate).toHaveBeenCalledWith('own-session', update);
+        client.dispose();
+    });
+
     it('cleans a worker whose startup completes after disposal', async () => {
         const host = hostTransport();
         let finish!: (value: typeof host.runtime) => void;
@@ -659,6 +686,87 @@ describe('AcpClient WorkBuddy hosted transport', () => {
         await assertion;
         expect(connect).not.toHaveBeenCalled();
         expect(host.runtime.dispose).toHaveBeenCalledTimes(1);
+    });
+
+    it('waits for cancelled startup cleanup before creating a replacement worker', async () => {
+        const host = hostTransport();
+        let finishStartup!: (value: typeof host.runtime) => void;
+        let finishCleanup!: () => void;
+        startHost.mockImplementationOnce(() => new Promise(resolve => { finishStartup = resolve; }));
+        host.runtime.dispose.mockImplementationOnce(() => new Promise<void>(resolve => { finishCleanup = resolve; }));
+        const { client } = makeClient();
+        const starting = client.ensureStarted('/vault');
+        const cancelled = expect(starting).rejects.toThrow('disposed');
+        client.dispose();
+        const restarting = client.ensureStarted('/vault');
+        finishStartup(host.runtime);
+        await new Promise(resolve => setImmediate(resolve));
+        const creationsBeforeCleanup = startHost.mock.calls.length;
+        finishCleanup();
+        await cancelled;
+        await restarting;
+        client.dispose();
+        expect(creationsBeforeCleanup).toBe(1);
+        expect(startHost).toHaveBeenCalledTimes(2);
+    });
+
+    it('retains a failed startup cleanup callback until its old worker is confirmed gone', async () => {
+        hostTransport();
+        const cleanup = jest.fn(async () => {}).mockRejectedValueOnce(new Error('old worker is still alive'));
+        startHost.mockRejectedValueOnce(Object.assign(new Error('startup cleanup failed'), { workbuddyCleanup: cleanup }));
+        const { client } = makeClient();
+        await expect(client.ensureStarted('/vault')).rejects.toThrow('startup cleanup failed');
+        await expect(client.ensureStarted('/vault')).rejects.toThrow('old worker is still alive');
+        expect(startHost).toHaveBeenCalledTimes(1);
+        await client.ensureStarted('/vault');
+        expect(cleanup).toHaveBeenCalledTimes(2);
+        expect(startHost).toHaveBeenCalledTimes(2);
+        client.dispose();
+    });
+
+    it('retains the cleanup barrier when a cancelled startup returns a worker that cannot be cleaned', async () => {
+        const host = hostTransport();
+        let finish!: (value: typeof host.runtime) => void;
+        startHost.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+        host.runtime.dispose.mockRejectedValueOnce(new Error('late worker cleanup failed'));
+        host.runtime.dispose.mockRejectedValueOnce(new Error('late worker is still alive'));
+        const { client } = makeClient();
+        const starting = client.ensureStarted('/vault');
+        const cancelled = expect(starting).rejects.toThrow('late worker cleanup failed');
+        client.dispose();
+        finish(host.runtime);
+        await cancelled;
+        await expect(client.ensureStarted('/vault')).rejects.toThrow('late worker is still alive');
+        expect(startHost).toHaveBeenCalledTimes(1);
+        await client.ensureStarted('/vault');
+        expect(host.runtime.dispose).toHaveBeenCalledTimes(3);
+        expect(startHost).toHaveBeenCalledTimes(2);
+        client.dispose();
+    });
+
+    it('keeps the original pending startup barrier when a waiting restart is cancelled again', async () => {
+        const host = hostTransport();
+        let finishStartup!: (value: typeof host.runtime) => void;
+        let finishCleanup!: () => void;
+        startHost.mockImplementationOnce(() => new Promise(resolve => { finishStartup = resolve; }));
+        host.runtime.dispose.mockImplementationOnce(() => new Promise<void>(resolve => { finishCleanup = resolve; }));
+        const { client } = makeClient();
+        const starting = client.ensureStarted('/vault');
+        const cancelled = expect(starting).rejects.toThrow('disposed');
+        client.dispose();
+        const waiting = client.ensureStarted('/vault');
+        const waitingCancelled = expect(waiting).rejects.toThrow('disposed');
+        client.dispose();
+        const restarting = client.ensureStarted('/vault');
+        finishStartup(host.runtime);
+        await new Promise(resolve => setImmediate(resolve));
+        expect(startHost).toHaveBeenCalledTimes(1);
+        finishCleanup();
+        await cancelled;
+        await waitingCancelled;
+        await restarting;
+        expect(startHost).toHaveBeenCalledTimes(2);
+        client.dispose();
     });
 
     it('waits for the old worker to exit even if HTTP disposal fails first', async () => {
@@ -679,6 +787,52 @@ describe('AcpClient WorkBuddy hosted transport', () => {
         client.dispose();
     });
 
+    it('rechecks the old worker cleanup before restarting after a cleanup failure', async () => {
+        const host = hostTransport();
+        const { client } = makeClient();
+        await client.ensureStarted('/vault');
+        host.runtime.dispose.mockRejectedValueOnce(new Error('own worker cleanup could not be confirmed'));
+        client.dispose();
+        await expect(client.ensureStarted('/vault')).resolves.toBeUndefined();
+        expect(host.runtime.dispose).toHaveBeenCalledTimes(2);
+        expect(startHost).toHaveBeenCalledTimes(2);
+        client.dispose();
+    });
+
+    it('keeps the old worker cleanup barrier when repeated rechecks still fail', async () => {
+        const host = hostTransport();
+        const { client } = makeClient();
+        await client.ensureStarted('/vault');
+        host.runtime.dispose.mockRejectedValueOnce(new Error('initial cleanup failure'));
+        host.runtime.dispose.mockRejectedValueOnce(new Error('old worker is still alive'));
+        host.runtime.dispose.mockRejectedValueOnce(new Error('old worker cannot be verified'));
+        client.dispose();
+        await expect(client.ensureStarted('/vault')).rejects.toThrow('old worker is still alive');
+        await expect(client.ensureStarted('/vault')).rejects.toThrow('old worker cannot be verified');
+        expect(host.runtime.dispose).toHaveBeenCalledTimes(3);
+        expect(startHost).toHaveBeenCalledTimes(1);
+        expect(client.running).toBe(false);
+    });
+
+    it('waits for a cleanup recheck to complete before a single same-Vault restart', async () => {
+        const host = hostTransport();
+        const { client } = makeClient();
+        await client.ensureStarted('/vault');
+        let finish!: () => void;
+        host.runtime.dispose.mockRejectedValueOnce(new Error('initial cleanup failure'));
+        host.runtime.dispose.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+        client.dispose();
+        const restarting = client.ensureStarted('/vault');
+        expect(client.ensureStarted('/vault')).toBe(restarting);
+        await new Promise(resolve => setImmediate(resolve));
+        expect(host.runtime.dispose).toHaveBeenCalledTimes(2);
+        expect(startHost).toHaveBeenCalledTimes(1);
+        finish();
+        await restarting;
+        expect(startHost).toHaveBeenCalledTimes(2);
+        client.dispose();
+    });
+
     it('deduplicates startup and rejects a different Vault for a bound worker', async () => {
         const host = hostTransport();
         const { client } = makeClient();
@@ -688,6 +842,22 @@ describe('AcpClient WorkBuddy hosted transport', () => {
         expect(host.runtime.dispose).not.toHaveBeenCalled();
         client.notify('session/cancel', { sessionId: 'own-session' });
         expect(host.connection.send).toHaveBeenLastCalledWith({ jsonrpc: '2.0', method: 'session/cancel', params: { sessionId: 'own-session' } });
+        client.dispose();
+    });
+
+    it('rejects a different Vault while the same-Vault worker startup is still pending', async () => {
+        const host = hostTransport();
+        let finish!: (value: typeof host.runtime) => void;
+        startHost.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+        const { client } = makeClient();
+        const starting = client.ensureStarted('/vault');
+        expect(client.ensureStarted('/vault')).toBe(starting);
+        const other = client.ensureStarted('/another-vault');
+        const assertion = expect(other).rejects.toThrow('different Vault');
+        finish(host.runtime);
+        await starting;
+        await assertion;
+        expect(startHost).toHaveBeenCalledTimes(1);
         client.dispose();
     });
 

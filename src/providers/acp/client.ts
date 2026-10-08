@@ -82,6 +82,7 @@ export class AcpClient {
     private hostRuntime: Awaited<ReturnType<typeof startWorkbuddySidecar>> = null;
     private hostCwd = '';
     private hostCleanup: Promise<void> | null = null;
+    private hostCleanupRetry: (() => Promise<void>) | null = null;
     private startupAbort: AbortController | null = null;
     private generation = 0;
     private nextId = 1;
@@ -232,6 +233,7 @@ export class AcpClient {
         const proc = this.proc;
         const host = this.host;
         const runtime = this.hostRuntime;
+        const starting = this.hostCwd ? this.startPromise : null;
         this.proc = null;
         this.host = null;
         this.hostRuntime = null;
@@ -240,12 +242,26 @@ export class AcpClient {
         this.startPromise = null;
         this.failAllPending(new Error('acp client disposed'));
         if (proc) { try { proc.kill(); } catch { /* 已退出 */ } }
-        if (host || runtime) {
+        if (host || runtime || (starting && !this.hostCleanup)) {
             // kill 会关闭 HTTP；DELETE 的失败不能提前解除进程退出屏障。
-            const cleanup = Promise.all([host?.dispose().catch(() => {}), runtime?.dispose()]).then(() => {});
+            const cleanup = host || runtime
+                ? Promise.all([host?.dispose().catch(() => {}), runtime?.dispose()]).then(() => {})
+                : starting!.catch(error => {
+                    const retry = (error as { workbuddyCleanup?: () => Promise<void> } | undefined)?.workbuddyCleanup;
+                    if (typeof retry === 'function') {
+                        if (this.hostCleanup === cleanup) this.hostCleanupRetry = retry;
+                        throw error;
+                    }
+                });
             this.hostCleanup = cleanup;
+            this.hostCleanupRetry = runtime ? () => runtime.dispose() : null;
             void cleanup.then(
-                () => { if (this.hostCleanup === cleanup) this.hostCleanup = null; },
+                () => {
+                    if (this.hostCleanup === cleanup) {
+                        this.hostCleanup = null;
+                        this.hostCleanupRetry = null;
+                    }
+                },
                 error => bbError('[WB] 自有 WorkBuddy worker 清理失败:', error),
             );
         }
@@ -269,20 +285,41 @@ export class AcpClient {
     }
 
     private async startWorkbuddy(cwd: string, generation: number): Promise<void> {
+        this.hostCwd = cwd;
         const controller = new AbortController();
         this.startupAbort = controller;
         try {
-            if (this.hostCleanup) await this.hostCleanup;
+            if (this.hostCleanup) {
+                const cleanup = this.hostCleanup;
+                try { await cleanup; }
+                catch (error) {
+                    if (this.generation !== generation) throw new Error('acp client disposed');
+                    if (!this.hostCleanupRetry) throw error;
+                    await this.hostCleanupRetry();
+                    if (this.hostCleanup === cleanup) {
+                        this.hostCleanup = null;
+                        this.hostCleanupRetry = null;
+                    }
+                }
+            }
             if (this.generation !== generation) throw new Error('acp client disposed');
             const { command, args } = buildSpawnCommand(this.scriptPath, this.nodePath, ['--serve', ...this.extraArgs]);
             const runtime = await startWorkbuddySidecar(this.scriptPath, cwd, command, args, controller.signal);
             if (this.generation !== generation) {
-                await runtime?.dispose();
+                if (runtime) {
+                    try { await runtime.dispose(); }
+                    catch (error) {
+                        throw Object.assign(error instanceof Error ? error : new Error('WorkBuddy worker cleanup could not be confirmed'),
+                            { workbuddyCleanup: () => runtime.dispose() });
+                    }
+                }
                 throw new Error('acp client disposed');
             }
-            if (!runtime) return await this.spawnAndHandshake();
+            if (!runtime) {
+                this.hostCwd = '';
+                return await this.spawnAndHandshake();
+            }
             this.hostRuntime = runtime;
-            this.hostCwd = cwd;
             const host = await WorkbuddyHostConnection.connect(runtime.endpoint,
                 message => { if (this.generation === generation) this.handleLine(JSON.stringify(message)); },
                 error => this.hostDisconnected(error, generation));

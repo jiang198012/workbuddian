@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (2.6.12)
+status: stable (2.6.13)
 license: MIT
 -->
 
@@ -64,7 +64,8 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 - 执行你配置的 MCP 服务器(经批准卡授权)
 
 **什么时候触发?**
-- 只在**你发消息**时。插件不会主动后台运行或偷跑。
+- 模型消息只在**你发消息**时发送；模型列表发现可能建立后台连接，不发送对话 prompt。
+- 明确安装本地连接扩展后，该组件会随 WorkBuddy 驻留，按需初始化宿主任务服务；不主动创建任务或发送模型消息。
 
 **怎么授权?**
 - 每个 Write / Edit / Bash / MCP 操作都在**气泡内批准卡**上让你确认
@@ -81,7 +82,7 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 
 - **Obsidian 1.7.2+**(桌面版)
 - **Windows 或 macOS**(Linux 不支持)
-- 已安装 **WorkBuddy 桌面版**（≥ 5.0.5），内含 CodeBuddy CLI。WorkBuddy 5.6.2 的兼容说明见下文。
+- 已安装 **WorkBuddy 桌面版**（≥ 5.0.5），内含 CodeBuddy CLI。WorkBuddy 5.6.2 / 5.7.6 的兼容说明见下文。
 
 ### 从社区插件目录安装(推荐)
 
@@ -102,7 +103,11 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 
 ## 快速开始
 
-### WorkBuddy 5.6.2 认证失败（Issue #10）
+### WorkBuddy 升级兼容（Issue #10）
+
+**2.6.13 修复 5.7.6 冷启动**：WorkBuddy 已登录、已运行但插件提示 `sidecar v6 is not running` 或“本地任务服务尚未初始化”时，在 Obsidian 命令面板运行 **“Workbuddian: 安装 WorkBuddy 本地连接扩展”**，核对目标目录并确认；保存任务后正常退出并重开 WorkBuddy 一次，再回到 Obsidian 发送消息。无需重新登录，也无需先在 WorkBuddy 发送一条消息。
+
+连接组件只执行固定的宿主预热入口，不发送模型消息、不读取登录凭据、不授予会话或任意 RPC 权限；插件不会自动安装或替你重启 WorkBuddy。macOS 已验证冷启动与宿主重启后的原会话恢复，**Windows 实机和长期稳定性仍待验证**，详见[冷启动验收报告](docs/issue-10-cold-start-diagnosis-2026-10-07.md)。
 
 如果桌面端正常、插件却报 `missing-key`、`Authentication required` 或 `refusal`，可能是宿主凭据通路不可用，不能据此认定 WorkBuddy 未登录，重新登录也不保证解决。**2.6.12** 针对 [Issue #10](https://github.com/jiang198012/workbuddian/issues/10) 适配 WorkBuddy 自有 sidecar，创建独立 Vault worker：需原桌面端已登录并保持运行，沿用原账号与额度；旧版未提供 bootstrap 的 WorkBuddy 继续使用 stdio。
 
@@ -219,7 +224,9 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 2.6.12**
+**最新版本 2.6.13**
+
+- **2.6.13** — **WorkBuddy 冷启动与恢复**：新增明确确认的本地连接扩展安装入口，修复 5.7.6 无 sidecar 时首次连接失败；补齐超时、取消、重复发送与清理防护。demo-vault 冷启动及宿主重启后的原会话恢复通过；沿用原账号，**Windows 与长期运行待实测，Issue #10 保持开放**。
 
 - **2.6.12** — **WorkBuddy 原账号调用恢复**：适配 5.6.2 宿主凭据通路，修复连续回复夹带旧消息及重连清理；不自动切换独立账号。macOS 已验收核心流程，**Windows 待实机验证，Issue #10 暂不关闭**。2.6.11 因 Linux 测试夹具路径问题未生成 Release；2.6.12 修复夹具后发布，未重写旧标签。
 

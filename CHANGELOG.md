@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.6.13 — 2026-10-07
+
+**WorkBuddy 冷启动与连接恢复**：修复 WorkBuddy 5.7.6 已登录、已运行却报 `sidecar v6 is not running` 的问题（[#10](https://github.com/jiang198012/workbuddian/issues/10)），继续使用原 WorkBuddy 账号。
+
+### 修复
+- 新增显式命令“安装 WorkBuddy 本地连接扩展”：确认后安装本插件的驻留组件，保存任务并正常重启 WorkBuddy 一次即可。组件仅调用固定的宿主初始化入口，不发送模型消息、不提取登录凭据、不授予会话或任意 RPC 权限。
+- 冷启动通过宿主初始化 sidecar，再校验真实 PID/socket 与所属用户；不要求先在 WorkBuddy 手动发送消息，不启动独立 CLI 或切换账号。
+- 补齐初始化超时、取消、同会话重复发送及旧 worker 清理屏障；宿主重启后下一条消息可恢复连接，不自动重发已经发出的请求。
+- 拒绝畸形初始化帧、错误认证及不可信路径，避免异常输入让连接服务退出。
+
+### 验证与限制
+- macOS / WorkBuddy 5.7.6 / Obsidian 1.13.7：demo-vault 真实冷启动、原会话在宿主重启后恢复、安装弹窗取消无改写均通过，见[验收报告](docs/issue-10-cold-start-diagnosis-2026-10-07.md)。
+- 发布前当前仓库 49 套、614 项自动化测试通过，`--detectOpenHandles` 未发现残留且进程自然退出（退出码 0）；生产构建通过。统计排除 `.claude/worktrees` 旧副本。补完 Hermes 取消测试的生成器消费以执行 finally，未改 Hermes 业务代码；发布状态以对应 CI 和 Release 为准。
+- **Windows 实机、长期运行与计费额度差值仍未验证，Issue #10 保持开放。** 此适配依赖 WorkBuddy 当前内部 SDK/IPC，未来宿主升级需复测；不承诺 100% 可用。
+
 ## 2.6.12 — 2026-09-29
 
 **WorkBuddy 原账号调用恢复**：适配 WorkBuddy 5.6.2 升级后的宿主凭据通路（[#10](https://github.com/jiang198012/workbuddian/issues/10)）。

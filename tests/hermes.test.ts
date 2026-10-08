@@ -44,6 +44,7 @@ describe('HermesHttpProvider (MVP)', () => {
         p.cancel();
         const r = await first;
         expect(r.value?.type).toBe('done'); // abort 后 yield done chunk 收尾
+        expect((await gen.next()).done).toBe(true); // 完成生成器，执行 finally 清除超时器
     });
 
     it('testConnection ok on 200', async () => {
