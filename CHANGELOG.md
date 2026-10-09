@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.6.14 — 2026-10-09
+
+**WorkBuddy 原账号零组件接入**：缺少本地连接扩展时，通过宿主原生 WBIPC 账号代理调用内置 CLI，不再要求安装连接组件、重启宿主或先在 WorkBuddy 发消息（[#10](https://github.com/jiang198012/workbuddian/issues/10)）。
+
+### 修复
+
+- 原账号凭据由宿主保管；插件不提取登录凭据，不要求新账号或独立 API key。已有可用 sidecar 继续使用原通路。
+- 桌面端未运行时，正常打开已识别的 WorkBuddy 安装并等待连接；不关闭或重启运行中的宿主，不中断原有任务。使用桌面端自带运行时，不要求另外安装 Node。
+- 新通路隔离 Vault worker 与会话存储，验证本地路径及双向认证；支持请求取消、超时、断线和自有子进程清理。插件不自动重放用户 prompt；明确的本地代理失败返回非重试错误。
+- 同时识别 `WorkBuddy` / `WorkBuddy AI` 与 `workbuddy-desktop` / `workbuddy-desktop-ai`，避免已知产品改名导致宿主通路被静默跳过。
+
+### 验证与限制
+
+- macOS / WorkBuddy 5.7.7 / Obsidian 1.13.7：demo-vault 无连接组件首次对话、宿主未运行时自动启动、原界面会话续聊、取消后下一条消息通过，见[验收报告](docs/issue-10-zero-setup-2026-10-09.md)。
+- 当前仓库 52 套、675 项自动化测试全部通过；`--detectOpenHandles` 无残留，测试进程自然退出（退出码 0），类型检查与生产构建通过。Windows 别名和包装器入口均先复现失败再修复。
+- 原生 `wb.request/http.fetch` 通路受当前宿主限制：单次请求约 50 秒，代理请求/响应约 640 KiB；模型输出完整返回后才交给 CLI，不提供逐 token 即时流式。已有 sidecar 通路不受此次缓冲适配影响。大附件、长输出及超大上下文应避免使用该原生通路。
+- Windows 产品标识修复有自动化覆盖，但**Windows 实机、长期运行、审批卡完整 GUI 和计费额度差值仍未验收**。CLI 自身的连接/Agent 恢复不等于插件重放，不能承诺所有底层请求绝对不重复。Issue #10 保持开放；内部协议随宿主升级仍需复测。
+
 ## 2.6.13 — 2026-10-07
 
 **WorkBuddy 冷启动与连接恢复**：修复 WorkBuddy 5.7.6 已登录、已运行却报 `sidecar v6 is not running` 的问题（[#10](https://github.com/jiang198012/workbuddian/issues/10)），继续使用原 WorkBuddy 账号。

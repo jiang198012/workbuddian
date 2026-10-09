@@ -644,11 +644,14 @@ async function warmupWorkbuddy(configDir, signal) {
       owned(metadata.endpoint, "socket");
   } catch (error) {
     if (["ENOENT", "ESRCH"].includes((_a = error.code) != null ? _a : "")) {
-      throw new Error("WorkBuddy \u672C\u5730\u4EFB\u52A1\u670D\u52A1\u5C1A\u672A\u521D\u59CB\u5316\u3002\u8BF7\u8FD0\u884C\u201C\u5B89\u88C5 WorkBuddy \u672C\u5730\u8FDE\u63A5\u6269\u5C55\u201D\u547D\u4EE4\u5E76\u6388\u6743\uFF0C\u5B89\u88C5\u540E\u91CD\u542F WorkBuddy\uFF1B\u4E5F\u53EF\u5148\u5728 WorkBuddy \u521D\u59CB\u5316\u4EFB\u52A1\u540E\u91CD\u8BD5\u3002\u65E0\u9700\u91CD\u65B0\u767B\u5F55\u3002");
+      throw Object.assign(
+        new Error("WorkBuddy \u672C\u5730\u4EFB\u52A1\u670D\u52A1\u5C1A\u672A\u521D\u59CB\u5316\u3002\u8BF7\u8FD0\u884C\u201C\u5B89\u88C5 WorkBuddy \u672C\u5730\u8FDE\u63A5\u6269\u5C55\u201D\u547D\u4EE4\u5E76\u6388\u6743\uFF0C\u5B89\u88C5\u540E\u91CD\u542F WorkBuddy\uFF1B\u4E5F\u53EF\u5148\u5728 WorkBuddy \u521D\u59CB\u5316\u4EFB\u52A1\u540E\u91CD\u8BD5\u3002\u65E0\u9700\u91CD\u65B0\u767B\u5F55\u3002"),
+        { code: "WORKBUDDY_CONNECTOR_UNAVAILABLE" }
+      );
     }
     throw new Error("WorkBuddy \u8FDE\u63A5\u6269\u5C55\u6821\u9A8C\u5931\u8D25\uFF0C\u672A\u6269\u5927\u6743\u9650\u6216\u5207\u6362\u8D26\u53F7");
   }
-  await new Promise((resolve, reject) => {
+  await new Promise((resolve2, reject) => {
     const socket = net.createConnection(metadata.endpoint);
     let buffer2 = "", settled = false;
     const finish = (error) => {
@@ -661,7 +664,7 @@ async function warmupWorkbuddy(configDir, signal) {
       if (error)
         reject(error);
       else
-        resolve();
+        resolve2();
     };
     const abort = () => finish(new Error("WorkBuddy \u521D\u59CB\u5316\u53D6\u6D88"));
     const timer = setTimeout(() => finish(new Error("WorkBuddy \u521D\u59CB\u5316\u8D85\u65F6\uFF0C\u672A\u91CD\u53D1\u4EFB\u4F55\u7528\u6237\u6D88\u606F\uFF0C\u8BF7\u68C0\u67E5\u5BBF\u4E3B\u540E\u91CD\u8BD5")), 95e3);
@@ -732,7 +735,7 @@ function clearLogs() {
 }
 
 // src/providers/acp/client.ts
-var import_child_process2 = require("child_process");
+var import_child_process3 = require("child_process");
 
 // src/utils/cliPath.ts
 var path2 = __toESM(require("path"));
@@ -889,7 +892,7 @@ function isWorkbuddyBundledCli(scriptPath) {
     return true;
   try {
     const product = JSON.parse(fs2.readFileSync(path2.join(path2.dirname(realPath), "..", "product.json"), "utf8"));
-    return (product == null ? void 0 : product.productName) === "WorkBuddy" || ((_a = product == null ? void 0 : product.authentication) == null ? void 0 : _a.id) === "workbuddy-desktop";
+    return ["WorkBuddy", "WorkBuddy AI"].includes(product == null ? void 0 : product.productName) || ["workbuddy-desktop", "workbuddy-desktop-ai"].includes((_a = product == null ? void 0 : product.authentication) == null ? void 0 : _a.id);
   } catch (e) {
     return false;
   }
@@ -1113,7 +1116,7 @@ var WorkbuddyHostConnection = class {
     this.onMessage(message);
   }
   request(method, pathname, body, subscription = false) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       let settled = false;
       let subscribed = false;
       const headers = {
@@ -1224,7 +1227,7 @@ var WorkbuddyHostConnection = class {
               result = parseJson(buffer2);
             }
             settled = true;
-            resolve(result);
+            resolve2(result);
           } catch (error) {
             fail(error);
           }
@@ -1232,7 +1235,7 @@ var WorkbuddyHostConnection = class {
         if (subscription) {
           subscribed = true;
           settled = true;
-          resolve(void 0);
+          resolve2(void 0);
         }
       });
       req.end(body);
@@ -1241,54 +1244,806 @@ var WorkbuddyHostConnection = class {
 };
 
 // src/providers/codebuddy/workbuddySidecar.ts
+var fs5 = __toESM(require("fs"));
+var net3 = __toESM(require("net"));
+var os3 = __toESM(require("os"));
+var path5 = __toESM(require("path"));
+var import_crypto4 = require("crypto");
+
+// src/providers/codebuddy/workbuddyNative.ts
+var fs4 = __toESM(require("fs"));
+var path4 = __toESM(require("path"));
+var import_http2 = require("http");
+var import_child_process2 = require("child_process");
+var import_crypto3 = require("crypto");
+
+// src/providers/codebuddy/workbuddyBroker.ts
 var fs3 = __toESM(require("fs"));
 var net2 = __toESM(require("net"));
 var os2 = __toESM(require("os"));
 var path3 = __toESM(require("path"));
 var import_crypto2 = require("crypto");
+var MAX_FRAME = 1024 * 1024;
+var failure = (code) => Object.assign(new Error(`WorkBuddy \u672C\u5730\u4EE3\u7406\u9519\u8BEF\uFF08${code}\uFF09`), { code });
+var remoteCodes = /* @__PURE__ */ new Set([
+  "E_TICKET_INVALID",
+  "E_REVOKED",
+  "E_ENDPOINT_UNTRUSTED",
+  "E_PROTOCOL_MISMATCH",
+  "E_PIPE_UNKNOWN",
+  "E_METHOD_UNKNOWN",
+  "E_METHOD_KIND_MISMATCH",
+  "E_NOT_DECLARED",
+  "E_CONSENT_REQUIRED",
+  "E_NOT_CONNECTED",
+  "E_POLICY_DENIED",
+  "E_UPSTREAM",
+  "E_BUSY",
+  "E_CHANNEL_UNKNOWN",
+  "E_BAD_REQUEST",
+  "E_CANCELLED",
+  "E_PAYLOAD_TOO_LARGE",
+  "E_TIMEOUT",
+  "E_INTERNAL"
+]);
 var hash = (value, length) => (0, import_crypto2.createHash)("sha1").update(value).digest("hex").slice(0, length);
+function owned2(target, kind, mode) {
+  const stat = fs3.lstatSync(target), unix = process.platform !== "win32";
+  if (stat.isSymbolicLink() || !(kind === "file" ? stat.isFile() : kind === "socket" ? stat.isSocket() : stat.isDirectory()) || unix && (process.getuid && stat.uid !== process.getuid() || mode !== void 0 && (stat.mode & 511) !== mode)) {
+    throw failure("E_ENDPOINT_UNTRUSTED");
+  }
+  return stat;
+}
 function runtimeDirectory(configDir) {
   var _a, _b;
-  const token = hash(configDir, 12);
+  const key = hash(configDir, 12), uid = (_a = process.getuid) == null ? void 0 : _a.call(process);
+  const writable = (dir) => {
+    try {
+      if (!fs3.statSync(dir).isDirectory())
+        return false;
+      fs3.accessSync(dir, fs3.constants.W_OK);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+  if (process.platform === "linux") {
+    const xdg = (_b = process.env.XDG_RUNTIME_DIR) == null ? void 0 : _b.trim();
+    if (xdg && writable(xdg))
+      return path3.join(xdg, "workbuddy", key);
+    if (uid !== void 0 && writable(`/run/user/${uid}`))
+      return path3.join(`/run/user/${uid}`, "workbuddy", key);
+  }
+  return path3.join(os2.tmpdir().trim(), uid === void 0 ? "wb" : `wb-${hash(String(uid), 6)}`, key);
+}
+function discover(configDir) {
+  var _a, _b;
+  let fd, raw, metadata;
+  try {
+    if (!path3.isAbsolute(configDir))
+      throw failure("E_ENDPOINT_UNTRUSTED");
+    owned2(configDir, "directory");
+    const dir = path3.join(configDir, "wbipc");
+    owned2(dir, "directory", 448);
+    const file = path3.join(dir, "endpoint.json"), before = owned2(file, "file", 384);
+    if (before.size < 1 || before.size > 4096)
+      throw failure("E_ENDPOINT_UNTRUSTED");
+    fd = fs3.openSync(file, fs3.constants.O_RDONLY | ((_a = fs3.constants.O_NOFOLLOW) != null ? _a : 0));
+    const after = fs3.fstatSync(fd);
+    if (!after.isFile() || after.ino !== before.ino || after.dev !== before.dev || after.size !== before.size || process.platform !== "win32" && (process.getuid && after.uid !== process.getuid() || (after.mode & 511) !== 384)) {
+      throw failure("E_ENDPOINT_UNTRUSTED");
+    }
+    raw = fs3.readFileSync(fd);
+    let parsed;
+    try {
+      parsed = JSON.parse(raw.toString("utf8"));
+    } catch (e) {
+      throw failure("E_ENDPOINT_UNTRUSTED");
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      throw failure("E_ENDPOINT_UNTRUSTED");
+    metadata = parsed;
+    const endpoint = metadata.endpoint, ticket = metadata.ticket;
+    if (typeof endpoint !== "string" || typeof ticket !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(ticket))
+      throw failure("E_ENDPOINT_UNTRUSTED");
+    if (process.platform === "win32") {
+      if (!/^\\\\\.\\pipe\\wbipc-[a-f0-9]+$/.test(endpoint))
+        throw failure("E_ENDPOINT_UNTRUSTED");
+    } else {
+      const runtime = runtimeDirectory(configDir), socketDir = path3.join(runtime, "wbipc");
+      owned2(runtime, "directory", 448);
+      owned2(socketDir, "directory", 448);
+      if (!path3.isAbsolute(endpoint) || !/^b-[a-f0-9]+\.sock$/.test(path3.basename(endpoint)) || fs3.realpathSync(path3.dirname(endpoint)) !== fs3.realpathSync(socketDir))
+        throw failure("E_ENDPOINT_UNTRUSTED");
+      owned2(endpoint, "socket", 384);
+    }
+    return { endpoint, ticket: Buffer.from(ticket) };
+  } catch (error) {
+    if (error.code === "E_ENDPOINT_UNTRUSTED")
+      throw error;
+    if (["ENOENT", "ESRCH"].includes((_b = error.code) != null ? _b : ""))
+      throw failure("E_DISCOVERY_MISSING");
+    throw failure("E_DISCOVERY_FAILED");
+  } finally {
+    if (fd !== void 0)
+      fs3.closeSync(fd);
+    raw == null ? void 0 : raw.fill(0);
+    if (metadata)
+      metadata.ticket = "";
+  }
+}
+function proof(ticket, side, endpoint, clientNonce, serverNonce) {
+  const chunks = [];
+  for (const value of [side === "server" ? "wbipc-s" : "wbipc-c", "1", endpoint, clientNonce, serverNonce]) {
+    const bytes = Buffer.from(value), length = Buffer.alloc(4);
+    length.writeUInt32BE(bytes.length);
+    chunks.push(length, bytes);
+  }
+  return (0, import_crypto2.createHmac)("sha256", ticket).update(Buffer.concat(chunks)).digest("base64url");
+}
+var BrokerConnection = class {
+  constructor(endpoint, onDisconnect) {
+    this.onDisconnect = onDisconnect;
+    this.pending = /* @__PURE__ */ new Map();
+    this.handshakeFrames = [];
+    this.buffer = Buffer.alloc(0);
+    this.rpcReady = false;
+    this.available = false;
+    this.maxInflight = 8;
+    this.id = 0;
+    this.socket = net2.createConnection(endpoint);
+    this.socket.on("error", (error) => {
+      var _a;
+      return this.close(failure(!this.available && ["ECONNREFUSED", "ENOENT"].includes((_a = error.code) != null ? _a : "") ? "E_SOCKET_UNAVAILABLE" : "E_DISCONNECTED"));
+    });
+    this.socket.on("close", () => this.close(failure("E_DISCONNECTED")));
+    this.socket.on("data", (chunk) => {
+      try {
+        let start = 0;
+        while (!this.closed && start < chunk.length) {
+          const end = chunk.indexOf(10, start), part = chunk.subarray(start, end < 0 ? chunk.length : end);
+          if (this.buffer.length + part.length > MAX_FRAME)
+            throw failure("E_PAYLOAD_TOO_LARGE");
+          this.buffer = Buffer.concat([this.buffer, part]);
+          if (end < 0)
+            break;
+          const line = this.buffer;
+          this.buffer = Buffer.alloc(0);
+          if (line.length)
+            this.receive(JSON.parse(line.toString("utf8")));
+          start = end + 1;
+        }
+      } catch (error) {
+        this.close(failure(error.code === "E_PAYLOAD_TOO_LARGE" ? "E_PAYLOAD_TOO_LARGE" : "E_PROTOCOL_ERROR"));
+      }
+    });
+  }
+  settle(id, error, result) {
+    var _a;
+    const entry = this.pending.get(id);
+    if (!entry)
+      return;
+    this.pending.delete(id);
+    clearTimeout(entry.timer);
+    (_a = entry.signal) == null ? void 0 : _a.removeEventListener("abort", entry.abort);
+    if (error)
+      entry.reject(error);
+    else
+      entry.resolve(result);
+  }
+  close(error, notify = true) {
+    var _a, _b;
+    if (this.closed)
+      return;
+    this.closed = error;
+    (_a = this.waiter) == null ? void 0 : _a.reject(error);
+    this.waiter = void 0;
+    for (const id of this.pending.keys())
+      this.settle(id, error);
+    this.handshakeFrames.length = 0;
+    this.buffer.fill(0);
+    this.buffer = Buffer.alloc(0);
+    this.socket.destroy();
+    if (notify && this.available) {
+      try {
+        (_b = this.onDisconnect) == null ? void 0 : _b.call(this, error);
+      } catch (e) {
+      }
+    }
+  }
+  dispose() {
+    this.close(failure("E_CLOSED"), false);
+  }
+  send(frame) {
+    if (this.closed)
+      throw this.closed;
+    const text = JSON.stringify(frame);
+    if (Buffer.byteLength(text) > MAX_FRAME)
+      throw failure("E_PAYLOAD_TOO_LARGE");
+    this.socket.write(text + "\n");
+  }
+  receive(frame) {
+    if (!frame || typeof frame !== "object" || Array.isArray(frame))
+      throw failure("E_PROTOCOL_ERROR");
+    if (frame.type === "pipe_revoked") {
+      this.close(failure("E_REVOKED"));
+      return;
+    }
+    if (!this.rpcReady) {
+      if (frame.type === "session_hello_error")
+        throw failure("E_PROTOCOL_ERROR");
+      if (this.waiter) {
+        this.waiter.resolve(frame);
+        this.waiter = void 0;
+      } else {
+        if (this.handshakeFrames.length >= 4)
+          throw failure("E_PROTOCOL_ERROR");
+        this.handshakeFrames.push(frame);
+      }
+      return;
+    }
+    if (frame.jsonrpc !== "2.0" || !Number.isSafeInteger(frame.id))
+      throw failure("E_PROTOCOL_ERROR");
+    const id = frame.id;
+    if (!this.pending.has(id))
+      return;
+    if (frame.error) {
+      const code = frame.error.code;
+      this.settle(id, failure(typeof code === "string" && remoteCodes.has(code) ? code : "E_REMOTE_ERROR"));
+    } else if (Object.prototype.hasOwnProperty.call(frame, "result"))
+      this.settle(id, void 0, frame.result);
+    else
+      throw failure("E_PROTOCOL_ERROR");
+  }
+  nextHandshake() {
+    if (this.closed)
+      return Promise.reject(this.closed);
+    if (this.handshakeFrames.length)
+      return Promise.resolve(this.handshakeFrames.shift());
+    return new Promise((resolve2, reject) => {
+      this.waiter = { resolve: resolve2, reject };
+    });
+  }
+  rpc(method, params, mode, signal) {
+    if (this.closed)
+      return Promise.reject(this.closed);
+    if (signal == null ? void 0 : signal.aborted)
+      return Promise.reject(failure("E_CANCELLED"));
+    if (this.pending.size >= this.maxInflight)
+      return Promise.reject(failure("E_BUSY"));
+    const id = ++this.id;
+    return new Promise((resolve2, reject) => {
+      const cancel = (code) => {
+        const entry2 = this.pending.get(id);
+        if (!entry2)
+          return;
+        if (entry2.sent) {
+          try {
+            this.send({ jsonrpc: "2.0", method: "$/cancel", params: { id } });
+          } catch (e) {
+            this.close(failure("E_DISCONNECTED"));
+            return;
+          }
+        }
+        this.settle(id, failure(code));
+      };
+      const entry = {
+        resolve: resolve2,
+        reject,
+        signal,
+        sent: false,
+        abort: () => cancel("E_CANCELLED"),
+        timer: setTimeout(() => cancel("E_TIMEOUT"), 55e3)
+      };
+      this.pending.set(id, entry);
+      signal == null ? void 0 : signal.addEventListener("abort", entry.abort, { once: true });
+      if (signal == null ? void 0 : signal.aborted) {
+        entry.abort();
+        return;
+      }
+      try {
+        this.send({ jsonrpc: "2.0", id, method, params, ...mode ? { mode } : {} });
+        entry.sent = true;
+      } catch (error) {
+        this.settle(id, failure(error.code === "E_PAYLOAD_TOO_LARGE" ? "E_PAYLOAD_TOO_LARGE" : "E_INVALID_PARAMS"));
+      }
+    });
+  }
+  async initialize(endpoint, ticket, signal) {
+    const abort = () => this.close(failure("E_CANCELLED"), false);
+    const deadline = setTimeout(() => this.close(failure("E_HANDSHAKE_TIMEOUT"), false), 5e3);
+    signal == null ? void 0 : signal.addEventListener("abort", abort, { once: true });
+    try {
+      if (signal == null ? void 0 : signal.aborted) {
+        abort();
+        throw failure("E_CANCELLED");
+      }
+      const clientNonce = (0, import_crypto2.randomBytes)(16).toString("base64url");
+      this.send({
+        type: "session_hello",
+        protocol_min: 1,
+        protocol_max: 1,
+        client_nonce: clientNonce,
+        ticket_id: (0, import_crypto2.createHash)("sha256").update(ticket).digest("hex").slice(0, 16),
+        client: { kind: "workbuddian", id: "workbuddian", version: "1" }
+      });
+      const challenge = await this.nextHandshake();
+      if (challenge.type !== "session_challenge" || challenge.protocol !== 1 || typeof challenge.server_nonce !== "string" || !/^[A-Za-z0-9_-]{22}$/.test(challenge.server_nonce) || typeof challenge.server_proof !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(challenge.server_proof))
+        throw failure("E_PROTOCOL_ERROR");
+      const expected = Buffer.from(proof(ticket, "server", endpoint, clientNonce, challenge.server_nonce)), actual = Buffer.from(challenge.server_proof);
+      const verified = expected.length === actual.length && (0, import_crypto2.timingSafeEqual)(expected, actual);
+      expected.fill(0);
+      actual.fill(0);
+      challenge.server_proof = "";
+      if (!verified)
+        throw failure("E_SERVER_PROOF_INVALID");
+      this.send({ type: "session_prove", client_proof: proof(ticket, "client", endpoint, clientNonce, challenge.server_nonce) });
+      const ack = await this.nextHandshake();
+      ticket.fill(0);
+      if (ack.type !== "session_hello_ack" || ack.protocol !== 1 || !Array.isArray(ack.pipes) || !ack.pipes.includes("wb.request"))
+        throw failure("E_REQUEST_PIPE_UNAVAILABLE");
+      if (this.handshakeFrames.length || !Number.isSafeInteger(ack.max_inflight) || ack.max_inflight < 1)
+        throw failure("E_PROTOCOL_ERROR");
+      this.maxInflight = Math.min(8, ack.max_inflight);
+      this.rpcReady = true;
+      const pipe = await this.rpc("broker/GetPipe", { pipe: "wb.request" });
+      if ((pipe == null ? void 0 : pipe.channel) !== "c:wb.request" || !Array.isArray(pipe.methods) || !pipe.methods.includes("http.fetch"))
+        throw failure("E_REQUEST_PIPE_UNAVAILABLE");
+      if (this.closed)
+        throw this.closed;
+      this.available = true;
+    } finally {
+      clearTimeout(deadline);
+      signal == null ? void 0 : signal.removeEventListener("abort", abort);
+    }
+  }
+  async requestFetch(params, signal) {
+    if (!params || typeof params !== "object" || Array.isArray(params))
+      throw failure("E_INVALID_PARAMS");
+    const result = await this.rpc("c:wb.request/http.fetch", params, "call", signal);
+    if (!result || !Number.isInteger(result.status) || result.status < 100 || result.status > 599 || !result.headers || typeof result.headers !== "object" || Array.isArray(result.headers) || Object.values(result.headers).some((value) => typeof value !== "string") || typeof result.body_b64 !== "string" || result.body_b64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(result.body_b64)) {
+      this.close(failure("E_PROTOCOL_ERROR"));
+      throw failure("E_PROTOCOL_ERROR");
+    }
+    return { status: result.status, headers: { ...result.headers }, body_b64: result.body_b64 };
+  }
+};
+async function connectWorkbuddyBroker(configDir, signal, onDisconnect) {
+  if (signal == null ? void 0 : signal.aborted)
+    throw failure("E_CANCELLED");
+  const { endpoint, ticket } = discover(configDir);
+  let connection;
+  try {
+    connection = new BrokerConnection(endpoint, onDisconnect);
+    await connection.initialize(endpoint, ticket, signal);
+    const ready = connection;
+    return { requestFetch: (params, requestSignal) => ready.requestFetch(params, requestSignal), dispose: () => ready.dispose() };
+  } catch (error) {
+    connection == null ? void 0 : connection.dispose();
+    const code = error.code;
+    throw failure(remoteCodes.has(code) || [
+      "E_SOCKET_UNAVAILABLE",
+      "E_DISCONNECTED",
+      "E_SERVER_PROOF_INVALID",
+      "E_REQUEST_PIPE_UNAVAILABLE",
+      "E_PROTOCOL_ERROR",
+      "E_HANDSHAKE_TIMEOUT",
+      "E_INVALID_PARAMS"
+    ].includes(code) ? code : "E_CONNECT_FAILED");
+  } finally {
+    ticket.fill(0);
+  }
+}
+
+// src/providers/codebuddy/workbuddyNative.ts
+var cancelled = () => new Error("WorkBuddy worker creation cancelled");
+function workbuddyNativeArgs(scriptPath, args, bundledScript) {
+  return bundledScript ? [bundledScript, ...args.slice(args[0] === scriptPath ? 1 : 0)] : args;
+}
+function ownedDirectory(dir, create = false) {
+  if (create && !fs4.existsSync(dir))
+    fs4.mkdirSync(dir, { mode: 448 });
+  const stat = fs4.lstatSync(dir);
+  if (!stat.isDirectory() || stat.isSymbolicLink() || process.getuid && stat.uid !== process.getuid() || process.platform !== "win32" && stat.mode & 63)
+    throw new Error("WorkBuddy \u672C\u63D2\u4EF6\u8FD0\u884C\u76EE\u5F55\u4E0D\u53EF\u4FE1");
+}
+function installedRuntime(scriptPath) {
+  const cli = path4.resolve(path4.dirname(scriptPath), "..");
+  const script = path4.join(cli, "bin", "codebuddy");
+  try {
+    if (!fs4.statSync(script).isFile())
+      return null;
+  } catch (e) {
+    return null;
+  }
+  if (process.platform === "darwin") {
+    const contents = path4.resolve(cli, "../../..");
+    if (path4.basename(contents) !== "Contents" || !path4.basename(path4.dirname(contents)).endsWith(".app"))
+      return null;
+    const command = path4.join(contents, "MacOS", "Electron");
+    try {
+      if (fs4.statSync(command).isFile())
+        return { command, app: path4.dirname(contents), script };
+    } catch (e) {
+    }
+  } else if (process.platform === "win32") {
+    for (const exe of ["WorkBuddy.exe", "WorkBuddyAI.exe"]) {
+      const command = path4.resolve(cli, "../../..", exe);
+      try {
+        if (fs4.statSync(command).isFile())
+          return { command, app: command, script };
+      } catch (e) {
+      }
+    }
+  }
+  return null;
+}
+async function openInstalledHost(runtime, signal) {
+  if (signal == null ? void 0 : signal.aborted)
+    throw cancelled();
+  const env2 = { ...process.env };
+  delete env2.ELECTRON_RUN_AS_NODE;
+  const proc = process.platform === "darwin" ? (0, import_child_process2.spawn)("/usr/bin/open", ["-g", runtime.app], { env: env2, stdio: "ignore" }) : (0, import_child_process2.spawn)(runtime.app, [], { env: env2, detached: true, stdio: "ignore" });
+  await new Promise((resolve2, reject) => {
+    proc.once("error", () => reject(new Error("\u65E0\u6CD5\u542F\u52A8\u5DF2\u5B89\u88C5\u7684 WorkBuddy\uFF0C\u8BF7\u6B63\u5E38\u6253\u5F00\u540E\u91CD\u8BD5")));
+    proc.once("spawn", () => {
+      proc.unref();
+      resolve2();
+    });
+  });
+}
+async function accountBroker(configDir, runtime, signal, disconnected) {
+  var _a, _b;
+  try {
+    return await connectWorkbuddyBroker(configDir, signal, disconnected);
+  } catch (error) {
+    if (signal == null ? void 0 : signal.aborted)
+      throw cancelled();
+    if (!runtime || !["E_DISCOVERY_MISSING", "E_SOCKET_UNAVAILABLE"].includes((_a = error.code) != null ? _a : ""))
+      throw error;
+  }
+  await openInstalledHost(runtime, signal);
+  const deadline = Date.now() + 3e4;
+  while (true) {
+    if (signal == null ? void 0 : signal.aborted)
+      throw cancelled();
+    try {
+      return await connectWorkbuddyBroker(configDir, signal, disconnected);
+    } catch (error) {
+      if (!["E_DISCOVERY_MISSING", "E_SOCKET_UNAVAILABLE"].includes((_b = error.code) != null ? _b : ""))
+        throw error;
+      if (Date.now() >= deadline)
+        throw new Error("WorkBuddy \u672C\u5730\u8D26\u53F7\u4EE3\u7406\u672A\u5C31\u7EEA\uFF0C\u8BF7\u786E\u8BA4\u5DF2\u6B63\u5E38\u542F\u52A8\u5E76\u767B\u5F55\uFF1B\u672A\u91CD\u53D1\u4EFB\u4F55\u6D88\u606F");
+    }
+    await new Promise((resolve2, reject) => {
+      const abort = () => {
+        clearTimeout(timer);
+        reject(cancelled());
+      };
+      const timer = setTimeout(() => {
+        signal == null ? void 0 : signal.removeEventListener("abort", abort);
+        resolve2();
+      }, 200);
+      signal == null ? void 0 : signal.addEventListener("abort", abort, { once: true });
+      if (signal == null ? void 0 : signal.aborted)
+        abort();
+    });
+  }
+}
+async function startWorkbuddyNative(configDir, scriptPath, cwd, command, args, signal) {
+  if (signal == null ? void 0 : signal.aborted)
+    throw cancelled();
+  let proc;
+  let broker;
+  let exit;
+  let exited = false;
+  let connectionError;
+  let rejectEndpoint;
+  let disposing;
+  const sockets = /* @__PURE__ */ new Set();
+  const active = /* @__PURE__ */ new Set();
+  const nonce = (0, import_crypto3.randomBytes)(32).toString("hex");
+  const nonceBytes = Buffer.from(`Bearer ${nonce}`);
+  const server = (0, import_http2.createServer)(async (req, res) => {
+    var _a, _b, _c;
+    const controller = new AbortController();
+    active.add(controller);
+    const abort2 = () => {
+      if (!res.writableEnded)
+        controller.abort();
+    };
+    res.on("close", abort2);
+    try {
+      const auth = Buffer.from(typeof req.headers.authorization === "string" ? req.headers.authorization : "");
+      if (req.headers.origin || auth.length !== nonceBytes.length || !(0, import_crypto3.timingSafeEqual)(auth, nonceBytes)) {
+        res.writeHead(401);
+        res.end();
+        return;
+      }
+      if (!["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"].includes((_a = req.method) != null ? _a : "") || !((_b = req.url) == null ? void 0 : _b.startsWith("/")) || req.url.startsWith("//") || /[\\\s#]/.test(req.url)) {
+        res.writeHead(400);
+        res.end();
+        return;
+      }
+      const url = new URL(req.url, "http://127.0.0.1");
+      if (!/^\/[A-Za-z0-9_./-]*$/.test(url.pathname) || /(?:^|\/)\.\.(?:\/|$)/.test(req.url.split("?")[0])) {
+        res.writeHead(400);
+        res.end();
+        return;
+      }
+      const chunks = [];
+      let size = 0;
+      for await (const chunk of req) {
+        size += chunk.length;
+        if (size > 655360) {
+          res.writeHead(413);
+          res.end("WorkBuddy \u672C\u5730\u8D26\u53F7\u4EE3\u7406\u8BF7\u6C42\u8FC7\u5927\uFF0C\u8BF7\u51CF\u5C11\u672C\u8F6E\u4E0A\u4E0B\u6587");
+          return;
+        }
+        chunks.push(chunk);
+      }
+      if (controller.signal.aborted)
+        return;
+      const headers = {};
+      for (const key of ["content-type", "accept"])
+        if (typeof req.headers[key] === "string")
+          headers[key] = req.headers[key];
+      const result = await broker.requestFetch({
+        method: req.method,
+        path: url.pathname,
+        headers,
+        query: Object.fromEntries(url.searchParams),
+        ...size ? { body_b64: Buffer.concat(chunks).toString("base64") } : {}
+      }, controller.signal);
+      if (controller.signal.aborted)
+        return;
+      if (!Number.isInteger(result == null ? void 0 : result.status) || result.status < 200 || result.status > 599 || typeof result.body_b64 !== "string" || !/^[A-Za-z0-9+/]*={0,2}$/.test(result.body_b64))
+        throw new Error("Invalid broker response");
+      const body = Buffer.from(result.body_b64, "base64");
+      if (body.length > 655360 || result.status >= 300 && result.status < 400)
+        throw new Error("Invalid broker response");
+      const responseHeaders = {};
+      for (const key of ["content-type", "etag", "last-modified", "retry-after", "x-request-id"]) {
+        const value = (_c = result.headers) == null ? void 0 : _c[key];
+        if (typeof value === "string" && !/[\r\n]/.test(value))
+          responseHeaders[key] = value;
+      }
+      res.writeHead(result.status, responseHeaders);
+      res.end(body);
+    } catch (e) {
+      if (!res.headersSent)
+        res.writeHead(422, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: {
+        type: "workbuddy_local_transport",
+        code: "WORKBUDDY_LOCAL_REQUEST_FAILED",
+        message: "WorkBuddy \u672C\u5730\u8D26\u53F7\u4EE3\u7406\u8BF7\u6C42\u5931\u8D25\u6216\u8D85\u8FC7\u5BBF\u4E3B\u9650\u5236\uFF0C\u8BF7\u68C0\u67E5\u5BBF\u4E3B\u540E\u624B\u52A8\u91CD\u8BD5"
+      } }));
+    } finally {
+      active.delete(controller);
+      res.removeListener("close", abort2);
+    }
+  });
+  server.requestTimeout = 6e4;
+  server.headersTimeout = 1e4;
+  server.maxConnections = 16;
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+  });
+  const dispose = () => {
+    if (disposing)
+      return disposing;
+    disposing = (async () => {
+      for (const controller of active)
+        controller.abort();
+      broker == null ? void 0 : broker.dispose();
+      for (const socket of sockets)
+        socket.destroy();
+      if (server.listening)
+        await new Promise((resolve2) => server.close(() => resolve2()));
+      if (proc && !exited) {
+        proc.kill("SIGTERM");
+        const wait = (ms) => new Promise((resolve2) => {
+          const timer = setTimeout(() => resolve2(false), ms);
+          exit.then(() => {
+            clearTimeout(timer);
+            resolve2(true);
+          });
+        });
+        if (!await wait(5e3)) {
+          proc.kill("SIGKILL");
+          if (!await wait(5e3))
+            throw new Error("WorkBuddy own worker cleanup could not be confirmed");
+        }
+      }
+      nonceBytes.fill(0);
+    })();
+    void disposing.catch(() => {
+      disposing = void 0;
+    });
+    return disposing;
+  };
+  const abort = () => {
+    rejectEndpoint == null ? void 0 : rejectEndpoint(cancelled());
+    if (proc && !exited)
+      proc.kill("SIGTERM");
+  };
+  signal == null ? void 0 : signal.addEventListener("abort", abort, { once: true });
+  try {
+    const runtime = installedRuntime(scriptPath);
+    broker = await accountBroker(configDir, runtime, signal, (error) => {
+      connectionError = error;
+      rejectEndpoint == null ? void 0 : rejectEndpoint(error);
+      if (proc && !exited)
+        proc.kill("SIGTERM");
+    });
+    if (signal == null ? void 0 : signal.aborted)
+      throw cancelled();
+    if (connectionError)
+      throw connectionError;
+    const cache = path4.join(configDir, "workbuddian");
+    ownedDirectory(cache, true);
+    const workerDir = path4.join(cache, (0, import_crypto3.createHash)("sha256").update(fs4.realpathSync(cwd)).digest("hex"));
+    ownedDirectory(workerDir, true);
+    await new Promise((resolve2, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve2);
+    });
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    const env2 = { ...process.env };
+    for (const key of Object.keys(env2))
+      if (/^(?:CODEBUDDY_|WORKBUDDY_|ACC_PRODUCT_CONFIG|ACC_USER_|ANTHROPIC_|OPENAI_)/.test(key))
+        delete env2[key];
+    Object.assign(env2, {
+      ELECTRON_RUN_AS_NODE: "1",
+      CODEBUDDY_FORCE_HEADLESS_BUNDLE: "1",
+      CODEBUDDY_CONFIG_DIR: workerDir,
+      WORKBUDDY_CONFIG_DIR: workerDir,
+      CODEBUDDY_AUTH_TOKEN: nonce,
+      CODEBUDDY_BASE_URL: `${origin}/v2`,
+      CODEBUDDY_INTERNET_ENVIRONMENT: "external",
+      CODEBUDDY_CREDENTIALS_IN_MEMORY: "1",
+      CODEBUDDY_DISABLE_LOCAL_STORAGE: "1",
+      CODEBUDDY_DISABLE_PRODUCT_CACHE: "1",
+      CODEBUDDY_DISABLE_CUSTOM_MODELS_FILE: "1",
+      CODEBUDDY_API_KEY_DISABLED: "1",
+      CODEBUDDY_API_KEY_HELPER_DISABLED: "1",
+      CODEBUDDY_MAX_RETRIES: "0",
+      CODEBUDDY_RETRY_WATCHDOG: "0",
+      CODEBUDDY_GATEWAY_AUTH: "password",
+      CODEBUDDY_GATEWAY_PASSWORD: (0, import_crypto3.randomBytes)(32).toString("hex"),
+      CODEBUDDY_GATEWAY_DISABLE_API_DOCS: "1",
+      SERVER__PORT: "0",
+      SERVER__HOST: "127.0.0.1",
+      DISABLE_AUTOUPDATER: "1",
+      DISABLE_TELEMETRY: "1",
+      ACC_PRODUCT_CONFIG_V3: JSON.stringify({
+        endpoint: origin,
+        networkEnvironment: "external",
+        authentication: { type: "custom-token", attributes: { tokenType: "bearerToken", token: nonce } }
+      })
+    });
+    env2.CODEBUDDY_SESSION_SKILL_DIRS = [path4.join(configDir, "skills"), path4.join(configDir, "connectors", "skills")].filter((dir) => {
+      try {
+        return fs4.lstatSync(dir).isDirectory();
+      } catch (e) {
+        return false;
+      }
+    }).join(path4.delimiter);
+    if (signal == null ? void 0 : signal.aborted)
+      throw cancelled();
+    if (connectionError)
+      throw connectionError;
+    const endpoint = new Promise((resolve2, reject) => {
+      var _a;
+      rejectEndpoint = reject;
+      const timer = setTimeout(() => reject(new Error("WorkBuddy \u5185\u7F6E CLI \u542F\u52A8\u8D85\u65F6\uFF1B\u672A\u53D1\u9001\u7528\u6237\u6D88\u606F")), 3e4);
+      let buffer2 = "", announced = false;
+      const workerArgs = workbuddyNativeArgs(scriptPath, args, runtime == null ? void 0 : runtime.script);
+      proc = (0, import_child_process2.spawn)(
+        (_a = runtime == null ? void 0 : runtime.command) != null ? _a : command,
+        [...workerArgs, "--port", "0", "--host", "127.0.0.1", "--setting-sources", "none"],
+        { cwd, env: env2, shell: false, stdio: ["ignore", "pipe", "pipe"] }
+      );
+      exit = new Promise((done) => proc.once("close", () => {
+        exited = true;
+        done();
+      }));
+      proc.once("error", () => reject(new Error("WorkBuddy \u5185\u7F6E CLI \u65E0\u6CD5\u542F\u52A8\uFF0C\u8BF7\u68C0\u67E5\u5B89\u88C5\u5B8C\u6574\u6027")));
+      proc.once("close", () => reject(new Error("WorkBuddy \u5185\u7F6E CLI \u5728\u5C31\u7EEA\u524D\u9000\u51FA")));
+      proc.stdout.on("data", (chunk) => {
+        if (announced)
+          return;
+        buffer2 += chunk.toString("utf8");
+        if (buffer2.length > 65536) {
+          reject(new Error("WorkBuddy \u542F\u52A8\u516C\u544A\u8FC7\u5927"));
+          return;
+        }
+        let newline;
+        while ((newline = buffer2.indexOf("\n")) >= 0) {
+          const line = buffer2.slice(0, newline).replace(/\x1b\[[0-9;]*m/g, "");
+          buffer2 = buffer2.slice(newline + 1);
+          const match = /^\s*Endpoint\s+(http:\/\/127\.0\.0\.1:(\d+))\/?\s*$/.exec(line);
+          if (match && Number(match[2]) > 0 && Number(match[2]) <= 65535) {
+            announced = true;
+            buffer2 = "";
+            clearTimeout(timer);
+            resolve2(match[1]);
+            return;
+          }
+        }
+      });
+      proc.stderr.on("data", () => {
+      });
+      const clear = () => clearTimeout(timer);
+      proc.once("close", clear);
+      proc.once("error", clear);
+      signal == null ? void 0 : signal.addEventListener("abort", clear, { once: true });
+      void exit.then(() => signal == null ? void 0 : signal.removeEventListener("abort", clear));
+    });
+    const result = await endpoint;
+    if (signal == null ? void 0 : signal.aborted)
+      throw cancelled();
+    if (connectionError)
+      throw connectionError;
+    return { endpoint: result, dispose };
+  } catch (error) {
+    try {
+      await dispose();
+    } catch (e) {
+      throw Object.assign(new Error("WorkBuddy own worker cleanup could not be confirmed"), { workbuddyCleanup: dispose });
+    }
+    throw error;
+  } finally {
+    rejectEndpoint = void 0;
+    signal == null ? void 0 : signal.removeEventListener("abort", abort);
+  }
+}
+
+// src/providers/codebuddy/workbuddySidecar.ts
+var hash2 = (value, length) => (0, import_crypto4.createHash)("sha1").update(value).digest("hex").slice(0, length);
+function runtimeDirectory2(configDir) {
+  var _a, _b;
+  const token = hash2(configDir, 12);
   const uid = (_a = process.getuid) == null ? void 0 : _a.call(process);
   if (process.platform === "linux") {
     for (const dir of [(_b = process.env.XDG_RUNTIME_DIR) == null ? void 0 : _b.trim(), uid === void 0 ? void 0 : `/run/user/${uid}`]) {
       if (!dir)
         continue;
       try {
-        if (!fs3.statSync(dir).isDirectory())
+        if (!fs5.statSync(dir).isDirectory())
           continue;
-        fs3.accessSync(dir, fs3.constants.W_OK);
-        return path3.join(dir, "workbuddy", token);
+        fs5.accessSync(dir, fs5.constants.W_OK);
+        return path5.join(dir, "workbuddy", token);
       } catch (e) {
       }
     }
   }
-  return path3.join(os2.tmpdir().trim(), uid === void 0 ? "wb" : `wb-${hash(String(uid), 6)}`, token);
+  return path5.join(os3.tmpdir().trim(), uid === void 0 ? "wb" : `wb-${hash2(String(uid), 6)}`, token);
 }
 function requireOwned(file, kind) {
-  const stat = fs3.lstatSync(file);
+  const stat = fs5.lstatSync(file);
   const correctType = kind === "directory" ? stat.isDirectory() : kind === "file" ? stat.isFile() : stat.isSocket();
   if (!correctType || process.getuid && stat.uid !== process.getuid())
     throw new Error("Untrusted WorkBuddy runtime");
   return stat;
 }
 async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
-  var _a;
+  var _a, _b;
   let productPath;
   let product;
   try {
-    productPath = path3.join(path3.dirname(fs3.realpathSync(scriptPath)), "..", "product.json");
-    product = JSON.parse(fs3.readFileSync(productPath, "utf8"));
+    productPath = path5.join(path5.dirname(fs5.realpathSync(scriptPath)), "..", "product.json");
+    product = JSON.parse(fs5.readFileSync(productPath, "utf8"));
   } catch (e) {
     return null;
   }
-  if ((product == null ? void 0 : product.productName) !== "WorkBuddy")
+  if (!["WorkBuddy", "WorkBuddy AI"].includes(product == null ? void 0 : product.productName) && !["workbuddy-desktop", "workbuddy-desktop-ai"].includes((_a = product == null ? void 0 : product.authentication) == null ? void 0 : _a.id))
     return null;
   const bootstrapMarker = Buffer.from("CODEBUDDY_SIDECAR_CREDENTIAL_BOOTSTRAP_SOCKET");
   const requiresHost = ["codebuddy-lite-wb.mjs", "codebuddy-headless.js"].some((bundle) => {
     try {
-      return fs3.readFileSync(path3.join(path3.dirname(productPath), "dist", bundle)).includes(bootstrapMarker);
+      return fs5.readFileSync(path5.join(path5.dirname(productPath), "dist", bundle)).includes(bootstrapMarker);
     } catch (e) {
       return false;
     }
@@ -1296,7 +2051,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
   if (!requiresHost)
     return null;
   try {
-    if (!path3.isAbsolute(cwd) || !fs3.statSync(cwd).isDirectory())
+    if (!path5.isAbsolute(cwd) || !fs5.statSync(cwd).isDirectory())
       throw new Error();
   } catch (e) {
     throw new Error("WorkBuddy worker requires an existing absolute cwd directory");
@@ -1305,12 +2060,12 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
     throw new Error("WorkBuddy worker creation cancelled");
   const dataFolder = product.dataFolderName || ".workbuddy";
   const configDir = workbuddyConfigDirectory(dataFolder);
-  const runtimeDir = runtimeDirectory(configDir);
-  const pidFile = path3.join(runtimeDir, "sidecar.pid");
+  const runtimeDir = runtimeDirectory2(configDir);
+  const pidFile = path5.join(runtimeDir, "sidecar.pid");
   const readIdentity = () => {
     requireOwned(runtimeDir, "directory");
     requireOwned(pidFile, "file");
-    const { pid: pid2, version, controlPipeUuid } = JSON.parse(fs3.readFileSync(pidFile, "utf8"));
+    const { pid: pid2, version, controlPipeUuid } = JSON.parse(fs5.readFileSync(pidFile, "utf8"));
     if (!Number.isSafeInteger(pid2) || pid2 <= 0 || version !== 6 || !/^[a-f0-9]{8}$/.test(controlPipeUuid != null ? controlPipeUuid : ""))
       throw new Error();
     return { pid: pid2, controlPipeUuid };
@@ -1318,7 +2073,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
   const locate = () => {
     const identity2 = readIdentity();
     process.kill(identity2.pid, 0);
-    const socketPath2 = process.platform === "win32" ? `\\\\.\\pipe\\workbuddy-${hash(configDir, 12)}-sidecar-control-${identity2.controlPipeUuid}` : path3.join(runtimeDir, `sidecar-${identity2.controlPipeUuid}.sock`);
+    const socketPath2 = process.platform === "win32" ? `\\\\.\\pipe\\workbuddy-${hash2(configDir, 12)}-sidecar-control-${identity2.controlPipeUuid}` : path5.join(runtimeDir, `sidecar-${identity2.controlPipeUuid}.sock`);
     const socketIdentity2 = process.platform !== "win32" ? requireOwned(socketPath2, "socket") : void 0;
     return { identity: identity2, socketPath: socketPath2, socketIdentity: socketIdentity2 };
   };
@@ -1326,10 +2081,16 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
   try {
     located = locate();
   } catch (error) {
-    if (!["ENOENT", "ESRCH"].includes((_a = error.code) != null ? _a : "")) {
+    if (!["ENOENT", "ESRCH"].includes((_b = error.code) != null ? _b : "")) {
       throw new Error("WorkBuddy \u672C\u5730\u4EFB\u52A1\u670D\u52A1\u6821\u9A8C\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u8FD0\u884C\u76EE\u5F55\u6743\u9650\u548C sidecar \u534F\u8BAE\u517C\u5BB9\u6027\uFF1B\u8FD9\u4E0D\u4EE3\u8868\u4F60\u672A\u767B\u5F55\u3002");
     }
-    await warmupWorkbuddy(configDir, signal);
+    try {
+      await warmupWorkbuddy(configDir, signal);
+    } catch (error2) {
+      if (error2.code !== "WORKBUDDY_CONNECTOR_UNAVAILABLE")
+        throw error2;
+      return startWorkbuddyNative(configDir, scriptPath, cwd, command, args, signal);
+    }
     if (signal == null ? void 0 : signal.aborted)
       throw new Error("WorkBuddy worker creation cancelled");
     try {
@@ -1339,7 +2100,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
     }
   }
   const { identity, socketPath, socketIdentity } = located;
-  const ownedId = `workbuddian-${(0, import_crypto2.randomUUID)()}`;
+  const ownedId = `workbuddian-${(0, import_crypto4.randomUUID)()}`;
   let runtimeId;
   let pid;
   let socket;
@@ -1364,7 +2125,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
       if (stat.ino !== socketIdentity.ino || stat.dev !== socketIdentity.dev)
         throw new Error("WorkBuddy sidecar socket changed");
     }
-    const client = net2.createConnection(socketPath);
+    const client = net3.createConnection(socketPath);
     socket = client;
     client.setEncoding("utf8");
     let buffer2 = "";
@@ -1407,14 +2168,14 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
       if (socket === client)
         rejectPending(new Error("WorkBuddy sidecar connection closed"));
     });
-    await new Promise((resolve, reject) => {
+    await new Promise((resolve2, reject) => {
       const timer = setTimeout(() => {
         client.destroy();
         reject(new Error("WorkBuddy sidecar connection timed out"));
       }, 5e3);
       client.once("connect", () => {
         clearTimeout(timer);
-        resolve();
+        resolve2();
       });
       client.once("error", () => {
         clearTimeout(timer);
@@ -1426,7 +2187,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
       });
     });
   };
-  const rpc = (method, params, timeout) => new Promise((resolve, reject) => {
+  const rpc = (method, params, timeout) => new Promise((resolve2, reject) => {
     if (!socket || socket.destroyed) {
       reject(new Error("WorkBuddy sidecar connection closed"));
       return;
@@ -1436,7 +2197,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
       pending.delete(id);
       reject(new Error(`WorkBuddy ${method} timed out`));
     }, timeout);
-    pending.set(id, { resolve, reject, timer });
+    pending.set(id, { resolve: resolve2, reject, timer });
     socket.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n", (error) => {
       if (error) {
         clearTimeout(timer);
@@ -1478,7 +2239,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
           }
           if (Date.now() >= deadline)
             throw new Error("WorkBuddy worker cleanup could not be confirmed");
-          await new Promise((resolve) => setTimeout(resolve, 50));
+          await new Promise((resolve2) => setTimeout(resolve2, 50));
         }
       } catch (error) {
         if (pid) {
@@ -1528,7 +2289,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
         ANTHROPIC_API_KEY: "",
         OPENAI_API_KEY: "",
         CODEBUDDY_GATEWAY_AUTH: "password",
-        CODEBUDDY_GATEWAY_PASSWORD: (0, import_crypto2.randomBytes)(32).toString("hex"),
+        CODEBUDDY_GATEWAY_PASSWORD: (0, import_crypto4.randomBytes)(32).toString("hex"),
         CODEBUDDY_GATEWAY_DISABLE_API_DOCS: "1",
         DISABLE_AUTOUPDATER: "1"
       }
@@ -1726,7 +2487,7 @@ var AcpClient = class {
       this.loadingSessions.add(loadKey);
     const id = this.nextId++;
     bbLog("[WB] acp \u8BF7\u6C42:", method, summarizeRpcParams(method, params));
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         bbError("[WB] acp \u8BF7\u6C42\u8D85\u65F6:", method);
@@ -1740,7 +2501,7 @@ var AcpClient = class {
         resolve: (v) => {
           clearTimeout(timer);
           settle();
-          resolve(v);
+          resolve2(v);
         },
         reject: (e) => {
           clearTimeout(timer);
@@ -1998,7 +2759,7 @@ var AcpClient = class {
     }
   }
   spawnAndHandshake() {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       if (!this.scriptPath) {
         reject(new AcpStartError("cli-not-found", "WorkBuddy CLI not found"));
         return;
@@ -2007,7 +2768,7 @@ var AcpClient = class {
       const { command, args, shell } = this.profile.spawnViaNode ? buildSpawnCommand(this.scriptPath, this.nodePath, acpArgs) : { command: this.scriptPath, args: acpArgs, shell: needsWindowsShell(this.scriptPath) };
       let proc;
       try {
-        proc = (0, import_child_process2.spawn)(command, args, { shell });
+        proc = (0, import_child_process3.spawn)(command, args, { shell });
       } catch (e) {
         reject(new AcpStartError("cli-not-found", String(e)));
         return;
@@ -2092,7 +2853,7 @@ var AcpClient = class {
         settled = true;
         clearTimeout(timer);
         this.handshakeDone = true;
-        resolve();
+        resolve2();
       }, (e) => {
         fail(e instanceof AcpStartError ? e : new AcpStartError(isAuthError(e.message) ? "auth-required" : "handshake-failed", e.message));
       });
@@ -2226,14 +2987,14 @@ function summarize(rawInput) {
 function buildDetail(toolName, rawInput, isPlan) {
   if (isPlan)
     return { kind: "plan" };
-  const path5 = typeof rawInput.file_path === "string" ? rawInput.file_path : typeof rawInput.path === "string" ? rawInput.path : "";
+  const path7 = typeof rawInput.file_path === "string" ? rawInput.file_path : typeof rawInput.path === "string" ? rawInput.path : "";
   if ((toolName === "Write" || toolName === "write_file") && typeof rawInput.content === "string") {
-    return { kind: "write", path: path5, lines: rawInput.content.split("\n").length };
+    return { kind: "write", path: path7, lines: rawInput.content.split("\n").length };
   }
   if (toolName === "Edit" || toolName === "MultiEdit") {
     return {
       kind: "edit",
-      path: path5,
+      path: path7,
       oldText: typeof rawInput.old_string === "string" ? rawInput.old_string : "",
       newText: typeof rawInput.new_string === "string" ? rawInput.new_string : ""
     };
@@ -3010,10 +3771,10 @@ var AcpProvider = class {
     const session = this.registry.get(sessionId);
     let preflightCancelled = false;
     let cancelPreflight;
-    const cancellation = new Promise((resolve) => {
+    const cancellation = new Promise((resolve2) => {
       cancelPreflight = () => {
         preflightCancelled = true;
-        resolve();
+        resolve2();
       };
     });
     this.startingTurns.set(sessionId, cancelPreflight);
@@ -3244,7 +4005,7 @@ var CodebuddyProvider = class extends AcpProvider {
 };
 
 // src/providers/hermes/index.ts
-var import_child_process3 = require("child_process");
+var import_child_process4 = require("child_process");
 
 // src/providers/hermes/profile.ts
 var OUTGOING_MODE = {
@@ -3555,11 +4316,11 @@ var HermesProvider = class {
       return;
     }
     const cli = resolveHermesPath(this.cliPath);
-    const ok = await new Promise((resolve) => {
-      (0, import_child_process3.execFile)(cli, ["acp", "--check"], { timeout: ACP_CHECK_TIMEOUT_MS }, (err) => {
+    const ok = await new Promise((resolve2) => {
+      (0, import_child_process4.execFile)(cli, ["acp", "--check"], { timeout: ACP_CHECK_TIMEOUT_MS }, (err) => {
         if (err)
           bbLog("[WB] hermes CLI \u81EA\u68C0\u5931\u8D25:", cli, String(err));
-        resolve(!err);
+        resolve2(!err);
       });
     });
     this.setMode(ok ? "acp" : "http");
@@ -4194,8 +4955,8 @@ function isPathInsideVault(candidatePath, vaultPath) {
 }
 
 // src/shared/imageStore.ts
-var fs4 = __toESM(require("fs"));
-var path4 = __toESM(require("path"));
+var fs6 = __toESM(require("fs"));
+var path6 = __toESM(require("path"));
 var IMAGE_EXTS = /* @__PURE__ */ new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"]);
 var MIME_EXT = {
   "image/png": ".png",
@@ -4226,12 +4987,12 @@ function pastedImageName(seq, ext = ".png") {
   return `paste-${seq}${ext}`;
 }
 function isImagePath(p) {
-  return IMAGE_EXTS.has(path4.extname(p).toLowerCase());
+  return IMAGE_EXTS.has(path6.extname(p).toLowerCase());
 }
 function writeImageFile(dir, bytes, name) {
-  fs4.mkdirSync(dir, { recursive: true });
-  const full = path4.join(dir, name);
-  fs4.writeFileSync(full, bytes);
+  fs6.mkdirSync(dir, { recursive: true });
+  const full = path6.join(dir, name);
+  fs6.writeFileSync(full, bytes);
   return full;
 }
 function pruneImages(dir, keepN) {
@@ -4239,20 +5000,20 @@ function pruneImages(dir, keepN) {
     return;
   let names;
   try {
-    names = fs4.readdirSync(dir);
+    names = fs6.readdirSync(dir);
   } catch (e) {
     return;
   }
-  const files = names.map((n) => path4.join(dir, n)).filter((p) => {
+  const files = names.map((n) => path6.join(dir, n)).filter((p) => {
     try {
-      return fs4.statSync(p).isFile();
+      return fs6.statSync(p).isFile();
     } catch (e) {
       return false;
     }
-  }).map((p) => ({ p, mtime: fs4.statSync(p).mtimeMs })).sort((a, b) => b.mtime - a.mtime);
+  }).map((p) => ({ p, mtime: fs6.statSync(p).mtimeMs })).sort((a, b) => b.mtime - a.mtime);
   for (const { p } of files.slice(keepN)) {
     try {
-      fs4.unlinkSync(p);
+      fs6.unlinkSync(p);
     } catch (e) {
     }
   }
@@ -4438,10 +5199,10 @@ ${msg.content}
     saveReplyBtn.onclick = async () => {
       var _a, _b;
       const title = (_b = (_a = view.getActiveConversation()) == null ? void 0 : _a.title) != null ? _b : "workbuddian-reply";
-      const path5 = nextAvailableNotePath(title, view.app.vault.getFiles().map((f) => f.path));
+      const path7 = nextAvailableNotePath(title, view.app.vault.getFiles().map((f) => f.path));
       try {
-        await view.app.vault.create(path5, formatAssistantReply(title, msg.content, msg.timestamp));
-        new import_obsidian2.Notice(t("render.savedAs").replace("{name}", path5));
+        await view.app.vault.create(path7, formatAssistantReply(title, msg.content, msg.timestamp));
+        new import_obsidian2.Notice(t("render.savedAs").replace("{name}", path7));
       } catch (e) {
         new import_obsidian2.Notice(t("render.saveFailed") + (e instanceof Error ? e.message : String(e)));
       }
@@ -4732,21 +5493,21 @@ function parseFileChange(toolName, toolDetail) {
   if (typeof input !== "object" || input === null)
     return null;
   const obj = input;
-  const path5 = typeof obj.file_path === "string" ? obj.file_path : "";
-  if (!path5)
+  const path7 = typeof obj.file_path === "string" ? obj.file_path : "";
+  if (!path7)
     return null;
   if (toolName === "Edit") {
     const oldText = obj.old_string;
     const newText = obj.new_string;
     if (typeof oldText !== "string" || typeof newText !== "string")
       return null;
-    return { kind: "edit", path: path5, oldText, newText };
+    return { kind: "edit", path: path7, oldText, newText };
   }
   if (toolName === "Write") {
     const content = obj.content;
     if (typeof content !== "string")
       return null;
-    return { kind: "write", path: path5, newText: content };
+    return { kind: "write", path: path7, newText: content };
   }
   return null;
 }
@@ -5035,13 +5796,13 @@ var ExternalAccessModal = class extends import_obsidian5.Modal {
   }
 };
 function confirmExternalAccess(app, paths) {
-  return new Promise((resolve) => {
+  return new Promise((resolve2) => {
     let settled = false;
     const decide = (d) => {
       if (settled)
         return;
       settled = true;
-      resolve(d);
+      resolve2(d);
     };
     const modal = new ExternalAccessModal(app, paths, decide);
     const baseOnClose = modal.onClose.bind(modal);
@@ -5279,9 +6040,9 @@ function thumbSrc(view, absPath) {
     return cached;
   let result = "";
   try {
-    const fs5 = require("fs");
-    if (fs5.statSync(absPath).size <= MAX_THUMB_SOURCE_BYTES) {
-      const buf = fs5.readFileSync(absPath);
+    const fs7 = require("fs");
+    if (fs7.statSync(absPath).size <= MAX_THUMB_SOURCE_BYTES) {
+      const buf = fs7.readFileSync(absPath);
       const ext = require("path").extname(absPath);
       result = `data:${mimeForExt(ext)};base64,${buf.toString("base64")}`;
     }
@@ -5293,8 +6054,8 @@ function thumbSrc(view, absPath) {
 }
 function undoEdit(change, btn) {
   try {
-    const fs5 = require("fs");
-    const content = fs5.readFileSync(change.path, "utf8");
+    const fs7 = require("fs");
+    const content = fs7.readFileSync(change.path, "utf8");
     const idx = content.indexOf(change.newText);
     if (idx === -1) {
       new import_obsidian6.Notice(t("tool.undoStale"));
@@ -5305,7 +6066,7 @@ function undoEdit(change, btn) {
       return;
     }
     const reverted = content.slice(0, idx) + change.oldText + content.slice(idx + change.newText.length);
-    fs5.writeFileSync(change.path, reverted, "utf8");
+    fs7.writeFileSync(change.path, reverted, "utf8");
     btn.disabled = true;
     btn.setText(t("tool.undone"));
     btn.setAttribute("title", t("tool.undone"));
@@ -7422,7 +8183,7 @@ function homeDir() {
 }
 
 // src/features/settings/tab.ts
-var import_child_process4 = require("child_process");
+var import_child_process5 = require("child_process");
 var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
@@ -7846,7 +8607,7 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
       const label = t(args[0] === "enable" ? "plugins.enable" : args[0] === "disable" ? "plugins.disable" : "plugins.update");
       btn.disabled = true;
       btn.setText(t("plugins.working"));
-      (0, import_child_process4.execFile)(codebuddyPath, ["plugin", ...args, plugin.name], { timeout: 2e4 }, (err) => {
+      (0, import_child_process5.execFile)(codebuddyPath, ["plugin", ...args, plugin.name], { timeout: 2e4 }, (err) => {
         btn.disabled = false;
         btn.setText(label);
         if (err) {

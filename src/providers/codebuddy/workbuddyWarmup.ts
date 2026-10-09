@@ -150,7 +150,8 @@ export async function warmupWorkbuddy(configDir: string, signal?: AbortSignal): 
         if (process.platform !== 'win32') owned(metadata.endpoint, 'socket');
     } catch (error) {
         if (['ENOENT', 'ESRCH'].includes((error as NodeJS.ErrnoException).code ?? '')) {
-            throw new Error('WorkBuddy 本地任务服务尚未初始化。请运行“安装 WorkBuddy 本地连接扩展”命令并授权，安装后重启 WorkBuddy；也可先在 WorkBuddy 初始化任务后重试。无需重新登录。');
+            throw Object.assign(new Error('WorkBuddy 本地任务服务尚未初始化。请运行“安装 WorkBuddy 本地连接扩展”命令并授权，安装后重启 WorkBuddy；也可先在 WorkBuddy 初始化任务后重试。无需重新登录。'),
+                { code: 'WORKBUDDY_CONNECTOR_UNAVAILABLE' });
         }
         throw new Error('WorkBuddy 连接扩展校验失败，未扩大权限或切换账号');
     }

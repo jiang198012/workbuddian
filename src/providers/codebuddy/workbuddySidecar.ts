@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { warmupWorkbuddy, workbuddyConfigDirectory } from './workbuddyWarmup';
+import { startWorkbuddyNative } from './workbuddyNative';
 
 const hash = (value: string, length: number) => createHash('sha1').update(value).digest('hex').slice(0, length);
 
@@ -30,17 +31,18 @@ function requireOwned(file: string, kind: 'directory' | 'file' | 'socket'): fs.S
     return stat;
 }
 
-/** WorkBuddy sidecar v6；仅连接已运行的宿主，绝不启动、重启或关闭宿主。 */
+/** 优先 WorkBuddy sidecar v6；缺少连接组件时使用原生账号代理，不重启或关闭宿主。 */
 export async function startWorkbuddySidecar(
     scriptPath: string, cwd: string, command: string, args: string[], signal?: AbortSignal,
 ): Promise<{ endpoint: string; dispose(): Promise<void> } | null> {
     let productPath: string;
-    let product: { productName?: string; dataFolderName?: string };
+    let product: { productName?: string; dataFolderName?: string; authentication?: { id?: string } };
     try {
         productPath = path.join(path.dirname(fs.realpathSync(scriptPath)), '..', 'product.json');
         product = JSON.parse(fs.readFileSync(productPath, 'utf8'));
     } catch { return null; }
-    if (product?.productName !== 'WorkBuddy') return null;
+    if (!['WorkBuddy', 'WorkBuddy AI'].includes(product?.productName)
+        && !['workbuddy-desktop', 'workbuddy-desktop-ai'].includes(product?.authentication?.id)) return null;
     const bootstrapMarker = Buffer.from('CODEBUDDY_SIDECAR_CREDENTIAL_BOOTSTRAP_SOCKET');
     const requiresHost = ['codebuddy-lite-wb.mjs', 'codebuddy-headless.js'].some((bundle) => {
         try { return fs.readFileSync(path.join(path.dirname(productPath), 'dist', bundle)).includes(bootstrapMarker); }
@@ -80,7 +82,11 @@ export async function startWorkbuddySidecar(
         if (!['ENOENT', 'ESRCH'].includes((error as NodeJS.ErrnoException).code ?? '')) {
             throw new Error('WorkBuddy 本地任务服务校验失败，请检查运行目录权限和 sidecar 协议兼容性；这不代表你未登录。');
         }
-        await warmupWorkbuddy(configDir, signal);
+        try { await warmupWorkbuddy(configDir, signal); }
+        catch (error) {
+            if ((error as { code?: string }).code !== 'WORKBUDDY_CONNECTOR_UNAVAILABLE') throw error;
+            return startWorkbuddyNative(configDir, scriptPath, cwd, command, args, signal);
+        }
         if (signal?.aborted) throw new Error('WorkBuddy worker creation cancelled');
         try { located = locate(); }
         catch { throw new Error('WorkBuddy 本地任务服务仍未就绪，未创建 worker；请检查宿主或连接扩展兼容性'); }

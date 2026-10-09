@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (2.6.13)
+status: stable (2.6.14)
 license: MIT
 -->
 
@@ -64,7 +64,7 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 - 执行你配置的 MCP 服务器(经批准卡授权)
 
 **什么时候触发?**
-- 模型消息只在**你发消息**时发送；模型列表发现可能建立后台连接，不发送对话 prompt。
+- 插件不发送用于预热的对话 prompt；模型列表发现可能建立后台连接。发送对话后，内置 CLI 可能按自身行为额外生成标题。
 - 明确安装本地连接扩展后，该组件会随 WorkBuddy 驻留，按需初始化宿主任务服务；不主动创建任务或发送模型消息。
 
 **怎么授权?**
@@ -82,7 +82,7 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 
 - **Obsidian 1.7.2+**(桌面版)
 - **Windows 或 macOS**(Linux 不支持)
-- 已安装 **WorkBuddy 桌面版**（≥ 5.0.5），内含 CodeBuddy CLI。WorkBuddy 5.6.2 / 5.7.6 的兼容说明见下文。
+- 已安装并登录 **WorkBuddy 桌面版**（≥ 5.0.5），内含 CodeBuddy CLI。2.6.14 零组件通路已在 macOS / WorkBuddy 5.7.7 实测；旧版兼容说明见下文。
 
 ### 从社区插件目录安装(推荐)
 
@@ -105,7 +105,11 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 
 ### WorkBuddy 升级兼容（Issue #10）
 
-**2.6.13 修复 5.7.6 冷启动**：WorkBuddy 已登录、已运行但插件提示 `sidecar v6 is not running` 或“本地任务服务尚未初始化”时，在 Obsidian 命令面板运行 **“Workbuddian: 安装 WorkBuddy 本地连接扩展”**，核对目标目录并确认；保存任务后正常退出并重开 WorkBuddy 一次，再回到 Obsidian 发送消息。无需重新登录，也无需先在 WorkBuddy 发送一条消息。
+**2.6.14 默认无需连接组件**：安装并登录 WorkBuddy 后，直接在 Obsidian 发消息。缺少扩展时使用宿主原生账号代理；桌面端未运行时正常打开已识别的安装，不重启运行中的宿主。沿用原账号，不要求独立 API key、另装 Node 或先在 WorkBuddy 发消息。已有可用 sidecar 保留原通路；同时识别 `WorkBuddy AI` 产品标识。
+
+**原生通路限制**：当前 WorkBuddy 5.7.7 的单次代理约 50 秒、请求/响应约 640 KiB，模型输出完整返回后才交给 CLI，并非逐 token 即时流式。大附件、长输出和超大上下文可能超限。macOS 核心流程已通过，**Windows 实机、长期运行和账单额度差值未验收，Issue #10 保持开放**，见[零组件接入验收报告](docs/issue-10-zero-setup-2026-10-09.md)。
+
+**旧版 2.6.13 的可选连接组件路径**：WorkBuddy 已登录、已运行但插件提示 `sidecar v6 is not running` 或“本地任务服务尚未初始化”时，在 Obsidian 命令面板运行 **“Workbuddian: 安装 WorkBuddy 本地连接扩展”**，核对目标目录并确认；保存任务后正常退出并重开 WorkBuddy 一次，再回到 Obsidian 发送消息。无需重新登录，也无需先在 WorkBuddy 发送一条消息。
 
 连接组件只执行固定的宿主预热入口，不发送模型消息、不读取登录凭据、不授予会话或任意 RPC 权限；插件不会自动安装或替你重启 WorkBuddy。macOS 已验证冷启动与宿主重启后的原会话恢复，**Windows 实机和长期稳定性仍待验证**，详见[冷启动验收报告](docs/issue-10-cold-start-diagnosis-2026-10-07.md)。
 
@@ -123,7 +127,10 @@ macOS 已实测原账号对话、Vault 读写与重载续聊，**Windows 实机�
 ### 打开对话
 
 1. 点击左侧 **机器人图标**,或运行命令 **"Workbuddian: 打开聊天面板"**
-2. 如果插件找不到 CodeBuddy / Node.js,把下面这段**完整复制**到 WorkBuddy 对话中执行一次:
+2. 确认已安装并登录 WorkBuddy。2.6.14 原生通路使用桌面端自带运行时，无需额外安装 Node。
+3. 发第一句话。**你会看到**:面板出现你的对话、模型加载完成。自定义安装目录未检测到时，在设置中指定该安装内的 CLI 路径。
+
+旧版或显式选择其他 CLI 时，如果找不到 CodeBuddy / Node.js，可在 WorkBuddy 对话中执行以下环境配置:
 
 ```
 请帮我配置 Workbuddian 插件的运行环境,步骤如下:
@@ -134,15 +141,13 @@ macOS 已实测原账号对话、Vault 读写与重载续聊，**Windows 实机�
 完成后告诉我环境是否就绪。
 ```
 
-3. 回到 Obsidian,发第一句话。**你会看到**:面板出现你的对话、模型加载完成。
-
 > **Vault 读写权限**:如果使用时提示权限不足,把 `提示词-授予Vault读写权限.md` 的完整内容发给 WorkBuddy/CodeBuddy 执行一次,然后**完全退出**(系统托盘右键退出)再重开。
 
 ## 使用方法
 
 ### 对话与流式输出
 
-输入消息按 **Enter** 发送,**Shift + Enter** 换行。回复以流式方式显示,思考过程与工具调用可折叠。
+输入消息按 **Enter** 发送,**Shift + Enter** 换行。sidecar 等流式通路逐步显示回复；2.6.14 原生账号代理先缓冲模型输出再显示。思考过程与工具调用可折叠。
 
 ### `@` 引用任意内容
 
@@ -224,7 +229,9 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 2.6.13**
+**最新版本 2.6.14**
+
+- **2.6.14** — **原账号零组件接入**：无扩展时使用 WorkBuddy 原生账号代理，宿主未运行可正常自动打开；无需安装连接组件、重启宿主或另装 Node。补齐 `WorkBuddy AI` 标识。macOS 首发、自动启动、取消后续聊通过；**原生通路约 50 秒 / 640 KiB，模型输出缓冲返回，Windows 实机待验证，Issue #10 保持开放**。
 
 - **2.6.13** — **WorkBuddy 冷启动与恢复**：新增明确确认的本地连接扩展安装入口，修复 5.7.6 无 sidecar 时首次连接失败；补齐超时、取消、重复发送与清理防护。demo-vault 冷启动及宿主重启后的原会话恢复通过；沿用原账号，**Windows 与长期运行待实测，Issue #10 保持开放**。
 

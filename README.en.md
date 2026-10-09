@@ -33,7 +33,7 @@
 
 ## Installation
 
-**Prerequisites**: Obsidian 1.7.2+ (desktop), Windows or macOS, and the **WorkBuddy desktop app** (≥ 5.0.5), which bundles the CodeBuddy CLI. See the WorkBuddy 5.6.2 / 5.7.6 compatibility notes below.
+**Prerequisites**: Obsidian 1.7.2+ (desktop), Windows or macOS, and an installed, logged-in **WorkBuddy desktop app** (≥ 5.0.5), which bundles the CodeBuddy CLI. The 2.6.14 native route was tested on macOS with WorkBuddy 5.7.7; older compatibility notes follow.
 
 1. In Obsidian: **Settings → Community plugins → Browse**.
 2. Search **"Workbuddian"** → **Install** → **Enable**.
@@ -42,14 +42,18 @@ Or via [BRAT](https://github.com/TfTHacker/obsidian42-brat) with `jiang198012/wo
 
 ## Quick Start
 
-**WorkBuddy 5.7.6 cold start (2.6.13)**: if the logged-in desktop app is running but the plugin reports `sidecar v6 is not running` or that its local task service is not initialized, run **“Workbuddian: Install WorkBuddy local connector”** from Obsidian's command palette and confirm the target directory. Save your tasks and normally restart WorkBuddy once, then send a message in Obsidian. No new login or preliminary WorkBuddy message is needed. This resident connector only invokes a fixed host warmup method; it sends no model prompts, reads no login credentials, and receives no conversation or arbitrary-RPC grants. The plugin never installs it or restarts WorkBuddy automatically. Cold start and original-conversation recovery after a host restart were tested on macOS; **Windows hardware and long-running stability remain unverified**. See the [cold-start acceptance report](docs/issue-10-cold-start-diagnosis-2026-10-07.md).
+**2.6.14 native account route**: install and log in to WorkBuddy, then send a message in Obsidian. When no connector is available, the plugin delegates requests to the host's native account broker. It can normally open an identified installation when the desktop app is not running, without restarting an active host. No connector, extra Node installation, separate account or API key is required. Existing sidecar connections retain their previous route. Known `WorkBuddy AI` product identifiers are also accepted.
+
+**Native route limits**: WorkBuddy 5.7.7 currently buffers each HTTP response, with an approximately 50-second host deadline and approximately 640 KiB request/response limit. Model tokens arrive after the complete response, not as an immediate token stream. Large attachments, long output and very large context may exceed these limits. Core macOS flows passed; **Windows hardware, prolonged operation and billing deltas remain unverified, so #10 stays open**. See the [acceptance report](docs/issue-10-zero-setup-2026-10-09.md).
+
+**Optional connector route in 2.6.13**: for WorkBuddy 5.7.6 missing-sidecar errors, explicitly install the local connector from the command palette and normally restart WorkBuddy after saving tasks. Version 2.6.14 does not require this for its native route. The connector only invokes a fixed host warmup method and does not read login credentials or send model prompts. See the [previous cold-start report](docs/issue-10-cold-start-diagnosis-2026-10-07.md).
 
 **WorkBuddy 5.6.2 compatibility ([#10](https://github.com/jiang198012/workbuddian/issues/10))**: **2.6.12** creates a dedicated Vault worker through WorkBuddy's own sidecar. Keep the original desktop app running and logged in; the worker uses the same account and quota. Older WorkBuddy versions without bootstrap retain stdio. Original-account chat, Vault read/write and conversation recovery after plugin reload have been tested on macOS; **Windows hardware validation is pending**, so #10 remains open for feedback. This uses internal IPC, not an officially guaranteed public API. Version 2.6.10 and earlier do not include this adaptation. See the [acceptance report](docs/issue-10-host-acceptance-2026-09-29.md).
 
 An unavailable host credential channel does not mean WorkBuddy is logged out, and logging in again is not a guaranteed remedy. Automatic detection only selects WorkBuddy and never switches to a standalone CodeBuddy account or quota. Explicit paths and `CODEBUDDY_PATH` are preserved, including when unavailable. A manually selected alternative CLI uses its own authentication and quota. The plugin does not read, copy, or decrypt WorkBuddy login credentials. See the [Chinese compatibility notes](./README.md#快速开始).
 
 1. Click the **robot ribbon icon** or run **"Workbuddian: Open chat panel"**.
-2. If the plugin can't find CodeBuddy / Node.js, run the environment-setup prompt once in WorkBuddy (full prompt in the [Chinese README](./README.md#快速开始)).
+2. Confirm WorkBuddy is installed and logged in; the 2.6.14 native route uses its bundled runtime. If a custom installation is not detected, select its bundled CLI path in settings. Older or explicitly selected alternative CLIs may still need the environment-setup prompt in the [Chinese README](./README.md#快速开始).
 3. Send your first message.
 
 > **Vault permissions**: send the full contents of `提示词-授予Vault读写权限.md` to WorkBuddy/CodeBuddy once, then fully quit and reopen it.
@@ -60,7 +64,9 @@ The complete documentation (usage, settings, auto-discovery, FAQ, changelog) is 
 
 ## What's New
 
-**Latest version 2.6.13**
+**Latest version 2.6.14**
+
+- **2.6.14 — Native account access without a connector**: delegate to the original WorkBuddy account, normally open an inactive host and reuse the bundled runtime. Recognize `WorkBuddy AI` identifiers. macOS first use, automatic launch and chat after cancellation passed. **Native responses are buffered, limited to about 50 seconds / 640 KiB; Windows hardware remains unverified and #10 stays open.**
 
 - **2.6.13 — WorkBuddy cold start and recovery**: an explicitly confirmed local connector fixes the missing-sidecar startup path in 5.7.6. Add startup timeout, cancellation, duplicate-send and worker-cleanup guards without replaying prompts. Cold start and host-restart recovery passed in demo-vault on macOS; **Windows and long-running validation pending, #10 remains open**.
 

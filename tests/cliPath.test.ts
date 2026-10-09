@@ -49,6 +49,46 @@ describe('WorkBuddy account-preserving discovery (#10)', () => {
         expect(resolveCodebuddyPath('')).toBe('');
     });
 
+    it.each([
+        { productName: 'WorkBuddy' },
+        { productName: 'WorkBuddy AI' },
+        { authentication: { id: 'workbuddy-desktop' } },
+        { authentication: { id: 'workbuddy-desktop-ai' } },
+    ].flatMap((product) => ['custom install', 'PATH'].map((source) => [source, product] as const)))('discovers an exact known product from %s using %j', (source, product) => {
+        Object.defineProperty(process, 'platform', { value: 'win32' });
+        const bundled = path.join('/custom/vendor', 'bin', 'codebuddy.cmd');
+        process.env = { HOME: '/fake', PATH: source === 'PATH' ? '/custom/vendor/bin' : '', npm_config_prefix: source === 'custom install' ? '/custom/vendor' : '' };
+        existsSync.mockImplementation((p) => p === bundled);
+        (fs.statSync as jest.Mock).mockImplementation((p) => ({ isFile: () => p === bundled }));
+        (fs.realpathSync as unknown as jest.Mock).mockImplementation((p) => p);
+        (fs.readFileSync as jest.Mock).mockImplementation((p) => {
+            if (p === path.join('/custom/vendor', 'product.json')) return JSON.stringify(product);
+            throw new Error('not a WorkBuddy installation');
+        });
+        // 自动候选中的 npm 前缀采用无扩展名入口；PATH 则优先 Windows 包装器。
+        if (source === 'custom install') {
+            const script = path.join('/custom/vendor', 'bin', 'codebuddy');
+            existsSync.mockImplementation((p) => p === script);
+            expect(resolveCodebuddyPath('')).toBe(script);
+        } else expect(resolveCodebuddyPath('')).toBe(bundled);
+    });
+
+    it.each([
+        { productName: 'CodeBuddy' },
+        { productName: 'WorkBuddy AI beta' },
+        { productName: 'workbuddy' },
+        { authentication: { id: 'workbuddy-desktop-ai-other' } },
+    ])('does not automatically select unrelated or prefix-only metadata %j', (product) => {
+        Object.defineProperty(process, 'platform', { value: 'win32' });
+        process.env = { HOME: '/fake', PATH: '/custom/vendor/bin' };
+        const bundled = path.join('/custom/vendor', 'bin', 'codebuddy.cmd');
+        existsSync.mockImplementation((p) => p === bundled);
+        (fs.statSync as jest.Mock).mockImplementation((p) => ({ isFile: () => p === bundled }));
+        (fs.realpathSync as unknown as jest.Mock).mockImplementation((p) => p);
+        (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(product));
+        expect(resolveCodebuddyPath('')).toBe('');
+    });
+
     it('detects WorkBuddy installed in Program Files (x86) on another drive', () => {
         Object.defineProperty(process, 'platform', { value: 'win32' });
         process.env = { USERPROFILE: 'C:\\Users\\fake', 'ProgramFiles(x86)': 'C:\\Program Files (x86)', PATH: '' };

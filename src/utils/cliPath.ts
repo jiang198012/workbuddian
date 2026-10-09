@@ -167,7 +167,8 @@ function isWorkbuddyBundledCli(scriptPath: string): boolean {
     if (/[\\/]WorkBuddy(?:\.app[\\/]Contents)?[\\/]Resources[\\/]app\.asar\.unpacked[\\/]cli[\\/]/i.test(realPath)) return true;
     try {
         const product = JSON.parse(fs.readFileSync(path.join(path.dirname(realPath), '..', 'product.json'), 'utf8'));
-        return product?.productName === 'WorkBuddy' || product?.authentication?.id === 'workbuddy-desktop';
+        return ['WorkBuddy', 'WorkBuddy AI'].includes(product?.productName)
+            || ['workbuddy-desktop', 'workbuddy-desktop-ai'].includes(product?.authentication?.id);
     } catch { return false; }
 }
 

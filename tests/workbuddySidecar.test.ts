@@ -110,10 +110,28 @@ describe('WorkBuddy owned sidecar worker', () => {
         expect(requests.slice(1)).toEqual([{ id: expect.any(Number), jsonrpc: '2.0', method: 'session.kill', params: { sessionId: params.sessionId, expectedRuntimeId: 'owned-runtime' } }]);
     });
 
-    it('does not route other products through the WorkBuddy account', async () => {
-        fs.writeFileSync(path.join(root, 'cli', 'product.json'), JSON.stringify({ productName: 'CodeBuddy' }));
+    it.each([
+        { productName: 'CodeBuddy' },
+        { productName: 'WorkBuddy AI beta' },
+        { productName: 'workbuddy' },
+        { authentication: { id: 'workbuddy-desktop-ai-other' } },
+    ])('does not route unrelated or prefix-only identities through the WorkBuddy account %j', async (product) => {
+        fs.writeFileSync(path.join(root, 'cli', 'product.json'), JSON.stringify(product));
         await expect(startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve'])).resolves.toBeNull();
         expect(requests).toHaveLength(0);
+    });
+
+    it.each([
+        { productName: 'WorkBuddy AI' },
+        { authentication: { id: 'workbuddy-desktop' } },
+        { authentication: { id: 'workbuddy-desktop-ai' } },
+    ])('creates a real sidecar session for an exact known product identity %j', async (product) => {
+        fs.writeFileSync(path.join(root, 'cli', 'product.json'), JSON.stringify(product));
+        await listen();
+        worker = await startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve']);
+        expect(worker?.endpoint).toBe('http://127.0.0.1:34567');
+        expect(requests).toHaveLength(1);
+        expect(requests[0]).toMatchObject({ method: 'session.create', params: { cwd } });
     });
 
     it('leaves an older WorkBuddy bundle without credential bootstrap on the existing stdio path', async () => {
