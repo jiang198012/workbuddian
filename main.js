@@ -2037,7 +2037,7 @@ function requireOwned(file, kind) {
   return stat;
 }
 async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
-  var _a, _b, _c;
+  var _a, _b, _c, _d;
   let productPath;
   let product;
   try {
@@ -2094,16 +2094,16 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
     }
     try {
       await warmupWorkbuddy(configDir, signal);
-    } catch (error2) {
-      if (error2.code !== "WORKBUDDY_CONNECTOR_UNAVAILABLE")
-        throw error2;
-      return startWorkbuddyNative(configDir, scriptPath, cwd, command, args, signal);
+    } catch (e) {
     }
     if (signal == null ? void 0 : signal.aborted)
       throw new Error("WorkBuddy worker creation cancelled");
     try {
       located = locate();
-    } catch (e) {
+    } catch (error2) {
+      if (["ENOENT", "ESRCH"].includes((_c = error2.code) != null ? _c : "")) {
+        return startWorkbuddyNative(configDir, scriptPath, cwd, command, args, signal);
+      }
       throw new Error("WorkBuddy \u672C\u5730\u4EFB\u52A1\u670D\u52A1\u4ECD\u672A\u5C31\u7EEA\uFF0C\u672A\u521B\u5EFA worker\uFF1B\u8BF7\u68C0\u67E5\u5BBF\u4E3B\u6216\u8FDE\u63A5\u6269\u5C55\u517C\u5BB9\u6027");
     }
   }
@@ -2282,7 +2282,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
     submitted = true;
     const result = await rpc("session.create", {
       sessionId: ownedId,
-      command: (_c = runtime == null ? void 0 : runtime.command) != null ? _c : command,
+      command: (_d = runtime == null ? void 0 : runtime.command) != null ? _d : command,
       args: workbuddyNativeArgs(scriptPath, args, runtime == null ? void 0 : runtime.script),
       cwd,
       port: 0,

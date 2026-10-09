@@ -31,7 +31,7 @@ function requireOwned(file: string, kind: 'directory' | 'file' | 'socket'): fs.S
     return stat;
 }
 
-/** 优先 WorkBuddy sidecar v6；缺少连接组件时使用原生账号代理，不重启或关闭宿主。 */
+/** 优先 WorkBuddy sidecar v6；可选组件不可用时独立认证原生账号代理，不重启或关闭宿主。 */
 export async function startWorkbuddySidecar(
     scriptPath: string, cwd: string, command: string, args: string[], signal?: AbortSignal,
 ): Promise<{ endpoint: string; dispose(): Promise<void> } | null> {
@@ -83,13 +83,15 @@ export async function startWorkbuddySidecar(
             throw new Error('WorkBuddy 本地任务服务校验失败，请检查运行目录权限和 sidecar 协议兼容性；这不代表你未登录。');
         }
         try { await warmupWorkbuddy(configDir, signal); }
-        catch (error) {
-            if ((error as { code?: string }).code !== 'WORKBUDDY_CONNECTOR_UNAVAILABLE') throw error;
-            return startWorkbuddyNative(configDir, scriptPath, cwd, command, args, signal);
-        }
+        catch { /* 可选组件失败不能成为账号通路的前置条件；下面重新校验 sidecar 或独立认证原生代理。 */ }
         if (signal?.aborted) throw new Error('WorkBuddy worker creation cancelled');
         try { located = locate(); }
-        catch { throw new Error('WorkBuddy 本地任务服务仍未就绪，未创建 worker；请检查宿主或连接扩展兼容性'); }
+        catch (error) {
+            if (['ENOENT', 'ESRCH'].includes((error as NodeJS.ErrnoException).code ?? '')) {
+                return startWorkbuddyNative(configDir, scriptPath, cwd, command, args, signal);
+            }
+            throw new Error('WorkBuddy 本地任务服务仍未就绪，未创建 worker；请检查宿主或连接扩展兼容性');
+        }
     }
     const { identity, socketPath, socketIdentity } = located;
 

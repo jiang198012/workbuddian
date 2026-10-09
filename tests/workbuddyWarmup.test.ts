@@ -33,18 +33,42 @@ describe('WorkBuddy authenticated sidecar warmup extension', () => {
 
     it('awaits host initialization and coalesces concurrent requests without creating a task or exposing session data', async () => {
         let ready!: () => void;
-        initialize = () => new Promise(resolve => { ready = () => resolve([{ sessionId: 'foreign-private-id' }]); });
-        const dir = await activate();
-        const first = warmupWorkbuddy(configDir), second = warmupWorkbuddy(configDir);
-        let completed = false;
-        void first.then(() => { completed = true; });
-        while (!ready) await new Promise(resolve => setTimeout(resolve, 5));
-        expect(completed).toBe(false);
-        ready(); await Promise.all([first, second]);
-        expect(invoked).toEqual(['listSidecarSessions']);
-        const distribution = JSON.parse(fs.readFileSync(path.join(dir, 'distribution.json'), 'utf8'));
-        expect(distribution.kind).toBe('platform');
-        expect(distribution.grantedPermissions).toEqual([]);
+        const initialized = new Promise(resolve => { ready = () => resolve([{ sessionId: 'foreign-private-id' }]); });
+        initialize = () => initialized;
+        let observed = 0, received!: () => void;
+        const bothReceived = new Promise<void>(resolve => { received = resolve; });
+        const createServer = net.createServer;
+        const listenerSpy = jest.spyOn(require('net'), 'createServer').mockImplementation((listener: (socket: net.Socket) => void) =>
+            createServer(socket => {
+                listener(socket);
+                let buffer = '', handled = false;
+                socket.on('data', chunk => {
+                    buffer += chunk.toString();
+                    if (!handled && buffer.includes('\n')) { handled = true; if (++observed === 2) received(); }
+                });
+            }));
+        const controller = new AbortController();
+        const waiters: Promise<void>[] = [];
+        try {
+            const dir = await activate();
+            const first = warmupWorkbuddy(configDir, controller.signal), second = warmupWorkbuddy(configDir, controller.signal);
+            waiters.push(first, second);
+            let completed = false;
+            void first.then(() => { completed = true; }, () => {});
+            const all = Promise.all(waiters); void all.catch(() => {});
+            // Both complete requests must reach the real server before resolving the shared host call.
+            await Promise.race([bothReceived, all]);
+            expect(completed).toBe(false);
+            ready(); await all;
+            expect(invoked).toEqual(['listSidecarSessions']);
+            const distribution = JSON.parse(fs.readFileSync(path.join(dir, 'distribution.json'), 'utf8'));
+            expect(distribution.kind).toBe('platform');
+            expect(distribution.grantedPermissions).toEqual([]);
+        } finally {
+            ready(); controller.abort();
+            await Promise.allSettled(waiters);
+            listenerSpy.mockRestore();
+        }
     });
 
     it('fails on host errors and allows a later independent initialization without replaying a prompt', async () => {

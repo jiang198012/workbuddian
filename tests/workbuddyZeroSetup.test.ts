@@ -3,6 +3,7 @@ import * as path from 'path';
 import { startWorkbuddySidecar } from '../src/providers/codebuddy/workbuddySidecar';
 import { WorkbuddyHostConnection } from '../src/providers/codebuddy/workbuddyHost';
 import { createWorkbuddyBrokerServer } from './helpers/workbuddyBrokerServer';
+import { installWorkbuddyWarmup } from '../src/providers/codebuddy/workbuddyWarmup';
 
 describe('WorkBuddy first use without a connection extension', () => {
     let root: string;
@@ -11,6 +12,7 @@ describe('WorkBuddy first use without a connection extension', () => {
     let broker: Awaited<ReturnType<typeof createWorkbuddyBrokerServer>>;
     let worker: Awaited<ReturnType<typeof startWorkbuddySidecar>>;
     let host: WorkbuddyHostConnection | undefined;
+    let extension: { dispose(): Promise<void> } | undefined;
 
     beforeEach(() => {
         root = fs.realpathSync(fs.mkdtempSync('/tmp/wbz-'));
@@ -23,8 +25,9 @@ describe('WorkBuddy first use without a connection extension', () => {
     afterEach(async () => {
         await host?.dispose().catch(() => {});
         await worker?.dispose();
+        await extension?.dispose();
         await broker?.close();
-        host = undefined; worker = null;
+        host = undefined; worker = null; extension = undefined;
         jest.restoreAllMocks();
         if (originalConfig === undefined) delete process.env.WORKBUDDY_CONFIG_DIR;
         else process.env.WORKBUDDY_CONFIG_DIR = originalConfig;
@@ -44,6 +47,13 @@ describe('WorkBuddy first use without a connection extension', () => {
         fs.writeFileSync(path.join(cliRoot, 'product.json'), JSON.stringify({ productName: 'WorkBuddy', dataFolderName: '.workbuddy' }));
         fs.writeFileSync(path.join(cliRoot, 'dist/codebuddy-headless.js'), 'CODEBUDDY_SIDECAR_CREDENTIAL_BOOTSTRAP_SOCKET');
         return { scriptPath, cwd };
+    }
+
+    async function activateConnector(invoke: () => Promise<unknown>) {
+        const dir = installWorkbuddyWarmup(broker.configDir);
+        const exports: any = {};
+        new Function('require', 'exports', '__dirname', fs.readFileSync(path.join(dir, 'index.cjs'), 'utf8'))(require, exports, dir);
+        extension = await exports.activate({ invoke });
     }
 
     async function rpcConnection() {
@@ -107,6 +117,75 @@ describe('WorkBuddy first use without a connection extension', () => {
         expect(await rpc('session/prompt', { sessionId: 'fixture-owned', prompt: [] }))
             .toEqual({ stopReason: 'end_turn', reply: 'ACCOUNT_RESTORED' });
         expect(broker.requests).toHaveLength(1);
+    });
+
+    it('uses the original account when an installed optional connector cannot initialize the host', async () => {
+        broker = await createWorkbuddyBrokerServer(root, () => ({ status: 200,
+            headers: { 'content-type': 'application/json' }, body_b64: Buffer.from('{"text":"CONNECTOR_FALLBACK_READY"}').toString('base64') }));
+        process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
+        const { scriptPath, cwd } = cliFixture();
+        await activateConnector(async () => { throw new Error('Unsupported fixture host API'); });
+        worker = await startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']);
+        const rpc = await rpcConnection();
+        expect(await rpc('session/prompt', { sessionId: 'fixture-owned', prompt: [] }))
+            .toEqual({ stopReason: 'end_turn', reply: 'CONNECTOR_FALLBACK_READY' });
+        expect(broker.requests).toHaveLength(1);
+    });
+
+    it('uses the original account when optional warmup succeeds without creating a sidecar', async () => {
+        broker = await createWorkbuddyBrokerServer(root, () => ({ status: 200,
+            headers: { 'content-type': 'application/json' }, body_b64: Buffer.from('{"text":"NO_SIDECAR_READY"}').toString('base64') }));
+        process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
+        const { scriptPath, cwd } = cliFixture();
+        await activateConnector(async (): Promise<unknown[]> => []);
+        worker = await startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']);
+        const rpc = await rpcConnection();
+        expect(await rpc('session/prompt', { sessionId: 'fixture-owned', prompt: [] }))
+            .toEqual({ stopReason: 'end_turn', reply: 'NO_SIDECAR_READY' });
+        expect(broker.requests).toHaveLength(1);
+    });
+
+    it('ignores incompatible optional metadata but independently rejects an invalid native host proof', async () => {
+        broker = await createWorkbuddyBrokerServer(root);
+        broker.options.invalidServerProof = true;
+        process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
+        const { scriptPath, cwd } = cliFixture();
+        const dir = installWorkbuddyWarmup(broker.configDir);
+        fs.writeFileSync(path.join(dir, 'endpoint.json'), JSON.stringify({ version: 2 }));
+        await expect(startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']))
+            .rejects.toMatchObject({ code: 'E_SERVER_PROOF_INVALID' });
+        expect(broker.requests).toHaveLength(0);
+        expect(fs.existsSync(path.join(broker.configDir, 'workbuddian'))).toBe(false);
+    });
+
+    it('does not fall back to the account broker when cancelled during optional warmup', async () => {
+        broker = await createWorkbuddyBrokerServer(root);
+        process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
+        const { scriptPath, cwd } = cliFixture();
+        const controller = new AbortController();
+        await activateConnector(async () => { controller.abort(); throw new Error('Cancelled fixture'); });
+        await expect(startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve'], controller.signal))
+            .rejects.toThrow(/cancel|取消/);
+        expect(broker.frames).toHaveLength(0);
+        expect(broker.requests).toHaveLength(0);
+        expect(fs.existsSync(path.join(broker.configDir, 'workbuddian'))).toBe(false);
+    });
+
+    it.each(['existing', 'after warmup'])('refuses invalid sidecar identity %s even with an available native account', async (timing) => {
+        broker = await createWorkbuddyBrokerServer(root);
+        process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
+        const { scriptPath, cwd } = cliFixture();
+        const invalidIdentity = () => fs.writeFileSync(path.join(path.dirname(path.dirname(broker.endpoint)), 'sidecar.pid'),
+            JSON.stringify({ pid: process.pid, version: 7, controlPipeUuid: '1234abcd' }));
+        if (timing === 'existing') invalidIdentity();
+        else {
+            await activateConnector(async (): Promise<unknown[]> => { invalidIdentity(); return []; });
+        }
+        await expect(startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']))
+            .rejects.toThrow(/校验失败|仍未就绪/);
+        expect(broker.frames).toHaveLength(0);
+        expect(broker.requests).toHaveLength(0);
+        expect(fs.existsSync(path.join(broker.configDir, 'workbuddian'))).toBe(false);
     });
 
     it('cancels cold authentication without creating a worker or installing an extension', async () => {

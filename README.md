@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (2.6.15)
+status: stable (2.6.16)
 license: MIT
 -->
 
@@ -104,6 +104,8 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 ## 快速开始
 
 ### WorkBuddy 升级兼容（Issue #10）
+
+**2.6.16 旧组件故障恢复**：以前安装的可选连接组件初始化失败、不兼容，或预热后仍没有 sidecar 时，不再阻断可用的原账号通路；在未创建 worker 且确认 sidecar 缺失后，独立认证原生代理。取消、不可信 sidecar 和错误账号证明仍拒绝，不自动重发消息。详见[组件恢复及验收报告](docs/issue-10-connector-recovery-2026-10-09.md)。原生通路限制仍在，不能视为完整高可用验收。
 
 **2.6.15 启动修补**：已有 sidecar 也使用桌面端自带运行时；内置 CLI 的符号链接按真实路径识别；账号请求通道恢复稍慢时最多等待约 30 秒，可取消，不重启活跃宿主。旧可选连接组件损坏或不兼容时的 Native 回退尚未补齐，不将本次补丁视为完整零配置验收。详见[增量验收报告](docs/issue-10-zero-setup-followup-2026-10-09.md)。
 
@@ -231,7 +233,9 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 2.6.15**
+**最新版本 2.6.16**
+
+- **2.6.16** — **旧组件故障恢复**：旧可选组件失败或预热后无 sidecar 时，恢复独立认证的原账号通路；保留取消和不可信端点拒绝。合成 Vault 的读写审批、拒绝后续聊、自有会话重连上下文及小 PNG 协议通过；**原生容量/时限/缓冲限制、Windows 实机和长期运行仍未解决或验收，Issue #10 保持开放**。
 
 - **2.6.15** — **启动可靠性补丁**：已有 sidecar 无需系统 Node，修复 CLI 符号链接识别；账号请求通道延迟恢复时有界等待、可取消，不重启宿主。**原生通路限制及旧组件故障回退缺口仍在，Windows 实机等验收待完成，Issue #10 保持开放**。
 

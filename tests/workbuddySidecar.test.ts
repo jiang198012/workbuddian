@@ -140,9 +140,9 @@ describe('WorkBuddy owned sidecar worker', () => {
         expect(requests).toHaveLength(0);
     });
 
-    it('requires an existing runtime and an explicit existing absolute cwd', async () => {
+    it('requires a trusted account route and an explicit existing absolute cwd', async () => {
         await expect(startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve']))
-            .rejects.toThrow('重启 WorkBuddy');
+            .rejects.toMatchObject({ code: 'E_DISCOVERY_MISSING' });
         await listen();
         await expect(startWorkbuddySidecar(scriptPath, 'relative-vault', '/test/node', [scriptPath, '--serve'])).rejects.toThrow(/cwd|directory|目录/);
         await expect(startWorkbuddySidecar(scriptPath, path.join(root, 'missing'), '/test/node', [scriptPath, '--serve'])).rejects.toThrow(/cwd|directory|目录/);
@@ -157,9 +157,10 @@ describe('WorkBuddy owned sidecar worker', () => {
         expect(requests.map(r => r.method)).toEqual(['session.create']);
     });
 
-    it('does not submit a worker if host warmup completes without an actual sidecar', async () => {
+    it('does not submit a worker if warmup leaves neither a sidecar nor a trusted native broker', async () => {
         (warmupWorkbuddy as jest.Mock).mockResolvedValue(undefined);
-        await expect(startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve'])).rejects.toThrow(/未就绪/);
+        await expect(startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve']))
+            .rejects.toMatchObject({ code: 'E_DISCOVERY_MISSING' });
         expect(requests).toHaveLength(0);
     });
 

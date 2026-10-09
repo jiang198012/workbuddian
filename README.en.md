@@ -42,6 +42,8 @@ Or via [BRAT](https://github.com/TfTHacker/obsidian42-brat) with `jiang198012/wo
 
 ## Quick Start
 
+**2.6.16 optional-connector recovery**: a failed or incompatible old connector, or warmup without an actual sidecar, no longer blocks the original account route. Independently authenticate the native broker only when the sidecar is absent and no worker has been submitted. Cancellation, untrusted sidecars and invalid account proofs still fail closed; prompts are not automatically replayed. See the [recovery report](docs/issue-10-connector-recovery-2026-10-09.md). Native transport limits remain; this is not full high-availability acceptance.
+
 **2.6.15 startup fixes**: existing sidecars also use the bundled desktop runtime; bundled CLI symlinks are resolved before runtime detection. Wait up to about 30 seconds for a delayed account request channel, with cancellation and without restarting an active host. Native fallback after a broken or incompatible optional connector is still pending; this patch is not full zero-setup acceptance. See the [follow-up report](docs/issue-10-zero-setup-followup-2026-10-09.md).
 
 **2.6.14 native account route**: install and log in to WorkBuddy, then send a message in Obsidian. When no connector is available, the plugin delegates requests to the host's native account broker. It can normally open an identified installation when the desktop app is not running, without restarting an active host. No connector, extra Node installation, separate account or API key is required. Existing sidecar connections retain their previous route. Known `WorkBuddy AI` product identifiers are also accepted.
@@ -66,7 +68,9 @@ The complete documentation (usage, settings, auto-discovery, FAQ, changelog) is 
 
 ## What's New
 
-**Latest version 2.6.15**
+**Latest version 2.6.16**
+
+- **2.6.16 — Optional-connector recovery**: restore the independently authenticated original account route after old connector failures or warmup without a sidecar. Retain cancellation and endpoint validation. Synthetic-Vault approval/rejection, chat after rejection, owned-session reconnection and small PNG protocol checks passed. **Native limits, Windows hardware and prolonged operation remain unresolved or unverified; #10 stays open.**
 
 - **2.6.15 — Startup reliability**: reuse the bundled runtime for existing sidecars, recognize bundled CLI symlinks and wait for delayed account channel recovery with cancellation. **Native limits and the broken-connector fallback gap remain; Windows hardware and broader acceptance are pending, #10 stays open.**
 
