@@ -42,6 +42,8 @@ Or via [BRAT](https://github.com/TfTHacker/obsidian42-brat) with `jiang198012/wo
 
 ## Quick Start
 
+**2.6.17 acceptance and limitation update**: the production implementation is unchanged from 2.6.16. A synthetic MCP passed one-time approval, independent result delivery, post-tool owned-process cleanup and the Obsidian approval-card flow. The first image GUI attempt returned a plain `refusal`; later protocol controls and a temporary diagnostic build succeeded, but the cause remains unidentified and is not claimed fixed. See the [supplemental acceptance report](docs/issue-10-native-capability-acceptance-2026-10-09.md).
+
 **2.6.16 optional-connector recovery**: a failed or incompatible old connector, or warmup without an actual sidecar, no longer blocks the original account route. Independently authenticate the native broker only when the sidecar is absent and no worker has been submitted. Cancellation, untrusted sidecars and invalid account proofs still fail closed; prompts are not automatically replayed. See the [recovery report](docs/issue-10-connector-recovery-2026-10-09.md). Native transport limits remain; this is not full high-availability acceptance.
 
 **2.6.15 startup fixes**: existing sidecars also use the bundled desktop runtime; bundled CLI symlinks are resolved before runtime detection. Wait up to about 30 seconds for a delayed account request channel, with cancellation and without restarting an active host. Native fallback after a broken or incompatible optional connector is still pending; this patch is not full zero-setup acceptance. See the [follow-up report](docs/issue-10-zero-setup-followup-2026-10-09.md).
@@ -68,7 +70,9 @@ The complete documentation (usage, settings, auto-discovery, FAQ, changelog) is 
 
 ## What's New
 
-**Latest version 2.6.16**
+**Latest version 2.6.17**
+
+- **2.6.17 — Acceptance and limitation update**: add synthetic MCP GUI approval and post-tool owned-process cleanup evidence; retain the unresolved image GUI refusal and document the normal WBIPC registry's streaming boundary. **Production code is unchanged from 2.6.16; native deadline/size/buffering limits remain and #10 stays open.**
 
 - **2.6.16 — Optional-connector recovery**: restore the independently authenticated original account route after old connector failures or warmup without a sidecar. Retain cancellation and endpoint validation. Synthetic-Vault approval/rejection, chat after rejection, owned-session reconnection and small PNG protocol checks passed. **Native limits, Windows hardware and prolonged operation remain unresolved or unverified; #10 stays open.**
 

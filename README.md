@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (2.6.16)
+status: stable (2.6.17)
 license: MIT
 -->
 
@@ -104,6 +104,8 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 ## 快速开始
 
 ### WorkBuddy 升级兼容（Issue #10）
+
+**2.6.17 验收与限制说明更新**：沿用 2.6.16 的生产实现，补齐合成 MCP 的真实单次批准、结果回传和工具调用后进程清理，以及 Obsidian 批准卡操作。图片 GUI 首次出现普通 `refusal`，后续协议对照和临时诊断构建成功，但原因仍未定位；不将它标为已修复。详见[补充验收报告](docs/issue-10-native-capability-acceptance-2026-10-09.md)。
 
 **2.6.16 旧组件故障恢复**：以前安装的可选连接组件初始化失败、不兼容，或预热后仍没有 sidecar 时，不再阻断可用的原账号通路；在未创建 worker 且确认 sidecar 缺失后，独立认证原生代理。取消、不可信 sidecar 和错误账号证明仍拒绝，不自动重发消息。详见[组件恢复及验收报告](docs/issue-10-connector-recovery-2026-10-09.md)。原生通路限制仍在，不能视为完整高可用验收。
 
@@ -233,7 +235,9 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 2.6.16**
+**最新版本 2.6.17**
+
+- **2.6.17** — **验收与限制说明更新**：补齐真实合成 MCP 批准卡与调用后自有进程清理证据；记录尚未定位的图片 GUI 拒绝和正常 WBIPC 注册面的流式能力边界。**生产实现与 2.6.16 相同，未解除原生时限/容量/缓冲限制，Issue #10 保持开放**。
 
 - **2.6.16** — **旧组件故障恢复**：旧可选组件失败或预热后无 sidecar 时，恢复独立认证的原账号通路；保留取消和不可信端点拒绝。合成 Vault 的读写审批、拒绝后续聊、自有会话重连上下文及小 PNG 协议通过；**原生容量/时限/缓冲限制、Windows 实机和长期运行仍未解决或验收，Issue #10 保持开放**。
 
