@@ -88,6 +88,27 @@ describe('WorkBuddy first use without a connection extension', () => {
         expect(broker.requests).toHaveLength(1);
     });
 
+    it('waits for the logged-in account pipe to become visible before sending the first prompt', async () => {
+        broker = await createWorkbuddyBrokerServer(root, () => ({ status: 200,
+            headers: { 'content-type': 'application/json' }, body_b64: Buffer.from('{"text":"ACCOUNT_RESTORED"}').toString('base64') }));
+        broker.options.requestPipeUnavailable = true;
+        process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
+        const { scriptPath, cwd } = cliFixture();
+        const starting = startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve'])
+            .then(value => { worker = value; return { ready: true }; }, error => ({ ready: false, code: error.code }));
+        for (let attempts = 0; !broker.frames.some(frame => frame.type === 'session_prove') && attempts < 100; attempts++) {
+            await new Promise(resolve => setImmediate(resolve));
+        }
+        expect(broker.frames.some(frame => frame.type === 'session_prove')).toBe(true);
+        expect(broker.requests).toHaveLength(0);
+        broker.options.requestPipeUnavailable = false;
+        expect(await starting).toEqual({ ready: true });
+        const rpc = await rpcConnection();
+        expect(await rpc('session/prompt', { sessionId: 'fixture-owned', prompt: [] }))
+            .toEqual({ stopReason: 'end_turn', reply: 'ACCOUNT_RESTORED' });
+        expect(broker.requests).toHaveLength(1);
+    });
+
     it('cancels cold authentication without creating a worker or installing an extension', async () => {
         broker = await createWorkbuddyBrokerServer(root);
         broker.options.silentHandshake = true;
@@ -102,5 +123,46 @@ describe('WorkBuddy first use without a connection extension', () => {
         expect(broker.requests).toHaveLength(0);
         expect(fs.existsSync(path.join(broker.configDir, 'workbuddian'))).toBe(false);
         expect(fs.existsSync(path.join(broker.configDir, 'extensions'))).toBe(false);
+    });
+
+    it('cancels waiting for the account pipe without sending a model request', async () => {
+        broker = await createWorkbuddyBrokerServer(root);
+        broker.options.requestPipeUnavailable = true;
+        process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
+        const { scriptPath, cwd } = cliFixture();
+        const controller = new AbortController();
+        const starting = startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve'], controller.signal)
+            .then(value => { worker = value; return ''; }, error => error.message as string);
+        for (let attempts = 0; !broker.frames.some(frame => frame.type === 'session_prove') && attempts < 100; attempts++) {
+            await new Promise(resolve => setImmediate(resolve));
+        }
+        expect(broker.frames.some(frame => frame.type === 'session_prove')).toBe(true);
+        controller.abort();
+        expect(await starting).toMatch(/cancel|取消/);
+        expect(broker.requests).toHaveLength(0);
+        expect(fs.existsSync(path.join(broker.configDir, 'workbuddian'))).toBe(false);
+    });
+
+    it('ends account restoration waiting at the deadline without creating a worker', async () => {
+        broker = await createWorkbuddyBrokerServer(root);
+        broker.options.requestPipeUnavailable = true;
+        process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
+        const { scriptPath, cwd } = cliFixture();
+        jest.spyOn(Date, 'now').mockReturnValueOnce(0).mockReturnValue(31_000);
+        await expect(startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']))
+            .rejects.toThrow('未重发任何消息');
+        expect(broker.requests).toHaveLength(0);
+        expect(fs.existsSync(path.join(broker.configDir, 'workbuddian'))).toBe(false);
+    });
+
+    it('does not retry an invalid host authentication proof as account restoration', async () => {
+        broker = await createWorkbuddyBrokerServer(root);
+        broker.options.invalidServerProof = true;
+        process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
+        const { scriptPath, cwd } = cliFixture();
+        await expect(startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']))
+            .rejects.toMatchObject({ code: 'E_SERVER_PROOF_INVALID' });
+        expect(broker.requests).toHaveLength(0);
+        expect(fs.existsSync(path.join(broker.configDir, 'workbuddian'))).toBe(false);
     });
 });

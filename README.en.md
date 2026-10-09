@@ -42,6 +42,8 @@ Or via [BRAT](https://github.com/TfTHacker/obsidian42-brat) with `jiang198012/wo
 
 ## Quick Start
 
+**2.6.15 startup fixes**: existing sidecars also use the bundled desktop runtime; bundled CLI symlinks are resolved before runtime detection. Wait up to about 30 seconds for a delayed account request channel, with cancellation and without restarting an active host. Native fallback after a broken or incompatible optional connector is still pending; this patch is not full zero-setup acceptance. See the [follow-up report](docs/issue-10-zero-setup-followup-2026-10-09.md).
+
 **2.6.14 native account route**: install and log in to WorkBuddy, then send a message in Obsidian. When no connector is available, the plugin delegates requests to the host's native account broker. It can normally open an identified installation when the desktop app is not running, without restarting an active host. No connector, extra Node installation, separate account or API key is required. Existing sidecar connections retain their previous route. Known `WorkBuddy AI` product identifiers are also accepted.
 
 **Native route limits**: WorkBuddy 5.7.7 currently buffers each HTTP response, with an approximately 50-second host deadline and approximately 640 KiB request/response limit. Model tokens arrive after the complete response, not as an immediate token stream. Large attachments, long output and very large context may exceed these limits. Core macOS flows passed; **Windows hardware, prolonged operation and billing deltas remain unverified, so #10 stays open**. See the [acceptance report](docs/issue-10-zero-setup-2026-10-09.md).
@@ -64,7 +66,9 @@ The complete documentation (usage, settings, auto-discovery, FAQ, changelog) is 
 
 ## What's New
 
-**Latest version 2.6.14**
+**Latest version 2.6.15**
+
+- **2.6.15 — Startup reliability**: reuse the bundled runtime for existing sidecars, recognize bundled CLI symlinks and wait for delayed account channel recovery with cancellation. **Native limits and the broken-connector fallback gap remain; Windows hardware and broader acceptance are pending, #10 stays open.**
 
 - **2.6.14 — Native account access without a connector**: delegate to the original WorkBuddy account, normally open an inactive host and reuse the bundled runtime. Recognize `WorkBuddy AI` identifiers. macOS first use, automatic launch and chat after cancellation passed. **Native responses are buffered, limited to about 50 seconds / 640 KiB; Windows hardware remains unverified and #10 stays open.**
 

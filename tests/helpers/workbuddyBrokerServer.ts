@@ -12,7 +12,7 @@ export interface WorkbuddyBrokerTestServer {
     requests: BrokerFetchParams[];
     frames: Record<string, any>[];
     readonly socket: net.Socket | undefined;
-    options: { invalidServerProof?: boolean; silentHandshake?: boolean; silentGetPipe?: boolean; proofEndpoint?: string };
+    options: { invalidServerProof?: boolean; silentHandshake?: boolean; silentGetPipe?: boolean; proofEndpoint?: string; requestPipeUnavailable?: boolean };
     send(frame: unknown): void;
     disconnect(): void;
     close(): Promise<void>;
@@ -70,7 +70,8 @@ export async function createWorkbuddyBrokerServer(
                 } else if (frame.type === 'session_prove') {
                     if (frame.client_proof !== proof('client', client, nonce)) { send(socket, { type: 'session_hello_error', code: 'auth_failed' }); return; }
                     ready = true;
-                    send(socket, { type: 'session_hello_ack', protocol: 1, connection_epoch: 'ce-fixture', max_inflight: 8, pipes: ['wb.request'] });
+                    send(socket, { type: 'session_hello_ack', protocol: 1, connection_epoch: 'ce-fixture', max_inflight: 8,
+                        pipes: options.requestPipeUnavailable ? [] : ['wb.request'] });
                 } else if (!ready) { socket.destroy(); return; }
                 else if (frame.method === 'broker/GetPipe') {
                     if (!options.silentGetPipe) send(socket, { jsonrpc: '2.0', id: frame.id,

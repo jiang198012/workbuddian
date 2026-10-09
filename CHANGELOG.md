@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.6.15 — 2026-10-09
+
+**WorkBuddy 启动可靠性补丁**：补齐已有 sidecar 的无系统 Node 环境，以及账号请求通道延迟恢复时的首次连接（[#10](https://github.com/jiang198012/workbuddian/issues/10)）。
+
+### 修复
+
+- 已有 sidecar 创建 Vault worker 时使用已识别 WorkBuddy 安装的桌面内置运行时，不再依赖系统 `node`；保留非桌面显式命令与旧版 stdio 通路。
+- 解析内置 CLI 符号链接的真实路径，避免非默认安装目录下运行时识别失败；覆盖 Windows `.cmd` 的 JS 入口参数。
+- 宿主代理已运行但 `wb.request` 尚未恢复时，有界等待约 30 秒并允许取消，不重启活跃宿主、不提前发送模型请求；错误认证证明仍立即拒绝。
+
+### 验证与限制
+
+- `2.6.15` 发布前重新运行当前仓库测试：53 套、682 项通过，0 失败、0 开放句柄，测试进程自然退出（退出码 0）；类型检查与生产构建通过。
+- 无 Node、CLI 链接及账号通道延迟恢复均有失败复现和回归测试，详见[增量验收报告](docs/issue-10-zero-setup-followup-2026-10-09.md)。Windows 命名管道与启动仅为本机模拟，不代表 Windows 实机验收。
+- 本次是有限启动修补，不是完整高可用验收。原生通路约 50 秒 / 640 KiB / 完整缓冲的宿主限制仍在；旧可选连接组件故障时的 Native 回退尚未补齐。Windows 实机、长请求、大附件、审批卡完整 GUI、旧会话模型上下文恢复及账单差值仍需验证，Issue #10 保持开放。
+- Broker 的协议错误分类改进记录在 [P2 Issue #12](https://github.com/jiang198012/workbuddian/issues/12)，本次未修改该协议分类。
+
 ## 2.6.14 — 2026-10-09
 
 **WorkBuddy 原账号零组件接入**：缺少本地连接扩展时，通过宿主原生 WBIPC 账号代理调用内置 CLI，不再要求安装连接组件、重启宿主或先在 WorkBuddy 发消息（[#10](https://github.com/jiang198012/workbuddian/issues/10)）。

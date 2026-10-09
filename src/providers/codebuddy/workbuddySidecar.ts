@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { warmupWorkbuddy, workbuddyConfigDirectory } from './workbuddyWarmup';
-import { startWorkbuddyNative } from './workbuddyNative';
+import { installedRuntime, startWorkbuddyNative, workbuddyNativeArgs } from './workbuddyNative';
 
 const hash = (value: string, length: number) => createHash('sha1').update(value).digest('hex').slice(0, length);
 
@@ -211,9 +211,11 @@ export async function startWorkbuddySidecar(
     try {
         await open();
         if (signal?.aborted || disposing) throw new Error('WorkBuddy worker creation cancelled');
+        const runtime = installedRuntime(scriptPath);
         submitted = true;
         const result = await rpc('session.create', {
-            sessionId: ownedId, command, args, cwd, port: 0,
+            sessionId: ownedId, command: runtime?.command ?? command,
+            args: workbuddyNativeArgs(scriptPath, args, runtime?.script), cwd, port: 0,
             env: {
                 ELECTRON_RUN_AS_NODE: '1', CODEBUDDY_FORCE_LITE_WB_BUNDLE: '1',
                 CODEBUDDY_CONFIG_DIR: configDir, WORKBUDDY_CONFIG_DIR: configDir, WORKBUDDY_DATA_FOLDER_NAME: dataFolder,

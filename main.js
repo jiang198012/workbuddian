@@ -1648,6 +1648,11 @@ function ownedDirectory(dir, create = false) {
     throw new Error("WorkBuddy \u672C\u63D2\u4EF6\u8FD0\u884C\u76EE\u5F55\u4E0D\u53EF\u4FE1");
 }
 function installedRuntime(scriptPath) {
+  try {
+    scriptPath = fs4.realpathSync(scriptPath);
+  } catch (e) {
+    return null;
+  }
   const cli = path4.resolve(path4.dirname(scriptPath), "..");
   const script = path4.join(cli, "bin", "codebuddy");
   try {
@@ -1699,10 +1704,13 @@ async function accountBroker(configDir, runtime, signal, disconnected) {
   } catch (error) {
     if (signal == null ? void 0 : signal.aborted)
       throw cancelled();
-    if (!runtime || !["E_DISCOVERY_MISSING", "E_SOCKET_UNAVAILABLE"].includes((_a = error.code) != null ? _a : ""))
-      throw error;
+    const code = (_a = error.code) != null ? _a : "";
+    if (code !== "E_REQUEST_PIPE_UNAVAILABLE") {
+      if (!runtime || !["E_DISCOVERY_MISSING", "E_SOCKET_UNAVAILABLE"].includes(code))
+        throw error;
+      await openInstalledHost(runtime, signal);
+    }
   }
-  await openInstalledHost(runtime, signal);
   const deadline = Date.now() + 3e4;
   while (true) {
     if (signal == null ? void 0 : signal.aborted)
@@ -1710,7 +1718,7 @@ async function accountBroker(configDir, runtime, signal, disconnected) {
     try {
       return await connectWorkbuddyBroker(configDir, signal, disconnected);
     } catch (error) {
-      if (!["E_DISCOVERY_MISSING", "E_SOCKET_UNAVAILABLE"].includes((_b = error.code) != null ? _b : ""))
+      if (!["E_DISCOVERY_MISSING", "E_SOCKET_UNAVAILABLE", "E_REQUEST_PIPE_UNAVAILABLE"].includes((_b = error.code) != null ? _b : ""))
         throw error;
       if (Date.now() >= deadline)
         throw new Error("WorkBuddy \u672C\u5730\u8D26\u53F7\u4EE3\u7406\u672A\u5C31\u7EEA\uFF0C\u8BF7\u786E\u8BA4\u5DF2\u6B63\u5E38\u542F\u52A8\u5E76\u767B\u5F55\uFF1B\u672A\u91CD\u53D1\u4EFB\u4F55\u6D88\u606F");
@@ -2029,7 +2037,7 @@ function requireOwned(file, kind) {
   return stat;
 }
 async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
-  var _a, _b;
+  var _a, _b, _c;
   let productPath;
   let product;
   try {
@@ -2270,11 +2278,12 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
     await open();
     if ((signal == null ? void 0 : signal.aborted) || disposing)
       throw new Error("WorkBuddy worker creation cancelled");
+    const runtime = installedRuntime(scriptPath);
     submitted = true;
     const result = await rpc("session.create", {
       sessionId: ownedId,
-      command,
-      args,
+      command: (_c = runtime == null ? void 0 : runtime.command) != null ? _c : command,
+      args: workbuddyNativeArgs(scriptPath, args, runtime == null ? void 0 : runtime.script),
       cwd,
       port: 0,
       env: {

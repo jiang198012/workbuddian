@@ -21,6 +21,7 @@ function ownedDirectory(dir: string, create = false): void {
 }
 
 export function installedRuntime(scriptPath: string): { command: string; app: string; script: string } | null {
+    try { scriptPath = fs.realpathSync(scriptPath); } catch { return null; }
     const cli = path.resolve(path.dirname(scriptPath), '..');
     const script = path.join(cli, 'bin', 'codebuddy');
     try { if (!fs.statSync(script).isFile()) return null; } catch { return null; }
@@ -57,15 +58,18 @@ async function accountBroker(configDir: string, runtime: ReturnType<typeof insta
     try { return await connectWorkbuddyBroker(configDir, signal, disconnected); }
     catch (error) {
         if (signal?.aborted) throw cancelled();
-        if (!runtime || !['E_DISCOVERY_MISSING', 'E_SOCKET_UNAVAILABLE'].includes((error as { code?: string }).code ?? '')) throw error;
+        const code = (error as { code?: string }).code ?? '';
+        if (code !== 'E_REQUEST_PIPE_UNAVAILABLE') {
+            if (!runtime || !['E_DISCOVERY_MISSING', 'E_SOCKET_UNAVAILABLE'].includes(code)) throw error;
+            await openInstalledHost(runtime, signal);
+        }
     }
-    await openInstalledHost(runtime!, signal);
     const deadline = Date.now() + 30_000;
     while (true) {
         if (signal?.aborted) throw cancelled();
         try { return await connectWorkbuddyBroker(configDir, signal, disconnected); }
         catch (error) {
-            if (!['E_DISCOVERY_MISSING', 'E_SOCKET_UNAVAILABLE'].includes((error as { code?: string }).code ?? '')) throw error;
+            if (!['E_DISCOVERY_MISSING', 'E_SOCKET_UNAVAILABLE', 'E_REQUEST_PIPE_UNAVAILABLE'].includes((error as { code?: string }).code ?? '')) throw error;
             if (Date.now() >= deadline) throw new Error('WorkBuddy 本地账号代理未就绪，请确认已正常启动并登录；未重发任何消息');
         }
         await new Promise<void>((resolve, reject) => {

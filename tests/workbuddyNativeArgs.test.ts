@@ -21,7 +21,7 @@ describe('WorkBuddy Windows bundled runtime selection', () => {
     let root: string;
     let platform: PropertyDescriptor;
     beforeEach(() => {
-        root = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-native-runtime-'));
+        root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wb-native-runtime-')));
         platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
         Object.defineProperty(process, 'platform', { ...platform, value: 'win32' });
         fs.mkdirSync(path.join(root, 'Resources', 'app.asar.unpacked', 'cli', 'bin'), { recursive: true });
