@@ -41,7 +41,8 @@ export default class WorkbuddianPlugin extends Plugin {
             // CodeBuddy 的模型列表以 ACP session/new 返回为准；后台发现不阻塞插件启动。
             if (this.api instanceof CodebuddyProvider) {
                 const vaultPath = (this.app.vault.adapter as { basePath?: string }).basePath;
-                void this.api.refreshAvailableModels(vaultPath).then(() => this.refreshOpenViews());
+                void this.api.refreshAvailableModels(vaultPath).then(() => this.refreshOpenViews())
+                    .catch(() => bbError('[WB] 模型目录加载失败'));
             }
 
             // 所有聊天视图共享同一个 ConversationManager：避免侧边栏 + 主编辑区

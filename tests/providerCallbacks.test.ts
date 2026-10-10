@@ -360,10 +360,197 @@ describe('provider turnFailed stopReason', () => {
 });
 
 describe('models & config sync', () => {
-    it('getAvailableModels falls back before any session, then serves handshake models', async () => {
+    it('目录尚未取得时只提供 Auto，不用静态型号冒充可用模型', () => {
+        makeFakeClient(MockAcpClient);
+        expect(new CodebuddyProvider().getAvailableModels()).toEqual(['auto']);
+    });
+
+    it('动态目录保留新型号与顺序，同名重复项只保留首个真实 ID', () => {
         const kit = makeFakeClient(MockAcpClient);
         const api = new CodebuddyProvider();
-        expect(api.getAvailableModels()).toContain('hy3'); // FALLBACK_MODEL_OPTIONS
+        kit.events().onModels([
+            { id: 'hy4-preview', name: 'Hy4 preview' },
+            { id: 'hy3', name: 'Hy3' },
+            { id: 'hy3-x', name: 'Hy3' },
+            { id: 'glm-5.3', name: 'GLM-5.3' },
+        ]);
+        expect(api.getAvailableModelLabels()).toEqual([
+            { id: 'hy4-preview', label: 'Hy4 preview' },
+            { id: 'hy3', label: 'Hy3' },
+            { id: 'glm-5.3', label: 'GLM-5.3' },
+        ]);
+    });
+
+    it('目录请求失败会明确拒绝，且不会返回旧的静态清单', async () => {
+        const kit = makeFakeClient(MockAcpClient);
+        kit.fake.ensureStarted.mockRejectedValue(new Error('private vendor detail'));
+        const api = new CodebuddyProvider();
+        await expect(api.refreshAvailableModels('/vault')).rejects.toThrow();
+        expect(api.getAvailableModels()).toEqual(['auto']);
+    });
+
+    it('worker 退出后重新发现目录，不复用上次模型清单', async () => {
+        const kit = makeFakeClient(MockAcpClient);
+        const api = new CodebuddyProvider();
+        kit.events().onModels([{ id: 'old-model' }]);
+        kit.events().onExit(0, null);
+        kit.fake.request.mockResolvedValue({ sessionId: 'new-discovery',
+            models: { availableModels: [{ modelId: 'glm-5.3', name: 'GLM-5.3' }] } });
+        await api.refreshAvailableModels('/vault');
+        expect(api.getAvailableModels()).toEqual(['glm-5.3']);
+    });
+
+    it('发现目录的新会话不会让下一条聊天消息发到错误的活动会话', async () => {
+        const kit = makeFakeClient(MockAcpClient);
+        let created = 0;
+        let activeId = '';
+        kit.fake.request.mockImplementation(async (method, params) => {
+            if (method === 'session/new') {
+                activeId = ++created === 1 ? 'chat-session' : 'discovery-session';
+                return { sessionId: activeId, models: { availableModels: [{ modelId: 'glm-5.3' }] } };
+            }
+            if (method === 'session/load') {
+                if (params.sessionId !== 'chat-session') throw new Error('not found');
+                activeId = 'chat-session';
+                return { models: {}, modes: {} };
+            }
+            if (method === 'session/prompt') {
+                if (activeId !== 'chat-session') throw new Error('wrong active session');
+                kit.events().onSessionUpdate('chat-session', {
+                    sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'ok' },
+                });
+                return { stopReason: 'end_turn' };
+            }
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        await consume(api.sendMessage('s1', 'first', '/vault'));
+        await api.refreshAvailableModels('/vault');
+        await expect(consume(api.sendMessage('s1', 'next', '/vault'))).resolves.toEqual([
+            expect.objectContaining({ type: 'text', content: 'ok' }), expect.objectContaining({ type: 'done' }),
+        ]);
+    });
+
+    it('聊天预加载后排在目录发现后，仍会重新激活聊天再发送', async () => {
+        const kit = makeFakeClient(MockAcpClient);
+        let activeId = '';
+        const trace: string[] = [];
+        kit.fake.request.mockImplementation(async (method, params) => {
+            if (method === 'session/load') {
+                activeId = String(params.sessionId);
+                trace.push(`load:${activeId}`);
+                return { models: {}, modes: {} };
+            }
+            if (method === 'session/new') {
+                activeId = 'discovery';
+                trace.push('new:discovery');
+                return { sessionId: activeId, models: { availableModels: [{ modelId: 'glm-5.3' }] } };
+            }
+            if (method === 'session/prompt') {
+                trace.push(`prompt:${activeId}`);
+                if (activeId !== 'chat') throw new Error('wrong active session');
+                kit.events().onSessionUpdate('chat', {
+                    sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'ok' },
+                });
+                return { stopReason: 'end_turn' };
+            }
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        await consume(api.sendMessage('chat', 'first', '/vault'));
+        trace.length = 0;
+        const hold = deferred<void>();
+        let tail: Promise<unknown> = hold.promise;
+        kit.fake.enqueuePrompt.mockImplementation((fn: () => Promise<unknown>) => {
+            const queued = tail.then(fn);
+            tail = queued.catch(() => {});
+            return queued;
+        });
+        const discovery = api.refreshAvailableModels('/vault');
+        await flush();
+        const send = consume(api.sendMessage('chat', 'next', '/vault'));
+        await flush();
+        expect(kit.fake.enqueuePrompt).toHaveBeenCalledTimes(3); // 首轮、发现、已预加载的下一轮
+        hold.resolve();
+        await discovery;
+        await expect(send).resolves.toEqual([
+            expect.objectContaining({ type: 'text', content: 'ok' }), expect.objectContaining({ type: 'done' }),
+        ]);
+        expect(trace).toEqual(['new:discovery', 'load:chat', 'prompt:chat']);
+    });
+
+    it.each([false, true])('指定模型失败时中止发送，不继续 prompt（复用会话=%s）', async (reuseSession) => {
+        const kit = makeFakeClient(MockAcpClient);
+        let rejectModel = false;
+        kit.fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
+            if (method === 'session/new') return { sessionId: 'acp-1' };
+            if (method === 'session/load') {
+                if (params.sessionId === 'acp-1') return { models: {}, modes: {} };
+                throw new Error('not found');
+            }
+            if (method === 'session/set_config_option' && params.configId === 'model' && rejectModel) {
+                throw new Error('vendor-private-detail');
+            }
+            if (method === 'session/prompt') {
+                kit.events().onSessionUpdate('acp-1', {
+                    sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'ok' },
+                });
+                return { stopReason: 'end_turn' };
+            }
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        if (reuseSession) await consume(api.sendMessage('s1', 'first', '/v'));
+        kit.fake.request.mockClear();
+        kit.fake.rawRequest.mockClear();
+        rejectModel = true;
+        const failure = await consume(api.sendMessage('s1', 'next', '/v', [], undefined, undefined, undefined,
+            { model: 'hy3-x' })).then(() => null, (e: Error) => e);
+        expect(failure).toBeInstanceOf(Error);
+        expect(failure?.message).toContain('hy3-x');
+        expect(failure?.message).not.toContain('vendor-private-detail');
+        expect(kit.fake.request).toHaveBeenCalledWith('session/set_config_option',
+            { sessionId: 'acp-1', configId: 'model', value: 'hy3-x' });
+        expect(kit.fake.rawRequest).not.toHaveBeenCalled();
+    });
+
+    it.each(['setModel', 'setPermissionMode', 'setThoughtLevel'] as const)(
+        '%s 后台配置失败会记录本地错误，不泄漏远端详情或产生未处理拒绝', async (setter) => {
+            const kit = makeFakeClient(MockAcpClient);
+            let newCount = 0;
+            let rejectLoad = false;
+            kit.fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
+                if (method === 'session/new') return { sessionId: `acp-${++newCount}` };
+                if (method === 'session/load') {
+                    if (rejectLoad) throw new Error('vendor-private-detail');
+                    if (String(params.sessionId).startsWith('acp-')) return { models: {}, modes: {} };
+                    throw new Error('not found');
+                }
+                if (method === 'session/prompt') {
+                    kit.events().onSessionUpdate(String(params.sessionId), {
+                        sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'ok' },
+                    });
+                    return { stopReason: 'end_turn' };
+                }
+                return {};
+            });
+            const api = new CodebuddyProvider();
+            await consume(api.sendMessage('s1', 'first', '/v'));
+            await consume(api.sendMessage('s2', 'second', '/v'));
+            clearLogs();
+            rejectLoad = true;
+            if (setter === 'setModel') api.setModel('hy3-x');
+            else if (setter === 'setPermissionMode') api.setPermissionMode('plan');
+            else api.setThoughtLevel('high');
+            await flush();
+            expect(getLogs()).toHaveLength(1);
+            expect(getLogs().join('\n')).not.toContain('vendor-private-detail');
+        });
+
+    it('getAvailableModels starts with Auto, then serves handshake models', async () => {
+        const kit = makeFakeClient(MockAcpClient);
+        const api = new CodebuddyProvider();
+        expect(api.getAvailableModels()).toEqual(['auto']);
         kit.events().onModels([{ id: 'auto' }, { id: 'hy3' }, { id: 'glm-5.2' }]);
         expect(api.getAvailableModels()).toEqual(['auto', 'hy3', 'glm-5.2']);
     });

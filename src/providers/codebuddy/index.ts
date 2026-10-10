@@ -14,6 +14,17 @@ export type { StreamChunk } from '../acp/events';
 export class CodebuddyProvider extends AcpProvider {
     constructor(timeout?: number) { super(CODEBUDDY_PROFILE, timeout); }
 
+    /** 同名型号保留目录首项及其真实 ID，不让免费/付费别名重复占据菜单。 */
+    protected onModels(models: Array<{ id: string; name?: string }>): void {
+        const names = new Set<string>();
+        super.onModels(models.filter((model) => {
+            const label = model.name || model.id;
+            if (names.has(label)) return false;
+            names.add(label);
+            return true;
+        }));
+    }
+
     setCodebuddyPath(p: string): void { this.client.setCliPath(p); }
     setNodePath(nodePath: string): void { this.client.setNodePath(nodePath); }
 

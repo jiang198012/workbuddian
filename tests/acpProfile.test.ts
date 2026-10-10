@@ -1,5 +1,4 @@
 import { CODEBUDDY_PROFILE } from '../src/providers/codebuddy/profile';
-import { FALLBACK_MODEL_OPTIONS } from '../src/shared/cliOptions';
 
 describe('codebuddy profile（行为钉：与现状一致）', () => {
     it('spawn 入口参数为 --acp', () => {
@@ -16,6 +15,15 @@ describe('codebuddy profile（行为钉：与现状一致）', () => {
             'sid', 'claude-x');
         expect(calls).toEqual([{ m: 'session/set_config_option', sessionId: 'sid', configId: 'model', value: 'claude-x' }]);
     });
+    it('模型下发失败会拒绝并只返回包含模型 ID 的本地错误', async () => {
+        const failure = await CODEBUDDY_PROFILE.applyRemoteModel(
+            { request: async <T = unknown>() => { throw new Error('vendor-private-detail'); } },
+            'sid', 'hy3-x',
+        ).then(() => null, (e: Error) => e);
+        expect(failure).toBeInstanceOf(Error);
+        expect(failure?.message).toContain('hy3-x');
+        expect(failure?.message).not.toContain('vendor-private-detail');
+    });
     it('回放判别认 codebuddy.ai meta', () => {
         expect(CODEBUDDY_PROFILE.isReplayUpdate({ _meta: { 'codebuddy.ai': { mode: 'history' } } })).toBe(true);
         expect(CODEBUDDY_PROFILE.isReplayUpdate({})).toBe(false);
@@ -26,7 +34,7 @@ describe('codebuddy profile（行为钉：与现状一致）', () => {
         expect(CODEBUDDY_PROFILE.normalizeToolCall({ title: 't' })).toEqual({});
         // codebuddy CLI 是 JS 脚本：纯路径须走 node 解释（v1 历史行为）
         expect(CODEBUDDY_PROFILE.spawnViaNode).toBe(true);
-        // 握手前模型菜单种子 = 硬编码兜底列表（v1 历史行为）
-        expect([...CODEBUDDY_PROFILE.fallbackModels]).toEqual(Object.keys(FALLBACK_MODEL_OPTIONS));
+        // 未取得实时目录之前不能展示静态型号。
+        expect([...CODEBUDDY_PROFILE.fallbackModels]).toEqual(['auto']);
     });
 });

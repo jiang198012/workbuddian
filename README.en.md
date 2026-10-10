@@ -42,6 +42,8 @@ Or via [BRAT](https://github.com/TfTHacker/obsidian42-brat) with `jiang198012/wo
 
 ## Quick Start
 
+**2.6.18 model catalog synchronization**: each new worker reads the official cloud catalog for the original personal WorkBuddy account instead of freezing the bundled CLI's old startup cache. Preserve current model IDs, names and order; deduplicate display names. Catalog or selected-model configuration failures are explicit and do not silently use an old model. **Existing login and quota are retained; this is not continuous live refresh. Desktop experimental-menu parity, enterprise accounts and Windows hardware remain unverified.** See the [repair and verification record](docs/model-catalog-sync-2026-10-09.md).
+
 **2.6.17 acceptance and limitation update**: the production implementation is unchanged from 2.6.16. A synthetic MCP passed one-time approval, independent result delivery, post-tool owned-process cleanup and the Obsidian approval-card flow. The first image GUI attempt returned a plain `refusal`; later protocol controls and a temporary diagnostic build succeeded, but the cause remains unidentified and is not claimed fixed. See the [supplemental acceptance report](docs/issue-10-native-capability-acceptance-2026-10-09.md).
 
 **2.6.16 optional-connector recovery**: a failed or incompatible old connector, or warmup without an actual sidecar, no longer blocks the original account route. Independently authenticate the native broker only when the sidecar is absent and no worker has been submitted. Cancellation, untrusted sidecars and invalid account proofs still fail closed; prompts are not automatically replayed. See the [recovery report](docs/issue-10-connector-recovery-2026-10-09.md). Native transport limits remain; this is not full high-availability acceptance.
@@ -70,7 +72,9 @@ The complete documentation (usage, settings, auto-discovery, FAQ, changelog) is 
 
 ## What's New
 
-**Latest version 2.6.17**
+**Latest version 2.6.18**
+
+- **2.6.18 — Original-account model catalog sync**: bypass the stale CLI startup cache and fetch the personal account's official catalog for each new worker. Preserve new model IDs and order, deduplicate names, report catalog/configuration failures instead of silent fallback, and keep discovery from stealing the active chat context. **Not continuous live refresh; enterprise accounts and Windows hardware remain unverified, #10 stays open.**
 
 - **2.6.17 — Acceptance and limitation update**: add synthetic MCP GUI approval and post-tool owned-process cleanup evidence; retain the unresolved image GUI refusal and document the normal WBIPC registry's streaming boundary. **Production code is unchanged from 2.6.16; native deadline/size/buffering limits remain and #10 stays open.**
 

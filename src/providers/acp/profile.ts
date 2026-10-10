@@ -1,6 +1,5 @@
-import { FALLBACK_MODEL_OPTIONS, type PermissionMode } from '../../shared/cliOptions';
+import type { PermissionMode } from '../../shared/cliOptions';
 import { resolveCodebuddyPath } from '../../utils/cliPath';
-import { bbLog } from '../../shared/logBuffer';
 import type { AcpUpdate } from './events';
 
 /** applyRemoteModel 对传输层的最小依赖（AcpClient/AcpClientFacade 天然满足） */
@@ -21,7 +20,7 @@ export interface AcpBackendProfile {
      * hermes shim 是 bash（unset PYTHONPATH; exec venv/python）→ false，直接 spawn。
      */
     readonly spawnViaNode: boolean;
-    /** 握手前模型菜单种子：codebuddy = 硬编码兜底列表；hermes = ['auto']（不泄别家模型名） */
+    /** 握手前仅提供默认模式，不把静态型号冒充实时可用目录。 */
     readonly fallbackModels: readonly string[];
     /** 插件权限模式 → agent 侧 mode id */
     mapOutgoingMode(mode: PermissionMode): string;
@@ -52,13 +51,13 @@ export const ACP_DEFAULT_PROFILE: AcpBackendProfile = {
     resolveCliPath: resolveCodebuddyPath,
     acpArgs: ['--acp'],
     spawnViaNode: true,
-    fallbackModels: Object.keys(FALLBACK_MODEL_OPTIONS),
+    fallbackModels: ['auto'],
     mapOutgoingMode: (m) => m,
     mapIncomingMode: (id) => id as PermissionMode,
     async applyRemoteModel(client, sessionId, model) {
         try {
             await client.request('session/set_config_option', { sessionId, configId: 'model', value: model });
-        } catch (e) { bbLog('[WB] acp 设置模型失败（忽略）:', e); }
+        } catch { throw new Error(`模型设置失败：${model}`); }
     },
     supportsThoughtLevel: true,
     isReplayUpdate: (update) => {

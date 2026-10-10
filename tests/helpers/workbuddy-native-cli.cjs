@@ -5,6 +5,11 @@ const http = require('http');
 const crypto = require('crypto');
 const connections = new Set();
 const token = crypto.randomBytes(16).toString('hex');
+const product = JSON.parse(process.env.ACC_PRODUCT_CONFIG_V3 || '{}');
+const cliModels = product.agents?.find(agent => agent.name === 'cli')?.models || [];
+const availableModels = cliModels.map(id => product.models?.find(model => model.id === id)).filter(Boolean)
+    .map(model => ({ modelId: model.id, name: model.name || model.id }));
+let modelId = availableModels[0]?.modelId || 'auto';
 const server = http.createServer(async (req, res) => {
     if (req.url === '/api/v1/acp/connect') {
         res.writeHead(200, { 'content-type': 'application/json' });
@@ -19,13 +24,18 @@ const server = http.createServer(async (req, res) => {
     const message = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     let result;
     if (message.method === 'initialize') result = { protocolVersion: 1, agentCapabilities: {} };
-    else if (message.method === 'session/new') result = { sessionId: 'fixture-owned' };
+    else if (message.method === 'session/new') result = { sessionId: 'fixture-owned',
+        models: { availableModels, currentModelId: modelId } };
+    else if (message.method === 'session/set_config_option' && message.params.configId === 'model') {
+        modelId = message.params.value;
+        result = {};
+    }
     else if (message.method === 'session/prompt') {
         const response = await fetch(process.env.CODEBUDDY_BASE_URL + '/chat/completions', {
             method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + process.env.CODEBUDDY_AUTH_TOKEN },
-            body: JSON.stringify({ prompt: message.params.prompt }),
+            body: JSON.stringify({ model: modelId, prompt: message.params.prompt }),
         });
-        result = response.ok ? { stopReason: 'end_turn', reply: (await response.json()).text }
+        result = response.ok ? { stopReason: 'end_turn', reply: (await response.json()).text, modelId }
             : { stopReason: 'refusal', upstreamStatus: response.status };
     } else result = {};
     res.writeHead(200, { 'content-type': 'application/json' });

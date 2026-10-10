@@ -26,7 +26,7 @@ import { buildSelectionBlock } from '../../shared/selection';
 import { pickFinalContent, appendTextChunk } from '../../shared/responseFinalize';
 import { confirmExternalAccess } from './externalAccessModal';
 import { sanitizeTitle, shouldApplyAutoTitle } from '../../shared/autoTitle';
-import { PERMISSION_MODE_CHOICES, isThoughtLevel, normalizeAvailableModelIds, orderModels, modelLabel, type PermissionMode } from '../../shared/cliOptions';
+import { PERMISSION_MODE_CHOICES, isThoughtLevel, orderModels, modelLabel, type PermissionMode } from '../../shared/cliOptions';
 import { contextPercent, usageTooltip, isUsageWarning } from '../../shared/contextUsage';
 import { t } from '../../i18n';
 import { bbLog, bbError } from '../../shared/logBuffer';
@@ -656,7 +656,7 @@ export function openPermissionMenu(view: WorkbuddianChatView, btn: HTMLElement, 
 /** 模型显示名优先使用后端握手返回的 name，旧静态标签只作为兜底。 */
 export function modelDisplayLabel(view: WorkbuddianChatView, id: string): string {
     const hit = view.api.getAvailableModelLabels().find((m) => m.id === id);
-    if (hit && hit.label !== id) return hit.label;
+    if (hit) return hit.label;
     return modelLabel(id);
 }
 
@@ -670,16 +670,20 @@ export function updateModelButton(view: WorkbuddianChatView, btn: HTMLElement, i
 }
 
 /** 弹出模型选择菜单（供悬停/点击触发），选中后写设置 + 灌 CLI + 更新按钮文字 + 持久化 */
-export function openModelMenu(view: WorkbuddianChatView, btn: HTMLElement) {
-    if (view.api instanceof CodebuddyProvider) void view.api.refreshAvailableModels(view.vaultPath);
+export async function openModelMenu(view: WorkbuddianChatView, btn: HTMLElement) {
+    let catalogFailed = false;
+    if (view.api instanceof CodebuddyProvider) {
+        try { await view.api.refreshAvailableModels(view.vaultPath); }
+        catch { catalogFailed = true; new Notice(t('model.catalogUnavailable')); }
+    }
     const menu = new Menu();
+    if (catalogFailed) menu.addItem(item => item.setTitle(t('model.catalogUnavailable')).setDisabled(true));
     const workspace = view.getActiveWorkspace();
     updateModelButton(view, btn, workspace.model);
-    const availableModels = view.api instanceof CodebuddyProvider
-        ? normalizeAvailableModelIds(view.api.getAvailableModels())
-        : view.api.getAvailableModels();
-    const ids = [...new Set(['auto', ...availableModels])]; // CLI 列表自带 auto，去重防双 auto
-    const models = orderModels(ids, ['auto', ...availableModels]); // 动态列表优先保持后端顺序
+    const availableModels = view.api.getAvailableModels();
+    const models = view.api instanceof CodebuddyProvider
+        ? availableModels
+        : orderModels([...new Set(['auto', ...availableModels])], ['auto', ...availableModels]);
     const labelOf = (id: string) => modelDisplayLabel(view, id);
     for (const id of models) {
         menu.addItem(item => item

@@ -82,17 +82,17 @@ export class AcpProvider {
 
     setModel(model: string): void {
         this.config.model = model;
-        for (const s of this.registry.all()) void s.applyRemoteConfig();
+        for (const s of this.registry.all()) void s.applyRemoteConfig().catch(() => bbLog('[WB] 后台模型配置失败'));
     }
 
     setPermissionMode(mode: PermissionMode): void {
         this.config.mode = mode;
-        for (const s of this.registry.all()) void s.applyRemoteConfig();
+        for (const s of this.registry.all()) void s.applyRemoteConfig().catch(() => bbLog('[WB] 后台权限配置失败'));
     }
 
     setThoughtLevel(level: string): void {
         this.config.thoughtLevel = level;
-        for (const s of this.registry.all()) void s.applyRemoteConfig();
+        for (const s of this.registry.all()) void s.applyRemoteConfig().catch(() => bbLog('[WB] 后台思考力度配置失败'));
     }
 
     setAvailableModels(models: string[]): void {
@@ -106,16 +106,20 @@ export class AcpProvider {
     getAvailableModelLabels(): Array<{ id: string; label: string }> {
         return this.modelPairs.map((m) => ({ id: m.id, label: m.name ?? m.id }));
     }
-    /** 在首条消息前主动触发一次 ACP session/new，获取当前 CLI 的真实模型列表。 */
+    /** 在首条消息前发现当前 worker 的目录；发现会话不能抢走聊天的活动指针。 */
     async refreshAvailableModels(cwd = ''): Promise<void> {
         if (this.modelDiscoveryComplete) return;
         if (this.modelRefreshPromise) return this.modelRefreshPromise;
         this.modelRefreshPromise = (async () => {
             try {
                 await this.client.ensureStarted(cwd);
-                const result = await this.client.request<{
-                    models?: { availableModels?: Array<{ modelId?: unknown; name?: unknown }> };
-                }>('session/new', { cwd, mcpServers: this.config.mcpServers ?? [] });
+                const result = await this.client.enqueuePrompt(async () => {
+                    const discovered = await this.client.request<{
+                        models?: { availableModels?: Array<{ modelId?: unknown; name?: unknown }> };
+                    }>('session/new', { cwd, mcpServers: this.config.mcpServers ?? [] });
+                    for (const session of this.registry.all()) session.markStale();
+                    return discovered;
+                });
                 const raw = result?.models?.availableModels;
                 const models = Array.isArray(raw)
                     ? raw.filter((m) => m?.modelId != null && String(m.modelId) !== '').map((m) => ({
@@ -123,9 +127,10 @@ export class AcpProvider {
                         ...(typeof m.name === 'string' && m.name ? { name: m.name } : {}),
                     }))
                     : [];
-                if (models.length) this.onModels(models);
-            } catch (e) {
-                bbLog('[WB] ACP 模型列表刷新失败，保留兜底列表:', e);
+                if (!models.length) throw new Error('Empty model catalog');
+                this.onModels(models);
+            } catch {
+                throw new Error(t('model.catalogUnavailable'));
             } finally {
                 this.modelRefreshPromise = null;
             }
@@ -435,6 +440,9 @@ export class AcpProvider {
 
     private handleProcessExit(code: number | null, signal: string | null): void {
         bbLog('[WB] acp 进程退出:', code, signal);
+        this.modelDiscoveryComplete = false;
+        this.availableModels = [...this.profile.fallbackModels];
+        this.modelPairs = this.availableModels.map((id) => ({ id }));
         for (const s of this.registry.all()) {
             s.markStale(); // 下次发送自动重启 + session/load 恢复（CLI 侧上下文不丢）
             s.failTurn(t('provider.processDied'));

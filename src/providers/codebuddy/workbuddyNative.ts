@@ -5,6 +5,7 @@ import type { Socket } from 'net';
 import { spawn } from 'child_process';
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { connectWorkbuddyBroker, type WorkbuddyBroker } from './workbuddyBroker';
+import { loadWorkbuddyModelConfig } from './workbuddyModels';
 
 const cancelled = () => new Error('WorkBuddy worker creation cancelled');
 
@@ -181,6 +182,10 @@ export async function startWorkbuddyNative(configDir: string, scriptPath: string
         });
         if (signal?.aborted) throw cancelled();
         if (connectionError) throw connectionError;
+        const productPath = path.join(path.dirname(fs.realpathSync(scriptPath)), '..', 'product.json');
+        const modelConfig = await loadWorkbuddyModelConfig(broker, JSON.parse(fs.readFileSync(productPath, 'utf8')), signal);
+        if (signal?.aborted) throw cancelled();
+        if (connectionError) throw connectionError;
         const cache = path.join(configDir, 'workbuddian'); ownedDirectory(cache, true);
         const workerDir = path.join(cache, createHash('sha256').update(fs.realpathSync(cwd)).digest('hex')); ownedDirectory(workerDir, true);
         await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
@@ -198,7 +203,7 @@ export async function startWorkbuddyNative(configDir: string, scriptPath: string
             CODEBUDDY_GATEWAY_AUTH: 'password', CODEBUDDY_GATEWAY_PASSWORD: randomBytes(32).toString('hex'),
             CODEBUDDY_GATEWAY_DISABLE_API_DOCS: '1', SERVER__PORT: '0', SERVER__HOST: '127.0.0.1',
             DISABLE_AUTOUPDATER: '1', DISABLE_TELEMETRY: '1',
-            ACC_PRODUCT_CONFIG_V3: JSON.stringify({ endpoint: origin, networkEnvironment: 'external',
+            ACC_PRODUCT_CONFIG_V3: JSON.stringify({ ...modelConfig, endpoint: origin, networkEnvironment: 'external',
                 authentication: { type: 'custom-token', attributes: { tokenType: 'bearerToken', token: nonce } } }),
         });
         // 仅恢复已安装的目录型 skills，不读取宿主账号、会话或 settings。

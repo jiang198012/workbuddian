@@ -4,6 +4,10 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import { createHash } from 'crypto';
 import { AcpClient, type AcpClientEvents } from '../src/providers/acp/client';
+import { connectWorkbuddyBroker } from '../src/providers/codebuddy/workbuddyBroker';
+jest.mock('../src/providers/codebuddy/workbuddyBroker', () => ({
+    ...jest.requireActual('../src/providers/codebuddy/workbuddyBroker'), connectWorkbuddyBroker: jest.fn(),
+}));
 
 type Rpc = { id: number; method: string; params: Record<string, any> };
 
@@ -16,6 +20,10 @@ describe('WorkBuddy existing sidecar without system Node', () => {
     let childExit: Promise<void> | undefined;
     let created: Rpc['params'] | undefined;
     let spawnError: string | undefined;
+    let modelBroker: { requestFetch: jest.Mock; dispose: jest.Mock };
+    const installedModels = [{ id: 'old-model', name: 'Old model' }];
+    const installedAgents = [{ name: 'cli', tags: ['cli', 'default'], models: ['old-model'] }];
+    const accountModels = [{ id: 'account-model', name: 'Account model' }];
     const sockets = new Set<net.Socket>();
     const saved = new Map<string, string | undefined>();
     const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
@@ -41,6 +49,11 @@ describe('WorkBuddy existing sidecar without system Node', () => {
             }
             return statSync(file, options);
         });
+        modelBroker = { requestFetch: jest.fn(async () => ({ status: 200, headers: { 'content-type': 'application/json' },
+            body_b64: Buffer.from(JSON.stringify({ code: 0, data: {
+                models: accountModels, agents: [{ name: 'cli', models: ['account-model'] }],
+            } })).toString('base64') })), dispose: jest.fn() };
+        (connectWorkbuddyBroker as jest.Mock).mockReset().mockResolvedValue(modelBroker);
     });
 
     afterEach(async () => {
@@ -89,7 +102,8 @@ describe('WorkBuddy existing sidecar without system Node', () => {
         if (targetPlatform === 'win32') fs.writeFileSync(discoveredPath, 'fixture wrapper must not run as the Node entry');
         // The fixture runtime runs real Node code; it is not found as a system node candidate.
         fs.symlinkSync(process.execPath, electron);
-        fs.writeFileSync(path.join(cliRoot, 'product.json'), JSON.stringify({ productName: 'WorkBuddy' }));
+        fs.writeFileSync(path.join(cliRoot, 'product.json'), JSON.stringify({ productName: 'WorkBuddy',
+            models: installedModels, agents: installedAgents }));
         fs.writeFileSync(path.join(cliRoot, 'dist', 'codebuddy-lite-wb.mjs'), 'CODEBUDDY_SIDECAR_CREDENTIAL_BOOTSTRAP_SOCKET');
         const runtimeDir = path.join(root, `wb-${hash(String(process.getuid!()), 6)}`, hash(process.env.WORKBUDDY_CONFIG_DIR!, 12));
         const socketPath = path.join(runtimeDir, 'sidecar-1234abcd.sock');
@@ -155,7 +169,22 @@ describe('WorkBuddy existing sidecar without system Node', () => {
         })).resolves.toBeUndefined();
         expect(spawnError).toBeUndefined();
         expect(created).toMatchObject({ command: electron, args: [scriptPath, '--serve'] });
+        expect(created!.env.CODEBUDDY_DISABLE_PRODUCT_CACHE).toBe('1');
+        expect(JSON.parse(created!.env.ACC_PRODUCT_CONFIG_V3)).toEqual({
+            models: [...installedModels, ...accountModels],
+            agents: [{ ...installedAgents[0], models: ['account-model'] }],
+        });
+        expect(connectWorkbuddyBroker).toHaveBeenCalledWith(process.env.WORKBUDDY_CONFIG_DIR, expect.any(AbortSignal));
+        expect(modelBroker.requestFetch).toHaveBeenCalledTimes(1);
+        expect(modelBroker.requestFetch).toHaveBeenCalledWith({ method: 'GET',
+            path: '/console/enterprises/personal/models', headers: { Accept: 'application/json' } },
+            (connectWorkbuddyBroker as jest.Mock).mock.calls[0][1]);
+        expect(modelBroker.dispose).toHaveBeenCalledTimes(1);
         expect(client.running).toBe(true);
-        await expect(client.request('session/new', { cwd, mcpServers: [] })).resolves.toEqual({ sessionId: 'fixture-owned' });
+        await expect(client.request('session/new', { cwd, mcpServers: [] })).resolves.toEqual({
+            sessionId: 'fixture-owned', models: {
+                availableModels: [{ modelId: 'account-model', name: 'Account model' }], currentModelId: 'account-model',
+            },
+        });
     });
 });

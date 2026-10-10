@@ -85,6 +85,7 @@ export class AcpSession {
     /** 进程死亡后由 provider 标记：下次 ensureLoaded 重新 session/load（CLI 侧上下文不丢） */
     markStale(): void {
         if (this.acpSessionId) this.needsReload = true;
+        if (this.activation.current === this.acpSessionId) this.activation.current = null;
     }
 
     async ensureLoaded(
@@ -155,7 +156,10 @@ export class AcpSession {
             if (config.model) {
                 await this.profile.applyRemoteModel(this.client, sessionId, config.model);
             }
-        } catch (e) { bbLog('[WB] acp 设置模型失败（忽略）:', e); }
+        } catch (e) {
+            if (this.profile.id === 'codebuddy') throw e;
+            bbLog('[WB] acp 设置模型失败（忽略）:', e);
+        }
         try {
             if (config.mode) {
                 const modeId = this.profile.mapOutgoingMode(config.mode as PermissionMode);

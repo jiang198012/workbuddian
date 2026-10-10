@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (2.6.17)
+status: stable (2.6.18)
 license: MIT
 -->
 
@@ -104,6 +104,8 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 ## 快速开始
 
 ### WorkBuddy 升级兼容（Issue #10）
+
+**2.6.18 模型目录同步**：新连接进程启动时从 WorkBuddy 原个人账号官方云端目录获取模型，跳过会固化旧清单的 CLI 启动缓存；保留新型号、真实 ID 和目录顺序，同名项去重。目录读取或指定模型设置失败会明确报错，不悄悄使用旧模型。**沿用原登录与额度；持续连接期间不会即时刷新，桌面实验菜单、企业账号及 Windows 实机未验收**。详见[模型目录修复与验证记录](docs/model-catalog-sync-2026-10-09.md)。
 
 **2.6.17 验收与限制说明更新**：沿用 2.6.16 的生产实现，补齐合成 MCP 的真实单次批准、结果回传和工具调用后进程清理，以及 Obsidian 批准卡操作。图片 GUI 首次出现普通 `refusal`，后续协议对照和临时诊断构建成功，但原因仍未定位；不将它标为已修复。详见[补充验收报告](docs/issue-10-native-capability-acceptance-2026-10-09.md)。
 
@@ -235,7 +237,9 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 2.6.17**
+**最新版本 2.6.18**
+
+- **2.6.18** — **原账号模型目录同步**：修复 CLI 启动缓存中的旧清单；新进程启动时读取官方个人账号云端目录，保留新型号并去重。目录/模型设置失败明确报错，防止旧模型静默回退；修复目录发现抢占聊天上下文。**不是持续实时刷新，企业账号和 Windows 实机待验收，Issue #10 保持开放**。
 
 - **2.6.17** — **验收与限制说明更新**：补齐真实合成 MCP 批准卡与调用后自有进程清理证据；记录尚未定位的图片 GUI 拒绝和正常 WBIPC 注册面的流式能力边界。**生产实现与 2.6.16 相同，未解除原生时限/容量/缓冲限制，Issue #10 保持开放**。
 

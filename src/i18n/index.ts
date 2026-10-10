@@ -126,6 +126,7 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'settings.timeout': { zh: 'CLI 超时时长（分钟）', en: 'CLI timeout (minutes)' },
     'settings.timeoutDesc': { zh: 'CodeBuddy CLI 单次响应最长等待时间，超过会强制中断', en: 'Max wait per CodeBuddy CLI response; exceeding it aborts the call.' },
     'settings.model': { zh: '模型', en: 'Model' },
+    'model.catalogUnavailable': { zh: '无法读取可用模型目录，请检查 WorkBuddy 连接后重试；未使用静态清单。', en: 'Model catalog unavailable. Check the WorkBuddy connection and retry; no static model list was used.' },
     'settings.modelDesc': { zh: 'CodeBuddy CLI 使用的模型', en: 'Model used by the CodeBuddy CLI' },
     'settings.modelAuto': { zh: 'Auto（默认，由 CodeBuddy 自动选择）', en: 'Auto (default, chosen by CodeBuddy)' },
     'settings.inject': { zh: '上下文注入', en: 'Context injection' },

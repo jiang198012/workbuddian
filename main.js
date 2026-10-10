@@ -155,6 +155,7 @@ var init_i18n = __esm({
       "settings.timeout": { zh: "CLI \u8D85\u65F6\u65F6\u957F\uFF08\u5206\u949F\uFF09", en: "CLI timeout (minutes)" },
       "settings.timeoutDesc": { zh: "CodeBuddy CLI \u5355\u6B21\u54CD\u5E94\u6700\u957F\u7B49\u5F85\u65F6\u95F4\uFF0C\u8D85\u8FC7\u4F1A\u5F3A\u5236\u4E2D\u65AD", en: "Max wait per CodeBuddy CLI response; exceeding it aborts the call." },
       "settings.model": { zh: "\u6A21\u578B", en: "Model" },
+      "model.catalogUnavailable": { zh: "\u65E0\u6CD5\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u76EE\u5F55\uFF0C\u8BF7\u68C0\u67E5 WorkBuddy \u8FDE\u63A5\u540E\u91CD\u8BD5\uFF1B\u672A\u4F7F\u7528\u9759\u6001\u6E05\u5355\u3002", en: "Model catalog unavailable. Check the WorkBuddy connection and retry; no static model list was used." },
       "settings.modelDesc": { zh: "CodeBuddy CLI \u4F7F\u7528\u7684\u6A21\u578B", en: "Model used by the CodeBuddy CLI" },
       "settings.modelAuto": { zh: "Auto\uFF08\u9ED8\u8BA4\uFF0C\u7531 CodeBuddy \u81EA\u52A8\u9009\u62E9\uFF09", en: "Auto (default, chosen by CodeBuddy)" },
       "settings.inject": { zh: "\u4E0A\u4E0B\u6587\u6CE8\u5165", en: "Context injection" },
@@ -381,14 +382,14 @@ var hermesDiscover_exports = {};
 __export(hermesDiscover_exports, {
   discoverHermes: () => discoverHermes
 });
-function envVal(text, key) {
+function envVal(text2, key) {
   var _a;
-  const m = text.match(new RegExp(`^\\s*${key}\\s*=\\s*(.+?)\\s*$`, "m"));
+  const m = text2.match(new RegExp(`^\\s*${key}\\s*=\\s*(.+?)\\s*$`, "m"));
   return (_a = m == null ? void 0 : m[1]) != null ? _a : "";
 }
-function yamlApiServer(text, key) {
+function yamlApiServer(text2, key) {
   var _a;
-  const m = text.match(new RegExp(`api_server:[\\s\\S]*?\\n\\s+${key}:\\s*(\\S+)`, "i"));
+  const m = text2.match(new RegExp(`api_server:[\\s\\S]*?\\n\\s+${key}:\\s*(\\S+)`, "i"));
   return (_a = m == null ? void 0 : m[1]) != null ? _a : "";
 }
 function discoverHermes(rootDir) {
@@ -927,91 +928,20 @@ function needsWindowsShell(scriptPath) {
   return isWin() && (ext === ".cmd" || ext === ".bat");
 }
 
-// src/shared/cliOptions.ts
-var MODEL_OPTIONS = {
-  hy3: "hy3",
-  "glm-5.2": "glm-5.2",
-  "glm-5.1": "glm-5.1",
-  "glm-5v-turbo": "glm-5v-turbo",
-  "minimax-m3": "minimax-m3",
-  "kimi-k3-1": "kimi-k3-1",
-  "kimi-k2.7": "kimi-k2.7",
-  "kimi-k2.6": "kimi-k2.6",
-  "deepseek-v4-flash": "deepseek-v4-flash",
-  "deepseek-v4-pro": "deepseek-v4-pro"
-};
-var MODEL_LABELS = {
-  hy3: "Hunyuan \u6DF7\u5143",
-  "glm-5.2": "GLM-5.2\uFF08\u667A\u8C31\uFF09",
-  "glm-5.1": "GLM-5.1\uFF08\u667A\u8C31\uFF09",
-  "glm-5v-turbo": "GLM-5V Turbo\uFF08\u667A\u8C31\xB7\u89C6\u89C9\uFF09",
-  "minimax-m3": "MiniMax-M3\uFF08\u7A00\u5B87\uFF09",
-  "kimi-k3-1": "Kimi K3\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
-  "kimi-k2.7": "Kimi K2.7\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
-  "kimi-k2.6": "Kimi K2.6\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
-  "deepseek-v4-flash": "DeepSeek V4 Flash\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
-  "deepseek-v4-pro": "DeepSeek V4 Pro\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
-  auto: "Auto\uFF08\u81EA\u52A8\u9009\u62E9\uFF09"
-};
-function modelLabel(id) {
-  var _a;
-  return (_a = MODEL_LABELS[id]) != null ? _a : id;
-}
-var DUPLICATE_MODEL_IDS_TO_HIDE = /* @__PURE__ */ new Set(["hy3-x", "hy4-preview"]);
-function normalizeAvailableModelIds(ids) {
-  return [...new Set(ids)].filter((id) => !DUPLICATE_MODEL_IDS_TO_HIDE.has(id));
-}
-var MODEL_ORDER = [
-  "glm-5.2",
-  "glm-5.1",
-  "glm-5v-turbo",
-  "deepseek-v4-pro",
-  "deepseek-v4-flash",
-  "kimi-k3-1",
-  "kimi-k2.7",
-  "kimi-k2.6",
-  "minimax-m3",
-  "hy3"
-];
-function sanitizeModelForBackend(backend, model) {
-  if (backend !== "hermes")
-    return model;
-  if (!model || model === "auto")
-    return "auto";
-  return model in MODEL_OPTIONS ? "auto" : model;
-}
-function orderModels(ids, preferredOrder = MODEL_ORDER) {
-  const uniqueIds = [...new Set(ids)];
-  const uniquePreferredOrder = [...new Set(preferredOrder)];
-  const ranked = uniquePreferredOrder.filter((m) => uniqueIds.includes(m));
-  const rest = uniqueIds.filter((m) => !uniquePreferredOrder.includes(m));
-  return [...ranked, ...rest];
-}
-var FALLBACK_MODEL_OPTIONS = MODEL_OPTIONS;
-var PERMISSION_MODES = ["default", "plan", "acceptEdits", "bypassPermissions"];
-var PERMISSION_MODE_CHOICES = ["default", "plan", "bypassPermissions"];
-var THOUGHT_LEVEL_CHOICES = ["enabled", "minimal", "low", "medium", "high", "xhigh", "max"];
-function isThoughtLevel(value) {
-  return typeof value === "string" && THOUGHT_LEVEL_CHOICES.includes(value);
-}
-function isPermissionMode(value) {
-  return typeof value === "string" && PERMISSION_MODES.includes(value);
-}
-
 // src/providers/acp/profile.ts
 var ACP_DEFAULT_PROFILE = {
   id: "codebuddy",
   resolveCliPath: resolveCodebuddyPath,
   acpArgs: ["--acp"],
   spawnViaNode: true,
-  fallbackModels: Object.keys(FALLBACK_MODEL_OPTIONS),
+  fallbackModels: ["auto"],
   mapOutgoingMode: (m) => m,
   mapIncomingMode: (id) => id,
   async applyRemoteModel(client, sessionId, model) {
     try {
       await client.request("session/set_config_option", { sessionId, configId: "model", value: model });
     } catch (e) {
-      bbLog("[WB] acp \u8BBE\u7F6E\u6A21\u578B\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
+      throw new Error(`\u6A21\u578B\u8BBE\u7F6E\u5931\u8D25\uFF1A${model}`);
     }
   },
   supportsThoughtLevel: true,
@@ -1029,9 +959,9 @@ var ACP_DEFAULT_PROFILE = {
 var import_http = require("http");
 var import_string_decoder = require("string_decoder");
 var MAX_FRAME_LENGTH = 4 * 1024 * 1024;
-function parseJson(text) {
+function parseJson(text2) {
   try {
-    return JSON.parse(text);
+    return JSON.parse(text2);
   } catch (e) {
     throw new Error("WorkBuddy returned invalid JSON");
   }
@@ -1108,8 +1038,8 @@ var WorkbuddyHostConnection = class {
       req.destroy(error);
     this.onDisconnect(error);
   }
-  receive(text) {
-    const message = parseJson(text);
+  receive(text2) {
+    const message = parseJson(text2);
     if (!message || typeof message !== "object" || Array.isArray(message) || message.jsonrpc !== "2.0") {
       throw new Error("WorkBuddy returned an invalid JSON-RPC message");
     }
@@ -1171,13 +1101,13 @@ var WorkbuddyHostConnection = class {
         let data = [];
         let frameLength = 0;
         let trailingCr = false;
-        const consume = (text) => {
-          if (sse && text) {
-            if (trailingCr && text[0] === "\n")
-              text = text.slice(1);
+        const consume = (text2) => {
+          if (sse && text2) {
+            if (trailingCr && text2[0] === "\n")
+              text2 = text2.slice(1);
             trailingCr = false;
           }
-          buffer2 += text;
+          buffer2 += text2;
           if (buffer2.length + frameLength > MAX_FRAME_LENGTH)
             throw new Error("WorkBuddy response is too large");
           if (!sse)
@@ -1457,10 +1387,10 @@ var BrokerConnection = class {
   send(frame) {
     if (this.closed)
       throw this.closed;
-    const text = JSON.stringify(frame);
-    if (Buffer.byteLength(text) > MAX_FRAME)
+    const text2 = JSON.stringify(frame);
+    if (Buffer.byteLength(text2) > MAX_FRAME)
       throw failure("E_PAYLOAD_TOO_LARGE");
-    this.socket.write(text + "\n");
+    this.socket.write(text2 + "\n");
   }
   receive(frame) {
     if (!frame || typeof frame !== "object" || Array.isArray(frame))
@@ -1632,6 +1562,151 @@ async function connectWorkbuddyBroker(configDir, signal, onDisconnect) {
     ].includes(code) ? code : "E_CONNECT_FAILED");
   } finally {
     ticket.fill(0);
+  }
+}
+
+// src/providers/codebuddy/workbuddyModels.ts
+var failure2 = "WorkBuddy \u539F\u8D26\u53F7\u6A21\u578B\u76EE\u5F55\u4E0D\u53EF\u7528\uFF0C\u8BF7\u68C0\u67E5\u5BBF\u4E3B\u767B\u5F55\u72B6\u6001\u540E\u91CD\u8BD5\uFF1B\u672A\u53D1\u9001\u7528\u6237\u6D88\u606F\u3002";
+var variants = ["lite", "builtin-lite", "reasoning", "vision", "longContext", "subagent"];
+var efforts = ["minimal", "low", "medium", "high", "xhigh", "max"];
+var numericFields = ["maxInputTokens", "maxOutputTokens", "maxAllowedSize", "temperature", "top_p", "top_k", "repetition_penalty"];
+var booleanFields = ["supportsImages", "supportsReasoning", "supportsToolCall", "onlyReasoning", "disabledMultimodal", "canDisableThinking"];
+function object(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error(failure2);
+  return value;
+}
+function text(value, limit = 256) {
+  if (typeof value !== "string" || !value.trim() || value.length > limit || /[\u0000-\u001f]/.test(value))
+    throw new Error(failure2);
+  return value;
+}
+function modelId(value) {
+  const id = text(value, 128);
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.:-]*$/.test(id))
+    throw new Error(failure2);
+  return id;
+}
+function number(value, positive = false) {
+  if (typeof value !== "number" || !Number.isFinite(value) || (positive ? value <= 0 : value < 0))
+    throw new Error(failure2);
+  return value;
+}
+function boolean(value) {
+  if (typeof value !== "boolean")
+    throw new Error(failure2);
+  return value;
+}
+function nested(value) {
+  const result = object(value);
+  if (JSON.stringify(result).length > 4096)
+    throw new Error(failure2);
+  return result;
+}
+function definition(value) {
+  const source = object(value), result = { id: modelId(source.id), name: text(source.name) };
+  if (source.vendor !== void 0)
+    result.vendor = text(source.vendor);
+  for (const field of numericFields)
+    if (source[field] !== void 0)
+      result[field] = number(source[field], field.startsWith("max"));
+  for (const field of booleanFields)
+    if (source[field] !== void 0)
+      result[field] = boolean(source[field]);
+  if (source.credits !== void 0)
+    result.credits = typeof source.credits === "number" ? number(source.credits) : text(source.credits, 64);
+  if (source.reasoning !== void 0) {
+    const sourceReasoning = nested(source.reasoning), reasoning = {};
+    for (const field of ["effort", "defaultEffort"])
+      if (sourceReasoning[field] !== void 0) {
+        const effort = text(sourceReasoning[field]);
+        if (!efforts.includes(effort))
+          throw new Error(failure2);
+        reasoning[field] = effort;
+      }
+    if (sourceReasoning.summary !== void 0)
+      reasoning.summary = text(sourceReasoning.summary, 64);
+    if (sourceReasoning.canDisableThinking !== void 0)
+      reasoning.canDisableThinking = boolean(sourceReasoning.canDisableThinking);
+    if (sourceReasoning.supportedEfforts !== void 0) {
+      const values = sourceReasoning.supportedEfforts;
+      if (!Array.isArray(values) || values.length > efforts.length || values.some((value2) => !efforts.includes(value2)))
+        throw new Error(failure2);
+      reasoning.supportedEfforts = [...values];
+    }
+    result.reasoning = reasoning;
+  }
+  if (source.contextWindow !== void 0) {
+    const sourceWindow = nested(source.contextWindow), window2 = {};
+    if (sourceWindow.defaultLength !== void 0)
+      window2.defaultLength = number(sourceWindow.defaultLength, true);
+    if (sourceWindow.supportedLengths !== void 0) {
+      const values = sourceWindow.supportedLengths;
+      if (!Array.isArray(values) || values.length > 16)
+        throw new Error(failure2);
+      window2.supportedLengths = values.map((value2) => number(value2, true));
+    }
+    result.contextWindow = window2;
+  }
+  if (source.relatedModels !== void 0) {
+    const sourceRelated = nested(source.relatedModels), related = {};
+    for (const variant of variants)
+      if (sourceRelated[variant] !== void 0)
+        related[variant] = modelId(sourceRelated[variant]);
+    result.relatedModels = related;
+  }
+  return result;
+}
+async function loadWorkbuddyModelConfig(broker, product, signal) {
+  try {
+    const response = await broker.requestFetch({
+      method: "GET",
+      path: "/console/enterprises/personal/models",
+      headers: { Accept: "application/json" }
+    }, signal);
+    if (response.status !== 200 || typeof response.body_b64 !== "string" || response.body_b64.length > 1048576)
+      throw new Error(failure2);
+    const bytes = Buffer.from(response.body_b64, "base64");
+    if (bytes.length > 655360)
+      throw new Error(failure2);
+    const root = object(JSON.parse(bytes.toString("utf8"))), data = object(root.data);
+    if (root.code !== 0 || !Array.isArray(data.models) || data.models.length > 512 || !Array.isArray(data.agents))
+      throw new Error(failure2);
+    const accountCli = data.agents.map(object).find((agent) => agent.name === "cli");
+    if (!accountCli || !Array.isArray(accountCli.models) || !accountCli.models.length || accountCli.models.length > 256)
+      throw new Error(failure2);
+    const listedIds = accountCli.models.map(modelId), accountModels = /* @__PURE__ */ new Map();
+    for (const value of data.models) {
+      const source = object(value), id = modelId(source.id);
+      if (accountModels.has(id))
+        throw new Error(failure2);
+      accountModels.set(id, source);
+    }
+    if (listedIds.some((id) => !accountModels.has(id)))
+      throw new Error(failure2);
+    const ids = listedIds.filter((id) => {
+      var _a;
+      return ((_a = accountModels.get(id)) == null ? void 0 : _a.disabled) !== true;
+    });
+    if (!ids.length)
+      throw new Error(failure2);
+    if (!Array.isArray(product.models) || !Array.isArray(product.agents))
+      throw new Error(failure2);
+    const models = new Map(JSON.parse(JSON.stringify(product.models)).map((value) => {
+      const model = object(value);
+      return [modelId(model.id), model];
+    }));
+    const agents = JSON.parse(JSON.stringify(product.agents)).map(object);
+    const installedCli = agents.find((agent) => agent.name === "cli");
+    if (!installedCli)
+      throw new Error(failure2);
+    for (const [id, source] of accountModels)
+      if (source.disabled !== true)
+        models.set(id, { ...models.get(id), ...definition(source) });
+    installedCli.models = ids;
+    return { models: [...models.values()], agents };
+  } catch (e) {
+    throw new Error(failure2);
   }
 }
 
@@ -1889,6 +1964,12 @@ async function startWorkbuddyNative(configDir, scriptPath, cwd, command, args, s
       throw cancelled();
     if (connectionError)
       throw connectionError;
+    const productPath = path4.join(path4.dirname(fs4.realpathSync(scriptPath)), "..", "product.json");
+    const modelConfig = await loadWorkbuddyModelConfig(broker, JSON.parse(fs4.readFileSync(productPath, "utf8")), signal);
+    if (signal == null ? void 0 : signal.aborted)
+      throw cancelled();
+    if (connectionError)
+      throw connectionError;
     const cache = path4.join(configDir, "workbuddian");
     ownedDirectory(cache, true);
     const workerDir = path4.join(cache, (0, import_crypto3.createHash)("sha256").update(fs4.realpathSync(cwd)).digest("hex"));
@@ -1926,6 +2007,7 @@ async function startWorkbuddyNative(configDir, scriptPath, cwd, command, args, s
       DISABLE_AUTOUPDATER: "1",
       DISABLE_TELEMETRY: "1",
       ACC_PRODUCT_CONFIG_V3: JSON.stringify({
+        ...modelConfig,
         endpoint: origin,
         networkEnvironment: "external",
         authentication: { type: "custom-token", attributes: { tokenType: "bearerToken", token: nonce } }
@@ -2278,6 +2360,15 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
     await open();
     if ((signal == null ? void 0 : signal.aborted) || disposing)
       throw new Error("WorkBuddy worker creation cancelled");
+    const broker = await connectWorkbuddyBroker(configDir, signal);
+    let modelConfig;
+    try {
+      modelConfig = await loadWorkbuddyModelConfig(broker, product, signal);
+    } finally {
+      broker.dispose();
+    }
+    if ((signal == null ? void 0 : signal.aborted) || disposing)
+      throw new Error("WorkBuddy worker creation cancelled");
     const runtime = installedRuntime(scriptPath);
     submitted = true;
     const result = await rpc("session.create", {
@@ -2293,6 +2384,8 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
         WORKBUDDY_CONFIG_DIR: configDir,
         WORKBUDDY_DATA_FOLDER_NAME: dataFolder,
         ACC_PRODUCT_CONFIG_PATH: productPath,
+        ACC_PRODUCT_CONFIG_V3: JSON.stringify(modelConfig),
+        CODEBUDDY_DISABLE_PRODUCT_CACHE: "1",
         CODEBUDDY_API_KEY_HELPER_DISABLED: "1",
         CODEBUDDY_API_KEY: "",
         ANTHROPIC_API_KEY: "",
@@ -2821,9 +2914,9 @@ var AcpClient = class {
       proc.stderr.on("data", (data) => {
         if (this.proc !== proc)
           return;
-        const text = data.toString("utf8");
-        bbLog("[WB] acp stderr:", text.trim());
-        this.stderrTail = (this.stderrTail + text).slice(-2e3);
+        const text2 = data.toString("utf8");
+        bbLog("[WB] acp stderr:", text2.trim());
+        this.stderrTail = (this.stderrTail + text2).slice(-2e3);
         if (/\[AtRestEncryption\][\s\S]*category=missing-key/.test(this.stderrTail)) {
           this.credentialUnavailable = true;
         }
@@ -2913,12 +3006,12 @@ function mapSessionUpdate(update, profile = ACP_DEFAULT_PROFILE) {
   var _a;
   switch (update.sessionUpdate) {
     case "agent_thought_chunk": {
-      const text = textOf(update);
-      return text === null ? null : { type: "thinking", content: text };
+      const text2 = textOf(update);
+      return text2 === null ? null : { type: "thinking", content: text2 };
     }
     case "agent_message_chunk": {
-      const text = textOf(update);
-      return text === null ? null : { type: "text", content: text };
+      const text2 = textOf(update);
+      return text2 === null ? null : { type: "text", content: text2 };
     }
     case "tool_call": {
       const toolName = extractToolName(update, profile);
@@ -3050,8 +3143,8 @@ function pickOptionId(options, kindPrefix) {
 }
 
 // src/shared/responseFinalize.ts
-function pickFinalContent(text, result) {
-  return text || result;
+function pickFinalContent(text2, result) {
+  return text2 || result;
 }
 function appendTextChunk(accumulated, incoming) {
   if (!incoming)
@@ -3109,6 +3202,8 @@ var AcpSession = class {
   markStale() {
     if (this.acpSessionId)
       this.needsReload = true;
+    if (this.activation.current === this.acpSessionId)
+      this.activation.current = null;
   }
   async ensureLoaded(vaultPath, mcpServersOverride, configOverride) {
     var _a, _b;
@@ -3175,6 +3270,8 @@ var AcpSession = class {
         await this.profile.applyRemoteModel(this.client, sessionId, config.model);
       }
     } catch (e) {
+      if (this.profile.id === "codebuddy")
+        throw e;
       bbLog("[WB] acp \u8BBE\u7F6E\u6A21\u578B\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
     }
     try {
@@ -3197,7 +3294,7 @@ var AcpSession = class {
       bbLog("[WB] acp \u8BBE\u7F6E\u601D\u8003\u529B\u5EA6\u5931\u8D25\uFF08\u5FFD\u7565\uFF09:", e);
     }
   }
-  async prompt(text, handlers, images) {
+  async prompt(text2, handlers, images) {
     if (this.status !== "idle")
       throw new Error("session busy");
     if (!this.acpSessionId)
@@ -3205,7 +3302,7 @@ var AcpSession = class {
     const acpId = this.acpSessionId;
     this.status = "prompting";
     try {
-      const prompt = (images == null ? void 0 : images.length) ? [...images.map((i) => ({ type: "image", data: i.data, mimeType: i.mimeType })), { type: "text", text }] : [{ type: "text", text }];
+      const prompt = (images == null ? void 0 : images.length) ? [...images.map((i) => ({ type: "image", data: i.data, mimeType: i.mimeType })), { type: "text", text: text2 }] : [{ type: "text", text: text2 }];
       const result = await this.client.enqueuePrompt(async () => {
         var _a, _b;
         if (this.cancelPending)
@@ -3532,18 +3629,18 @@ function serializeMcpServers(servers) {
 function activeMcpServers(servers) {
   return servers.filter((s) => !s.disabled).map((s) => ({ name: s.name, command: s.command, args: s.args, env: s.env }));
 }
-function extractMcpNames(text) {
+function extractMcpNames(text2) {
   const names = [];
-  for (const match of text.matchAll(/@mcp\/([A-Za-z0-9._-]+)/g)) {
+  for (const match of text2.matchAll(/@mcp\/([A-Za-z0-9._-]+)/g)) {
     if (!names.includes(match[1]))
       names.push(match[1]);
   }
   return names;
 }
-function parseClipboardServers(text) {
+function parseClipboardServers(text2) {
   let raw;
   try {
-    raw = JSON.parse(text);
+    raw = JSON.parse(text2);
   } catch (e) {
     return [];
   }
@@ -3562,7 +3659,7 @@ function parseClipboardServers(text) {
     }
     return parseMcpServers(JSON.stringify([raw]));
   }
-  return parseMcpServers(text);
+  return parseMcpServers(text2);
 }
 
 // src/providers/acp/provider.ts
@@ -3614,17 +3711,17 @@ var AcpProvider = class {
   setModel(model) {
     this.config.model = model;
     for (const s of this.registry.all())
-      void s.applyRemoteConfig();
+      void s.applyRemoteConfig().catch(() => bbLog("[WB] \u540E\u53F0\u6A21\u578B\u914D\u7F6E\u5931\u8D25"));
   }
   setPermissionMode(mode) {
     this.config.mode = mode;
     for (const s of this.registry.all())
-      void s.applyRemoteConfig();
+      void s.applyRemoteConfig().catch(() => bbLog("[WB] \u540E\u53F0\u6743\u9650\u914D\u7F6E\u5931\u8D25"));
   }
   setThoughtLevel(level) {
     this.config.thoughtLevel = level;
     for (const s of this.registry.all())
-      void s.applyRemoteConfig();
+      void s.applyRemoteConfig().catch(() => bbLog("[WB] \u540E\u53F0\u601D\u8003\u529B\u5EA6\u914D\u7F6E\u5931\u8D25"));
   }
   setAvailableModels(models) {
     const ids = [...new Set(models.filter((id) => typeof id === "string" && id.length > 0))];
@@ -3642,26 +3739,33 @@ var AcpProvider = class {
       return { id: m.id, label: (_a = m.name) != null ? _a : m.id };
     });
   }
-  /** 在首条消息前主动触发一次 ACP session/new，获取当前 CLI 的真实模型列表。 */
+  /** 在首条消息前发现当前 worker 的目录；发现会话不能抢走聊天的活动指针。 */
   async refreshAvailableModels(cwd = "") {
     if (this.modelDiscoveryComplete)
       return;
     if (this.modelRefreshPromise)
       return this.modelRefreshPromise;
     this.modelRefreshPromise = (async () => {
-      var _a, _b;
+      var _a;
       try {
         await this.client.ensureStarted(cwd);
-        const result = await this.client.request("session/new", { cwd, mcpServers: (_a = this.config.mcpServers) != null ? _a : [] });
-        const raw = (_b = result == null ? void 0 : result.models) == null ? void 0 : _b.availableModels;
+        const result = await this.client.enqueuePrompt(async () => {
+          var _a2;
+          const discovered = await this.client.request("session/new", { cwd, mcpServers: (_a2 = this.config.mcpServers) != null ? _a2 : [] });
+          for (const session of this.registry.all())
+            session.markStale();
+          return discovered;
+        });
+        const raw = (_a = result == null ? void 0 : result.models) == null ? void 0 : _a.availableModels;
         const models = Array.isArray(raw) ? raw.filter((m) => (m == null ? void 0 : m.modelId) != null && String(m.modelId) !== "").map((m) => ({
           id: String(m.modelId),
           ...typeof m.name === "string" && m.name ? { name: m.name } : {}
         })) : [];
-        if (models.length)
-          this.onModels(models);
+        if (!models.length)
+          throw new Error("Empty model catalog");
+        this.onModels(models);
       } catch (e) {
-        bbLog("[WB] ACP \u6A21\u578B\u5217\u8868\u5237\u65B0\u5931\u8D25\uFF0C\u4FDD\u7559\u515C\u5E95\u5217\u8868:", e);
+        throw new Error(t("model.catalogUnavailable"));
       } finally {
         this.modelRefreshPromise = null;
       }
@@ -3773,7 +3877,7 @@ var AcpProvider = class {
     this.rejectPendingPermissions();
     this.client.dispose();
   }
-  async *sendMessage(sessionId, text, vaultPath, addDirs = [], permissionModeOverride, images, mcpNames, configOverride) {
+  async *sendMessage(sessionId, text2, vaultPath, addDirs = [], permissionModeOverride, images, mcpNames, configOverride) {
     var _a;
     if (this.startingTurns.has(sessionId))
       throw new Error(t("provider.busy"));
@@ -3856,7 +3960,7 @@ var AcpProvider = class {
     }, this.timeout);
     let promptPromise;
     try {
-      promptPromise = session.prompt(text, handlers, images);
+      promptPromise = session.prompt(text2, handlers, images);
     } catch (e) {
       clearTimeout(timer);
       throw e;
@@ -3964,6 +4068,9 @@ var AcpProvider = class {
   }
   handleProcessExit(code, signal) {
     bbLog("[WB] acp \u8FDB\u7A0B\u9000\u51FA:", code, signal);
+    this.modelDiscoveryComplete = false;
+    this.availableModels = [...this.profile.fallbackModels];
+    this.modelPairs = this.availableModels.map((id) => ({ id }));
     for (const s of this.registry.all()) {
       s.markStale();
       s.failTurn(t("provider.processDied"));
@@ -3988,6 +4095,17 @@ var AcpProvider = class {
 var CodebuddyProvider = class extends AcpProvider {
   constructor(timeout) {
     super(ACP_DEFAULT_PROFILE, timeout);
+  }
+  /** 同名型号保留目录首项及其真实 ID，不让免费/付费别名重复占据菜单。 */
+  onModels(models) {
+    const names = /* @__PURE__ */ new Set();
+    super.onModels(models.filter((model) => {
+      const label = model.name || model.id;
+      if (names.has(label))
+        return false;
+      names.add(label);
+      return true;
+    }));
   }
   setCodebuddyPath(p) {
     this.client.setCliPath(p);
@@ -4153,7 +4271,7 @@ var HermesHttpProvider = class {
     }
   }
   /** 发送消息:OpenAI 兼容流式,逐 chunk yield text;done 收尾(多余参数仅签名兼容,忽略) */
-  async *sendMessage(sessionKey, text, vaultPath, addDirs, permissionModeOverride, images, mcpNames, configOverride) {
+  async *sendMessage(sessionKey, text2, vaultPath, addDirs, permissionModeOverride, images, mcpNames, configOverride) {
     var _a, _b, _c, _d;
     const model = (_a = configOverride == null ? void 0 : configOverride.model) != null ? _a : this.model;
     this.abortController = new AbortController();
@@ -4167,7 +4285,7 @@ var HermesHttpProvider = class {
         headers: { "Content-Type": "application/json", ...this.authHeaders() },
         body: JSON.stringify({
           model: model === "auto" ? void 0 : model,
-          messages: [{ role: "user", content: text }],
+          messages: [{ role: "user", content: text2 }],
           stream: true
         }),
         signal: this.abortController.signal
@@ -4466,6 +4584,72 @@ var HermesProvider = class {
 // src/main.ts
 init_hermesDiscover();
 
+// src/shared/cliOptions.ts
+var MODEL_OPTIONS = {
+  hy3: "hy3",
+  "glm-5.2": "glm-5.2",
+  "glm-5.1": "glm-5.1",
+  "glm-5v-turbo": "glm-5v-turbo",
+  "minimax-m3": "minimax-m3",
+  "kimi-k3-1": "kimi-k3-1",
+  "kimi-k2.7": "kimi-k2.7",
+  "kimi-k2.6": "kimi-k2.6",
+  "deepseek-v4-flash": "deepseek-v4-flash",
+  "deepseek-v4-pro": "deepseek-v4-pro"
+};
+var MODEL_LABELS = {
+  hy3: "Hunyuan \u6DF7\u5143",
+  "glm-5.2": "GLM-5.2\uFF08\u667A\u8C31\uFF09",
+  "glm-5.1": "GLM-5.1\uFF08\u667A\u8C31\uFF09",
+  "glm-5v-turbo": "GLM-5V Turbo\uFF08\u667A\u8C31\xB7\u89C6\u89C9\uFF09",
+  "minimax-m3": "MiniMax-M3\uFF08\u7A00\u5B87\uFF09",
+  "kimi-k3-1": "Kimi K3\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
+  "kimi-k2.7": "Kimi K2.7\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
+  "kimi-k2.6": "Kimi K2.6\uFF08\u6708\u4E4B\u6697\u9762\uFF09",
+  "deepseek-v4-flash": "DeepSeek V4 Flash\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
+  "deepseek-v4-pro": "DeepSeek V4 Pro\uFF08\u6DF1\u5EA6\u6C42\u7D22\uFF09",
+  auto: "Auto\uFF08\u81EA\u52A8\u9009\u62E9\uFF09"
+};
+function modelLabel(id) {
+  var _a;
+  return (_a = MODEL_LABELS[id]) != null ? _a : id;
+}
+var MODEL_ORDER = [
+  "glm-5.2",
+  "glm-5.1",
+  "glm-5v-turbo",
+  "deepseek-v4-pro",
+  "deepseek-v4-flash",
+  "kimi-k3-1",
+  "kimi-k2.7",
+  "kimi-k2.6",
+  "minimax-m3",
+  "hy3"
+];
+function sanitizeModelForBackend(backend, model) {
+  if (backend !== "hermes")
+    return model;
+  if (!model || model === "auto")
+    return "auto";
+  return model in MODEL_OPTIONS ? "auto" : model;
+}
+function orderModels(ids, preferredOrder = MODEL_ORDER) {
+  const uniqueIds = [...new Set(ids)];
+  const uniquePreferredOrder = [...new Set(preferredOrder)];
+  const ranked = uniquePreferredOrder.filter((m) => uniqueIds.includes(m));
+  const rest = uniqueIds.filter((m) => !uniquePreferredOrder.includes(m));
+  return [...ranked, ...rest];
+}
+var PERMISSION_MODES = ["default", "plan", "acceptEdits", "bypassPermissions"];
+var PERMISSION_MODE_CHOICES = ["default", "plan", "bypassPermissions"];
+var THOUGHT_LEVEL_CHOICES = ["enabled", "minimal", "low", "medium", "high", "xhigh", "max"];
+function isThoughtLevel(value) {
+  return typeof value === "string" && THOUGHT_LEVEL_CHOICES.includes(value);
+}
+function isPermissionMode(value) {
+  return typeof value === "string" && PERMISSION_MODES.includes(value);
+}
+
 // src/features/chat/view.ts
 var import_obsidian8 = require("obsidian");
 
@@ -4719,8 +4903,8 @@ var CHAT_TEMPLATES = [
 var import_obsidian6 = require("obsidian");
 
 // src/shared/atReferences.ts
-function extractAtQuery(text, cursorPos) {
-  const upToCursor = text.slice(0, cursorPos);
+function extractAtQuery(text2, cursorPos) {
+  const upToCursor = text2.slice(0, cursorPos);
   const atIndex = upToCursor.lastIndexOf("@");
   if (atIndex === -1)
     return null;
@@ -4729,18 +4913,18 @@ function extractAtQuery(text, cursorPos) {
     return null;
   return { query: between, start: atIndex };
 }
-function parseAtReferences(text) {
+function parseAtReferences(text2) {
   const names = [];
-  for (const match of text.matchAll(/@\[\[([^\]]+)\]\]/g)) {
+  for (const match of text2.matchAll(/@\[\[([^\]]+)\]\]/g)) {
     if (!names.includes(match[1])) {
       names.push(match[1]);
     }
   }
   return names;
 }
-function removeAtReference(text, name) {
+function removeAtReference(text2, name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return text.replace(new RegExp(`@\\[\\[${escaped}\\]\\]\\s?`, "g"), "");
+  return text2.replace(new RegExp(`@\\[\\[${escaped}\\]\\]\\s?`, "g"), "");
 }
 
 // src/shared/mentionSources.ts
@@ -4835,8 +5019,8 @@ function discoverSkills(vaultPath, homePath = (0, import_os2.homedir)()) {
 }
 
 // src/shared/instruction.ts
-function parseInstructionInput(text) {
-  const trimmed = text.trim();
+function parseInstructionInput(text2) {
+  const trimmed = text2.trim();
   if (!trimmed.startsWith("#"))
     return null;
   return trimmed.slice(1).trim();
@@ -4848,13 +5032,13 @@ ${s}` : "";
 }
 
 // src/core/context/assembleContext.ts
-function assembleContextText(text, vaultPath, injectVaultContext, currentNoteLink, referenceBlock, customInstruction = "") {
+function assembleContextText(text2, vaultPath, injectVaultContext, currentNoteLink, referenceBlock, customInstruction = "") {
   let contextText = vaultPath && injectVaultContext ? `\u5F53\u524D Obsidian Vault \u8DEF\u5F84: ${vaultPath}
 \u5DE5\u4F5C\u76EE\u5F55\u5373 vault \u6839\u76EE\u5F55\uFF0C\u8BF7\u57FA\u4E8E vault \u4E2D\u7684\u6587\u4EF6\u56DE\u7B54\u95EE\u9898\u3002
 
 ---
 
-${text}` : text;
+${text2}` : text2;
   if (currentNoteLink) {
     contextText = `${contextText}
 
@@ -5358,8 +5542,8 @@ function scrollToBottom(view) {
 
 // src/shared/slashCommand.ts
 init_i18n();
-function parseSlashCommand(text) {
-  const firstLine = text.trim().split("\n")[0];
+function parseSlashCommand(text2) {
+  const firstLine = text2.trim().split("\n")[0];
   const m = firstLine.match(/^\/(\S+)\s*(.*)$/);
   if (!m)
     return null;
@@ -5712,9 +5896,9 @@ var ResumeModal = class extends import_obsidian4.Modal {
     const { contentEl } = this;
     new import_obsidian4.Setting(contentEl).setName(t("resume.modalTitle")).setHeading();
     const searchSetting = new import_obsidian4.Setting(contentEl);
-    this.filterEl = searchSetting.addText((text) => {
-      text.setPlaceholder(t("resume.searchPlaceholder"));
-      text.onChange((value) => this.renderList(value.trim()));
+    this.filterEl = searchSetting.addText((text2) => {
+      text2.setPlaceholder(t("resume.searchPlaceholder"));
+      text2.onChange((value) => this.renderList(value.trim()));
     }).controlEl.querySelector("input");
     this.listEl = contentEl.createDiv({ cls: "workbuddian-resume-list" });
     this.renderList("");
@@ -6174,13 +6358,13 @@ function pastedDir(view) {
 function captureNoteSelection(view) {
   var _a, _b, _c, _d;
   const mv = view.lastMarkdownView;
-  let text = "";
+  let text2 = "";
   try {
-    text = (_b = (_a = mv == null ? void 0 : mv.editor) == null ? void 0 : _a.getSelection()) != null ? _b : "";
+    text2 = (_b = (_a = mv == null ? void 0 : mv.editor) == null ? void 0 : _a.getSelection()) != null ? _b : "";
   } catch (e) {
-    text = "";
+    text2 = "";
   }
-  view.selection = text.trim() ? { text, note: (_d = (_c = mv == null ? void 0 : mv.file) == null ? void 0 : _c.basename) != null ? _d : "" } : null;
+  view.selection = text2.trim() ? { text: text2, note: (_d = (_c = mv == null ? void 0 : mv.file) == null ? void 0 : _c.basename) != null ? _d : "" } : null;
   renderSelectionChip(view);
 }
 function renderSelectionChip(view) {
@@ -6197,11 +6381,11 @@ function renderSelectionChip(view) {
   const label = view.selection.note ? `${view.selection.note}: ${preview}` : preview;
   chip.createSpan({ cls: "workbuddian-ref-chip-name", text: label, attr: { title: view.selection.text } });
 }
-function announce(view, text) {
-  if (!view.liveRegionEl || !text)
+function announce(view, text2) {
+  if (!view.liveRegionEl || !text2)
     return;
   view.liveRegionEl.setText("");
-  window.setTimeout(() => view.liveRegionEl.setText(text), 50);
+  window.setTimeout(() => view.liveRegionEl.setText(text2), 50);
 }
 function renderContextUsage(view, cliWindowSize) {
   var _a, _b;
@@ -6379,7 +6563,7 @@ function openPermissionMenu(view, btn, evt) {
 }
 function modelDisplayLabel(view, id) {
   const hit = view.api.getAvailableModelLabels().find((m) => m.id === id);
-  if (hit && hit.label !== id)
+  if (hit)
     return hit.label;
   return modelLabel(id);
 }
@@ -6390,15 +6574,23 @@ function updateModelButton(view, btn, id) {
   btn.setAttribute("title", `${t("settings.model")}: ${label}`);
   btn.setAttribute("data-model-id", id || "auto");
 }
-function openModelMenu(view, btn) {
-  if (view.api instanceof CodebuddyProvider)
-    void view.api.refreshAvailableModels(view.vaultPath);
+async function openModelMenu(view, btn) {
+  let catalogFailed = false;
+  if (view.api instanceof CodebuddyProvider) {
+    try {
+      await view.api.refreshAvailableModels(view.vaultPath);
+    } catch (e) {
+      catalogFailed = true;
+      new import_obsidian6.Notice(t("model.catalogUnavailable"));
+    }
+  }
   const menu = new import_obsidian6.Menu();
+  if (catalogFailed)
+    menu.addItem((item) => item.setTitle(t("model.catalogUnavailable")).setDisabled(true));
   const workspace = view.getActiveWorkspace();
   updateModelButton(view, btn, workspace.model);
-  const availableModels = view.api instanceof CodebuddyProvider ? normalizeAvailableModelIds(view.api.getAvailableModels()) : view.api.getAvailableModels();
-  const ids = [.../* @__PURE__ */ new Set(["auto", ...availableModels])];
-  const models = orderModels(ids, ["auto", ...availableModels]);
+  const availableModels = view.api.getAvailableModels();
+  const models = view.api instanceof CodebuddyProvider ? availableModels : orderModels([.../* @__PURE__ */ new Set(["auto", ...availableModels])], ["auto", ...availableModels]);
   const labelOf = (id) => modelDisplayLabel(view, id);
   for (const id of models) {
     menu.addItem((item) => item.setTitle(labelOf(id)).setChecked(workspace.model === id).onClick(async () => {
@@ -6483,15 +6675,15 @@ function insertSlashCommand(view, name) {
   adjustTextareaHeight(view);
   view.scheduleDraftPersist();
 }
-async function buildReferenceBlock(view, text) {
-  if (text.includes("@stats")) {
+async function buildReferenceBlock(view, text2) {
+  if (text2.includes("@stats")) {
     const files = view.app.vault.getFiles().map((f) => ({ path: f.path }));
     const stats = buildVaultStats(files);
     return `\u4EE5\u4E0B\u662F\u5F53\u524D Vault \u7684\u7EDF\u8BA1\u4FE1\u606F\uFF1A
 
 ${stats}`;
   }
-  const names = parseAtReferences(text);
+  const names = parseAtReferences(text2);
   if (names.length === 0)
     return "";
   const parts = ["\u4EE5\u4E0B\u662F\u6D88\u606F\u4E2D\u901A\u8FC7 @ \u5F15\u7528\u7684\u7B14\u8BB0\u5185\u5BB9\uFF1A", ""];
@@ -6542,15 +6734,15 @@ async function handleKeydown(view, e) {
 async function sendMessage(view) {
   if (view.isStreaming)
     return;
-  const text = view.inputEl.value.trim();
-  if (!text && view.attachments.length === 0)
+  const text2 = view.inputEl.value.trim();
+  if (!text2 && view.attachments.length === 0)
     return;
-  const instr = parseInstructionInput(text);
+  const instr = parseInstructionInput(text2);
   if (instr !== null) {
     openInstructionModal(view, instr);
     return;
   }
-  const slash = parseSlashCommand(text);
+  const slash = parseSlashCommand(text2);
   if (slash && findTemplate(slash.name) && slash.rest === "") {
     view.inputEl.value = findTemplate(slash.name).prompt;
     view.inputEl.setSelectionRange(0, 0);
@@ -6577,9 +6769,9 @@ async function sendMessage(view) {
   adjustTextareaHeight(view);
   renderReferenceChips(view);
   view.persistActiveDraft();
-  await sendText(view, text);
+  await sendText(view, text2);
 }
-async function sendText(view, text, permissionModeOverride) {
+async function sendText(view, text2, permissionModeOverride) {
   var _a, _b, _c, _d;
   if (view.titleSessionKey)
     view.api.cancel(view.titleSessionKey);
@@ -6600,7 +6792,7 @@ async function sendText(view, text, permissionModeOverride) {
     if (pendingExternal.length) {
       const decision = await confirmExternalAccess(view.app, pendingExternal);
       if (decision === "cancel") {
-        view.inputEl.value = text;
+        view.inputEl.value = text2;
         adjustTextareaHeight(view);
         renderReferenceChips(view);
         view.persistActiveDraft();
@@ -6614,7 +6806,7 @@ async function sendText(view, text, permissionModeOverride) {
   }
   const isFirstExchange = conv.messages.length === 0;
   const convId = conv.id;
-  view.manager.addMessage(convId, "user", text, [...view.attachments]);
+  view.manager.addMessage(convId, "user", text2, [...view.attachments]);
   await renderMessages(view);
   const aiMsg = view.manager.addMessage(convId, "assistant", "");
   if (!aiMsg)
@@ -6625,7 +6817,7 @@ async function sendText(view, text, permissionModeOverride) {
   view.sendBtn.setAttribute("aria-label", t("input.stop"));
   view.sendBtn.setAttribute("title", t("input.stop"));
   await renderMessages(view);
-  const slash = parseSlashCommand(text);
+  const slash = parseSlashCommand(text2);
   let firstChunk = true;
   let thinkingContent = "";
   let textContent = "";
@@ -6638,9 +6830,9 @@ async function sendText(view, text, permissionModeOverride) {
     let addDirs = [];
     const images = [];
     if (slash) {
-      contextText = text;
+      contextText = text2;
     } else {
-      const referenceBlock = await buildReferenceBlock(view, text);
+      const referenceBlock = await buildReferenceBlock(view, text2);
       const pathAttachments = [];
       for (const attachPath of view.attachments) {
         if (isImagePath(attachPath) && view.vaultPath && isPathInsideVault(attachPath, view.vaultPath)) {
@@ -6664,7 +6856,7 @@ async function sendText(view, text, permissionModeOverride) {
       const extraBlock = [referenceBlock, attachmentBlock, selectionBlock].filter(Boolean).join("\n\n---\n\n");
       const currentNoteLink = workspace.injectCurrentNoteLink ? buildCurrentNoteLink(view) : "";
       contextText = assembleContextText(
-        text,
+        text2,
         view.vaultPath,
         workspace.injectVaultContext,
         currentNoteLink,
@@ -6738,7 +6930,7 @@ async function sendText(view, text, permissionModeOverride) {
       renderContextUsage(view, size);
     });
     view.api.onConfigUpdate(sessionKey, (cfg) => applyToolbarConfig(view, cfg));
-    const mcpNames = extractMcpNames(text);
+    const mcpNames = extractMcpNames(text2);
     for await (const chunk of view.api.sendMessage(
       conv.sessionId,
       contextText,
@@ -6961,7 +7153,7 @@ async function sendText(view, text, permissionModeOverride) {
     announce(view, `${t("a11y.newReply")}${displayContent}`);
     await view.manager.flush();
     if (isFirstExchange && view.settings.autoTitle)
-      void maybeAutoTitle(view, convId, text);
+      void maybeAutoTitle(view, convId, text2);
     if ((slash == null ? void 0 : slash.name) === "effort") {
       const level = (_d = slash.rest.trim().split(/\s+/)[0]) != null ? _d : "";
       if (isThoughtLevel(level) && level !== workspace.thoughtLevel) {
@@ -7010,11 +7202,11 @@ async function retryLastMessage(view) {
   const conv = view.getActiveConversation();
   if (!conv)
     return;
-  const text = view.manager.deleteLastExchange(conv.id);
-  if (!text)
+  const text2 = view.manager.deleteLastExchange(conv.id);
+  if (!text2)
     return;
   await renderMessages(view);
-  await sendText(view, text);
+  await sendText(view, text2);
 }
 async function editAndResendMessage(view, msg) {
   if (view.isStreaming)
@@ -8083,8 +8275,8 @@ var LogModal = class extends import_obsidian9.Modal {
 // src/features/settings/mcpModal.ts
 var import_obsidian10 = require("obsidian");
 init_i18n();
-function parseEnvLines(text) {
-  return text.split("\n").map((line) => line.trim()).filter((line) => line.includes("=")).map((line) => {
+function parseEnvLines(text2) {
+  return text2.split("\n").map((line) => line.trim()).filter((line) => line.includes("=")).map((line) => {
     const idx = line.indexOf("=");
     return { name: line.slice(0, idx).trim(), value: line.slice(idx + 1).trim() };
   }).filter((e) => e.name.length > 0);
@@ -8259,7 +8451,7 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
             return (_a2 = this.hermesModePaint) == null ? void 0 : _a2.call(this);
           });
         }
-        new import_obsidian11.Setting(containerEl).setName(t("hermes.cliPath")).setDesc(t("hermes.cliPathDesc")).addText((text) => text.setPlaceholder("~/.local/bin/hermes").setValue(this.plugin.settings.hermesCliPath).onChange(async (value) => {
+        new import_obsidian11.Setting(containerEl).setName(t("hermes.cliPath")).setDesc(t("hermes.cliPathDesc")).addText((text2) => text2.setPlaceholder("~/.local/bin/hermes").setValue(this.plugin.settings.hermesCliPath).onChange(async (value) => {
           this.plugin.settings.hermesCliPath = value.trim();
           api.setHermesCliPath(value);
           void api.init();
@@ -8269,7 +8461,7 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
       const adv = containerEl.createEl("details", { cls: "wb-hermes-advanced" });
       adv.createEl("summary", { text: t("hermes.advanced") });
       adv.createDiv({ cls: "wb-hermes-advanced-desc", text: t("hermes.advancedDesc") });
-      new import_obsidian11.Setting(adv).setName(t("hermes.gatewayUrl")).setDesc(t("hermes.gatewayUrlDesc")).addText((text) => text.setPlaceholder("http://127.0.0.1:8642").setValue(this.plugin.settings.hermesGatewayUrl).onChange(async (value) => {
+      new import_obsidian11.Setting(adv).setName(t("hermes.gatewayUrl")).setDesc(t("hermes.gatewayUrlDesc")).addText((text2) => text2.setPlaceholder("http://127.0.0.1:8642").setValue(this.plugin.settings.hermesGatewayUrl).onChange(async (value) => {
         this.plugin.settings.hermesGatewayUrl = value.trim();
         if (api instanceof HermesProvider) {
           api.setGateway(value.trim(), this.plugin.settings.hermesApiKey);
@@ -8277,9 +8469,9 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
         }
         await this.plugin.saveSettings();
       }));
-      new import_obsidian11.Setting(adv).setName(t("hermes.apiKey")).setDesc(t("hermes.apiKeyDesc")).addText((text) => {
-        text.inputEl.type = "password";
-        text.setValue(this.plugin.settings.hermesApiKey).onChange(async (value) => {
+      new import_obsidian11.Setting(adv).setName(t("hermes.apiKey")).setDesc(t("hermes.apiKeyDesc")).addText((text2) => {
+        text2.inputEl.type = "password";
+        text2.setValue(this.plugin.settings.hermesApiKey).onChange(async (value) => {
           this.plugin.settings.hermesApiKey = value.trim();
           if (api instanceof HermesProvider) {
             api.setGateway(this.plugin.settings.hermesGatewayUrl, value.trim());
@@ -8295,9 +8487,9 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
     }
     if (this.plugin.settings.backend === "codebuddy") {
       let pathInput;
-      new import_obsidian11.Setting(containerEl).setName(t("settings.path")).setDesc(t("settings.pathDesc")).addText((text) => {
-        pathInput = text;
-        text.setPlaceholder(t("settings.pathPlaceholder")).setValue(this.plugin.settings.codebuddyPath).onChange(async (value) => {
+      new import_obsidian11.Setting(containerEl).setName(t("settings.path")).setDesc(t("settings.pathDesc")).addText((text2) => {
+        pathInput = text2;
+        text2.setPlaceholder(t("settings.pathPlaceholder")).setValue(this.plugin.settings.codebuddyPath).onChange(async (value) => {
           this.plugin.settings.codebuddyPath = value;
           this.plugin.api.setCodebuddyPath(value);
           await this.plugin.saveSettings();
@@ -8314,13 +8506,13 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
           new import_obsidian11.Notice(t("settings.pathNotFound"));
         }
       }));
-      new import_obsidian11.Setting(containerEl).setName(t("settings.node")).setDesc(t("settings.nodeDesc")).addText((text) => text.setPlaceholder(t("settings.nodePlaceholder")).setValue(this.plugin.settings.nodePath).onChange(async (value) => {
+      new import_obsidian11.Setting(containerEl).setName(t("settings.node")).setDesc(t("settings.nodeDesc")).addText((text2) => text2.setPlaceholder(t("settings.nodePlaceholder")).setValue(this.plugin.settings.nodePath).onChange(async (value) => {
         this.plugin.settings.nodePath = value;
         this.plugin.api.setNodePath(value);
         await this.plugin.saveSettings();
       }));
     }
-    new import_obsidian11.Setting(containerEl).setName(t("settings.timeout")).setDesc(t("settings.timeoutDesc")).addText((text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.cliTimeoutMinutes)).onChange(async (value) => {
+    new import_obsidian11.Setting(containerEl).setName(t("settings.timeout")).setDesc(t("settings.timeoutDesc")).addText((text2) => text2.setPlaceholder("5").setValue(String(this.plugin.settings.cliTimeoutMinutes)).onChange(async (value) => {
       const num = parseInt(value);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.cliTimeoutMinutes = num;
@@ -8380,8 +8572,8 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
         void persistMcp([...parseMcpServers(this.plugin.settings.mcpServersJson), entry]);
       }).open();
     })).addButton((btn) => btn.setButtonText(t("mcp.importClipboard")).onClick(async () => {
-      const text = await navigator.clipboard.readText();
-      const imported = parseClipboardServers(text);
+      const text2 = await navigator.clipboard.readText();
+      const imported = parseClipboardServers(text2);
       if (!imported.length) {
         new import_obsidian11.Notice(t("mcp.importBad"));
         return;
@@ -8390,9 +8582,9 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
       const fresh = imported.filter((i) => !existing.some((e) => e.name === i.name));
       await persistMcp([...existing, ...fresh]);
     }));
-    new import_obsidian11.Setting(containerEl).setName(t("settings.mcpServers")).setDesc(t("settings.mcpServersDesc")).addTextArea((text) => {
-      mcpTextarea = text;
-      text.setPlaceholder('[{"name":"x","command":"npx","args":["-y","pkg"]}]').setValue(this.plugin.settings.mcpServersJson).onChange(async (value) => {
+    new import_obsidian11.Setting(containerEl).setName(t("settings.mcpServers")).setDesc(t("settings.mcpServersDesc")).addTextArea((text2) => {
+      mcpTextarea = text2;
+      text2.setPlaceholder('[{"name":"x","command":"npx","args":["-y","pkg"]}]').setValue(this.plugin.settings.mcpServersJson).onChange(async (value) => {
         const trimmed = value.trim();
         if (trimmed) {
           try {
@@ -8410,7 +8602,7 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
       });
     });
     if (this.plugin.settings.backend === "codebuddy") {
-      new import_obsidian11.Setting(containerEl).setName(t("settings.customAgents")).setDesc(t("settings.customAgentsDesc")).addTextArea((text) => text.setPlaceholder('{"reviewer":{"description":"...","prompt":"..."}}').setValue(this.plugin.settings.customAgentsJson).onChange(async (value) => {
+      new import_obsidian11.Setting(containerEl).setName(t("settings.customAgents")).setDesc(t("settings.customAgentsDesc")).addTextArea((text2) => text2.setPlaceholder('{"reviewer":{"description":"...","prompt":"..."}}').setValue(this.plugin.settings.customAgentsJson).onChange(async (value) => {
         const trimmed = value.trim();
         if (trimmed) {
           try {
@@ -8440,7 +8632,7 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
       this.plugin.settings.autoTitle = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian11.Setting(containerEl).setName(t("settings.pastedKeep")).setDesc(t("settings.pastedKeepDesc")).addText((text) => text.setPlaceholder("20").setValue(String(this.plugin.settings.pastedImageKeep)).onChange(async (value) => {
+    new import_obsidian11.Setting(containerEl).setName(t("settings.pastedKeep")).setDesc(t("settings.pastedKeepDesc")).addText((text2) => text2.setPlaceholder("20").setValue(String(this.plugin.settings.pastedImageKeep)).onChange(async (value) => {
       const num = parseInt(value, 10);
       if (!isNaN(num) && num >= 0 && num <= MAX_PASTED_IMAGE_KEEP) {
         this.plugin.settings.pastedImageKeep = num;
@@ -8452,7 +8644,7 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
       await this.plugin.saveSettings();
       this.plugin.refreshOpenViews();
     }));
-    new import_obsidian11.Setting(containerEl).setName(t("settings.inputMinHeight")).setDesc(t("settings.inputHeightDesc")).addText((text) => text.setPlaceholder("30").setValue(String(this.plugin.settings.inputMinHeight)).onChange(async (value) => {
+    new import_obsidian11.Setting(containerEl).setName(t("settings.inputMinHeight")).setDesc(t("settings.inputHeightDesc")).addText((text2) => text2.setPlaceholder("30").setValue(String(this.plugin.settings.inputMinHeight)).onChange(async (value) => {
       const num = parseInt(value, 10);
       const bounds = normalizeTextareaHeightBounds(num, this.plugin.settings.inputMaxHeight);
       if (bounds.minHeight === num && bounds.maxHeight === this.plugin.settings.inputMaxHeight) {
@@ -8463,7 +8655,7 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
         new import_obsidian11.Notice(t("settings.inputHeightInvalid"));
       }
     }));
-    new import_obsidian11.Setting(containerEl).setName(t("settings.inputMaxHeight")).setDesc(t("settings.inputHeightDesc")).addText((text) => text.setPlaceholder("200").setValue(String(this.plugin.settings.inputMaxHeight)).onChange(async (value) => {
+    new import_obsidian11.Setting(containerEl).setName(t("settings.inputMaxHeight")).setDesc(t("settings.inputHeightDesc")).addText((text2) => text2.setPlaceholder("200").setValue(String(this.plugin.settings.inputMaxHeight)).onChange(async (value) => {
       const num = parseInt(value, 10);
       const bounds = normalizeTextareaHeightBounds(this.plugin.settings.inputMinHeight, num);
       if (bounds.maxHeight === num && bounds.minHeight === this.plugin.settings.inputMinHeight) {
@@ -8486,7 +8678,7 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian11.Setting(containerEl).setName(t("settings.contextWindow")).setDesc(t("settings.contextWindowDesc")).addText((text) => text.setPlaceholder("200000").setValue(String(this.plugin.settings.contextWindowSize)).onChange(async (value) => {
+    new import_obsidian11.Setting(containerEl).setName(t("settings.contextWindow")).setDesc(t("settings.contextWindowDesc")).addText((text2) => text2.setPlaceholder("200000").setValue(String(this.plugin.settings.contextWindowSize)).onChange(async (value) => {
       const num = parseInt(value, 10);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.contextWindowSize = num;
@@ -8565,7 +8757,7 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
       new import_obsidian11.Setting(containerEl).setDesc(t("plugins.empty")).setDisabled(true);
       return;
     }
-    const filterEl = new import_obsidian11.Setting(containerEl).addText((text) => text.setPlaceholder(t("plugins.filterPlaceholder"))).controlEl.querySelector("input");
+    const filterEl = new import_obsidian11.Setting(containerEl).addText((text2) => text2.setPlaceholder(t("plugins.filterPlaceholder"))).controlEl.querySelector("input");
     const byMarket = /* @__PURE__ */ new Map();
     for (const p of plugins) {
       const arr = (_a = byMarket.get(p.marketplace)) != null ? _a : [];
@@ -8667,14 +8859,14 @@ function buildEditPrompt(selection, instruction) {
 // src/features/inline-edit/index.ts
 init_i18n();
 async function collectEditResult(api, sessionId, prompt, vaultPath) {
-  let text = "";
+  let text2 = "";
   for await (const chunk of api.sendMessage(sessionId, prompt, vaultPath)) {
     if (chunk.type === "text")
-      text += chunk.content;
+      text2 += chunk.content;
     if (chunk.type === "error")
       throw new Error(chunk.content);
   }
-  return text.trim();
+  return text2.trim();
 }
 var InstructionModal2 = class extends import_obsidian12.Modal {
   constructor(app, onSubmit) {
@@ -8757,14 +8949,14 @@ function getCMView(editor) {
   return cm && typeof cm.coordsAtPos === "function" ? cm : null;
 }
 async function collectEditResult2(api, sessionId, prompt, vaultPath) {
-  let text = "";
+  let text2 = "";
   for await (const chunk of api.sendMessage(sessionId, prompt, vaultPath)) {
     if (chunk.type === "text")
-      text += chunk.content;
+      text2 += chunk.content;
     if (chunk.type === "error")
       throw new Error(chunk.content);
   }
-  return text.trim();
+  return text2.trim();
 }
 var FloatingInlineEdit = class {
   constructor(api, editor, vaultPath, savedSel) {
@@ -8910,7 +9102,7 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
       this.applySettingsToApi();
       if (this.api instanceof CodebuddyProvider) {
         const vaultPath = this.app.vault.adapter.basePath;
-        void this.api.refreshAvailableModels(vaultPath).then(() => this.refreshOpenViews());
+        void this.api.refreshAvailableModels(vaultPath).then(() => this.refreshOpenViews()).catch(() => bbError("[WB] \u6A21\u578B\u76EE\u5F55\u52A0\u8F7D\u5931\u8D25"));
       }
       this.manager = new ConversationManager();
       this.manager.setPersistCallback((conversations) => this.persistConversations(conversations));

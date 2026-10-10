@@ -44,9 +44,28 @@ describe('WorkBuddy first use without a connection extension', () => {
         fs.mkdirSync(path.join(cliRoot, 'dist'));
         fs.mkdirSync(cwd);
         fs.copyFileSync(path.join(__dirname, 'helpers/workbuddy-native-cli.cjs'), scriptPath);
-        fs.writeFileSync(path.join(cliRoot, 'product.json'), JSON.stringify({ productName: 'WorkBuddy', dataFolderName: '.workbuddy' }));
+        fs.writeFileSync(path.join(cliRoot, 'product.json'), JSON.stringify({ productName: 'WorkBuddy', dataFolderName: '.workbuddy',
+            agents: [
+                { name: 'cli', tags: ['cli', 'default'], models: ['old-model'], tools: ['Read'], instructions: 'installed test only' },
+                { name: 'helper-agent', tags: ['cli'], models: ['helper-model'] },
+            ], models: [{ id: 'old-model', name: 'Old' }, { id: 'helper-model', name: 'Helper' }],
+        }));
         fs.writeFileSync(path.join(cliRoot, 'dist/codebuddy-headless.js'), 'CODEBUDDY_SIDECAR_CREDENTIAL_BOOTSTRAP_SOCKET');
         return { scriptPath, cwd };
+    }
+
+    function accountFixture(onFetch: NonNullable<Parameters<typeof createWorkbuddyBrokerServer>[1]>
+        = () => ({ status: 200, headers: { 'content-type': 'text/plain' }, body_b64: 'b2s=' })) {
+        return createWorkbuddyBrokerServer(root, (params, signal) => {
+            if (params.method === 'GET' && params.path === '/console/enterprises/personal/models') {
+                return { status: 200, headers: { 'content-type': 'application/json' },
+                    body_b64: Buffer.from(JSON.stringify({ code: 0, data: {
+                        models: [{ id: 'glm-5.3', name: 'GLM-5.3', vendor: 'glm', maxInputTokens: 200000, maxOutputTokens: 16384,
+                            supportsImages: true, supportsToolCall: true }], agents: [{ name: 'cli', models: ['glm-5.3'] }],
+                    } })).toString('base64') };
+            }
+            return onFetch(params, signal);
+        });
     }
 
     async function activateConnector(invoke: () => Promise<unknown>) {
@@ -70,8 +89,27 @@ describe('WorkBuddy first use without a connection extension', () => {
         };
     }
 
+    it('native V3 目录在首次 ACP 会话提供账号新模型并把该 ID 用于 prompt', async () => {
+        broker = await accountFixture(() => ({ status: 200, headers: { 'content-type': 'application/json' },
+            body_b64: Buffer.from('{"text":"MODEL_ID_OBSERVED"}').toString('base64') }));
+        process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
+        const { scriptPath, cwd } = cliFixture();
+        worker = await startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']);
+        const rpc = await rpcConnection();
+        const session = await rpc('session/new', { cwd, mcpServers: [] });
+        expect(session.models.availableModels).toEqual([{ modelId: 'glm-5.3', name: 'GLM-5.3' }]);
+        expect(session.models.currentModelId).toBe('glm-5.3');
+        await rpc('session/set_config_option', { sessionId: session.sessionId, configId: 'model', value: 'glm-5.3' });
+        expect(await rpc('session/prompt', { sessionId: session.sessionId, prompt: [{ type: 'text', text: 'fixture only' }] }))
+            .toEqual({ stopReason: 'end_turn', reply: 'MODEL_ID_OBSERVED', modelId: 'glm-5.3' });
+        expect(broker.requests.map(request => `${request.method} ${request.path}`)).toEqual([
+            'GET /console/enterprises/personal/models', 'POST /v2/chat/completions',
+        ]);
+        expect(JSON.parse(Buffer.from(broker.requests[1].body_b64!, 'base64').toString('utf8')).model).toBe('glm-5.3');
+    });
+
     it('completes the first ACP prompt through the logged-in host without sidecar or connector setup', async () => {
-        broker = await createWorkbuddyBrokerServer(root, () => ({ status: 200,
+        broker = await accountFixture(() => ({ status: 200,
             headers: { 'content-type': 'application/json' }, body_b64: Buffer.from('{"text":"ZERO_SETUP_READY"}').toString('base64') }));
         process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
         const { scriptPath, cwd } = cliFixture();
@@ -82,24 +120,28 @@ describe('WorkBuddy first use without a connection extension', () => {
         expect(await rpc('initialize', { protocolVersion: 1 })).toMatchObject({ protocolVersion: 1 });
         const session = await rpc('session/new', { cwd, mcpServers: [] });
         expect(await rpc('session/prompt', { sessionId: session.sessionId, prompt: [{ type: 'text', text: 'ZERO_SETUP_READY' }] }))
-            .toEqual({ stopReason: 'end_turn', reply: 'ZERO_SETUP_READY' });
-        expect(broker.requests).toHaveLength(1);
+            .toEqual({ stopReason: 'end_turn', reply: 'ZERO_SETUP_READY', modelId: 'glm-5.3' });
+        expect(broker.requests.map(request => `${request.method} ${request.path}`)).toEqual([
+            'GET /console/enterprises/personal/models', 'POST /v2/chat/completions',
+        ]);
         expect(fs.existsSync(path.join(broker.configDir, 'extensions'))).toBe(false);
     });
 
     it('returns a non-retryable model error when host delegation fails', async () => {
-        broker = await createWorkbuddyBrokerServer(root, () => { throw new Error('remote fixture failure'); });
+        broker = await accountFixture(() => { throw new Error('remote fixture failure'); });
         process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
         const { scriptPath, cwd } = cliFixture();
         worker = await startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']);
         const rpc = await rpcConnection();
         expect(await rpc('session/prompt', { sessionId: 'fixture-owned', prompt: [] }))
             .toEqual({ stopReason: 'refusal', upstreamStatus: 422 });
-        expect(broker.requests).toHaveLength(1);
+        expect(broker.requests.map(request => `${request.method} ${request.path}`)).toEqual([
+            'GET /console/enterprises/personal/models', 'POST /v2/chat/completions',
+        ]);
     });
 
     it('waits for the logged-in account pipe to become visible before sending the first prompt', async () => {
-        broker = await createWorkbuddyBrokerServer(root, () => ({ status: 200,
+        broker = await accountFixture(() => ({ status: 200,
             headers: { 'content-type': 'application/json' }, body_b64: Buffer.from('{"text":"ACCOUNT_RESTORED"}').toString('base64') }));
         broker.options.requestPipeUnavailable = true;
         process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
@@ -115,12 +157,14 @@ describe('WorkBuddy first use without a connection extension', () => {
         expect(await starting).toEqual({ ready: true });
         const rpc = await rpcConnection();
         expect(await rpc('session/prompt', { sessionId: 'fixture-owned', prompt: [] }))
-            .toEqual({ stopReason: 'end_turn', reply: 'ACCOUNT_RESTORED' });
-        expect(broker.requests).toHaveLength(1);
+            .toEqual({ stopReason: 'end_turn', reply: 'ACCOUNT_RESTORED', modelId: 'glm-5.3' });
+        expect(broker.requests.map(request => `${request.method} ${request.path}`)).toEqual([
+            'GET /console/enterprises/personal/models', 'POST /v2/chat/completions',
+        ]);
     });
 
     it('uses the original account when an installed optional connector cannot initialize the host', async () => {
-        broker = await createWorkbuddyBrokerServer(root, () => ({ status: 200,
+        broker = await accountFixture(() => ({ status: 200,
             headers: { 'content-type': 'application/json' }, body_b64: Buffer.from('{"text":"CONNECTOR_FALLBACK_READY"}').toString('base64') }));
         process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
         const { scriptPath, cwd } = cliFixture();
@@ -128,12 +172,14 @@ describe('WorkBuddy first use without a connection extension', () => {
         worker = await startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']);
         const rpc = await rpcConnection();
         expect(await rpc('session/prompt', { sessionId: 'fixture-owned', prompt: [] }))
-            .toEqual({ stopReason: 'end_turn', reply: 'CONNECTOR_FALLBACK_READY' });
-        expect(broker.requests).toHaveLength(1);
+            .toEqual({ stopReason: 'end_turn', reply: 'CONNECTOR_FALLBACK_READY', modelId: 'glm-5.3' });
+        expect(broker.requests.map(request => `${request.method} ${request.path}`)).toEqual([
+            'GET /console/enterprises/personal/models', 'POST /v2/chat/completions',
+        ]);
     });
 
     it('uses the original account when optional warmup succeeds without creating a sidecar', async () => {
-        broker = await createWorkbuddyBrokerServer(root, () => ({ status: 200,
+        broker = await accountFixture(() => ({ status: 200,
             headers: { 'content-type': 'application/json' }, body_b64: Buffer.from('{"text":"NO_SIDECAR_READY"}').toString('base64') }));
         process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
         const { scriptPath, cwd } = cliFixture();
@@ -141,12 +187,14 @@ describe('WorkBuddy first use without a connection extension', () => {
         worker = await startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']);
         const rpc = await rpcConnection();
         expect(await rpc('session/prompt', { sessionId: 'fixture-owned', prompt: [] }))
-            .toEqual({ stopReason: 'end_turn', reply: 'NO_SIDECAR_READY' });
-        expect(broker.requests).toHaveLength(1);
+            .toEqual({ stopReason: 'end_turn', reply: 'NO_SIDECAR_READY', modelId: 'glm-5.3' });
+        expect(broker.requests.map(request => `${request.method} ${request.path}`)).toEqual([
+            'GET /console/enterprises/personal/models', 'POST /v2/chat/completions',
+        ]);
     });
 
     it('ignores incompatible optional metadata but independently rejects an invalid native host proof', async () => {
-        broker = await createWorkbuddyBrokerServer(root);
+        broker = await accountFixture();
         broker.options.invalidServerProof = true;
         process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
         const { scriptPath, cwd } = cliFixture();
@@ -159,7 +207,7 @@ describe('WorkBuddy first use without a connection extension', () => {
     });
 
     it('does not fall back to the account broker when cancelled during optional warmup', async () => {
-        broker = await createWorkbuddyBrokerServer(root);
+        broker = await accountFixture();
         process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
         const { scriptPath, cwd } = cliFixture();
         const controller = new AbortController();
@@ -172,7 +220,7 @@ describe('WorkBuddy first use without a connection extension', () => {
     });
 
     it.each(['existing', 'after warmup'])('refuses invalid sidecar identity %s even with an available native account', async (timing) => {
-        broker = await createWorkbuddyBrokerServer(root);
+        broker = await accountFixture();
         process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
         const { scriptPath, cwd } = cliFixture();
         const invalidIdentity = () => fs.writeFileSync(path.join(path.dirname(path.dirname(broker.endpoint)), 'sidecar.pid'),
@@ -189,7 +237,7 @@ describe('WorkBuddy first use without a connection extension', () => {
     });
 
     it('cancels cold authentication without creating a worker or installing an extension', async () => {
-        broker = await createWorkbuddyBrokerServer(root);
+        broker = await accountFixture();
         broker.options.silentHandshake = true;
         process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
         const { scriptPath, cwd } = cliFixture();
@@ -205,7 +253,7 @@ describe('WorkBuddy first use without a connection extension', () => {
     });
 
     it('cancels waiting for the account pipe without sending a model request', async () => {
-        broker = await createWorkbuddyBrokerServer(root);
+        broker = await accountFixture();
         broker.options.requestPipeUnavailable = true;
         process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
         const { scriptPath, cwd } = cliFixture();
@@ -223,7 +271,7 @@ describe('WorkBuddy first use without a connection extension', () => {
     });
 
     it('ends account restoration waiting at the deadline without creating a worker', async () => {
-        broker = await createWorkbuddyBrokerServer(root);
+        broker = await accountFixture();
         broker.options.requestPipeUnavailable = true;
         process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
         const { scriptPath, cwd } = cliFixture();
@@ -235,7 +283,7 @@ describe('WorkBuddy first use without a connection extension', () => {
     });
 
     it('does not retry an invalid host authentication proof as account restoration', async () => {
-        broker = await createWorkbuddyBrokerServer(root);
+        broker = await accountFixture();
         broker.options.invalidServerProof = true;
         process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
         const { scriptPath, cwd } = cliFixture();

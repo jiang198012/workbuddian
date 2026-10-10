@@ -4,8 +4,12 @@ import * as path from 'path';
 import { createHash } from 'crypto';
 import { startWorkbuddySidecar } from '../src/providers/codebuddy/workbuddySidecar';
 import { warmupWorkbuddy } from '../src/providers/codebuddy/workbuddyWarmup';
+import { connectWorkbuddyBroker } from '../src/providers/codebuddy/workbuddyBroker';
 jest.mock('../src/providers/codebuddy/workbuddyWarmup', () => ({
     ...jest.requireActual('../src/providers/codebuddy/workbuddyWarmup'), warmupWorkbuddy: jest.fn(),
+}));
+jest.mock('../src/providers/codebuddy/workbuddyBroker', () => ({
+    ...jest.requireActual('../src/providers/codebuddy/workbuddyBroker'), connectWorkbuddyBroker: jest.fn(),
 }));
 
 type Rpc = { id: number; method: string; params: Record<string, any> };
@@ -21,6 +25,12 @@ describe('WorkBuddy owned sidecar worker', () => {
     let worker: Awaited<ReturnType<typeof startWorkbuddySidecar>>;
     let requests: Rpc[];
     let sockets: Set<net.Socket>;
+    let modelBroker: { requestFetch: jest.Mock; dispose: jest.Mock };
+    const installedModels = [{ id: 'old-model', name: 'Old' }, { id: 'helper-model', name: 'Helper' }];
+    const installedAgents = [
+        { name: 'cli', tags: ['cli', 'default'], models: ['old-model'], tools: ['Read'], instructions: 'installed test only' },
+        { name: 'helper-agent', tags: ['cli'], models: ['helper-model'] },
+    ];
     const originalConfig = process.env.WORKBUDDY_CONFIG_DIR;
     const originalRuntime = process.env.XDG_RUNTIME_DIR;
     const hash = (value: string, length: number) => createHash('sha1').update(value).digest('hex').slice(0, length);
@@ -36,7 +46,8 @@ describe('WorkBuddy owned sidecar worker', () => {
         fs.mkdirSync(path.join(root, 'cli', 'dist'));
         fs.mkdirSync(cwd);
         fs.writeFileSync(scriptPath, '');
-        fs.writeFileSync(path.join(root, 'cli', 'product.json'), JSON.stringify({ productName: 'WorkBuddy', dataFolderName: '.workbuddy' }));
+        fs.writeFileSync(path.join(root, 'cli', 'product.json'), JSON.stringify({ productName: 'WorkBuddy', dataFolderName: '.workbuddy',
+            models: installedModels, agents: installedAgents }));
         fs.writeFileSync(path.join(root, 'cli', 'dist', 'codebuddy-lite-wb.mjs'), 'CODEBUDDY_SIDECAR_CREDENTIAL_BOOTSTRAP_SOCKET');
         process.env.WORKBUDDY_CONFIG_DIR = configDir;
         process.env.XDG_RUNTIME_DIR = root;
@@ -46,6 +57,17 @@ describe('WorkBuddy owned sidecar worker', () => {
         requests = [];
         sockets = new Set();
         (warmupWorkbuddy as jest.Mock).mockReset().mockRejectedValue(new Error('请安装连接扩展并重启 WorkBuddy'));
+        modelBroker = { requestFetch: jest.fn(async () => ({ status: 200, headers: { 'content-type': 'application/json' },
+            body_b64: Buffer.from(JSON.stringify({ code: 0, data: {
+                models: [{ id: 'glm-5.3', name: 'GLM-5.3', vendor: 'glm', maxInputTokens: 200000, maxOutputTokens: 16384,
+                    supportsImages: true, supportsToolCall: true }], agents: [{ name: 'cli', models: ['glm-5.3'] }],
+            } })).toString('base64') })), dispose: jest.fn() };
+        (connectWorkbuddyBroker as jest.Mock).mockReset().mockImplementation(async () => {
+            if (!fs.existsSync(path.join(runtimeDir, 'sidecar.pid'))) {
+                throw Object.assign(new Error('fixture account missing'), { code: 'E_DISCOVERY_MISSING' });
+            }
+            return modelBroker;
+        });
     });
 
     afterEach(async () => {
@@ -86,6 +108,26 @@ describe('WorkBuddy owned sidecar worker', () => {
         await new Promise<void>((resolve) => server!.listen(socketPath, resolve));
     }
 
+    it('sidecar 初始化向 V3 注入账号新模型目录并保留安装包辅助定义', async () => {
+        await listen();
+        worker = await startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve']);
+        expect(requests[0].params.env.ACC_PRODUCT_CONFIG_V3).toEqual(expect.any(String));
+        const product = JSON.parse(requests[0].params.env.ACC_PRODUCT_CONFIG_V3);
+        expect(product.models).toEqual(expect.arrayContaining([
+            expect.objectContaining({ id: 'glm-5.3', name: 'GLM-5.3' }), installedModels[1],
+        ]));
+        expect(product.agents.find((agent: { name: string }) => agent.name === 'cli')).toEqual({
+            ...installedAgents[0], models: ['glm-5.3'],
+        });
+        expect(product.agents.find((agent: { name: string }) => agent.name === 'helper-agent')).toEqual(installedAgents[1]);
+        expect(connectWorkbuddyBroker).toHaveBeenCalledWith(configDir, undefined);
+        expect(modelBroker.requestFetch).toHaveBeenCalledTimes(1);
+        expect(modelBroker.requestFetch).toHaveBeenCalledWith(expect.objectContaining({
+            method: 'GET', path: '/console/enterprises/personal/models',
+        }), undefined);
+        expect(modelBroker.dispose).toHaveBeenCalledTimes(1);
+    });
+
     it('creates a separate cwd worker with the installed product and kills only its returned runtime', async () => {
         await listen();
         worker = await startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve', '--agents', '{}']);
@@ -100,6 +142,7 @@ describe('WorkBuddy owned sidecar worker', () => {
             ELECTRON_RUN_AS_NODE: '1', CODEBUDDY_FORCE_LITE_WB_BUNDLE: '1',
             CODEBUDDY_CONFIG_DIR: configDir, WORKBUDDY_CONFIG_DIR: configDir,
             ACC_PRODUCT_CONFIG_PATH: path.join(root, 'cli', 'product.json'),
+            CODEBUDDY_DISABLE_PRODUCT_CACHE: '1',
             CODEBUDDY_API_KEY_HELPER_DISABLED: '1', CODEBUDDY_API_KEY: '', ANTHROPIC_API_KEY: '', OPENAI_API_KEY: '',
             CODEBUDDY_GATEWAY_AUTH: 'password', CODEBUDDY_GATEWAY_DISABLE_API_DOCS: '1',
         });
@@ -116,7 +159,7 @@ describe('WorkBuddy owned sidecar worker', () => {
         { productName: 'workbuddy' },
         { authentication: { id: 'workbuddy-desktop-ai-other' } },
     ])('does not route unrelated or prefix-only identities through the WorkBuddy account %j', async (product) => {
-        fs.writeFileSync(path.join(root, 'cli', 'product.json'), JSON.stringify(product));
+        fs.writeFileSync(path.join(root, 'cli', 'product.json'), JSON.stringify({ models: installedModels, agents: installedAgents, ...product }));
         await expect(startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve'])).resolves.toBeNull();
         expect(requests).toHaveLength(0);
     });
@@ -126,7 +169,7 @@ describe('WorkBuddy owned sidecar worker', () => {
         { authentication: { id: 'workbuddy-desktop' } },
         { authentication: { id: 'workbuddy-desktop-ai' } },
     ])('creates a real sidecar session for an exact known product identity %j', async (product) => {
-        fs.writeFileSync(path.join(root, 'cli', 'product.json'), JSON.stringify(product));
+        fs.writeFileSync(path.join(root, 'cli', 'product.json'), JSON.stringify({ models: installedModels, agents: installedAgents, ...product }));
         await listen();
         worker = await startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve']);
         expect(worker?.endpoint).toBe('http://127.0.0.1:34567');

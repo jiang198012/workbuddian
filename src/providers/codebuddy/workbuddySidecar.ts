@@ -5,6 +5,8 @@ import * as path from 'path';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { warmupWorkbuddy, workbuddyConfigDirectory } from './workbuddyWarmup';
 import { installedRuntime, startWorkbuddyNative, workbuddyNativeArgs } from './workbuddyNative';
+import { connectWorkbuddyBroker } from './workbuddyBroker';
+import { loadWorkbuddyModelConfig } from './workbuddyModels';
 
 const hash = (value: string, length: number) => createHash('sha1').update(value).digest('hex').slice(0, length);
 
@@ -36,7 +38,7 @@ export async function startWorkbuddySidecar(
     scriptPath: string, cwd: string, command: string, args: string[], signal?: AbortSignal,
 ): Promise<{ endpoint: string; dispose(): Promise<void> } | null> {
     let productPath: string;
-    let product: { productName?: string; dataFolderName?: string; authentication?: { id?: string } };
+    let product: { productName?: string; dataFolderName?: string; authentication?: { id?: string }; models?: unknown; agents?: unknown };
     try {
         productPath = path.join(path.dirname(fs.realpathSync(scriptPath)), '..', 'product.json');
         product = JSON.parse(fs.readFileSync(productPath, 'utf8'));
@@ -213,6 +215,11 @@ export async function startWorkbuddySidecar(
     try {
         await open();
         if (signal?.aborted || disposing) throw new Error('WorkBuddy worker creation cancelled');
+        const broker = await connectWorkbuddyBroker(configDir, signal);
+        let modelConfig: Awaited<ReturnType<typeof loadWorkbuddyModelConfig>>;
+        try { modelConfig = await loadWorkbuddyModelConfig(broker, product, signal); }
+        finally { broker.dispose(); }
+        if (signal?.aborted || disposing) throw new Error('WorkBuddy worker creation cancelled');
         const runtime = installedRuntime(scriptPath);
         submitted = true;
         const result = await rpc('session.create', {
@@ -222,6 +229,8 @@ export async function startWorkbuddySidecar(
                 ELECTRON_RUN_AS_NODE: '1', CODEBUDDY_FORCE_LITE_WB_BUNDLE: '1',
                 CODEBUDDY_CONFIG_DIR: configDir, WORKBUDDY_CONFIG_DIR: configDir, WORKBUDDY_DATA_FOLDER_NAME: dataFolder,
                 ACC_PRODUCT_CONFIG_PATH: productPath,
+                ACC_PRODUCT_CONFIG_V3: JSON.stringify(modelConfig),
+                CODEBUDDY_DISABLE_PRODUCT_CACHE: '1',
                 CODEBUDDY_API_KEY_HELPER_DISABLED: '1', CODEBUDDY_API_KEY: '', ANTHROPIC_API_KEY: '', OPENAI_API_KEY: '',
                 CODEBUDDY_GATEWAY_AUTH: 'password', CODEBUDDY_GATEWAY_PASSWORD: randomBytes(32).toString('hex'),
                 CODEBUDDY_GATEWAY_DISABLE_API_DOCS: '1', DISABLE_AUTOUPDATER: '1',
