@@ -1,13 +1,14 @@
 import { Notice, Plugin, WorkspaceLeaf, Modal, Setting } from 'obsidian';
 import { installWorkbuddyWarmup, workbuddyConfigDirectory } from './providers/codebuddy/workbuddyWarmup';
 import { CodebuddyProvider } from './providers/codebuddy';
-import { HermesProvider } from './providers/hermes';
+import { HermesProvider, isLocalHermesGateway } from './providers/hermes';
 import { discoverHermes } from './shared/hermesDiscover';
 import { sanitizeModelForBackend } from './shared/cliOptions';
 import { WorkbuddianChatView, VIEW_TYPE_CHAT } from './features/chat/view';
 import { ConversationManager } from './core/session/manager';
 import { migrateSettings, normalizePersistedData, getErrorMessage, type WorkbuddianSettings, type PersistedData } from './types';
 import { WorkbuddianSettingTab } from './features/settings/tab';
+import { CodebuddyLoginModal } from './features/settings/codebuddyLoginModal';
 import { registerWorkbuddianIcon, WORKBUDDIAN_ICON_ID } from './shared/icon';
 import { applyPrimaryColor } from './shared/primaryColor';
 import { runInlineEdit } from './features/inline-edit';
@@ -28,6 +29,7 @@ export default class WorkbuddianPlugin extends Plugin {
     api: CodebuddyProvider | HermesProvider;
     chatView: WorkbuddianChatView | null = null;
     manager: ConversationManager;
+    private codebuddyLoginModal: CodebuddyLoginModal | null = null;
 
     async onload() {
         try {
@@ -63,6 +65,10 @@ export default class WorkbuddianPlugin extends Plugin {
             this.addRibbonIcon(WORKBUDDIAN_ICON_ID, t('cmd.ribbonTooltip'), () => void this.activateView());
             this.registerCommands();
             this.addSettingTab(new WorkbuddianSettingTab(this.app, this));
+            // 未登录时 input 层会派发该事件：自动打开一键登录（浏览器登录页），避免小白卡在错误卡
+            const openLogin = () => this.openCodebuddyLogin();
+            document.addEventListener('workbuddian:codebuddy-login', openLogin);
+            this.register(() => document.removeEventListener('workbuddian:codebuddy-login', openLogin));
         } catch (e) {
             bbError('[WB] 插件加载失败:', e);
             new Notice(t('cmd.loadFailed'));
@@ -70,8 +76,19 @@ export default class WorkbuddianPlugin extends Plugin {
     }
 
     onunload() {
+        this.codebuddyLoginModal?.close();
+        this.codebuddyLoginModal = null;
         this.api.dispose();
         applyPrimaryColor('');
+    }
+
+    /** 打开/复用 CodeBuddy 一键登录窗口（设置按钮、命令、未登录自动触发共用） */
+    openCodebuddyLogin(): void {
+        if (this.codebuddyLoginModal) return; // 已经在登录窗口中，避免重复启动登录服务
+        this.codebuddyLoginModal = new CodebuddyLoginModal(this.app, this, () => {
+            this.codebuddyLoginModal = null;
+        });
+        this.codebuddyLoginModal.open();
     }
 
     /** 视图工厂：每个 leaf 一个 view，共享 api/manager/settings 与两个数据回调 */
@@ -100,6 +117,11 @@ export default class WorkbuddianPlugin extends Plugin {
             modal.open();
         } });
         this.addCommand({ id: 'open-chat', name: t('cmd.openChat'), callback: () => void this.activateView() });
+        this.addCommand({
+            id: 'codebuddy-login',
+            name: t('cmd.codebuddyLogin'),
+            callback: () => this.openCodebuddyLogin(),
+        });
         this.addCommand({
             id: 'open-chat-main-pane',
             name: t('cmd.openChatMainPane'),
@@ -277,13 +299,22 @@ export default class WorkbuddianPlugin extends Plugin {
         this.api.setThoughtLevel(this.settings.thoughtLevel);
         // Hermes 后端:灌 gateway 地址 + API key(缺省时自动从 ~/.hermes 探测)
         if (this.api instanceof HermesProvider) {
-            if (!this.settings.hermesGatewayUrl || !this.settings.hermesApiKey) {
-                const discovered = discoverHermes();
-                if (discovered) {
-                    if (!this.settings.hermesGatewayUrl) this.settings.hermesGatewayUrl = discovered.gatewayUrl;
-                    if (!this.settings.hermesApiKey && discovered.apiKey) this.settings.hermesApiKey = discovered.apiKey;
+            let changed = false;
+            const discovered = discoverHermes();
+            if (discovered) {
+                if (!this.settings.hermesGatewayUrl) {
+                    this.settings.hermesGatewayUrl = discovered.gatewayUrl;
+                    changed = true;
+                }
+                // 本机 gateway 实际用进程环境(.env 的 API_SERVER_KEY)，config.yaml 里的旧 key
+                // 会 401；每次加载用探测值校正，避免用户一直沿用失效 key。
+                if (discovered.apiKey && isLocalHermesGateway(this.settings.hermesGatewayUrl)
+                    && this.settings.hermesApiKey !== discovered.apiKey) {
+                    this.settings.hermesApiKey = discovered.apiKey;
+                    changed = true;
                 }
             }
+            if (changed) void this.saveSettings();
             this.api.setGateway(this.settings.hermesGatewayUrl, this.settings.hermesApiKey);
             this.api.setHermesCliPath(this.settings.hermesCliPath);
             void this.api.init(); // 探测一次定 ACP/HTTP 模式（异步，不阻塞设置灌入）

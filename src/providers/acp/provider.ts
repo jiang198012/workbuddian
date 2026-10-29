@@ -14,7 +14,9 @@ import { activeMcpServers, parseMcpServers } from '../../shared/mcpServers';
 const TIMEOUT = 300_000; // 5 分钟
 
 /** 启动阶段（ensureStarted/ensureLoaded）失败标记：hermes 路由器据此做粘性降级，轮中错误不降级 */
-export class AcpStartFailure extends Error {}
+export class AcpStartFailure extends Error {
+    constructor(message: string, readonly tier?: AcpStartTier) { super(message); }
+}
 
 interface SessionCallbacks {
     onPermissionRequest?: (data: PermissionCardData) => void;
@@ -231,12 +233,17 @@ export class AcpProvider {
             await this.client.ensureStarted(vaultPath);
             await session.ensureLoaded(vaultPath);
         } catch (e) {
-            throw new AcpStartFailure(this.startErrorMessage(e));
+            throw new AcpStartFailure(this.startErrorMessage(e), e instanceof AcpStartError ? e.tier : undefined);
         }
         return session.fork(name);
     }
 
     /** 卸载：拒悬挂批准 → terminate 进程 */
+    /** 登录/账号切换后重启当前 CLI；下一条消息自动重连并 session/load */
+    restartProcess(): void {
+        this.client.restart();
+    }
+
     dispose(): void {
         for (const cancel of this.startingTurns.values()) cancel();
         this.rejectPendingPermissions();
@@ -274,7 +281,7 @@ export class AcpProvider {
             })(), cancellation]);
         } catch (e) {
             if (preflightCancelled) return;
-            throw new AcpStartFailure(this.startErrorMessage(e));
+            throw new AcpStartFailure(this.startErrorMessage(e), e instanceof AcpStartError ? e.tier : undefined);
         } finally {
             if (this.startingTurns.get(sessionId) === cancelPreflight) this.startingTurns.delete(sessionId);
         }

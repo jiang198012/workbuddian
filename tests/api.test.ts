@@ -400,6 +400,9 @@ describe('path helpers', () => {
 
 describe('resolveCodebuddyPath', () => {
     const originalAppData = process.env.APPDATA;
+    const originalPath = process.env.PATH;
+    const originalNpmPrefix = process.env.npm_config_prefix;
+    const originalNvmBin = process.env.NVM_BIN;
     const originalPlatform = process.platform;
     let tempDir: string;
 
@@ -412,22 +415,38 @@ describe('resolveCodebuddyPath', () => {
         fs.mkdirSync(npmDir);
         fs.writeFileSync(path.join(npmDir, 'codebuddy.cmd'), '');
         process.env.APPDATA = tempDir;
+        // 隔离本机真实 PATH / npm 前缀，避免命中已安装的官方 CLI
+        process.env.PATH = '';
+        delete process.env.npm_config_prefix;
+        delete process.env.NVM_BIN;
     });
 
     afterEach(() => {
         Object.defineProperty(process, 'platform', { value: originalPlatform });
         process.env.APPDATA = originalAppData;
+        if (originalPath === undefined) delete process.env.PATH; else process.env.PATH = originalPath;
+        if (originalNpmPrefix === undefined) delete process.env.npm_config_prefix; else process.env.npm_config_prefix = originalNpmPrefix;
+        if (originalNvmBin === undefined) delete process.env.NVM_BIN; else process.env.NVM_BIN = originalNvmBin;
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
-    it('does not automatically switch to a standalone npm CLI', () => {
+    it('ignores an unidentified standalone npm CLI', () => {
         const result = resolveCodebuddyPath('');
         expect(result).toBe('');
+    });
+
+    it('selects the official CodeBuddy CLI when npm global install has official metadata', () => {
+        fs.writeFileSync(path.join(tempDir, 'product.json'), JSON.stringify({ productName: 'CodeBuddy' }));
+        const result = resolveCodebuddyPath('');
+        expect(result).toBe(path.join(tempDir, 'npm', 'codebuddy.cmd'));
     });
 });
 
 describe('resolveCodebuddyPath on macOS', () => {
     const originalHome = process.env.HOME;
+    const originalPath = process.env.PATH;
+    const originalNpmPrefix = process.env.npm_config_prefix;
+    const originalNvmBin = process.env.NVM_BIN;
     const originalPlatform = process.platform;
     const realExistsSync = jest.requireActual('fs').existsSync;
     let tempDir: string;
@@ -436,6 +455,10 @@ describe('resolveCodebuddyPath on macOS', () => {
         Object.defineProperty(process, 'platform', { value: 'darwin' });
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bb-mac-test-'));
         process.env.HOME = tempDir;
+        // 隔离本机真实 PATH / npm 前缀，避免命中已安装的官方 CLI
+        process.env.PATH = '';
+        delete process.env.npm_config_prefix;
+        delete process.env.NVM_BIN;
         (fs.existsSync as jest.Mock).mockImplementation((p: fs.PathLike) => {
             const target = p.toString();
             if (!target.startsWith(tempDir)) return false;
@@ -447,6 +470,9 @@ describe('resolveCodebuddyPath on macOS', () => {
         (fs.existsSync as jest.Mock).mockImplementation(realExistsSync);
         Object.defineProperty(process, 'platform', { value: originalPlatform });
         process.env.HOME = originalHome;
+        if (originalPath === undefined) delete process.env.PATH; else process.env.PATH = originalPath;
+        if (originalNpmPrefix === undefined) delete process.env.npm_config_prefix; else process.env.npm_config_prefix = originalNpmPrefix;
+        if (originalNvmBin === undefined) delete process.env.NVM_BIN; else process.env.NVM_BIN = originalNvmBin;
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
@@ -459,13 +485,23 @@ describe('resolveCodebuddyPath on macOS', () => {
         expect(result).toBe(path.join(appDir, 'codebuddy'));
     });
 
-    it('does not switch accounts through ~/.local/bin/codebuddy when WorkBuddy is absent', () => {
+    it('ignores an unidentified ~/.local/bin/codebuddy when WorkBuddy is absent', () => {
         const binDir = path.join(tempDir, '.local', 'bin');
         fs.mkdirSync(binDir, { recursive: true });
         fs.writeFileSync(path.join(binDir, 'codebuddy'), '');
 
         const result = resolveCodebuddyPath('');
         expect(result).toBe('');
+    });
+
+    it('resolves the official CodeBuddy CLI from ~/.local/bin', () => {
+        const binDir = path.join(tempDir, '.local', 'bin');
+        fs.mkdirSync(binDir, { recursive: true });
+        fs.writeFileSync(path.join(binDir, 'codebuddy'), '');
+        fs.writeFileSync(path.join(tempDir, '.local', 'product.json'), JSON.stringify({ productName: 'CodeBuddy' }));
+
+        const result = resolveCodebuddyPath('');
+        expect(result).toBe(path.join(binDir, 'codebuddy'));
     });
 });
 

@@ -20,6 +20,7 @@ import { pickOptionId, type PermissionCardData, type PermissionDetail } from '..
 import { extForMime, mimeForExt, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
 import { parseInstructionInput } from '../../shared/instruction';
 import { CodebuddyProvider } from '../../providers/codebuddy';
+import { AcpStartFailure } from '../../providers/acp/provider';
 import { openInstructionModal } from './instructionModal';
 import { openResumeModal } from './resumeModal';
 import { buildSelectionBlock } from '../../shared/selection';
@@ -1344,6 +1345,11 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
             }
         }
     } catch (error: unknown) {
+        // 未登录是新手最常见的断点：自动弹出浏览器登录流程，而不是只丢一张错误卡
+        if (view.settings.backend === 'codebuddy'
+            && error instanceof AcpStartFailure && error.tier === 'auth-required') {
+            document.dispatchEvent(new CustomEvent('workbuddian:codebuddy-login'));
+        }
         const message = getErrorMessage(error);
         view.manager.setError(convId, aiMsg.id, message);
         new Notice(`${t('input.requestFailed')}: ${message}`);

@@ -7,9 +7,15 @@ jest.mock('../src/providers/hermes/acpProvider', () => ({
 jest.mock('../src/providers/hermes/httpProvider', () => ({
     HermesHttpProvider: jest.fn().mockImplementation(() => ({ kind: 'http', ...contractStub() })),
 }));
-jest.mock('child_process', () => ({ execFile: jest.fn() }));
-import { execFile } from 'child_process';
+jest.mock('child_process', () => ({ execFile: jest.fn(), spawn: jest.fn(() => ({ on: jest.fn(), unref: jest.fn() })) }));
+jest.mock('../src/utils/cliPath', () => ({
+    ...jest.requireActual('../src/utils/cliPath'),
+    resolveHermesPath: jest.fn(() => '/fake/hermes'),
+    needsWindowsShell: jest.fn(() => false),
+}));
+import { execFile, spawn } from 'child_process';
 const execFileMock = execFile as unknown as jest.Mock;
+const spawnMock = spawn as unknown as jest.Mock;
 
 function contractStub() {
     return {
@@ -25,7 +31,16 @@ function contractStub() {
 }
 
 describe('HermesProvider 路由器', () => {
-    beforeEach(() => execFileMock.mockReset());
+    const realFetch = (globalThis as unknown as { fetch?: unknown }).fetch;
+    beforeEach(() => {
+        execFileMock.mockReset();
+        spawnMock.mockClear();
+        // 默认 gateway 已在监听：把探测从测试里摘掉，只测路由决策
+        (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async () => ({}));
+    });
+    afterEach(() => {
+        (globalThis as unknown as { fetch?: unknown }).fetch = realFetch;
+    });
     it('远程 gateway 地址 → http 模式，不探测 CLI', async () => {
         const p = new HermesProvider();
         p.setGateway('http://10.100.0.1:8642', 'key');
@@ -71,6 +86,21 @@ describe('HermesProvider 路由器', () => {
         const p = new HermesProvider();
         await p.init();
         expect(execFileMock).toHaveBeenCalled();
+        expect(p.mode).toBe('acp');
+    });
+    it('本机 gateway 未监听 → 先拉起 hermes gateway run 再探测', async () => {
+        let probes = 0;
+        (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn(async () => {
+            probes += 1;
+            if (probes === 1) throw new Error('ECONNREFUSED');
+            return {};
+        });
+        execFileMock.mockImplementation((_c: string, _a: string[], _o: object, cb: Function) => cb(null, 'ok', ''));
+        const p = new HermesProvider();
+        p.setGateway('http://127.0.0.1:8642', 'key');
+        await p.init();
+        expect(spawnMock).toHaveBeenCalledWith(expect.stringContaining('hermes'), ['gateway', 'run'],
+            expect.objectContaining({ detached: true }));
         expect(p.mode).toBe('acp');
     });
 });

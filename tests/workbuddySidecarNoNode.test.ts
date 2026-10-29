@@ -31,11 +31,14 @@ describe('WorkBuddy existing sidecar without system Node', () => {
 
     beforeEach(() => {
         root = fs.realpathSync(fs.mkdtempSync('/tmp/wbnn-'));
-        for (const key of ['HOME', 'LOCALAPPDATA', 'WORKBUDDY_CONFIG_DIR', 'CODEBUDDY_PATH', 'NVM_BIN']) saved.set(key, process.env[key]);
+        for (const key of ['HOME', 'LOCALAPPDATA', 'WORKBUDDY_CONFIG_DIR', 'CODEBUDDY_PATH', 'NVM_BIN', 'PATH', 'npm_config_prefix']) saved.set(key, process.env[key]);
         process.env.HOME = path.join(root, 'home');
         process.env.WORKBUDDY_CONFIG_DIR = path.join(root, 'config');
         delete process.env.CODEBUDDY_PATH;
         delete process.env.NVM_BIN;
+        // 隔离本机已安装的官方 CLI：测试只允许 fixture 内的候选路径
+        process.env.PATH = '';
+        delete process.env.npm_config_prefix;
         Object.defineProperty(process, 'platform', { configurable: true, value: 'darwin' });
         jest.spyOn(require('os'), 'tmpdir').mockReturnValue(root);
         const actualFs = jest.requireActual<typeof fs>('fs');

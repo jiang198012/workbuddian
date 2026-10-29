@@ -101,14 +101,16 @@ const WB_CLI_REL = ['Resources', 'app.asar.unpacked', 'cli', 'bin'] as const;
 function codebuddyCandidates(): string[] {
     if (!isWin()) {
         return [
-            '/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy',
-            path.join(home(), 'Applications', 'WorkBuddy.app', 'Contents', ...WB_CLI_REL, 'codebuddy'),
+            // 官方 CodeBuddy CLI（npm 全局 / 常见用户目录）优先
             path.join(home(), '.local', 'bin', 'codebuddy'),
             path.join(home(), '.npm-global', 'bin', 'codebuddy'),
             path.join(home(), '.volta', 'bin', 'codebuddy'),
             path.join(home(), 'bin', 'codebuddy'),
             '/usr/local/bin/codebuddy',
             '/opt/homebrew/bin/codebuddy',
+            // WorkBuddy 桌面版内置 CLI 作为兼容回退
+            '/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy',
+            path.join(home(), 'Applications', 'WorkBuddy.app', 'Contents', ...WB_CLI_REL, 'codebuddy'),
         ];
     }
 
@@ -120,12 +122,16 @@ function codebuddyCandidates(): string[] {
 
     // Windows 上优先可直接执行的 .exe / .cmd，避免选中无扩展名的 npm shell shim
     const wbExe = (root: string, names: string[]) => names.map((n) => path.join(root, ...WB_CLI_REL, n));
-    if (lad) list.push(...wbExe(path.join(lad, 'Programs', 'WorkBuddy'), ['codebuddy.exe', 'codebuddy.cmd', 'codebuddy']));
+    // 官方 CodeBuddy CLI（npm / node 全局）优先
     if (appData) list.push(path.join(appData, 'npm', 'codebuddy.cmd'), path.join(appData, 'npm', 'codebuddy'));
     list.push(
         path.join(pf, 'nodejs', 'codebuddy.cmd'),
         path.join(pf, 'nodejs', 'node_modules', '.bin', 'codebuddy.cmd'),
         path.join(pf86, 'nodejs', 'node_modules', '.bin', 'codebuddy.cmd'),
+    );
+    // WorkBuddy 桌面版内置 CLI 作为兼容回退
+    if (lad) list.push(...wbExe(path.join(lad, 'Programs', 'WorkBuddy'), ['codebuddy.exe', 'codebuddy.cmd', 'codebuddy']));
+    list.push(
         ...wbExe(path.join(pf, 'WorkBuddy'), ['codebuddy.exe', 'codebuddy.cmd', 'codebuddy']),
         ...wbExe(path.join(pf86, 'WorkBuddy'), ['codebuddy.exe', 'codebuddy.cmd', 'codebuddy']),
     );
@@ -138,7 +144,8 @@ function codebuddyCandidates(): string[] {
 }
 
 export function resolveCodebuddyPath(customPath: string): string {
-    // 显式路径保持原样；自动发现只选 WorkBuddy，避免静默切换账号和额度。
+    // 显式路径保持原样；自动发现优先官方 CodeBuddy CLI，再回退 WorkBuddy 桌面版内置 CLI。
+    // 官方 CLI 走公开的 `--acp`，不依赖 WorkBuddy 桌面端内部通道（WBIPC/sidecar/扩展）。
     if (customPath) return customPath;
     const fromEnv = env('CODEBUDDY_PATH');
     if (fromEnv) return fromEnv;
@@ -149,15 +156,33 @@ export function resolveCodebuddyPath(customPath: string): string {
     ];
     const candidates = [...codebuddyCandidates(), ...extra];
     const names = isWin() ? ['codebuddy.exe', 'codebuddy.cmd', 'codebuddy'] : ['codebuddy'];
-    const onPath = findOnPath(names, isWorkbuddyBundledCli);
-    const all = [...candidates, ...(onPath ? [onPath] : [])];
-    const hit = firstHit(all.filter(isWorkbuddyBundledCli));
-    if (hit) {
-        bbLog('[WB] resolved codebuddy path:', hit);
-        return hit;
+    // 1) 官方 CodeBuddy CLI：候选目录 → PATH
+    const official = firstHit(candidates.filter(isOfficialCodebuddyCli))
+        ?? findOnPath(names, isOfficialCodebuddyCli);
+    if (official) {
+        bbLog('[WB] resolved official codebuddy path:', official);
+        return official;
+    }
+    // 2) 兼容回退：WorkBuddy 桌面版内置 CLI
+    const bundled = firstHit(candidates.filter(isWorkbuddyBundledCli))
+        ?? findOnPath(names, isWorkbuddyBundledCli);
+    if (bundled) {
+        bbLog('[WB] resolved WorkBuddy bundled codebuddy path:', bundled);
+        return bundled;
     }
 
     return '';
+}
+
+/** 官方 CodeBuddy CLI（npm 全局安装）：product.json 的 productName / authentication.id 精确匹配 */
+export function isOfficialCodebuddyCli(scriptPath: string): boolean {
+    let realPath = scriptPath;
+    try { realPath = fs.realpathSync(scriptPath); } catch { /* 尚未安装或 PATH 裸命令 */ }
+    try {
+        const product = JSON.parse(fs.readFileSync(path.join(path.dirname(realPath), '..', 'product.json'), 'utf8'));
+        return product?.productName === 'CodeBuddy'
+            || product?.authentication?.id === 'Tencent-Cloud.coding-copilot';
+    } catch { return false; }
 }
 
 /** 识别 WorkBuddy 内置 CLI，兼容符号链接和带产品标识的自定义安装目录。 */

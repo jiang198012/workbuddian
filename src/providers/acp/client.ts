@@ -225,6 +225,13 @@ export class AcpClient {
         this.write({ jsonrpc: '2.0', id: requestId, error: { code: -32601, message } });
     }
 
+    /** 登录状态变化后强制重启 CLI；已握手过则通知 provider 将会话标记 stale */
+    restart(): void {
+        const hadStarted = this.handshakeDone;
+        this.dispose();
+        if (hadStarted) this.events.onExit(null, null);
+    }
+
     dispose(): void {
         this.disposed = true;
         this.generation++;

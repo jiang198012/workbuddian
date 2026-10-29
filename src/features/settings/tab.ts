@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS, migrateSettings, exportSettings, MAX_PASTED_IMAGE_KEE
 import { normalizeTextareaHeightBounds } from '../../shared/inputHeight';
 import { applyLang, t } from '../../i18n';
 import { onConfigChanged } from '../../shared/configEvents';
-import { resolveCodebuddyPath } from '../../utils/cliPath';
+import { isOfficialCodebuddyCli, resolveCodebuddyPath } from '../../utils/cliPath';
 import { sanitizeModelForBackend } from '../../shared/cliOptions';
 import { LogModal } from './logModal';
 import { McpServerModal } from './mcpModal';
@@ -178,7 +178,7 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                     .setIcon('search')
                     .setTooltip(t('settings.pathDetect'))
                     .onClick(async () => {
-                        // 按 Win/Mac 的 WorkBuddy 默认安装位置探测；探到真实路径就填入，否则提示手动指定
+                        // 优先检测官方 CodeBuddy CLI，未安装时回退 WorkBuddy 内置 CLI
                         const detected = resolveCodebuddyPath('');
                         if (detected && detected !== 'codebuddy') {
                             this.plugin.settings.codebuddyPath = detected;
@@ -190,6 +190,18 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
                             new Notice(t('settings.pathNotFound'));
                         }
                     }));
+
+            const loginCli = resolveCodebuddyPath(this.plugin.settings.codebuddyPath);
+            const loginOfficial = !!loginCli && isOfficialCodebuddyCli(loginCli);
+            new Setting(containerEl)
+                .setName(t('settings.login'))
+                .setDesc(loginOfficial ? t('settings.loginDesc') : t('settings.loginNeedOfficial'))
+                .addButton(button => {
+                    button.setButtonText(t('settings.loginButton'));
+                    if (loginOfficial) button.setCta();
+                    else button.setDisabled(true);
+                    button.onClick(() => this.plugin.openCodebuddyLogin());
+                });
 
             new Setting(containerEl)
                 .setName(t('settings.node'))

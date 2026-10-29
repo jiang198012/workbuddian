@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.6.19 — 2026-10-28
+
+**CodeBuddy 官方 CLI 一键登录 + 双后端恢复**：新增浏览器一键登录（无需终端），自动发现优先官方 CodeBuddy CLI；修复 Hermes gateway 未运行、旧 API key 失效和首条消息竞态。
+
+### 新增
+
+- 设置页与命令面板新增“登录 CodeBuddy”：启动官方 CLI 的临时 Web UI，自动打开浏览器登录页（Chinese Site / iOA / 企业域名 / International Site），轮询 ACP 登录状态；成功后自动重启 CLI、刷新模型列表。
+- 未登录时发送消息会自动弹出登录窗口；登录页换 token 改用 Node HTTP，绕开 Obsidian `app://` 的 CORS 限制，不再出现 `Failed to fetch`。
+- 自动发现优先官方 `@tencent-ai/codebuddy-code` CLI，找不到时回退 WorkBuddy 内置 CLI；CLI 路径留空即可自动检测。
+
+### 修复
+
+- Hermes：gateway 未监听时自动后台拉起 `hermes gateway run`；API key 优先读 `.env` 并在加载时校正；`sendMessage` 等待初始化完成，避免首条消息误走 HTTP 报 `Failed to fetch`。
+- WorkBuddy 5.9.3：worker 使用 `CODEBUDDY_FORCE_LITE_WB_BUNDLE`；`wb.request` 管道缺失时 3 秒内快速失败并给出 sidecar 操作提示，不再空等 30 秒；保留 sidecar v6 路径兼容。
+
+### 验证与限制
+
+- 官方 CLI 2.177.1 本机实测：`--acp` 握手、浏览器 Sign In 页面、网关 token、ACP 探测；登录后 `codebuddy -p` 与插件 `CodebuddyProvider` 均返回“收到”，模型目录加载，Read 工具调用与总结成功。
+- Hermes 本机实测：ACP/HTTP 均返回“收到”；gateway 停止后可由插件自动拉起。
+- `npm test`：70 套件、956 项测试通过，0 失败；`npm run build` 类型检查与生产构建通过。
+- WorkBuddy 5.9.3 桌面端自动接通仍受上游限制：`wb.request` 已移除，需先在 WorkBuddy 内开始一次对话以启动 sidecar；官方 CLI 是推荐路径。Windows 实机与更多 GUI 场景仍待验收，Issue #10 保持开放。
+
 ## 2.6.18 — 2026-10-09
 
 **原账号模型目录同步**：修复 WorkBuddy 内置 CLI 启动缓存固化旧模型清单的问题，沿用原登录与额度。

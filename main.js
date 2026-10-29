@@ -73,7 +73,7 @@ var init_i18n = __esm({
       "provider.cliNotFound": { zh: "\u627E\u4E0D\u5230 codebuddy CLI\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 WorkBuddy \u684C\u9762\u7248\uFF0C\u6216\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u6307\u5B9A codebuddy \u8DEF\u5F84\u3002", en: "codebuddy CLI not found. Make sure WorkBuddy desktop is installed, or set the codebuddy path in the plugin settings." },
       "provider.nodeNotFound": { zh: "\u627E\u4E0D\u5230 Node.js \u6765\u8FD0\u884C codebuddy\uFF08\u8DEF\u5F84\uFF1A{path}\uFF09\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 Node.js\u3002", en: "Node.js not found to run codebuddy (path: {path}). Make sure Node.js is installed." },
       "provider.acpUnsupported": { zh: "\u5F53\u524D codebuddy CLI \u7248\u672C\u8FC7\u65E7\uFF0C\u4E0D\u652F\u6301 ACP \u6301\u4E45\u4F1A\u8BDD\u3002\u8BF7\u5347\u7EA7 WorkBuddy \u684C\u9762\u7248\u3002", en: "Your codebuddy CLI is too old for ACP persistent sessions. Please upgrade WorkBuddy." },
-      "provider.notLoggedIn": { zh: "\u5F53\u524D CLI \u8BA4\u8BC1\u5931\u8D25\u3002\u82E5\u4F7F\u7528 WorkBuddy\uFF0C\u8BF7\u786E\u8BA4\u539F\u684C\u9762\u7AEF\u5DF2\u767B\u5F55\u3001\u4FDD\u6301\u8FD0\u884C\u4E14\u53EF\u6B63\u5E38\u5BF9\u8BDD\uFF1B\u5BBF\u4E3B\u51ED\u636E\u901A\u8DEF\u4E0D\u53EF\u7528\u4E0D\u7B49\u4E8E\u672A\u767B\u5F55\uFF0C\u91CD\u65B0\u767B\u5F55\u4E0D\u4FDD\u8BC1\u89E3\u51B3\u3002\u63D2\u4EF6\u4E0D\u4F1A\u81EA\u52A8\u5207\u6362\u8D26\u53F7\u6216\u989D\u5EA6\u6765\u6E90\u3002", en: "The selected CLI could not authenticate. If using WorkBuddy, keep the original desktop app running and logged in, and check that desktop chat works. An unavailable host credential channel does not mean you are logged out; logging in again is not a guaranteed remedy. The plugin does not automatically switch accounts or quota sources." },
+      "provider.notLoggedIn": { zh: "CodeBuddy \u672A\u767B\u5F55\u3002\u6253\u5F00 \u8BBE\u7F6E \u2192 CodeBuddy \u767B\u5F55 \u2192 \u70B9\u300E\u767B\u5F55 CodeBuddy\u300F\uFF0C\u5728\u6D4F\u89C8\u5668\u91CC\u5B8C\u6210\u767B\u5F55\u540E\u91CD\u8BD5\uFF1BWorkBuddy \u5185\u7F6E CLI \u9700\u4FDD\u6301\u684C\u9762\u7AEF\u767B\u5F55\u8FD0\u884C\u3002", en: "CodeBuddy is not signed in. Open Settings \u2192 CodeBuddy sign-in \u2192 \u201CSign in to CodeBuddy\u201D, finish the browser prompt, then retry. For the WorkBuddy bundled CLI, keep the desktop app logged in and running." },
       "provider.credentialUnavailable": { zh: "WorkBuddy \u5BBF\u4E3B\u51ED\u636E\u901A\u8DEF\u5F53\u524D\u4E0D\u53EF\u7528\uFF08missing-key\uFF0C\u89C1 Issue #10\uFF09\u3002\u8BF7\u786E\u8BA4\u539F\u684C\u9762\u7AEF\u5DF2\u767B\u5F55\u5E76\u4FDD\u6301\u8FD0\u884C\uFF1B\u6B64\u9519\u8BEF\u4E0D\u7B49\u4E8E\u672A\u767B\u5F55\uFF0C\u91CD\u65B0\u767B\u5F55\u4E0D\u4FDD\u8BC1\u89E3\u51B3\u3002\u63D2\u4EF6\u4E0D\u8BFB\u53D6\u3001\u590D\u5236\u6216\u89E3\u5BC6\u767B\u5F55\u51ED\u636E\uFF0C\u4E5F\u4E0D\u4F1A\u6539\u7528\u72EC\u7ACB CodeBuddy \u8D26\u53F7\u6216\u989D\u5EA6\u3002", en: "The WorkBuddy host credential channel is currently unavailable (missing-key; see Issue #10). Keep the original desktop app running and logged in. This error does not mean you are logged out; logging in again is not a guaranteed remedy. The plugin does not read, copy, or decrypt login credentials, or switch to a standalone CodeBuddy account or quota." },
       "provider.handshakeFailed": { zh: "codebuddy CLI \u63E1\u624B\u5931\u8D25\uFF1A{detail}", en: "codebuddy CLI handshake failed: {detail}" },
       "provider.turnTimeout": { zh: "\u672C\u8F6E\u54CD\u5E94\u8D85\u65F6\uFF0C\u5DF2\u4E2D\u65AD", en: "Turn timed out and was interrupted" },
@@ -123,11 +123,25 @@ var init_i18n = __esm({
       "plugins.opDone": { zh: "\u63D2\u4EF6\u300C{name}\u300D\u5DF2{action}", en: 'Plugin "{name}" {action}' },
       "plugins.noDesc": { zh: "(\u65E0\u63CF\u8FF0)", en: "(No description)" },
       "settings.path": { zh: "CodeBuddy \u8DEF\u5F84", en: "CodeBuddy path" },
-      "settings.pathDesc": { zh: "WorkBuddy \u5185\u7F6E codebuddy \u8DEF\u5F84\uFF0C\u7559\u7A7A\u65F6\u4EC5\u81EA\u52A8\u68C0\u6D4B WorkBuddy\u3002\u5BBF\u4E3B\u6A21\u5F0F\u9700\u539F\u684C\u9762\u7AEF\u5DF2\u767B\u5F55\u5E76\u4FDD\u6301\u8FD0\u884C\uFF0C\u6CBF\u7528\u539F\u8D26\u53F7\u4E0E\u989D\u5EA6\uFF0C\u4E0D\u4F1A\u81EA\u52A8\u5207\u6362\u72EC\u7ACB CLI\u3002\u624B\u52A8\u6307\u5B9A\u5176\u4ED6 CLI \u5C06\u4F7F\u7528\u8BE5 CLI \u81EA\u8EAB\u7684\u8BA4\u8BC1\u4E0E\u989D\u5EA6\u3002", en: "Path to WorkBuddy\u2019s bundled codebuddy. Automatic detection only selects WorkBuddy. Hosted mode requires the original desktop app to stay running and logged in, and uses the same account and quota without switching to a standalone CLI. An explicitly selected alternative CLI uses its own authentication and quota." },
-      "settings.pathPlaceholder": { zh: "WorkBuddy\u5B89\u88C5\u76EE\u5F55\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy", en: "<WorkBuddy install dir>\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy" },
+      "settings.pathDesc": { zh: "CodeBuddy CLI \u8DEF\u5F84\u3002\u7559\u7A7A\u65F6\u4F18\u5148\u81EA\u52A8\u68C0\u6D4B\u5B98\u65B9 CodeBuddy CLI\uFF08npm \u5168\u5C40\u5B89\u88C5\uFF09\uFF0C\u672A\u5B89\u88C5\u65F6\u56DE\u9000 WorkBuddy \u5185\u7F6E CLI\u3002\u5B98\u65B9 CLI \u4F7F\u7528\u5176\u81EA\u8EAB\u7684\u767B\u5F55\u4E0E\u989D\u5EA6\uFF1BWorkBuddy \u5185\u7F6E CLI \u9700\u684C\u9762\u7AEF\u4FDD\u6301\u767B\u5F55\u8FD0\u884C\u3002", en: "Path to a CodeBuddy CLI. When empty, auto-detection prefers the official CodeBuddy CLI (npm global) and falls back to WorkBuddy\u2019s bundled CLI. The official CLI uses its own login and quota; the bundled CLI requires the WorkBuddy desktop app to stay running and logged in." },
+      "settings.pathPlaceholder": { zh: "\u7559\u7A7A\u81EA\u52A8\u68C0\u6D4B\uFF0C\u4F8B\u5982 /Users/you/.local/bin/codebuddy", en: "Leave empty to auto-detect, e.g. /Users/you/.local/bin/codebuddy" },
       "settings.pathDetect": { zh: "\u81EA\u52A8\u68C0\u6D4B", en: "Auto-detect" },
       "settings.pathDetected": { zh: "\u5DF2\u586B\u5165\u68C0\u6D4B\u5230\u7684\u8DEF\u5F84\uFF1A{path}", en: "Filled in the detected path: {path}" },
       "settings.pathNotFound": { zh: "\u672A\u627E\u5230 WorkBuddy \u5185\u7F6E CLI\uFF0C\u8BF7\u786E\u8BA4\u5B89\u88C5\u4F4D\u7F6E\u6216\u624B\u52A8\u6307\u5B9A\u8DEF\u5F84\uFF1B\u672A\u5207\u6362\u5230\u5176\u4ED6 CLI\u3002", en: "WorkBuddy bundled CLI not found; check its installation or set the path manually. No alternative CLI was selected." },
+      "settings.login": { zh: "CodeBuddy \u767B\u5F55", en: "CodeBuddy sign-in" },
+      "settings.loginDesc": { zh: "\u672A\u767B\u5F55\u65F6\u70B9\u201C\u767B\u5F55 CodeBuddy\u201D\uFF0C\u4F1A\u81EA\u52A8\u6253\u5F00\u6D4F\u89C8\u5668\u767B\u5F55\u9875\uFF1B\u9009\u62E9 Chinese Site / iOA / \u4F01\u4E1A\u57DF\u540D \u5373\u53EF\uFF0C\u65E0\u9700\u7EC8\u7AEF\u547D\u4EE4\u3002", en: 'When signed out, click "Sign in to CodeBuddy". A browser sign-in page opens automatically; choose Chinese Site / iOA / Enterprise Domain. No terminal needed.' },
+      "settings.loginNeedOfficial": { zh: "\u5F53\u524D\u6CA1\u6709\u68C0\u6D4B\u5230\u5B98\u65B9 CodeBuddy CLI\uFF0C\u65E0\u6CD5\u6253\u5F00\u6D4F\u89C8\u5668\u767B\u5F55\u9875\u3002\u8BF7\u5148\u5B89\u88C5\u5B98\u65B9 CLI\uFF1Anpm i -g @tencent-ai/codebuddy-code\u3002", en: "Official CodeBuddy CLI not detected, so the browser sign-in page is unavailable. Install it first: npm i -g @tencent-ai/codebuddy-code." },
+      "settings.loginButton": { zh: "\u767B\u5F55 CodeBuddy", en: "Sign in to CodeBuddy" },
+      "login.title": { zh: "\u767B\u5F55 CodeBuddy", en: "Sign in to CodeBuddy" },
+      "login.desc": { zh: "\u6D4F\u89C8\u5668\u4F1A\u81EA\u52A8\u6253\u5F00 CodeBuddy \u767B\u5F55\u9875\u3002\u56FD\u5185\u7528\u6237\u9009 Chinese Site\uFF0C\u817E\u8BAF\u5458\u5DE5\u9009 iOA\uFF0C\u4F01\u4E1A\u7248\u9009 Enterprise Domain\uFF0C\u6D77\u5916\u9009 International Site\uFF1B\u767B\u5F55\u6210\u529F\u540E\u8FD9\u4E2A\u7A97\u53E3\u4F1A\u81EA\u52A8\u5173\u95ED\u3002", en: "The CodeBuddy sign-in page opens in your browser. Choose Chinese Site (mainland), iOA (Tencent), Enterprise Domain (enterprise), or International Site; this window closes automatically after sign-in." },
+      "login.starting": { zh: "\u6B63\u5728\u542F\u52A8\u767B\u5F55\u670D\u52A1\u2026", en: "Starting sign-in service\u2026" },
+      "login.open": { zh: "\u91CD\u65B0\u6253\u5F00\u767B\u5F55\u9875", en: "Open sign-in page again" },
+      "login.cancel": { zh: "\u53D6\u6D88", en: "Cancel" },
+      "login.waiting": { zh: "\u7B49\u5F85\u6D4F\u89C8\u5668\u767B\u5F55\u2026\uFF08\u9009\u597D\u767B\u5F55\u65B9\u5F0F\u540E\u6309\u9875\u9762\u63D0\u793A\u5B8C\u6210\uFF09", en: "Waiting for browser sign-in\u2026 (finish the prompt after choosing a method)" },
+      "login.success": { zh: "CodeBuddy \u767B\u5F55\u6210\u529F\uFF0C\u6B63\u5728\u91CD\u8FDE\u2026", en: "Signed in to CodeBuddy. Reconnecting\u2026" },
+      "login.failed": { zh: "\u767B\u5F55\u5931\u8D25\uFF1A", en: "Sign-in failed: " },
+      "login.needOfficial": { zh: "\u6CA1\u6709\u68C0\u6D4B\u5230\u5B98\u65B9 CodeBuddy CLI\u3002\u8BF7\u5148\u5B89\u88C5\uFF1Anpm i -g @tencent-ai/codebuddy-code\uFF0C\u6216\u5728\u8BBE\u7F6E\u91CC\u628A CLI \u8DEF\u5F84\u6307\u5411\u5B98\u65B9 CLI\u3002", en: "Official CodeBuddy CLI not found. Install it (npm i -g @tencent-ai/codebuddy-code) or point the CLI path setting at the official CLI." },
+      "login.noVault": { zh: "\u65E0\u6CD5\u83B7\u53D6 Vault \u8DEF\u5F84\uFF0C\u767B\u5F55\u670D\u52A1\u672A\u542F\u52A8\u3002", en: "Could not resolve the vault path; the sign-in service was not started." },
       "settings.node": { zh: "\u624B\u52A8\u6307\u5B9A Node.js \u8DEF\u5F84", en: "Node.js path (manual)" },
       "settings.nodeDesc": { zh: "\u7559\u7A7A\u5219\u81EA\u52A8\u63A2\u6D4B\u3002\u5982\u679C\u81EA\u52A8\u63A2\u6D4B\u5931\u8D25\uFF08\u4F8B\u5982\u975E\u6807\u51C6\u5B89\u88C5\u8DEF\u5F84\uFF09\uFF0C\u53EF\u4EE5\u5728\u8FD9\u91CC\u624B\u52A8\u6307\u5B9A node \u53EF\u6267\u884C\u6587\u4EF6\u7684\u5B8C\u6574\u8DEF\u5F84", en: "Leave empty to auto-detect. If detection fails (e.g. non-standard install), set the full path to the node executable here." },
       "settings.nodePlaceholder": { zh: "\u7559\u7A7A = \u81EA\u52A8\u63A2\u6D4B", en: "Empty = auto-detect" },
@@ -333,6 +347,7 @@ var init_i18n = __esm({
       "cmd.newChat": { zh: "\u65B0\u5EFA\u5BF9\u8BDD", en: "New conversation" },
       "cmd.editInstruction": { zh: "\u7F16\u8F91\u5E38\u9A7B\u6307\u4EE4", en: "Edit persistent instruction" },
       "cmd.openSettings": { zh: "\u6253\u5F00 Workbuddian \u8BBE\u7F6E", en: "Open Workbuddian settings" },
+      "cmd.codebuddyLogin": { zh: "\u767B\u5F55 CodeBuddy", en: "Sign in to CodeBuddy" },
       "warmup.install": { zh: "\u5B89\u88C5 WorkBuddy \u672C\u5730\u8FDE\u63A5\u6269\u5C55", en: "Install WorkBuddy local connector" },
       "warmup.desc": { zh: "\u5728 WorkBuddy \u7528\u6237\u76EE\u5F55\u5B89\u88C5\u672C\u63D2\u4EF6\u7684\u540E\u53F0\u8FDE\u63A5\u6269\u5C55\uFF0C\u4EC5\u8C03\u7528\u56FA\u5B9A\u7684\u5BBF\u4E3B\u9884\u70ED\u5165\u53E3\u3002\u4E0D\u53D1\u9001\u6A21\u578B\u6D88\u606F\u3001\u4E0D\u8BFB\u53D6\u767B\u5F55\u51ED\u636E\uFF0C\u4E0D\u6388\u4E88\u4F1A\u8BDD\u6216\u4EFB\u610F RPC \u6743\u9650\u3002\u5B89\u88C5\u540E\u9700\u91CD\u542F WorkBuddy \u4E00\u6B21\uFF1B\u63D2\u4EF6\u4E0D\u4F1A\u66FF\u4F60\u4E2D\u65AD\u4EFB\u52A1\u6216\u91CD\u542F\u5BBF\u4E3B\u3002", en: "Install this plugin\u2019s background connector in the WorkBuddy user directory. It only invokes a fixed host warmup method: no model prompts, login-credential access, conversation grants, or arbitrary RPC. Restart WorkBuddy once after installation; the plugin never interrupts tasks or restarts the host for you." },
       "warmup.confirm": { zh: "\u786E\u8BA4\u5B89\u88C5", en: "Confirm installation" },
@@ -385,7 +400,9 @@ __export(hermesDiscover_exports, {
 function envVal(text2, key) {
   var _a;
   const m = text2.match(new RegExp(`^\\s*${key}\\s*=\\s*(.+?)\\s*$`, "m"));
-  return (_a = m == null ? void 0 : m[1]) != null ? _a : "";
+  const value = (_a = m == null ? void 0 : m[1]) != null ? _a : "";
+  const quoted = /^(['"])(.*)\1$/.exec(value);
+  return quoted ? quoted[2] : value;
 }
 function yamlApiServer(text2, key) {
   var _a;
@@ -393,34 +410,34 @@ function yamlApiServer(text2, key) {
   return (_a = m == null ? void 0 : m[1]) != null ? _a : "";
 }
 function discoverHermes(rootDir) {
-  const home2 = rootDir != null ? rootDir : (0, import_path.join)((0, import_os.homedir)(), ".hermes");
+  const home2 = rootDir != null ? rootDir : (0, import_path2.join)((0, import_os.homedir)(), ".hermes");
   let configText = "";
   let envText = "";
   try {
-    configText = (0, import_fs.readFileSync)((0, import_path.join)(home2, "config.yaml"), "utf-8");
+    configText = (0, import_fs.readFileSync)((0, import_path2.join)(home2, "config.yaml"), "utf-8");
   } catch (e) {
   }
   try {
-    envText = (0, import_fs.readFileSync)((0, import_path.join)(home2, ".env"), "utf-8");
+    envText = (0, import_fs.readFileSync)((0, import_path2.join)(home2, ".env"), "utf-8");
   } catch (e) {
   }
   if (!configText && !envText)
     return null;
-  const enabled = /api_server:[\s\S]*?\n\s+enabled:\s*true/i.test(configText);
-  const host = yamlApiServer(configText, "host") || "127.0.0.1";
-  const port = yamlApiServer(configText, "port") || envVal(envText, "API_SERVER_PORT") || "8642";
-  const key = yamlApiServer(configText, "key") || envVal(envText, "API_SERVER_KEY");
+  const enabled = /api_server:[\s\S]*?\n\s+enabled:\s*true/i.test(configText) || envVal(envText, "API_SERVER_ENABLED").toLowerCase() === "true";
+  const host = envVal(envText, "API_SERVER_HOST") || yamlApiServer(configText, "host") || "127.0.0.1";
+  const port = envVal(envText, "API_SERVER_PORT") || yamlApiServer(configText, "port") || "8642";
+  const key = envVal(envText, "API_SERVER_KEY") || yamlApiServer(configText, "key");
   return {
     gatewayUrl: `http://${host}:${port}`,
     apiKey: key,
     enabled
   };
 }
-var import_fs, import_path, import_os;
+var import_fs, import_path2, import_os;
 var init_hermesDiscover = __esm({
   "src/shared/hermesDiscover.ts"() {
     import_fs = require("fs");
-    import_path = require("path");
+    import_path2 = require("path");
     import_os = require("os");
   }
 });
@@ -473,7 +490,7 @@ __export(main_exports, {
   default: () => WorkbuddianPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian14 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 
 // src/providers/codebuddy/workbuddyWarmup.ts
 var fs = __toESM(require("fs"));
@@ -827,14 +844,16 @@ var WB_CLI_REL = ["Resources", "app.asar.unpacked", "cli", "bin"];
 function codebuddyCandidates() {
   if (!isWin()) {
     return [
-      "/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy",
-      path2.join(home(), "Applications", "WorkBuddy.app", "Contents", ...WB_CLI_REL, "codebuddy"),
+      // 官方 CodeBuddy CLI（npm 全局 / 常见用户目录）优先
       path2.join(home(), ".local", "bin", "codebuddy"),
       path2.join(home(), ".npm-global", "bin", "codebuddy"),
       path2.join(home(), ".volta", "bin", "codebuddy"),
       path2.join(home(), "bin", "codebuddy"),
       "/usr/local/bin/codebuddy",
-      "/opt/homebrew/bin/codebuddy"
+      "/opt/homebrew/bin/codebuddy",
+      // WorkBuddy 桌面版内置 CLI 作为兼容回退
+      "/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy",
+      path2.join(home(), "Applications", "WorkBuddy.app", "Contents", ...WB_CLI_REL, "codebuddy")
     ];
   }
   const lad = env("LOCALAPPDATA");
@@ -843,14 +862,16 @@ function codebuddyCandidates() {
   const pf86 = env("ProgramFiles(x86)") || "C:\\Program Files (x86)";
   const list = [];
   const wbExe = (root, names) => names.map((n) => path2.join(root, ...WB_CLI_REL, n));
-  if (lad)
-    list.push(...wbExe(path2.join(lad, "Programs", "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
   if (appData)
     list.push(path2.join(appData, "npm", "codebuddy.cmd"), path2.join(appData, "npm", "codebuddy"));
   list.push(
     path2.join(pf, "nodejs", "codebuddy.cmd"),
     path2.join(pf, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
-    path2.join(pf86, "nodejs", "node_modules", ".bin", "codebuddy.cmd"),
+    path2.join(pf86, "nodejs", "node_modules", ".bin", "codebuddy.cmd")
+  );
+  if (lad)
+    list.push(...wbExe(path2.join(lad, "Programs", "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]));
+  list.push(
     ...wbExe(path2.join(pf, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"]),
     ...wbExe(path2.join(pf86, "WorkBuddy"), ["codebuddy.exe", "codebuddy.cmd", "codebuddy"])
   );
@@ -862,6 +883,7 @@ function codebuddyCandidates() {
   return list;
 }
 function resolveCodebuddyPath(customPath) {
+  var _a, _b;
   if (customPath)
     return customPath;
   const fromEnv = env("CODEBUDDY_PATH");
@@ -873,14 +895,31 @@ function resolveCodebuddyPath(customPath) {
   ];
   const candidates = [...codebuddyCandidates(), ...extra];
   const names = isWin() ? ["codebuddy.exe", "codebuddy.cmd", "codebuddy"] : ["codebuddy"];
-  const onPath = findOnPath(names, isWorkbuddyBundledCli);
-  const all = [...candidates, ...onPath ? [onPath] : []];
-  const hit = firstHit(all.filter(isWorkbuddyBundledCli));
-  if (hit) {
-    bbLog("[WB] resolved codebuddy path:", hit);
-    return hit;
+  const official = (_a = firstHit(candidates.filter(isOfficialCodebuddyCli))) != null ? _a : findOnPath(names, isOfficialCodebuddyCli);
+  if (official) {
+    bbLog("[WB] resolved official codebuddy path:", official);
+    return official;
+  }
+  const bundled = (_b = firstHit(candidates.filter(isWorkbuddyBundledCli))) != null ? _b : findOnPath(names, isWorkbuddyBundledCli);
+  if (bundled) {
+    bbLog("[WB] resolved WorkBuddy bundled codebuddy path:", bundled);
+    return bundled;
   }
   return "";
+}
+function isOfficialCodebuddyCli(scriptPath) {
+  var _a;
+  let realPath = scriptPath;
+  try {
+    realPath = fs2.realpathSync(scriptPath);
+  } catch (e) {
+  }
+  try {
+    const product = JSON.parse(fs2.readFileSync(path2.join(path2.dirname(realPath), "..", "product.json"), "utf8"));
+    return (product == null ? void 0 : product.productName) === "CodeBuddy" || ((_a = product == null ? void 0 : product.authentication) == null ? void 0 : _a.id) === "Tencent-Cloud.coding-copilot";
+  } catch (e) {
+    return false;
+  }
 }
 function isWorkbuddyBundledCli(scriptPath) {
   var _a;
@@ -967,17 +1006,18 @@ function parseJson(text2) {
   }
 }
 var WorkbuddyHostConnection = class {
-  constructor(endpoint, onMessage, onDisconnect) {
+  constructor(endpoint, onMessage, onDisconnect, extraHeaders = {}) {
     this.endpoint = endpoint;
     this.onMessage = onMessage;
     this.onDisconnect = onDisconnect;
+    this.extraHeaders = extraHeaders;
     this.requests = /* @__PURE__ */ new Set();
     this.connectionId = "";
     this.sessionToken = "";
     this.closed = false;
     this.disposal = null;
   }
-  static async connect(endpoint, onMessage, onDisconnect) {
+  static async connect(endpoint, onMessage, onDisconnect, extraHeaders = {}) {
     let url;
     try {
       url = new URL(endpoint);
@@ -987,7 +1027,13 @@ var WorkbuddyHostConnection = class {
     if (url.protocol !== "http:" || !["127.0.0.1", "[::1]", "localhost"].includes(url.hostname) || url.username || url.password || url.pathname !== "/" || /[?\#@]/.test(endpoint)) {
       throw new Error("WorkBuddy endpoint must be an HTTP loopback root URL");
     }
-    const connection = new WorkbuddyHostConnection(url, onMessage, onDisconnect);
+    const safeHeaders = {};
+    for (const [key, value] of Object.entries(extraHeaders)) {
+      if (/^(authorization|x-codebuddy-web-ui)$/i.test(key) && !/[\r\n]/.test(value)) {
+        safeHeaders[key] = value;
+      }
+    }
+    const connection = new WorkbuddyHostConnection(url, onMessage, onDisconnect, safeHeaders);
     try {
       const result = await connection.request("POST", "/api/v1/acp/connect");
       if (!result || typeof result.connectionId !== "string" || !result.connectionId || typeof result.sessionToken !== "string" || !result.sessionToken || /[\r\n]/.test(result.connectionId + result.sessionToken)) {
@@ -1050,6 +1096,7 @@ var WorkbuddyHostConnection = class {
       let settled = false;
       let subscribed = false;
       const headers = {
+        ...this.extraHeaders,
         "X-CodeBuddy-Request": "1",
         Accept: subscription ? "text/event-stream" : "application/json, text/event-stream"
       };
@@ -1772,6 +1819,11 @@ async function openInstalledHost(runtime, signal) {
     });
   });
 }
+function brokerUnsupported() {
+  return Object.assign(new Error(
+    "WorkBuddy \u672C\u5730\u8D26\u53F7\u4EE3\u7406\u4E0D\u53EF\u7528\uFF1A\u5F53\u524D WorkBuddy \u7248\u672C\u4E0D\u518D\u5411\u7B2C\u4E09\u65B9\u63D2\u4EF6\u5F00\u653E wb.request \u7BA1\u9053\u3002\u8BF7\u5148\u6253\u5F00 WorkBuddy \u5E76\u4EFB\u610F\u53D1\u8D77\u4E00\u6B21\u5BF9\u8BDD\u4EE5\u542F\u52A8\u672C\u5730 sidecar\uFF0C\u518D\u91CD\u8BD5\uFF1B\u6216\u5207\u6362\u5230 Hermes \u540E\u7AEF\u3002"
+  ), { code: "WORKBUDDY_BROKER_UNSUPPORTED" });
+}
 async function accountBroker(configDir, runtime, signal, disconnected) {
   var _a, _b;
   try {
@@ -1787,14 +1839,20 @@ async function accountBroker(configDir, runtime, signal, disconnected) {
     }
   }
   const deadline = Date.now() + 3e4;
+  const pipeDeadline = Date.now() + 3e3;
   while (true) {
     if (signal == null ? void 0 : signal.aborted)
       throw cancelled();
     try {
       return await connectWorkbuddyBroker(configDir, signal, disconnected);
     } catch (error) {
-      if (!["E_DISCOVERY_MISSING", "E_SOCKET_UNAVAILABLE", "E_REQUEST_PIPE_UNAVAILABLE"].includes((_b = error.code) != null ? _b : ""))
+      const code = (_b = error.code) != null ? _b : "";
+      if (code === "E_REQUEST_PIPE_UNAVAILABLE") {
+        if (Date.now() >= pipeDeadline)
+          throw brokerUnsupported();
+      } else if (!["E_DISCOVERY_MISSING", "E_SOCKET_UNAVAILABLE"].includes(code)) {
         throw error;
+      }
       if (Date.now() >= deadline)
         throw new Error("WorkBuddy \u672C\u5730\u8D26\u53F7\u4EE3\u7406\u672A\u5C31\u7EEA\uFF0C\u8BF7\u786E\u8BA4\u5DF2\u6B63\u5E38\u542F\u52A8\u5E76\u767B\u5F55\uFF1B\u672A\u91CD\u53D1\u4EFB\u4F55\u6D88\u606F");
     }
@@ -1985,7 +2043,7 @@ async function startWorkbuddyNative(configDir, scriptPath, cwd, command, args, s
         delete env2[key];
     Object.assign(env2, {
       ELECTRON_RUN_AS_NODE: "1",
-      CODEBUDDY_FORCE_HEADLESS_BUNDLE: "1",
+      CODEBUDDY_FORCE_LITE_WB_BUNDLE: "1",
       CODEBUDDY_CONFIG_DIR: workerDir,
       WORKBUDDY_CONFIG_DIR: workerDir,
       CODEBUDDY_AUTH_TOKEN: nonce,
@@ -2634,6 +2692,13 @@ var AcpClient = class {
     if (!this.running)
       return;
     this.write({ jsonrpc: "2.0", id: requestId, error: { code: -32601, message } });
+  }
+  /** 登录状态变化后强制重启 CLI；已握手过则通知 provider 将会话标记 stale */
+  restart() {
+    const hadStarted = this.handshakeDone;
+    this.dispose();
+    if (hadStarted)
+      this.events.onExit(null, null);
   }
   dispose() {
     var _a;
@@ -3665,6 +3730,10 @@ function parseClipboardServers(text2) {
 // src/providers/acp/provider.ts
 var TIMEOUT = 3e5;
 var AcpStartFailure = class extends Error {
+  constructor(message, tier) {
+    super(message);
+    this.tier = tier;
+  }
 };
 var NOOP_LOOKUP = { getAcpSessionId: () => void 0, setAcpSessionId: () => {
 } };
@@ -3866,11 +3935,15 @@ var AcpProvider = class {
       await this.client.ensureStarted(vaultPath);
       await session.ensureLoaded(vaultPath);
     } catch (e) {
-      throw new AcpStartFailure(this.startErrorMessage(e));
+      throw new AcpStartFailure(this.startErrorMessage(e), e instanceof AcpStartError ? e.tier : void 0);
     }
     return session.fork(name);
   }
   /** 卸载：拒悬挂批准 → terminate 进程 */
+  /** 登录/账号切换后重启当前 CLI；下一条消息自动重连并 session/load */
+  restartProcess() {
+    this.client.restart();
+  }
   dispose() {
     for (const cancel of this.startingTurns.values())
       cancel();
@@ -3902,7 +3975,7 @@ var AcpProvider = class {
     } catch (e) {
       if (preflightCancelled)
         return;
-      throw new AcpStartFailure(this.startErrorMessage(e));
+      throw new AcpStartFailure(this.startErrorMessage(e), e instanceof AcpStartError ? e.tier : void 0);
     } finally {
       if (this.startingTurns.get(sessionId) === cancelPreflight)
         this.startingTurns.delete(sessionId);
@@ -4133,6 +4206,7 @@ var CodebuddyProvider = class extends AcpProvider {
 
 // src/providers/hermes/index.ts
 var import_child_process4 = require("child_process");
+var import_path = require("path");
 
 // src/providers/hermes/profile.ts
 var OUTGOING_MODE = {
@@ -4404,11 +4478,31 @@ var HermesHttpProvider = class {
 // src/providers/hermes/index.ts
 var LOCAL_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1", ""]);
 var ACP_CHECK_TIMEOUT_MS = 15e3;
+var DEFAULT_GATEWAY = "http://127.0.0.1:8642";
+var GATEWAY_START_TIMEOUT_MS = 2e4;
 function isLocalGateway(url) {
   if (!url.trim())
     return true;
   try {
     return LOCAL_HOSTS.has(new URL(url).hostname);
+  } catch (e) {
+    return false;
+  }
+}
+function delay(ms) {
+  return new Promise((resolve2) => setTimeout(resolve2, ms));
+}
+function fetchTimeout(ms) {
+  var _a;
+  const c = new AbortController();
+  const timer = setTimeout(() => c.abort(), ms);
+  (_a = timer.unref) == null ? void 0 : _a.call(timer);
+  return c.signal;
+}
+async function gatewayListening(baseUrl) {
+  try {
+    await fetch(`${baseUrl.replace(/\/$/, "")}/v1/models`, { signal: fetchTimeout(2e3) });
+    return true;
   } catch (e) {
     return false;
   }
@@ -4427,6 +4521,8 @@ var HermesProvider = class {
     this.cliPath = "";
     this.gatewayUrl = "";
     this.modeCbs = [];
+    this.initPromise = null;
+    this.gatewayStarting = null;
   }
   get mode() {
     return this.modeValue;
@@ -4434,14 +4530,32 @@ var HermesProvider = class {
   onModeChange(cb) {
     this.modeCbs.push(cb);
   }
-  /** main.ts onload/设置变更后调用：探测一次定模式（降级后粘性保持 http） */
-  async init() {
+  /**
+   * main.ts onload/设置变更后调用：探测一次定模式（降级后粘性保持 http）。
+   * 并发调用共享同一 Promise；sendMessage 也会 await 它，避免"插件刚加载就发消息"
+   * 时用默认 http 模式打到还没启动的 gateway（表现为 Failed to fetch）。
+   */
+  init() {
+    if (this.demoted)
+      return Promise.resolve();
+    if (!this.initPromise) {
+      this.initPromise = this.doInit().catch((e) => {
+        bbError("[WB] hermes \u521D\u59CB\u5316\u5931\u8D25\uFF0C\u4F7F\u7528 HTTP \u6A21\u5F0F:", e);
+        this.setMode("http");
+      });
+    }
+    return this.initPromise;
+  }
+  async doInit() {
     if (this.demoted)
       return;
     if (!isLocalGateway(this.gatewayUrl)) {
       this.setMode("http");
       return;
     }
+    await this.ensureLocalGateway();
+    if (this.demoted)
+      return;
     const cli = resolveHermesPath(this.cliPath);
     const ok = await new Promise((resolve2) => {
       (0, import_child_process4.execFile)(cli, ["acp", "--check"], { timeout: ACP_CHECK_TIMEOUT_MS }, (err) => {
@@ -4450,8 +4564,56 @@ var HermesProvider = class {
         resolve2(!err);
       });
     });
+    if (this.demoted)
+      return;
     this.setMode(ok ? "acp" : "http");
     bbLog("[WB] hermes \u8DEF\u7531:", this.modeValue, ok ? `(${cli})` : "(CLI \u81EA\u68C0\u5931\u8D25)");
+  }
+  /** 本机 gateway 没监听时后台拉起 `hermes gateway run`；失败只记日志，不抛给 UI */
+  ensureLocalGateway() {
+    if (this.gatewayStarting)
+      return this.gatewayStarting;
+    const base = this.gatewayUrl.trim() || DEFAULT_GATEWAY;
+    this.gatewayStarting = (async () => {
+      if (await gatewayListening(base))
+        return;
+      const cli = resolveHermesPath(this.cliPath);
+      if (!(0, import_path.isAbsolute)(cli)) {
+        bbLog("[WB] \u672A\u627E\u5230 hermes CLI\uFF0C\u8DF3\u8FC7 gateway \u81EA\u542F\u52A8:", cli);
+        return;
+      }
+      bbLog("[WB] hermes gateway \u672A\u8FD0\u884C\uFF0C\u5C1D\u8BD5\u540E\u53F0\u542F\u52A8:", cli);
+      try {
+        const child = (0, import_child_process4.spawn)(cli, ["gateway", "run"], {
+          detached: true,
+          stdio: "ignore",
+          env: { ...process.env },
+          shell: needsWindowsShell(cli),
+          windowsHide: true
+        });
+        child.on("error", (e) => bbError("[WB] hermes gateway \u542F\u52A8\u5931\u8D25:", e));
+        child.unref();
+      } catch (e) {
+        bbError("[WB] hermes gateway \u65E0\u6CD5\u542F\u52A8:", e);
+        return;
+      }
+      const deadline = Date.now() + GATEWAY_START_TIMEOUT_MS;
+      while (Date.now() < deadline) {
+        await delay(500);
+        if (await gatewayListening(base)) {
+          bbLog("[WB] hermes gateway \u5DF2\u5C31\u7EEA:", base);
+          return;
+        }
+      }
+      bbError("[WB] hermes gateway \u542F\u52A8\u8D85\u65F6\uFF0C\u8BF7\u624B\u52A8\u8FD0\u884C `hermes gateway run`:", base);
+    })().finally(() => {
+      this.gatewayStarting = null;
+    });
+    return this.gatewayStarting;
+  }
+  /** 配置变更后重新探测：清掉旧 init 结果，下一次 init/sendMessage 重新定模式 */
+  resetInit() {
+    this.initPromise = null;
   }
   /** ACP 启动/运行失败 → 粘性降级 http（本次插件生命周期内不再尝试 ACP） */
   demoteToHttp(e) {
@@ -4476,11 +4638,13 @@ var HermesProvider = class {
     this.cliPath = p.trim();
     this.acp.setCliPath(p);
     this.demoted = false;
+    this.resetInit();
   }
   setGateway(url, key) {
     this.gatewayUrl = url;
     this.http.setGateway(url, key);
     this.demoted = false;
+    this.resetInit();
   }
   setModel(m) {
     this.acp.setModel(m);
@@ -4559,10 +4723,12 @@ var HermesProvider = class {
   forkSession(k, n, v) {
     return this.active().forkSession(k, n, v);
   }
-  testConnection() {
+  async testConnection() {
+    await this.init();
     return this.http.testConnection();
   }
   async *sendMessage(...args) {
+    await this.init();
     if (this.modeValue === "acp") {
       try {
         yield* this.acp.sendMessage(...args);
@@ -4952,7 +5118,7 @@ function parseMcpServerNames(json) {
 // src/shared/skills.ts
 var import_fs2 = require("fs");
 var import_os2 = require("os");
-var import_path2 = require("path");
+var import_path3 = require("path");
 function parseSkillFrontmatter(content) {
   var _a, _b, _c, _d, _e, _f;
   const match = content.match(/^---\n([\s\S]*?)\n---/);
@@ -4973,7 +5139,7 @@ function scanRoot(root, source) {
       return;
     }
     for (const entry of entries) {
-      const fullPath = (0, import_path2.join)(dir, entry.name);
+      const fullPath = (0, import_path3.join)(dir, entry.name);
       if (entry.isDirectory()) {
         walk(fullPath, depth + 1);
         continue;
@@ -4984,7 +5150,7 @@ function scanRoot(root, source) {
         if ((0, import_fs2.statSync)(fullPath).size > 256 * 1024)
           continue;
         const metadata = parseSkillFrontmatter((0, import_fs2.readFileSync)(fullPath, "utf8"));
-        const relativeName = (0, import_path2.relative)(root, dir).split("\\").join("/");
+        const relativeName = (0, import_path3.relative)(root, dir).split("\\").join("/");
         const fallbackName = relativeName || entry.name.replace(/\.md$/, "");
         const name = metadata.name || fallbackName;
         if (!/^[A-Za-z0-9][A-Za-z0-9_-]*(?:\/[A-Za-z0-9][A-Za-z0-9_-]*)*$/.test(name))
@@ -4999,13 +5165,13 @@ function scanRoot(root, source) {
 }
 function discoverSkills(vaultPath, homePath = (0, import_os2.homedir)()) {
   const roots = [
-    { path: (0, import_path2.join)(homePath, ".workbuddy", "skills"), source: "user" },
-    { path: (0, import_path2.join)(homePath, ".codebuddy", "skills"), source: "user" }
+    { path: (0, import_path3.join)(homePath, ".workbuddy", "skills"), source: "user" },
+    { path: (0, import_path3.join)(homePath, ".codebuddy", "skills"), source: "user" }
   ];
   if (vaultPath) {
     roots.push(
-      { path: (0, import_path2.join)(vaultPath, ".workbuddy", "skills"), source: "vault" },
-      { path: (0, import_path2.join)(vaultPath, ".codebuddy", "skills"), source: "vault" }
+      { path: (0, import_path3.join)(vaultPath, ".workbuddy", "skills"), source: "vault" },
+      { path: (0, import_path3.join)(vaultPath, ".codebuddy", "skills"), source: "vault" }
     );
   }
   const byName = /* @__PURE__ */ new Map();
@@ -5110,7 +5276,7 @@ function isTableRowish(line) {
 }
 
 // src/shared/attachments.ts
-var import_path3 = require("path");
+var import_path4 = require("path");
 function fileBasename(p) {
   const parts = p.split(/[\\/]/);
   return parts[parts.length - 1] || p;
@@ -5141,7 +5307,7 @@ function isPathInsideVault(candidatePath, vaultPath) {
   if (!isAbsolutePath(candidatePath) || !isAbsolutePath(vaultPath))
     return false;
   const windowsPath = /^[A-Za-z]:[\\/]|^\\\\/.test(candidatePath) || /^[A-Za-z]:[\\/]|^\\\\/.test(vaultPath);
-  const pathApi = windowsPath ? import_path3.win32 : import_path3.posix;
+  const pathApi = windowsPath ? import_path4.win32 : import_path4.posix;
   const relativePath = pathApi.relative(pathApi.resolve(vaultPath), pathApi.resolve(candidatePath));
   const comparable = windowsPath ? relativePath.toLowerCase() : relativePath;
   return comparable === "" || comparable !== ".." && !comparable.startsWith(`..${pathApi.sep}`) && !pathApi.isAbsolute(comparable);
@@ -7161,6 +7327,9 @@ async function sendText(view, text2, permissionModeOverride) {
       }
     }
   } catch (error) {
+    if (view.settings.backend === "codebuddy" && error instanceof AcpStartFailure && error.tier === "auth-required") {
+      document.dispatchEvent(new CustomEvent("workbuddian:codebuddy-login"));
+    }
     const message = getErrorMessage(error);
     view.manager.setError(convId, aiMsg.id, message);
     new import_obsidian6.Notice(`${t("input.requestFailed")}: ${message}`);
@@ -8331,14 +8500,14 @@ var McpServerModal = class extends import_obsidian10.Modal {
 
 // src/shared/codebuddyPlugins.ts
 var import_fs3 = require("fs");
-var import_path4 = require("path");
+var import_path5 = require("path");
 function str(d, key) {
   const v = d[key];
   return typeof v === "string" ? v : "";
 }
 function discoverPlugins(pluginsRoot = codebuddyPluginsRoot()) {
   const out = [];
-  const marketsDir = (0, import_path4.join)(pluginsRoot, "marketplaces");
+  const marketsDir = (0, import_path5.join)(pluginsRoot, "marketplaces");
   let markets;
   try {
     markets = (0, import_fs3.readdirSync)(marketsDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.endsWith(".zip")).map((e) => e.name);
@@ -8346,7 +8515,7 @@ function discoverPlugins(pluginsRoot = codebuddyPluginsRoot()) {
     return [];
   }
   for (const market of markets) {
-    const pluginsDir = (0, import_path4.join)(marketsDir, market, "plugins");
+    const pluginsDir = (0, import_path5.join)(marketsDir, market, "plugins");
     let pluginDirs;
     try {
       pluginDirs = (0, import_fs3.readdirSync)(pluginsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
@@ -8354,7 +8523,7 @@ function discoverPlugins(pluginsRoot = codebuddyPluginsRoot()) {
       continue;
     }
     for (const pdir of pluginDirs) {
-      const manifestPath = (0, import_path4.join)(pluginsDir, pdir, ".codebuddy-plugin", "plugin.json");
+      const manifestPath = (0, import_path5.join)(pluginsDir, pdir, ".codebuddy-plugin", "plugin.json");
       let raw;
       try {
         raw = JSON.parse((0, import_fs3.readFileSync)(manifestPath, "utf-8"));
@@ -8369,14 +8538,14 @@ function discoverPlugins(pluginsRoot = codebuddyPluginsRoot()) {
         name,
         description: str(rec, "description"),
         marketplace: market,
-        dir: (0, import_path4.join)(pluginsDir, pdir)
+        dir: (0, import_path5.join)(pluginsDir, pdir)
       });
     }
   }
   return out;
 }
 function codebuddyPluginsRoot() {
-  return (0, import_path4.join)(homeDir(), ".codebuddy", "plugins");
+  return (0, import_path5.join)(homeDir(), ".codebuddy", "plugins");
 }
 function homeDir() {
   var _a, _b;
@@ -8506,6 +8675,16 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
           new import_obsidian11.Notice(t("settings.pathNotFound"));
         }
       }));
+      const loginCli = resolveCodebuddyPath(this.plugin.settings.codebuddyPath);
+      const loginOfficial = !!loginCli && isOfficialCodebuddyCli(loginCli);
+      new import_obsidian11.Setting(containerEl).setName(t("settings.login")).setDesc(loginOfficial ? t("settings.loginDesc") : t("settings.loginNeedOfficial")).addButton((button) => {
+        button.setButtonText(t("settings.loginButton"));
+        if (loginOfficial)
+          button.setCta();
+        else
+          button.setDisabled(true);
+        button.onClick(() => this.plugin.openCodebuddyLogin());
+      });
       new import_obsidian11.Setting(containerEl).setName(t("settings.node")).setDesc(t("settings.nodeDesc")).addText((text2) => text2.setPlaceholder(t("settings.nodePlaceholder")).setValue(this.plugin.settings.nodePath).onChange(async (value) => {
         this.plugin.settings.nodePath = value;
         this.plugin.api.setNodePath(value);
@@ -8830,6 +9009,441 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
   }
 };
 
+// src/features/settings/codebuddyLoginModal.ts
+var import_obsidian12 = require("obsidian");
+
+// src/shared/codebuddyLogin.ts
+var import_child_process6 = require("child_process");
+var import_http3 = require("http");
+var import_fs4 = require("fs");
+var DEFAULT_START_TIMEOUT_MS = 3e4;
+var DEFAULT_POLL_INTERVAL_MS = 2e3;
+var DEFAULT_LOGIN_TIMEOUT_MS = 10 * 6e4;
+function stripAnsi(text2) {
+  return text2.replace(/\x1b\[[0-9;]*m/g, "");
+}
+function isLoopbackHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]", "::1"].includes(url.hostname);
+  } catch (e) {
+    return false;
+  }
+}
+function parseLoginServerOutput(text2) {
+  var _a, _b, _c;
+  const clean = stripAnsi(text2);
+  const endpoint = (_b = (_a = /Endpoint\s+(http:\/\/[^\s]+)/.exec(clean)) == null ? void 0 : _a[1]) == null ? void 0 : _b.replace(/\/$/, "");
+  const webUiUrl = (_c = /Web UI\s+(http:\/\/[^\s]+)/.exec(clean)) == null ? void 0 : _c[1];
+  return {
+    ...endpoint && isLoopbackHttpUrl(endpoint) ? { endpoint } : {},
+    ...webUiUrl && isLoopbackHttpUrl(webUiUrl) ? { webUiUrl } : {}
+  };
+}
+function loginCommand(cliPath, nodePath, args) {
+  if (isWindowsWrapper(cliPath) || isBareFallback(cliPath)) {
+    return { command: cliPath, args, shell: needsWindowsShell(cliPath) };
+  }
+  const node = (nodePath == null ? void 0 : nodePath.trim()) || findNodeExecutable() || "node";
+  return { command: node, args: [cliPath, ...args], shell: false };
+}
+async function startCodebuddyLoginServer(opts) {
+  var _a, _b, _c;
+  if (!opts.cliPath.trim())
+    throw new Error("\u672A\u627E\u5230 CodeBuddy CLI");
+  try {
+    if (!(0, import_fs4.statSync)(opts.cwd).isDirectory())
+      throw new Error();
+  } catch (e) {
+    throw new Error("Vault \u8DEF\u5F84\u4E0D\u5B58\u5728\uFF0C\u65E0\u6CD5\u542F\u52A8 CodeBuddy \u767B\u5F55\u670D\u52A1");
+  }
+  if ((_a = opts.signal) == null ? void 0 : _a.aborted)
+    throw new Error("\u767B\u5F55\u5DF2\u53D6\u6D88");
+  const timeoutMs = (_b = opts.timeoutMs) != null ? _b : DEFAULT_START_TIMEOUT_MS;
+  const args = ["--serve", "--acp", "--acp-transport", "streamable-http", "--port", "0", "--host", "127.0.0.1"];
+  const { command, args: spawnArgs, shell } = loginCommand(opts.cliPath, opts.nodePath, args);
+  let child;
+  try {
+    child = (0, import_child_process6.spawn)(command, spawnArgs, {
+      cwd: opts.cwd,
+      env: { ...process.env },
+      shell,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+  } catch (e) {
+    throw new Error(`\u65E0\u6CD5\u542F\u52A8 CodeBuddy \u767B\u5F55\u670D\u52A1\uFF1A${e.message}`);
+  }
+  let disposed = false;
+  let ready = false;
+  let output = "";
+  let timer;
+  const exit = new Promise((resolve2) => {
+    child.once("close", () => resolve2());
+    child.once("error", () => resolve2());
+  });
+  const dispose = async () => {
+    var _a2;
+    if (disposed)
+      return;
+    disposed = true;
+    if (timer)
+      clearTimeout(timer);
+    (_a2 = opts.signal) == null ? void 0 : _a2.removeEventListener("abort", onAbort);
+    if (child.exitCode === null && !child.killed) {
+      try {
+        child.kill("SIGTERM");
+      } catch (e) {
+      }
+      await Promise.race([
+        exit,
+        new Promise((resolve2) => setTimeout(resolve2, 3e3))
+      ]);
+      if (child.exitCode === null) {
+        try {
+          child.kill("SIGKILL");
+        } catch (e) {
+        }
+      }
+    }
+  };
+  const onAbort = () => {
+    void dispose();
+  };
+  (_c = opts.signal) == null ? void 0 : _c.addEventListener("abort", onAbort, { once: true });
+  return await new Promise((resolve2, reject) => {
+    const fail = (message) => {
+      if (ready)
+        return;
+      ready = true;
+      void dispose();
+      reject(new Error(message));
+    };
+    timer = setTimeout(() => fail("CodeBuddy \u767B\u5F55\u670D\u52A1\u542F\u52A8\u8D85\u65F6\uFF0830 \u79D2\uFF09"), timeoutMs);
+    const consume = (text2) => {
+      if (ready)
+        return;
+      output = (output + text2).slice(-16384);
+      const parsed = parseLoginServerOutput(output);
+      if (!parsed.endpoint || !parsed.webUiUrl)
+        return;
+      ready = true;
+      if (timer)
+        clearTimeout(timer);
+      exchangeLoginToken(parsed.endpoint, parsed.webUiUrl).then((authToken) => {
+        resolve2({ endpoint: parsed.endpoint, url: parsed.webUiUrl, authToken, dispose });
+      }, (error) => {
+        void dispose();
+        reject(error);
+      });
+    };
+    child.stdout.on("data", (chunk) => consume(chunk.toString("utf8")));
+    child.stderr.on("data", () => {
+    });
+    child.once("error", () => fail("CodeBuddy CLI \u65E0\u6CD5\u542F\u52A8\uFF0C\u8BF7\u68C0\u67E5\u5B89\u88C5\u662F\u5426\u5B8C\u6574"));
+    child.once("close", (code) => {
+      if (!ready)
+        fail(`CodeBuddy \u767B\u5F55\u670D\u52A1\u63D0\u524D\u9000\u51FA\uFF08code=${code != null ? code : "null"}\uFF09`);
+    });
+  });
+}
+async function exchangeLoginToken(endpoint, webUiUrl, timeoutMs = 5e3) {
+  var _a;
+  let password = "";
+  try {
+    password = (_a = new URL(webUiUrl).searchParams.get("password")) != null ? _a : "";
+  } catch (e) {
+  }
+  if (!password)
+    return "";
+  let target;
+  try {
+    target = new URL("/api/v1/auth/login", endpoint);
+  } catch (e) {
+    throw new Error("CodeBuddy \u767B\u5F55\u670D\u52A1\u5730\u5740\u65E0\u6548");
+  }
+  if (!["127.0.0.1", "localhost", "[::1]", "::1"].includes(target.hostname)) {
+    throw new Error("CodeBuddy \u767B\u5F55\u670D\u52A1\u5FC5\u987B\u662F\u672C\u673A\u56DE\u73AF\u5730\u5740");
+  }
+  const body = JSON.stringify({ password });
+  return await new Promise((resolve2, reject) => {
+    let settled = false;
+    const finish = (error, token = "") => {
+      if (settled)
+        return;
+      settled = true;
+      if (error)
+        reject(error);
+      else
+        resolve2(token);
+    };
+    const req = (0, import_http3.request)({
+      hostname: target.hostname === "localhost" ? "127.0.0.1" : target.hostname,
+      port: target.port,
+      path: target.pathname,
+      method: "POST",
+      headers: {
+        "x-codebuddy-request": "1",
+        "x-codebuddy-web-ui": "1",
+        "content-type": "application/json",
+        "content-length": Buffer.byteLength(body),
+        accept: "application/json"
+      }
+    }, (res) => {
+      const chunks = [];
+      let size = 0;
+      res.on("data", (chunk) => {
+        size += chunk.length;
+        if (size > 64 * 1024) {
+          finish(new Error("CodeBuddy \u767B\u5F55\u670D\u52A1\u54CD\u5E94\u8FC7\u5927"));
+          req.destroy();
+          return;
+        }
+        chunks.push(chunk);
+      });
+      res.on("error", () => finish(new Error("CodeBuddy \u767B\u5F55\u670D\u52A1\u54CD\u5E94\u5931\u8D25")));
+      res.on("end", () => {
+        var _a2;
+        if (settled)
+          return;
+        const status = (_a2 = res.statusCode) != null ? _a2 : 0;
+        if (status < 200 || status >= 300) {
+          finish(new Error(`CodeBuddy \u767B\u5F55\u670D\u52A1\u9274\u6743\u5931\u8D25\uFF08HTTP ${status}\uFF09`));
+          return;
+        }
+        try {
+          const data = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+          if (data.success !== true) {
+            finish(new Error("CodeBuddy \u767B\u5F55\u670D\u52A1\u5BC6\u7801\u4E0D\u5339\u914D"));
+            return;
+          }
+          finish(null, typeof data.token === "string" && data.token ? data.token : password);
+        } catch (e) {
+          finish(new Error("CodeBuddy \u767B\u5F55\u670D\u52A1\u8FD4\u56DE\u65E0\u6548 JSON"));
+        }
+      });
+    });
+    req.on("error", () => finish(new Error("\u8FDE\u4E0D\u4E0A CodeBuddy \u767B\u5F55\u670D\u52A1\uFF08\u672C\u673A\u56DE\u73AF\uFF09")));
+    req.setTimeout(timeoutMs, () => {
+      req.destroy();
+      finish(new Error("CodeBuddy \u767B\u5F55\u670D\u52A1\u9274\u6743\u8D85\u65F6"));
+    });
+    req.end(body);
+  });
+}
+async function probeCodebuddyLogin(endpoint, cwd, authToken = "", timeoutMs = 15e3) {
+  let connection;
+  const pending = /* @__PURE__ */ new Map();
+  let nextId = 1;
+  const settleAll = (error) => {
+    for (const entry of pending.values()) {
+      clearTimeout(entry.timer);
+      entry.reject(error);
+    }
+    pending.clear();
+  };
+  try {
+    const extraHeaders = authToken ? { Authorization: `Bearer ${authToken}`, "x-codebuddy-web-ui": "1" } : {};
+    connection = await WorkbuddyHostConnection.connect(endpoint, (message) => {
+      var _a;
+      const rec = message;
+      const id = typeof rec.id === "number" ? rec.id : null;
+      if (id === null)
+        return;
+      const entry = pending.get(id);
+      if (!entry)
+        return;
+      pending.delete(id);
+      clearTimeout(entry.timer);
+      if (rec.error)
+        entry.reject(new Error(String((_a = rec.error.message) != null ? _a : "acp rpc error")));
+      else
+        entry.resolve(rec.result);
+    }, (error) => settleAll(error), extraHeaders);
+    const request2 = (method, params) => new Promise((resolve2, reject) => {
+      var _a;
+      const id = nextId++;
+      const timer = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error(`${method} timeout`));
+      }, timeoutMs);
+      (_a = timer.unref) == null ? void 0 : _a.call(timer);
+      pending.set(id, { resolve: resolve2, reject, timer });
+      void connection.send({ jsonrpc: "2.0", id, method, params }).catch((error) => {
+        const entry = pending.get(id);
+        if (!entry)
+          return;
+        pending.delete(id);
+        clearTimeout(entry.timer);
+        reject(error);
+      });
+    });
+    await request2("initialize", {
+      protocolVersion: 1,
+      clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }
+    });
+    const session = await request2("session/new", { cwd, mcpServers: [] });
+    return typeof (session == null ? void 0 : session.sessionId) === "string" && session.sessionId ? "authenticated" : "unknown";
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return /authentication required|not logged in|not authenticated|unauthorized|login required|http 401|请先登录|未登录/i.test(message) ? "auth-required" : "unknown";
+  } finally {
+    settleAll(new Error("probe closed"));
+    await (connection == null ? void 0 : connection.dispose().catch(() => {
+    }));
+  }
+}
+function delay2(ms, signal) {
+  if (signal == null ? void 0 : signal.aborted)
+    return Promise.reject(new Error("cancelled"));
+  return new Promise((resolve2, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve2();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      cleanup();
+      reject(new Error("cancelled"));
+    };
+    const cleanup = () => signal == null ? void 0 : signal.removeEventListener("abort", onAbort);
+    signal == null ? void 0 : signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+async function waitForCodebuddyLogin(endpoint, cwd, options = {}) {
+  var _a, _b, _c, _d, _e;
+  const timeoutMs = (_a = options.timeoutMs) != null ? _a : DEFAULT_LOGIN_TIMEOUT_MS;
+  const intervalMs = (_b = options.intervalMs) != null ? _b : DEFAULT_POLL_INTERVAL_MS;
+  const probe = (_c = options.probe) != null ? _c : (endpoint2, cwd2) => probeCodebuddyLogin(endpoint2, cwd2, options.authToken);
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+  while (Date.now() < deadline) {
+    if ((_d = options.signal) == null ? void 0 : _d.aborted)
+      throw new Error("cancelled");
+    attempt += 1;
+    const status = await probe(endpoint, cwd);
+    (_e = options.onProgress) == null ? void 0 : _e.call(options, attempt, status);
+    if (status === "authenticated")
+      return;
+    if (Date.now() >= deadline)
+      break;
+    await delay2(intervalMs, options.signal);
+  }
+  throw new Error("\u767B\u5F55\u7B49\u5F85\u8D85\u65F6\uFF0C\u8BF7\u91CD\u65B0\u6253\u5F00\u767B\u5F55\u9875\u5B8C\u6210\u767B\u5F55");
+}
+
+// src/features/settings/codebuddyLoginModal.ts
+init_i18n();
+function openExternal(url) {
+  var _a;
+  try {
+    const electron = require("electron");
+    if ((_a = electron.shell) == null ? void 0 : _a.openExternal) {
+      void electron.shell.openExternal(url);
+      return;
+    }
+  } catch (e) {
+  }
+  window.open(url, "_blank");
+}
+var CodebuddyLoginModal = class extends import_obsidian12.Modal {
+  constructor(app, plugin, onClosed) {
+    super(app);
+    this.plugin = plugin;
+    this.onClosed = onClosed;
+    this.server = null;
+    this.abort = new AbortController();
+    this.closed = false;
+    this.statusEl = null;
+    this.openButton = null;
+  }
+  onOpen() {
+    void this.start();
+  }
+  onClose() {
+    var _a;
+    this.closed = true;
+    this.abort.abort();
+    const server = this.server;
+    this.server = null;
+    if (server)
+      void server.dispose();
+    this.contentEl.empty();
+    (_a = this.onClosed) == null ? void 0 : _a.call(this);
+  }
+  setStatus(text2) {
+    var _a;
+    (_a = this.statusEl) == null ? void 0 : _a.setText(text2);
+  }
+  async start() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: t("login.title") });
+    contentEl.createEl("p", { text: t("login.desc") });
+    this.statusEl = contentEl.createEl("p", { cls: "wb-login-status", text: t("login.starting") });
+    const actions = contentEl.createDiv({ cls: "wb-login-actions" });
+    this.openButton = actions.createEl("button", { text: t("login.open"), cls: "mod-cta" });
+    this.openButton.disabled = true;
+    this.openButton.onclick = () => {
+      if (this.server)
+        openExternal(this.server.url);
+    };
+    actions.createEl("button", { text: t("login.cancel") }).onclick = () => this.close();
+    const cli = resolveCodebuddyPath(this.plugin.settings.codebuddyPath);
+    if (!cli || !isOfficialCodebuddyCli(cli)) {
+      this.setStatus(t("login.needOfficial"));
+      return;
+    }
+    const vaultPath = this.app.vault.adapter.basePath;
+    if (!vaultPath) {
+      this.setStatus(t("login.noVault"));
+      return;
+    }
+    try {
+      this.server = await startCodebuddyLoginServer({
+        cliPath: cli,
+        nodePath: this.plugin.settings.nodePath,
+        cwd: vaultPath,
+        signal: this.abort.signal
+      });
+      if (this.closed) {
+        await this.server.dispose();
+        this.server = null;
+        return;
+      }
+      this.openButton.disabled = false;
+      this.setStatus(t("login.waiting"));
+      openExternal(this.server.url);
+      await waitForCodebuddyLogin(this.server.endpoint, vaultPath, {
+        authToken: this.server.authToken,
+        signal: this.abort.signal,
+        onProgress: () => this.setStatus(t("login.waiting"))
+      });
+      if (this.closed)
+        return;
+      this.setStatus(t("login.success"));
+      new import_obsidian12.Notice(t("login.success"), 8e3);
+      const api = this.plugin.api;
+      if (api instanceof CodebuddyProvider) {
+        api.restartProcess();
+        void api.refreshAvailableModels(vaultPath).then(() => this.plugin.refreshOpenViews()).catch(() => {
+        });
+      }
+      window.setTimeout(() => this.close(), 1e3);
+    } catch (error) {
+      if (this.closed || this.abort.signal.aborted)
+        return;
+      this.setStatus(`${t("login.failed")}${getErrorMessage(error)}`);
+    } finally {
+      if (this.closed || this.abort.signal.aborted) {
+        const server = this.server;
+        this.server = null;
+        await (server == null ? void 0 : server.dispose());
+      }
+    }
+  }
+};
+
 // src/shared/primaryColor.ts
 var PRIMARY_COLOR_VAR = "--workbuddian-primary";
 function applyPrimaryColor(color) {
@@ -8841,7 +9455,7 @@ function applyPrimaryColor(color) {
 }
 
 // src/features/inline-edit/index.ts
-var import_obsidian12 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 
 // src/shared/editPrompt.ts
 function buildEditPrompt(selection, instruction) {
@@ -8868,7 +9482,7 @@ async function collectEditResult(api, sessionId, prompt, vaultPath) {
   }
   return text2.trim();
 }
-var InstructionModal2 = class extends import_obsidian12.Modal {
+var InstructionModal2 = class extends import_obsidian13.Modal {
   constructor(app, onSubmit) {
     super(app);
     this.onSubmit = onSubmit;
@@ -8876,15 +9490,15 @@ var InstructionModal2 = class extends import_obsidian12.Modal {
   onOpen() {
     this.titleEl.setText(t("inline.editTitle"));
     let value = "";
-    new import_obsidian12.Setting(this.contentEl).setName(t("inline.instructionLabel")).addText((txt) => {
+    new import_obsidian13.Setting(this.contentEl).setName(t("inline.instructionLabel")).addText((txt) => {
       txt.setPlaceholder(t("inline.instructionPlaceholder"));
       txt.onChange((v) => {
         value = v;
       });
     });
-    new import_obsidian12.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.editBtn")).setCta().onClick(() => {
+    new import_obsidian13.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.editBtn")).setCta().onClick(() => {
       if (!value.trim()) {
-        new import_obsidian12.Notice(t("inline.instructionRequired"));
+        new import_obsidian13.Notice(t("inline.instructionRequired"));
         return;
       }
       this.close();
@@ -8895,7 +9509,7 @@ var InstructionModal2 = class extends import_obsidian12.Modal {
     this.contentEl.empty();
   }
 };
-var DiffModal = class extends import_obsidian12.Modal {
+var DiffModal = class extends import_obsidian13.Modal {
   constructor(app, diff, onAccept) {
     super(app);
     this.diff = diff;
@@ -8905,7 +9519,7 @@ var DiffModal = class extends import_obsidian12.Modal {
     this.titleEl.setText(t("inline.previewTitle"));
     const box = this.contentEl.createDiv({ cls: "workbuddian-diff-box" });
     renderDiffRows(box, this.diff);
-    new import_obsidian12.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.accept")).setCta().onClick(() => {
+    new import_obsidian13.Setting(this.contentEl).addButton((b) => b.setButtonText(t("inline.accept")).setCta().onClick(() => {
       this.close();
       this.onAccept();
     })).addButton((b) => b.setButtonText(t("inline.reject")).onClick(() => this.close()));
@@ -8921,28 +9535,28 @@ var DiffModal = class extends import_obsidian12.Modal {
 function runInlineEdit(app, api, editor, vaultPath) {
   const selection = editor.getSelection();
   if (!selection.trim()) {
-    new import_obsidian12.Notice(t("inline.selectFirst"));
+    new import_obsidian13.Notice(t("inline.selectFirst"));
     return;
   }
   new InstructionModal2(app, async (instruction) => {
-    const notice = new import_obsidian12.Notice(t("inline.editing"), 0);
+    const notice = new import_obsidian13.Notice(t("inline.editing"), 0);
     try {
       const edited = await collectEditResult(api, api.generateId(), buildEditPrompt(selection, instruction), vaultPath);
       notice.hide();
       if (!edited) {
-        new import_obsidian12.Notice(t("inline.noResult"));
+        new import_obsidian13.Notice(t("inline.noResult"));
         return;
       }
       new DiffModal(app, lineDiff(selection, edited), () => editor.replaceSelection(edited)).open();
     } catch (e) {
       notice.hide();
-      new import_obsidian12.Notice(t("inline.editFailed") + (e instanceof Error ? e.message : String(e)));
+      new import_obsidian13.Notice(t("inline.editFailed") + (e instanceof Error ? e.message : String(e)));
     }
   }).open();
 }
 
 // src/features/inline-edit/floatingEdit.ts
-var import_obsidian13 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 init_i18n();
 function getCMView(editor) {
   const cm = editor.cm;
@@ -8978,19 +9592,19 @@ var FloatingInlineEdit = class {
       selection = this.editor.getSelection();
     }
     if (!selection.trim()) {
-      new import_obsidian13.Notice(t("inline.selectFirst"));
+      new import_obsidian14.Notice(t("inline.selectFirst"));
       return false;
     }
     const cm = getCMView(this.editor);
     if (!cm) {
-      new import_obsidian13.Notice(t("inline.editFailed"));
+      new import_obsidian14.Notice(t("inline.editFailed"));
       return false;
     }
     const from = this.editor.getCursor("from");
     const pos = cm.state.doc.length === 0 ? 0 : Math.min(this.cursorToPos(from), cm.state.doc.length);
     const coords = cm.coordsAtPos(pos, 1);
     if (!coords) {
-      new import_obsidian13.Notice(t("inline.editFailed"));
+      new import_obsidian14.Notice(t("inline.editFailed"));
       return false;
     }
     this.editor.focus();
@@ -9007,7 +9621,7 @@ var FloatingInlineEdit = class {
       cls: "workbuddian-floating-edit-send",
       attr: { "aria-label": t("inline.editBtn"), title: t("inline.editBtn") }
     });
-    (0, import_obsidian13.setIcon)(sendBtn, "send");
+    (0, import_obsidian14.setIcon)(sendBtn, "send");
     sendBtn.onclick = () => void this.run(selection, input.value.trim());
     input.onkeydown = (e) => {
       if (e.key === "Enter") {
@@ -9030,7 +9644,7 @@ var FloatingInlineEdit = class {
   /** 调 CLI 编辑,完成后就地显示 diff 预览 */
   async run(selection, instruction) {
     if (!instruction) {
-      new import_obsidian13.Notice(t("inline.instructionRequired"));
+      new import_obsidian14.Notice(t("inline.instructionRequired"));
       return;
     }
     if (!this.el)
@@ -9041,13 +9655,13 @@ var FloatingInlineEdit = class {
       const edited = await collectEditResult2(this.api, this.api.generateId(), buildEditPrompt(selection, instruction), this.vaultPath);
       if (!edited) {
         this.close();
-        new import_obsidian13.Notice(t("inline.noResult"));
+        new import_obsidian14.Notice(t("inline.noResult"));
         return;
       }
       this.showDiff(selection, edited);
     } catch (e) {
       this.close();
-      new import_obsidian13.Notice(t("inline.editFailed") + (e instanceof Error ? e.message : String(e)));
+      new import_obsidian14.Notice(t("inline.editFailed") + (e instanceof Error ? e.message : String(e)));
     }
   }
   /** 就地 diff 预览:选区上方显示 diff,确认接受则替换选区 */
@@ -9087,10 +9701,11 @@ var FloatingInlineEdit = class {
 
 // src/main.ts
 init_i18n();
-var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
+var WorkbuddianPlugin = class extends import_obsidian15.Plugin {
   constructor() {
     super(...arguments);
     this.chatView = null;
+    this.codebuddyLoginModal = null;
   }
   async onload() {
     try {
@@ -9121,14 +9736,29 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
       this.addRibbonIcon(WORKBUDDIAN_ICON_ID, t("cmd.ribbonTooltip"), () => void this.activateView());
       this.registerCommands();
       this.addSettingTab(new WorkbuddianSettingTab(this.app, this));
+      const openLogin = () => this.openCodebuddyLogin();
+      document.addEventListener("workbuddian:codebuddy-login", openLogin);
+      this.register(() => document.removeEventListener("workbuddian:codebuddy-login", openLogin));
     } catch (e) {
       bbError("[WB] \u63D2\u4EF6\u52A0\u8F7D\u5931\u8D25:", e);
-      new import_obsidian14.Notice(t("cmd.loadFailed"));
+      new import_obsidian15.Notice(t("cmd.loadFailed"));
     }
   }
   onunload() {
+    var _a;
+    (_a = this.codebuddyLoginModal) == null ? void 0 : _a.close();
+    this.codebuddyLoginModal = null;
     this.api.dispose();
     applyPrimaryColor("");
+  }
+  /** 打开/复用 CodeBuddy 一键登录窗口（设置按钮、命令、未登录自动触发共用） */
+  openCodebuddyLogin() {
+    if (this.codebuddyLoginModal)
+      return;
+    this.codebuddyLoginModal = new CodebuddyLoginModal(this.app, this, () => {
+      this.codebuddyLoginModal = null;
+    });
+    this.codebuddyLoginModal.open();
   }
   /** 视图工厂：每个 leaf 一个 view，共享 api/manager/settings 与两个数据回调 */
   buildChatView(leaf) {
@@ -9144,22 +9774,27 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
   registerCommands() {
     this.addCommand({ id: "install-workbuddy-connector", name: t("warmup.install"), callback: () => {
       const configDir = workbuddyConfigDirectory();
-      const modal = new import_obsidian14.Modal(this.app);
+      const modal = new import_obsidian15.Modal(this.app);
       modal.titleEl.setText(t("warmup.install"));
       modal.contentEl.createEl("p", { text: t("warmup.desc") });
       modal.contentEl.createEl("p", { text: configDir });
-      new import_obsidian14.Setting(modal.contentEl).addButton((button) => button.setButtonText(t("warmup.confirm")).setCta().onClick(() => {
+      new import_obsidian15.Setting(modal.contentEl).addButton((button) => button.setButtonText(t("warmup.confirm")).setCta().onClick(() => {
         try {
           installWorkbuddyWarmup(configDir);
-          new import_obsidian14.Notice(t("warmup.installed"), 1e4);
+          new import_obsidian15.Notice(t("warmup.installed"), 1e4);
           modal.close();
         } catch (error) {
-          new import_obsidian14.Notice(getErrorMessage(error));
+          new import_obsidian15.Notice(getErrorMessage(error));
         }
       })).addButton((button) => button.setButtonText(t("approval.cancel")).onClick(() => modal.close()));
       modal.open();
     } });
     this.addCommand({ id: "open-chat", name: t("cmd.openChat"), callback: () => void this.activateView() });
+    this.addCommand({
+      id: "codebuddy-login",
+      name: t("cmd.codebuddyLogin"),
+      callback: () => this.openCodebuddyLogin()
+    });
     this.addCommand({
       id: "open-chat-main-pane",
       name: t("cmd.openChatMainPane"),
@@ -9242,7 +9877,7 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
         const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0];
         const view = leaf == null ? void 0 : leaf.view;
         if (!view) {
-          new import_obsidian14.Notice(t("cmd.openChatFirst"));
+          new import_obsidian15.Notice(t("cmd.openChatFirst"));
           return;
         }
         void this.exportCurrentChat(view);
@@ -9274,21 +9909,21 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
   async exportCurrentChat(view) {
     const conv = view.getActiveConversation();
     if (!conv || conv.messages.length === 0) {
-      new import_obsidian14.Notice(t("tabs.nothingToExport"));
+      new import_obsidian15.Notice(t("tabs.nothingToExport"));
       return;
     }
     const { formatConversationAsMarkdown: formatConversationAsMarkdown2 } = await Promise.resolve().then(() => (init_export(), export_exports));
     const markdown = formatConversationAsMarkdown2(conv);
     if (!markdown) {
-      new import_obsidian14.Notice(t("tabs.nothingToExport"));
+      new import_obsidian15.Notice(t("tabs.nothingToExport"));
       return;
     }
     const fileName = `${conv.title.replace(/[\\/:*?"<>|]/g, " ")}.md`;
     try {
       await this.app.vault.create(fileName, markdown);
-      new import_obsidian14.Notice(t("tabs.exportedAs").replace("{name}", fileName));
+      new import_obsidian15.Notice(t("tabs.exportedAs").replace("{name}", fileName));
     } catch (err) {
-      new import_obsidian14.Notice(t("tabs.exportFailed").replace("{err}", getErrorMessage(err)));
+      new import_obsidian15.Notice(t("tabs.exportFailed").replace("{err}", getErrorMessage(err)));
     }
   }
   /** 批量导出所有会话为一个 Markdown 笔记(带分隔线) */
@@ -9297,16 +9932,16 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
     const { formatConversationsAsMarkdown: formatConversationsAsMarkdown2 } = await Promise.resolve().then(() => (init_export(), export_exports));
     const markdown = formatConversationsAsMarkdown2(convs);
     if (!markdown) {
-      new import_obsidian14.Notice(t("tabs.nothingToExport"));
+      new import_obsidian15.Notice(t("tabs.nothingToExport"));
       return;
     }
     const date = new Date().toISOString().slice(0, 10);
     const fileName = `workbuddian-\u5BFC\u51FA-${date}.md`;
     try {
       await this.app.vault.create(fileName, markdown);
-      new import_obsidian14.Notice(t("tabs.exportedAs").replace("{name}", fileName));
+      new import_obsidian15.Notice(t("tabs.exportedAs").replace("{name}", fileName));
     } catch (err) {
-      new import_obsidian14.Notice(t("tabs.exportFailed").replace("{err}", getErrorMessage(err)));
+      new import_obsidian15.Notice(t("tabs.exportFailed").replace("{err}", getErrorMessage(err)));
     }
   }
   /** 会话持久化单点：读出旧数据、换掉会话段、整体写回（管理器回调唯一入口） */
@@ -9338,15 +9973,20 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
     this.api.setCustomAgentsJson(this.settings.customAgentsJson);
     this.api.setThoughtLevel(this.settings.thoughtLevel);
     if (this.api instanceof HermesProvider) {
-      if (!this.settings.hermesGatewayUrl || !this.settings.hermesApiKey) {
-        const discovered = discoverHermes();
-        if (discovered) {
-          if (!this.settings.hermesGatewayUrl)
-            this.settings.hermesGatewayUrl = discovered.gatewayUrl;
-          if (!this.settings.hermesApiKey && discovered.apiKey)
-            this.settings.hermesApiKey = discovered.apiKey;
+      let changed = false;
+      const discovered = discoverHermes();
+      if (discovered) {
+        if (!this.settings.hermesGatewayUrl) {
+          this.settings.hermesGatewayUrl = discovered.gatewayUrl;
+          changed = true;
+        }
+        if (discovered.apiKey && isLocalHermesGateway(this.settings.hermesGatewayUrl) && this.settings.hermesApiKey !== discovered.apiKey) {
+          this.settings.hermesApiKey = discovered.apiKey;
+          changed = true;
         }
       }
+      if (changed)
+        void this.saveSettings();
       this.api.setGateway(this.settings.hermesGatewayUrl, this.settings.hermesApiKey);
       this.api.setHermesCliPath(this.settings.hermesCliPath);
       void this.api.init();
@@ -9366,11 +10006,11 @@ var WorkbuddianPlugin = class extends import_obsidian14.Plugin {
         await workspace.revealLeaf(leaf);
         workspace.setActiveLeaf(leaf, { focus: true });
       } else {
-        new import_obsidian14.Notice(t("cmd.cannotCreatePanel"));
+        new import_obsidian15.Notice(t("cmd.cannotCreatePanel"));
       }
     } catch (e) {
       bbError("[WB] \u6253\u5F00\u804A\u5929\u9762\u677F\u5931\u8D25:", e);
-      new import_obsidian14.Notice(errNotice);
+      new import_obsidian15.Notice(errNotice);
     }
   }
   async activateView() {

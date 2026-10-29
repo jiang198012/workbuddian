@@ -20,12 +20,14 @@ export class WorkbuddyHostConnection {
         private readonly endpoint: URL,
         private readonly onMessage: (message: Record<string, unknown>) => void,
         private readonly onDisconnect: (error: Error) => void,
+        private readonly extraHeaders: Record<string, string> = {},
     ) {}
 
     static async connect(
         endpoint: string,
         onMessage: (message: Record<string, unknown>) => void,
         onDisconnect: (error: Error) => void,
+        extraHeaders: Record<string, string> = {},
     ): Promise<WorkbuddyHostConnection> {
         let url: URL;
         try { url = new URL(endpoint); }
@@ -34,7 +36,14 @@ export class WorkbuddyHostConnection {
             || url.username || url.password || url.pathname !== '/' || /[?\#@]/.test(endpoint)) {
             throw new Error('WorkBuddy endpoint must be an HTTP loopback root URL');
         }
-        const connection = new WorkbuddyHostConnection(url, onMessage, onDisconnect);
+        // 只允许登录探测需要的两个头，避免把任意调用方头带进宿主请求。
+        const safeHeaders: Record<string, string> = {};
+        for (const [key, value] of Object.entries(extraHeaders)) {
+            if (/^(authorization|x-codebuddy-web-ui)$/i.test(key) && !/[\r\n]/.test(value)) {
+                safeHeaders[key] = value;
+            }
+        }
+        const connection = new WorkbuddyHostConnection(url, onMessage, onDisconnect, safeHeaders);
         try {
             const result = await connection.request('POST', '/api/v1/acp/connect') as {
                 connectionId?: unknown; sessionToken?: unknown;
@@ -100,6 +109,7 @@ export class WorkbuddyHostConnection {
             let settled = false;
             let subscribed = false;
             const headers: Record<string, string> = {
+                ...this.extraHeaders,
                 'X-CodeBuddy-Request': '1',
                 Accept: subscription ? 'text/event-stream' : 'application/json, text/event-stream',
             };

@@ -38,6 +38,19 @@ describe('discoverHermes', () => {
         expect(d!.apiKey).toBe('env-key');
     });
 
+    it('.env 优先于 config.yaml（gateway 实际读进程环境）', () => {
+        const d = discoverHermes(makeHermesDir(CONFIG,
+            'API_SERVER_HOST=localhost\nAPI_SERVER_PORT=9001\nAPI_SERVER_KEY="env-wins"\n'));
+        expect(d!.gatewayUrl).toBe('http://localhost:9001');
+        expect(d!.apiKey).toBe('env-wins');
+    });
+
+    it('.env 单独开启 api_server 也算 enabled', () => {
+        const d = discoverHermes(makeHermesDir('model:\n  default: x\n',
+            'API_SERVER_ENABLED=true\nAPI_SERVER_KEY=k\n'));
+        expect(d!.enabled).toBe(true);
+    });
+
     it('defaults port to 8642 when unset', () => {
         const cfg = CONFIG.replace('      port: 8642\n', '');
         const d = discoverHermes(makeHermesDir(cfg));

@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (2.6.18)
+status: stable (2.6.19)
 license: MIT
 -->
 
@@ -82,7 +82,7 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 
 - **Obsidian 1.7.2+**(桌面版)
 - **Windows 或 macOS**(Linux 不支持)
-- 已安装并登录 **WorkBuddy 桌面版**（≥ 5.0.5），内含 CodeBuddy CLI。2.6.14 零组件通路已在 macOS / WorkBuddy 5.7.7 实测；旧版兼容说明见下文。
+- 安装 **CodeBuddy CLI**（推荐：`npm i -g @tencent-ai/codebuddy-code`，插件内提供浏览器一键登录，无需终端 `/login`）；或使用已登录的 **WorkBuddy 桌面版**（≥ 5.0.5，内置 CLI 作为回退）。
 
 ### 从社区插件目录安装(推荐)
 
@@ -104,6 +104,8 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 ## 快速开始
 
 ### WorkBuddy 升级兼容（Issue #10）
+
+**2.6.19 官方 CLI 一键登录**：设置页/命令面板新增“登录 CodeBuddy”，自动打开官方 CodeBuddy CLI 的浏览器登录页（Chinese Site / iOA / 企业域名 / International Site），无需终端 `/login`；登录成功后自动重连并刷新模型。自动发现优先官方 CLI，WorkBuddy 内置 CLI 作为回退。同时修复 Hermes gateway 自动启动/密钥发现/首条消息竞态，以及 WorkBuddy 5.9.3 的 lite 包与快速报错。详见[排查与一键登录记录](docs/workbuddy-5.9.3-bridge-2026-10-28.md)。
 
 **2.6.18 模型目录同步**：新连接进程启动时从 WorkBuddy 原个人账号官方云端目录获取模型，跳过会固化旧清单的 CLI 启动缓存；保留新型号、真实 ID 和目录顺序，同名项去重。目录读取或指定模型设置失败会明确报错，不悄悄使用旧模型。**沿用原登录与额度；持续连接期间不会即时刷新，桌面实验菜单、企业账号及 Windows 实机未验收**。详见[模型目录修复与验证记录](docs/model-catalog-sync-2026-10-09.md)。
 
@@ -237,7 +239,9 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 2.6.18**
+**最新版本 2.6.19**
+
+- **2.6.19** — **官方 CLI 一键登录 + 双后端修复**：新增浏览器一键登录（无需终端），自动发现优先官方 CodeBuddy CLI；修复 Hermes gateway 自动启动/密钥/首条消息竞态，以及 WorkBuddy 5.9.3 lite 包和 `wb.request` 缺失的快速报错。**WorkBuddy 桌面端自动接通仍受 5.9.3 上游限制；Windows 实机待验收，Issue #10 保持开放**。
 
 - **2.6.18** — **原账号模型目录同步**：修复 CLI 启动缓存中的旧清单；新进程启动时读取官方个人账号云端目录，保留新型号并去重。目录/模型设置失败明确报错，防止旧模型静默回退；修复目录发现抢占聊天上下文。**不是持续实时刷新，企业账号和 Windows 实机待验收，Issue #10 保持开放**。
 

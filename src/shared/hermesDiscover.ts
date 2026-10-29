@@ -12,10 +12,12 @@ export interface HermesDiscovery {
     enabled: boolean;
 }
 
-/** 从 .env 文本里抠 KEY=VALUE */
+/** 从 .env 文本里抠 KEY=VALUE（去掉成对引号，Hermes 的 dotenv 解析同样会剥引号） */
 function envVal(text: string, key: string): string {
     const m = text.match(new RegExp(`^\\s*${key}\\s*=\\s*(.+?)\\s*$`, 'm'));
-    return m?.[1] ?? '';
+    const value = m?.[1] ?? '';
+    const quoted = /^(['"])(.*)\1$/.exec(value);
+    return quoted ? quoted[2] : value;
 }
 
 /** 从 config.yaml 文本里抠 platforms.api_server.extra 下的字段(极简 YAML 解析,只认两级缩进标量) */
@@ -26,7 +28,9 @@ function yamlApiServer(text: string, key: string): string {
 
 /**
  * 探测本机 Hermes gateway 配置。
- * 读序:config.yaml 的 platforms.api_server.extra.{enabled,host,port,key} → .env 的 API_SERVER_{PORT,KEY} → 默认 8642。
+ * 读序:环境变量(.env 由 Hermes gateway 加载，优先级高于 config.yaml)
+ *  → config.yaml 的 platforms.api_server.extra.{enabled,host,port,key} → 默认 8642。
+ * 注意:实际监听端口/密钥取 gateway 进程环境，.env 里与 config.yaml 不一致时以 .env 为准。
  * 目录不存在/文件缺失返回 null(未安装)。
  */
 export function discoverHermes(rootDir?: string): HermesDiscovery | null {
@@ -41,11 +45,12 @@ export function discoverHermes(rootDir?: string): HermesDiscovery | null {
     } catch { /* 无 .env */ }
     if (!configText && !envText) return null;
 
-    // api_server 是否启用:config.yaml 里 api_server 段下有 enabled: true
-    const enabled = /api_server:[\s\S]*?\n\s+enabled:\s*true/i.test(configText);
-    const host = yamlApiServer(configText, 'host') || '127.0.0.1';
-    const port = yamlApiServer(configText, 'port') || envVal(envText, 'API_SERVER_PORT') || '8642';
-    const key = yamlApiServer(configText, 'key') || envVal(envText, 'API_SERVER_KEY');
+    // api_server 是否启用:config.yaml 里 api_server 段下有 enabled: true，或 .env 显式开启
+    const enabled = /api_server:[\s\S]*?\n\s+enabled:\s*true/i.test(configText)
+        || envVal(envText, 'API_SERVER_ENABLED').toLowerCase() === 'true';
+    const host = envVal(envText, 'API_SERVER_HOST') || yamlApiServer(configText, 'host') || '127.0.0.1';
+    const port = envVal(envText, 'API_SERVER_PORT') || yamlApiServer(configText, 'port') || '8642';
+    const key = envVal(envText, 'API_SERVER_KEY') || yamlApiServer(configText, 'key');
     return {
         gatewayUrl: `http://${host}:${port}`,
         apiKey: key,

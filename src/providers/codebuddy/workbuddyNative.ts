@@ -54,23 +54,39 @@ async function openInstalledHost(runtime: { command: string; app: string }, sign
     });
 }
 
+/** WorkBuddy 5.9.3 起 WBIPC 只开放 entitlement/wecom 管道；继续重试只会白等 30 秒。 */
+function brokerUnsupported(): Error {
+    return Object.assign(new Error(
+        'WorkBuddy 本地账号代理不可用：当前 WorkBuddy 版本不再向第三方插件开放 wb.request 管道。'
+        + '请先打开 WorkBuddy 并任意发起一次对话以启动本地 sidecar，再重试；或切换到 Hermes 后端。',
+    ), { code: 'WORKBUDDY_BROKER_UNSUPPORTED' });
+}
+
 async function accountBroker(configDir: string, runtime: ReturnType<typeof installedRuntime>, signal: AbortSignal | undefined,
     disconnected: (error: Error) => void): Promise<WorkbuddyBroker> {
     try { return await connectWorkbuddyBroker(configDir, signal, disconnected); }
     catch (error) {
         if (signal?.aborted) throw cancelled();
         const code = (error as { code?: string }).code ?? '';
+        // E_REQUEST_PIPE_UNAVAILABLE：宿主的账号管道可能只是尚未就绪（首启竞态），
+        // 给一个短窗口等它出现；5.9.3+ 永远不会出现，窗口结束就明确报错而不是等满 30s。
         if (code !== 'E_REQUEST_PIPE_UNAVAILABLE') {
             if (!runtime || !['E_DISCOVERY_MISSING', 'E_SOCKET_UNAVAILABLE'].includes(code)) throw error;
             await openInstalledHost(runtime, signal);
         }
     }
     const deadline = Date.now() + 30_000;
+    const pipeDeadline = Date.now() + 3_000;
     while (true) {
         if (signal?.aborted) throw cancelled();
         try { return await connectWorkbuddyBroker(configDir, signal, disconnected); }
         catch (error) {
-            if (!['E_DISCOVERY_MISSING', 'E_SOCKET_UNAVAILABLE', 'E_REQUEST_PIPE_UNAVAILABLE'].includes((error as { code?: string }).code ?? '')) throw error;
+            const code = (error as { code?: string }).code ?? '';
+            if (code === 'E_REQUEST_PIPE_UNAVAILABLE') {
+                if (Date.now() >= pipeDeadline) throw brokerUnsupported();
+            } else if (!['E_DISCOVERY_MISSING', 'E_SOCKET_UNAVAILABLE'].includes(code)) {
+                throw error;
+            }
             if (Date.now() >= deadline) throw new Error('WorkBuddy 本地账号代理未就绪，请确认已正常启动并登录；未重发任何消息');
         }
         await new Promise<void>((resolve, reject) => {
@@ -193,7 +209,7 @@ export async function startWorkbuddyNative(configDir: string, scriptPath: string
         const env = { ...process.env };
         for (const key of Object.keys(env)) if (/^(?:CODEBUDDY_|WORKBUDDY_|ACC_PRODUCT_CONFIG|ACC_USER_|ANTHROPIC_|OPENAI_)/.test(key)) delete env[key];
         Object.assign(env, {
-            ELECTRON_RUN_AS_NODE: '1', CODEBUDDY_FORCE_HEADLESS_BUNDLE: '1',
+            ELECTRON_RUN_AS_NODE: '1', CODEBUDDY_FORCE_LITE_WB_BUNDLE: '1',
             CODEBUDDY_CONFIG_DIR: workerDir, WORKBUDDY_CONFIG_DIR: workerDir,
             CODEBUDDY_AUTH_TOKEN: nonce, CODEBUDDY_BASE_URL: `${origin}/v2`, CODEBUDDY_INTERNET_ENVIRONMENT: 'external',
             CODEBUDDY_CREDENTIALS_IN_MEMORY: '1', CODEBUDDY_DISABLE_LOCAL_STORAGE: '1',
