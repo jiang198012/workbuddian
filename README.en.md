@@ -42,6 +42,8 @@ Or via [BRAT](https://github.com/TfTHacker/obsidian42-brat) with `jiang198012/wo
 
 ## Quick Start
 
+**2.6.20 fixes**: Windows Hermes `.cmd` self-check (shell-aware + 40s timeout + `HERMES_HOME`/`%LOCALAPPDATA%\hermes` discovery), ACP `error.data.details` surfacing, and WBIPC malformed-ack classification (#13 / #12). See the [changelog](CHANGELOG.md).
+
 **2.6.19 official CLI one-click sign-in**: Settings and the command palette now offer “Sign in to CodeBuddy”. The plugin starts the official CodeBuddy CLI Web UI and opens its browser sign-in page (Chinese Site / iOA / Enterprise Domain / International Site), then reconnects and refreshes models automatically. Auto-detection prefers the official CLI and falls back to the WorkBuddy bundled CLI. This release also fixes Hermes gateway auto-start, API-key discovery and the first-message race, plus WorkBuddy 5.9.3 lite-bundle and fast-fail handling. See the [investigation and sign-in notes](docs/workbuddy-5.9.3-bridge-2026-10-28.md).
 
 **2.6.18 model catalog synchronization**: each new worker reads the official cloud catalog for the original personal WorkBuddy account instead of freezing the bundled CLI's old startup cache. Preserve current model IDs, names and order; deduplicate display names. Catalog or selected-model configuration failures are explicit and do not silently use an old model. **Existing login and quota are retained; this is not continuous live refresh. Desktop experimental-menu parity, enterprise accounts and Windows hardware remain unverified.** See the [repair and verification record](docs/model-catalog-sync-2026-10-09.md).
@@ -74,7 +76,9 @@ The complete documentation (usage, settings, auto-discovery, FAQ, changelog) is 
 
 ## What's New
 
-**Latest version 2.6.19**
+**Latest version 2.6.20**
+
+- **2.6.20 — #13 / #12 fixes**: Windows Hermes `.cmd` self-check/timeout, `HERMES_HOME`/`LOCALAPPDATA` discovery, ACP `data.details`, and WBIPC malformed-ack classification. **Windows `.cmd` hardware verification remains with the reporter; #13 stays open.**
 
 - **2.6.19 — Official CLI one-click sign-in + dual-backend fixes**: browser sign-in without a terminal, official CodeBuddy CLI preferred by auto-detection, Hermes gateway auto-start/key/first-message race fixes, and WorkBuddy 5.9.3 lite-bundle plus fast failure when `wb.request` is absent. **WorkBuddy desktop auto-connect remains limited by the 5.9.3 upstream change; Windows hardware is unverified, #10 stays open.**
 

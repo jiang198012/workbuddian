@@ -167,6 +167,34 @@ describe('AcpClient codec & dispatch', () => {
         await expect(req).rejects.toThrow('boom');
     });
 
+    it('surfaces JSON-RPC error.data.details instead of the generic message', async () => {
+        const { proc, emitJson } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client } = makeClient();
+        await startClient(client, emitJson);
+        const req = client.request('session/new', { cwd: '/v', mcpServers: [] });
+        emitJson({ jsonrpc: '2.0', id: 2, error: {
+            code: -32603, message: 'Internal error',
+            data: { details: 'Gateway inaccessible: gateway_elevated (stop it)' },
+        } });
+        await expect(req).rejects.toThrow('Gateway inaccessible');
+        client.dispose();
+    });
+
+    it('classifies authentication from error.data.details (#13)', async () => {
+        const { proc, emitJson } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client } = makeClient();
+        await startClient(client, emitJson);
+        const req = client.request('session/new', { cwd: '/v', mcpServers: [] });
+        emitJson({ jsonrpc: '2.0', id: 2, error: {
+            code: -32603, message: 'Internal error',
+            data: { details: 'Authentication required: please run /login' },
+        } });
+        await expect(req).rejects.toMatchObject({ tier: 'auth-required' });
+        client.dispose();
+    });
+
     it.each([
         { code: -32000, message: 'Authentication required', data: { category: 'auth' } },
         { code: -32000, message: 'Request refused', data: { category: 'auth' } },

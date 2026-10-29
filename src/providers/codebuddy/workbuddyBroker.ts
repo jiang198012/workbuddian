@@ -212,8 +212,16 @@ class BrokerConnection implements WorkbuddyBroker {
             if (!verified) throw failure('E_SERVER_PROOF_INVALID');
             this.send({ type: 'session_prove', client_proof: proof(ticket, 'client', endpoint, clientNonce, challenge.server_nonce) });
             const ack = await this.nextHandshake(); ticket.fill(0);
-            if (ack.type !== 'session_hello_ack' || ack.protocol !== 1 || !Array.isArray(ack.pipes) || !ack.pipes.includes('wb.request')) throw failure('E_REQUEST_PIPE_UNAVAILABLE');
-            if (this.handshakeFrames.length || !Number.isSafeInteger(ack.max_inflight) || (ack.max_inflight as number) < 1) throw failure('E_PROTOCOL_ERROR');
+            // 先完整校验 ack 结构：畸形报文必须是 E_PROTOCOL_ERROR，不能混入
+            // “账号通道暂未就绪”的恢复等待（#12）。
+            if (ack.type !== 'session_hello_ack' || ack.protocol !== 1
+                || !Array.isArray(ack.pipes) || ack.pipes.some(pipe => typeof pipe !== 'string')
+                || this.handshakeFrames.length
+                || !Number.isSafeInteger(ack.max_inflight) || (ack.max_inflight as number) < 1) {
+                throw failure('E_PROTOCOL_ERROR');
+            }
+            // 仅结构合法的 ack 缺少请求管道才归为可等待的账号通道未就绪。
+            if (!ack.pipes.includes('wb.request')) throw failure('E_REQUEST_PIPE_UNAVAILABLE');
             this.maxInflight = Math.min(8, ack.max_inflight as number);
             this.rpcReady = true;
             const pipe = await this.rpc('broker/GetPipe', { pipe: 'wb.request' }) as { channel?: string; methods?: unknown };

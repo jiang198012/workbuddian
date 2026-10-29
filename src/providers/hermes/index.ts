@@ -15,7 +15,8 @@ export type { StreamChunk } from '../acp/events';
 export type HermesMode = 'acp' | 'http';
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '']);
-const ACP_CHECK_TIMEOUT_MS = 15_000;
+// Hermes 冷启动（Python launcher）实测 11~13s；15s 余量过小，按 Windows 实机反馈放宽到 40s
+const ACP_CHECK_TIMEOUT_MS = 40_000;
 const DEFAULT_GATEWAY = 'http://127.0.0.1:8642';
 /** gateway 冷启动窗口：Hermes 0.22 起 ACP 会话依赖 gateway，必须等它真正监听 */
 const GATEWAY_START_TIMEOUT_MS = 20_000;
@@ -88,7 +89,13 @@ export class HermesProvider {
         if (this.demoted) return;
         const cli = resolveHermesPath(this.cliPath);
         const ok = await new Promise<boolean>((resolve) => {
-            execFile(cli, ['acp', '--check'], { timeout: ACP_CHECK_TIMEOUT_MS }, (err) => {
+            execFile(cli, ['acp', '--check'], {
+                timeout: ACP_CHECK_TIMEOUT_MS,
+                // Windows 的 hermes.cmd 在 shell:false 下会被 Node ≥18.20.2 以 EINVAL 拒绝；
+                // 与真正启动 ACP / gateway 的 spawn 保持一致，按 .cmd 包装器加 shell。
+                shell: needsWindowsShell(cli),
+                windowsHide: true,
+            }, (err) => {
                 // 失败详情必须进日志：设置页只显示"未检测到 CLI"，无详情无法排查（v2.6.0 教训）
                 if (err) bbLog('[WB] hermes CLI 自检失败:', cli, String(err));
                 resolve(!err);

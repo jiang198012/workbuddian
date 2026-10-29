@@ -12,7 +12,7 @@ export interface WorkbuddyBrokerTestServer {
     requests: BrokerFetchParams[];
     frames: Record<string, any>[];
     readonly socket: net.Socket | undefined;
-    options: { invalidServerProof?: boolean; silentHandshake?: boolean; silentGetPipe?: boolean; proofEndpoint?: string; requestPipeUnavailable?: boolean };
+    options: { invalidServerProof?: boolean; silentHandshake?: boolean; silentGetPipe?: boolean; proofEndpoint?: string; requestPipeUnavailable?: boolean; malformedAck?: 'type' | 'protocol' | 'pipes' | 'max_inflight' };
     send(frame: unknown): void;
     disconnect(): void;
     close(): Promise<void>;
@@ -70,8 +70,13 @@ export async function createWorkbuddyBrokerServer(
                 } else if (frame.type === 'session_prove') {
                     if (frame.client_proof !== proof('client', client, nonce)) { send(socket, { type: 'session_hello_error', code: 'auth_failed' }); return; }
                     ready = true;
-                    send(socket, { type: 'session_hello_ack', protocol: 1, connection_epoch: 'ce-fixture', max_inflight: 8,
-                        pipes: options.requestPipeUnavailable ? [] : ['wb.request'] });
+                    const ack: Record<string, unknown> = { type: 'session_hello_ack', protocol: 1, connection_epoch: 'ce-fixture', max_inflight: 8,
+                        pipes: options.requestPipeUnavailable ? [] : ['wb.request'] };
+                    if (options.malformedAck === 'type') ack.type = 'session_hello_error';
+                    if (options.malformedAck === 'protocol') ack.protocol = 2;
+                    if (options.malformedAck === 'pipes') ack.pipes = 'wb.request';
+                    if (options.malformedAck === 'max_inflight') ack.max_inflight = 0;
+                    send(socket, ack);
                 } else if (!ready) { socket.destroy(); return; }
                 else if (frame.method === 'broker/GetPipe') {
                     if (!options.silentGetPipe) send(socket, { jsonrpc: '2.0', id: frame.id,

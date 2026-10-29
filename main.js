@@ -395,7 +395,8 @@ var init_i18n = __esm({
 // src/shared/hermesDiscover.ts
 var hermesDiscover_exports = {};
 __export(hermesDiscover_exports, {
-  discoverHermes: () => discoverHermes
+  discoverHermes: () => discoverHermes,
+  hermesHomeCandidates: () => hermesHomeCandidates
 });
 function envVal(text2, key) {
   var _a;
@@ -409,8 +410,16 @@ function yamlApiServer(text2, key) {
   const m = text2.match(new RegExp(`api_server:[\\s\\S]*?\\n\\s+${key}:\\s*(\\S+)`, "i"));
   return (_a = m == null ? void 0 : m[1]) != null ? _a : "";
 }
-function discoverHermes(rootDir) {
-  const home2 = rootDir != null ? rootDir : (0, import_path2.join)((0, import_os.homedir)(), ".hermes");
+function hermesHomeCandidates() {
+  var _a, _b;
+  const candidates = [
+    (_a = process.env.HERMES_HOME) == null ? void 0 : _a.trim(),
+    ((_b = process.env.LOCALAPPDATA) == null ? void 0 : _b.trim()) ? (0, import_path2.join)(process.env.LOCALAPPDATA.trim(), "hermes") : "",
+    (0, import_path2.join)((0, import_os.homedir)(), ".hermes")
+  ];
+  return [...new Set(candidates.filter((value) => !!value))];
+}
+function readHermesHome(home2) {
   let configText = "";
   let envText = "";
   try {
@@ -421,8 +430,9 @@ function discoverHermes(rootDir) {
     envText = (0, import_fs.readFileSync)((0, import_path2.join)(home2, ".env"), "utf-8");
   } catch (e) {
   }
-  if (!configText && !envText)
-    return null;
+  return configText || envText ? { configText, envText } : null;
+}
+function parseHermesDiscovery(configText, envText) {
   const enabled = /api_server:[\s\S]*?\n\s+enabled:\s*true/i.test(configText) || envVal(envText, "API_SERVER_ENABLED").toLowerCase() === "true";
   const host = envVal(envText, "API_SERVER_HOST") || yamlApiServer(configText, "host") || "127.0.0.1";
   const port = envVal(envText, "API_SERVER_PORT") || yamlApiServer(configText, "port") || "8642";
@@ -432,6 +442,15 @@ function discoverHermes(rootDir) {
     apiKey: key,
     enabled
   };
+}
+function discoverHermes(rootDir) {
+  const homes = rootDir ? [rootDir] : hermesHomeCandidates();
+  for (const home2 of homes) {
+    const texts = readHermesHome(home2);
+    if (texts)
+      return parseHermesDiscovery(texts.configText, texts.envText);
+  }
+  return null;
 }
 var import_fs, import_path2, import_os;
 var init_hermesDiscover = __esm({
@@ -1557,10 +1576,11 @@ var BrokerConnection = class {
       this.send({ type: "session_prove", client_proof: proof(ticket, "client", endpoint, clientNonce, challenge.server_nonce) });
       const ack = await this.nextHandshake();
       ticket.fill(0);
-      if (ack.type !== "session_hello_ack" || ack.protocol !== 1 || !Array.isArray(ack.pipes) || !ack.pipes.includes("wb.request"))
-        throw failure("E_REQUEST_PIPE_UNAVAILABLE");
-      if (this.handshakeFrames.length || !Number.isSafeInteger(ack.max_inflight) || ack.max_inflight < 1)
+      if (ack.type !== "session_hello_ack" || ack.protocol !== 1 || !Array.isArray(ack.pipes) || ack.pipes.some((pipe2) => typeof pipe2 !== "string") || this.handshakeFrames.length || !Number.isSafeInteger(ack.max_inflight) || ack.max_inflight < 1) {
         throw failure("E_PROTOCOL_ERROR");
+      }
+      if (!ack.pipes.includes("wb.request"))
+        throw failure("E_REQUEST_PIPE_UNAVAILABLE");
       this.maxInflight = Math.min(8, ack.max_inflight);
       this.rpcReady = true;
       const pipe = await this.rpc("broker/GetPipe", { pipe: "wb.request" });
@@ -2847,7 +2867,7 @@ var AcpClient = class {
     this.pending.clear();
   }
   handleLine(line) {
-    var _a, _b;
+    var _a, _b, _c;
     let msg;
     try {
       msg = JSON.parse(line);
@@ -2872,19 +2892,20 @@ var AcpClient = class {
       const p = this.pending.get(msg.id);
       this.pending.delete(msg.id);
       if (msg.error) {
-        const message = msg.error.message || "acp rpc error";
+        const details = (_a = msg.error.data) == null ? void 0 : _a.details;
+        const message = (typeof details === "string" && details.trim() ? details : msg.error.message) || "acp rpc error";
         p.reject(this.profile.id === "codebuddy" && isAuthError(message) ? new AcpStartError(this.credentialUnavailable ? "credential-unavailable" : "auth-required", message) : new Error(message));
         return;
       }
       const result = msg.result;
       const stopReason = result == null ? void 0 : result.stopReason;
       if (this.profile.id === "codebuddy" && stopReason === "refusal") {
-        const detail = (_a = result == null ? void 0 : result._meta) == null ? void 0 : _a["codebuddy.ai/errorMessage"];
+        const detail = (_b = result == null ? void 0 : result._meta) == null ? void 0 : _b["codebuddy.ai/errorMessage"];
         let authRequired = false;
         if (typeof detail === "string") {
           try {
             const error = JSON.parse(detail);
-            authRequired = ((_b = error == null ? void 0 : error.data) == null ? void 0 : _b.category) === "auth" || typeof (error == null ? void 0 : error.message) === "string" && isAuthError(error.message);
+            authRequired = ((_c = error == null ? void 0 : error.data) == null ? void 0 : _c.category) === "auth" || typeof (error == null ? void 0 : error.message) === "string" && isAuthError(error.message);
           } catch (e) {
           }
         }
@@ -4477,7 +4498,7 @@ var HermesHttpProvider = class {
 
 // src/providers/hermes/index.ts
 var LOCAL_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1", ""]);
-var ACP_CHECK_TIMEOUT_MS = 15e3;
+var ACP_CHECK_TIMEOUT_MS = 4e4;
 var DEFAULT_GATEWAY = "http://127.0.0.1:8642";
 var GATEWAY_START_TIMEOUT_MS = 2e4;
 function isLocalGateway(url) {
@@ -4558,7 +4579,13 @@ var HermesProvider = class {
       return;
     const cli = resolveHermesPath(this.cliPath);
     const ok = await new Promise((resolve2) => {
-      (0, import_child_process4.execFile)(cli, ["acp", "--check"], { timeout: ACP_CHECK_TIMEOUT_MS }, (err) => {
+      (0, import_child_process4.execFile)(cli, ["acp", "--check"], {
+        timeout: ACP_CHECK_TIMEOUT_MS,
+        // Windows 的 hermes.cmd 在 shell:false 下会被 Node ≥18.20.2 以 EINVAL 拒绝；
+        // 与真正启动 ACP / gateway 的 spawn 保持一致，按 .cmd 包装器加 shell。
+        shell: needsWindowsShell(cli),
+        windowsHide: true
+      }, (err) => {
         if (err)
           bbLog("[WB] hermes CLI \u81EA\u68C0\u5931\u8D25:", cli, String(err));
         resolve2(!err);

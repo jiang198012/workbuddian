@@ -48,6 +48,20 @@ describe('WorkBuddy native account broker', () => {
         ]);
     });
 
+    it.each(['type', 'protocol', 'pipes', 'max_inflight'] as const)(
+        'rejects a malformed %s ack as E_PROTOCOL_ERROR instead of account-channel recovery', async (kind) => {
+            fixture = await createWorkbuddyBrokerServer(root);
+            fixture.options.malformedAck = kind;
+            await expect(connectWorkbuddyBroker(fixture.configDir)).rejects.toMatchObject({ code: 'E_PROTOCOL_ERROR' });
+        },
+    );
+
+    it('classifies a structurally valid ack without wb.request as E_REQUEST_PIPE_UNAVAILABLE', async () => {
+        fixture = await createWorkbuddyBrokerServer(root);
+        fixture.options.requestPipeUnavailable = true;
+        await expect(connectWorkbuddyBroker(fixture.configDir)).rejects.toMatchObject({ code: 'E_REQUEST_PIPE_UNAVAILABLE' });
+    });
+
     it('rejects a forged server proof before exposing a request channel', async () => {
         fixture = await createWorkbuddyBrokerServer(root); fixture.options.invalidServerProof = true;
         await expect(connectWorkbuddyBroker(fixture.configDir)).rejects.toMatchObject({ code: 'E_SERVER_PROOF_INVALID' });

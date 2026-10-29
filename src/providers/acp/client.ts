@@ -358,7 +358,10 @@ export class AcpClient {
     }
 
     private handleLine(line: string): void {
-        let msg: { id?: unknown; method?: unknown; params?: unknown; result?: unknown; error?: { message?: string } };
+        let msg: {
+            id?: unknown; method?: unknown; params?: unknown; result?: unknown;
+            error?: { message?: string; data?: { details?: unknown } };
+        };
         try {
             msg = JSON.parse(line);
         } catch {
@@ -385,7 +388,10 @@ export class AcpClient {
             const p = this.pending.get(msg.id)!;
             this.pending.delete(msg.id);
             if (msg.error) {
-                const message = msg.error.message || 'acp rpc error';
+                // ACP Python SDK 把真实原因放在 data.details（message 恒为 "Internal error"）；
+                // 优先透出 details，否则用户只能看到无法排查的通用错误。
+                const details = msg.error.data?.details;
+                const message = (typeof details === 'string' && details.trim() ? details : msg.error.message) || 'acp rpc error';
                 p.reject(this.profile.id === 'codebuddy' && isAuthError(message)
                     ? new AcpStartError(this.credentialUnavailable ? 'credential-unavailable' : 'auth-required', message)
                     : new Error(message));

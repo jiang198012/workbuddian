@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.6.20 — 2026-10-29
+
+**#13 / #12 修复**：Windows Hermes `.cmd` 自检、超时与环境发现，ACP 错误详情透出，以及 WBIPC 畸形 ack 分类。
+
+### 修复
+
+- [#13](https://github.com/jiang198012/workbuddian/issues/13)：Hermes ACP 自检改为 shell-aware（`needsWindowsShell`），Windows `.cmd` 不再 `spawn EINVAL`；超时由 15s 放宽到 40s；配置目录支持 `HERMES_HOME` 与 `%LOCALAPPDATA%\hermes`，再回退 `~/.hermes`。
+- [#13](https://github.com/jiang198012/workbuddian/issues/13)：ACP JSON-RPC 错误优先读取 `error.data.details`，不再只显示 `Internal error`；认证分级同样基于 details。
+- [#12](https://github.com/jiang198012/workbuddian/issues/12)：WBIPC 握手先校验 ack 的 type/protocol/pipes 结构、并发字段和多余帧；畸形 ack 返回 `E_PROTOCOL_ERROR` 并立即失败，只有结构合法但缺少 `wb.request` 的 ack 才进入有界账号恢复等待。
+
+### 验证与限制
+
+- 新增 Windows `.cmd` 自检参数、`HERMES_HOME`/`LOCALAPPDATA` 发现、`data.details` 透出/认证分级、畸形 ack 分类等回归。
+- `npm test`：70 套件、966 项测试通过，0 失败；`npm run build` 类型检查与生产构建通过。
+- 本机 macOS 复测 Hermes 发现（`http://127.0.0.1:8642`）与 ACP 路由通过。Windows `.cmd` 的实际运行时本机不可用，`shell` 参数由单测覆盖，仍需 #13 报告者在 Windows 实机确认。
+
 ## 2.6.19 — 2026-10-28
 
 **CodeBuddy 官方 CLI 一键登录 + 双后端恢复**：新增浏览器一键登录（无需终端），自动发现优先官方 CodeBuddy CLI；修复 Hermes gateway 未运行、旧 API key 失效和首条消息竞态。

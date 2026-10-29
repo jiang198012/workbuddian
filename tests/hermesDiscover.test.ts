@@ -51,6 +51,38 @@ describe('discoverHermes', () => {
         expect(d!.enabled).toBe(true);
     });
 
+    it('HERMES_HOME 优先于 ~/.hermes', () => {
+        const dir = makeHermesDir(CONFIG);
+        const previous = process.env.HERMES_HOME;
+        process.env.HERMES_HOME = dir;
+        try {
+            const d = discoverHermes();
+            expect(d!.gatewayUrl).toBe('http://127.0.0.1:8642');
+            expect(d!.apiKey).toBe('hms-testkey123');
+        } finally {
+            if (previous === undefined) delete process.env.HERMES_HOME; else process.env.HERMES_HOME = previous;
+        }
+    });
+
+    it('Windows %LOCALAPPDATA%/hermes 作为回退目录', () => {
+        const parent = mkdtempSync(join(tmpdir(), 'hermes-localappdata-'));
+        const home = join(parent, 'hermes');
+        mkdirSync(home);
+        writeFileSync(join(home, 'config.yaml'), CONFIG);
+        const previousHermesHome = process.env.HERMES_HOME;
+        const previousLocalAppData = process.env.LOCALAPPDATA;
+        delete process.env.HERMES_HOME;
+        process.env.LOCALAPPDATA = parent;
+        try {
+            const d = discoverHermes();
+            expect(d!.apiKey).toBe('hms-testkey123');
+            expect(d!.gatewayUrl).toBe('http://127.0.0.1:8642');
+        } finally {
+            if (previousHermesHome === undefined) delete process.env.HERMES_HOME; else process.env.HERMES_HOME = previousHermesHome;
+            if (previousLocalAppData === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = previousLocalAppData;
+        }
+    });
+
     it('defaults port to 8642 when unset', () => {
         const cfg = CONFIG.replace('      port: 8642\n', '');
         const d = discoverHermes(makeHermesDir(cfg));

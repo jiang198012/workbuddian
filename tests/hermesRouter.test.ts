@@ -14,8 +14,11 @@ jest.mock('../src/utils/cliPath', () => ({
     needsWindowsShell: jest.fn(() => false),
 }));
 import { execFile, spawn } from 'child_process';
+import { needsWindowsShell, resolveHermesPath } from '../src/utils/cliPath';
 const execFileMock = execFile as unknown as jest.Mock;
 const spawnMock = spawn as unknown as jest.Mock;
+const resolveHermesMock = resolveHermesPath as unknown as jest.Mock;
+const windowsShellMock = needsWindowsShell as unknown as jest.Mock;
 
 function contractStub() {
     return {
@@ -35,6 +38,8 @@ describe('HermesProvider 路由器', () => {
     beforeEach(() => {
         execFileMock.mockReset();
         spawnMock.mockClear();
+        resolveHermesMock.mockReturnValue('/fake/hermes');
+        windowsShellMock.mockReturnValue(false);
         // 默认 gateway 已在监听：把探测从测试里摘掉，只测路由决策
         (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async () => ({}));
     });
@@ -88,6 +93,18 @@ describe('HermesProvider 路由器', () => {
         expect(execFileMock).toHaveBeenCalled();
         expect(p.mode).toBe('acp');
     });
+    it('Windows .cmd 自检使用 shell 并放宽超时', async () => {
+        resolveHermesMock.mockReturnValue('C:\\hermes\\bin\\hermes.cmd');
+        windowsShellMock.mockReturnValue(true);
+        execFileMock.mockImplementation((_c: string, _a: string[], _o: object, cb: Function) => cb(null, 'Hermes ACP check OK', ''));
+        const p = new HermesProvider();
+        p.setGateway('http://127.0.0.1:8642', 'key');
+        await p.init();
+        expect(execFileMock).toHaveBeenCalledWith('C:\\hermes\\bin\\hermes.cmd', ['acp', '--check'],
+            expect.objectContaining({ shell: true, timeout: 40_000 }), expect.any(Function));
+        expect(p.mode).toBe('acp');
+    });
+
     it('本机 gateway 未监听 → 先拉起 hermes gateway run 再探测', async () => {
         let probes = 0;
         (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn(async () => {

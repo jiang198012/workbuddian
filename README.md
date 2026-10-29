@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (2.6.19)
+status: stable (2.6.20)
 license: MIT
 -->
 
@@ -104,6 +104,8 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 ## 快速开始
 
 ### WorkBuddy 升级兼容（Issue #10）
+
+**2.6.20 问题修复**：修复 Windows Hermes `.cmd` 自检（shell-aware + 40s 超时 + `HERMES_HOME`/`%LOCALAPPDATA%\hermes` 发现）、ACP 错误 `data.details` 透出，以及 WBIPC 畸形 ack 分类（#13 / #12）。详见 [CHANGELOG](CHANGELOG.md)。
 
 **2.6.19 官方 CLI 一键登录**：设置页/命令面板新增“登录 CodeBuddy”，自动打开官方 CodeBuddy CLI 的浏览器登录页（Chinese Site / iOA / 企业域名 / International Site），无需终端 `/login`；登录成功后自动重连并刷新模型。自动发现优先官方 CLI，WorkBuddy 内置 CLI 作为回退。同时修复 Hermes gateway 自动启动/密钥发现/首条消息竞态，以及 WorkBuddy 5.9.3 的 lite 包与快速报错。详见[排查与一键登录记录](docs/workbuddy-5.9.3-bridge-2026-10-28.md)。
 
@@ -239,7 +241,9 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 2.6.19**
+**最新版本 2.6.20**
+
+- **2.6.20** — **#13 / #12 修复**：Windows Hermes `.cmd` 自检与超时、`HERMES_HOME`/`LOCALAPPDATA` 发现、ACP `data.details`、WBIPC 畸形 ack 分类。**Windows `.cmd` 实机仍待报告者复测，Issue #13 保持开放**。
 
 - **2.6.19** — **官方 CLI 一键登录 + 双后端修复**：新增浏览器一键登录（无需终端），自动发现优先官方 CodeBuddy CLI；修复 Hermes gateway 自动启动/密钥/首条消息竞态，以及 WorkBuddy 5.9.3 lite 包和 `wb.request` 缺失的快速报错。**WorkBuddy 桌面端自动接通仍受 5.9.3 上游限制；Windows 实机待验收，Issue #10 保持开放**。
 
