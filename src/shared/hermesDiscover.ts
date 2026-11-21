@@ -84,3 +84,39 @@ export function discoverHermes(rootDir?: string): HermesDiscovery | null {
     }
     return null;
 }
+
+/** 读 gateway.pid：Hermes 写 JSON `{ pid, kind: "hermes-gateway", ... }`，兼容纯数字旧格式 */
+function readGatewayPid(home: string): number | null {
+    let text: string;
+    try { text = readFileSync(join(home, 'gateway.pid'), 'utf-8').trim(); } catch { return null; }
+    let pid: unknown = text;
+    if (text.startsWith('{')) {
+        try {
+            const data = JSON.parse(text) as { pid?: unknown; kind?: unknown };
+            if (data.kind !== undefined && data.kind !== 'hermes-gateway') return null;
+            pid = data.pid;
+        } catch { return null; }
+    }
+    const n = typeof pid === 'number' ? pid : /^\d+$/.test(String(pid)) ? Number(pid) : NaN;
+    return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+/**
+ * 本机 Hermes gateway 进程是否在运行（#15）：按 gateway.pid 判断进程存活，
+ * 不依赖 api_server 的 HTTP 端口——ACP 只需要 gateway 进程，api_server 可以不开。
+ * 目录按 hermesHomeCandidates 的顺序查找；rootDir 指定时只用该目录。
+ */
+export function hermesGatewayRunning(rootDir?: string): boolean {
+    const homes = rootDir ? [rootDir] : hermesHomeCandidates();
+    for (const home of homes) {
+        const pid = readGatewayPid(home);
+        if (pid === null) continue;
+        try {
+            process.kill(pid, 0); // 只探测存在，不发信号
+            return true;
+        } catch (e) {
+            if ((e as NodeJS.ErrnoException).code === 'EPERM') return true; // 进程存在但属其他用户
+        }
+    }
+    return false;
+}

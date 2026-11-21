@@ -450,7 +450,8 @@ describe('profile 驱动的 spawn 策略（spawnViaNode）', () => {
         const client = new AcpClient(makeEvents(), HERMES_PROFILE);
         client.setCliPath('/Users/jiang/.local/bin/hermes');
         await startClient(client, emitJson);
-        expect(mockedSpawn).toHaveBeenCalledWith('/Users/jiang/.local/bin/hermes', ['acp'], { shell: false });
+        // windowsHide：Windows 上经 cmd.exe 启动 .cmd 包装器时不闪控制台窗口（#15）
+        expect(mockedSpawn).toHaveBeenCalledWith('/Users/jiang/.local/bin/hermes', ['acp'], { shell: false, windowsHide: true });
     });
 
     it('codebuddy 默认 profile：纯路径仍走 node 解释（历史行为不变）', async () => {
@@ -460,7 +461,7 @@ describe('profile 驱动的 spawn 策略（spawnViaNode）', () => {
         client.setCliPath('/usr/local/bin/codebuddy');
         client.setNodePath('/fake/node');
         await startClient(client, emitJson);
-        expect(mockedSpawn).toHaveBeenCalledWith('/fake/node', ['/usr/local/bin/codebuddy', '--acp'], { shell: false });
+        expect(mockedSpawn).toHaveBeenCalledWith('/fake/node', ['/usr/local/bin/codebuddy', '--acp'], { shell: false, windowsHide: true });
     });
 });
 

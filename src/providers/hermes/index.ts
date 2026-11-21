@@ -6,6 +6,7 @@ import { execFile, spawn } from 'child_process';
 import { isAbsolute } from 'path';
 import { bbLog, bbError } from '../../shared/logBuffer';
 import { needsWindowsShell, resolveHermesPath } from '../../utils/cliPath';
+import { hermesGatewayRunning } from '../../shared/hermesDiscover';
 import { AcpStartFailure } from '../acp/provider';
 import { HermesAcpProvider } from './acpProvider';
 import { HermesHttpProvider } from './httpProvider';
@@ -43,6 +44,14 @@ async function gatewayListening(baseUrl: string): Promise<boolean> {
         await fetch(`${baseUrl.replace(/\/$/, '')}/v1/models`, { signal: fetchTimeout(2_000) });
         return true;
     } catch { return false; }
+}
+
+/**
+ * 本机 gateway 是否在运行：先看 gateway.pid 的进程（瞬时，api_server 未开也成立），
+ * 再退回 HTTP 端口探测（自定义 HERMES_HOME 等找不到 pid 文件的情况）。#15
+ */
+async function gatewayAlive(baseUrl: string): Promise<boolean> {
+    return hermesGatewayRunning() || await gatewayListening(baseUrl);
 }
 
 /** 设置页/视图层复用：填了非本机 gateway 地址即远程场景（路由器同口径） */
@@ -106,12 +115,12 @@ export class HermesProvider {
         bbLog('[WB] hermes 路由:', this.modeValue, ok ? `(${cli})` : '(CLI 自检失败)');
     }
 
-    /** 本机 gateway 没监听时后台拉起 `hermes gateway run`；失败只记日志，不抛给 UI */
+    /** 本机 gateway 没运行时后台拉起 `hermes gateway run`；失败只记日志，不抛给 UI */
     private ensureLocalGateway(): Promise<void> {
         if (this.gatewayStarting) return this.gatewayStarting;
         const base = this.gatewayUrl.trim() || DEFAULT_GATEWAY;
         this.gatewayStarting = (async () => {
-            if (await gatewayListening(base)) return;
+            if (await gatewayAlive(base)) return;
             const cli = resolveHermesPath(this.cliPath);
             // 未安装时 resolveHermesPath 回落裸命令；此时拉起必然 ENOENT，别白等 20s
             if (!isAbsolute(cli)) { bbLog('[WB] 未找到 hermes CLI，跳过 gateway 自启动:', cli); return; }
@@ -133,7 +142,7 @@ export class HermesProvider {
             const deadline = Date.now() + GATEWAY_START_TIMEOUT_MS;
             while (Date.now() < deadline) {
                 await delay(500);
-                if (await gatewayListening(base)) { bbLog('[WB] hermes gateway 已就绪:', base); return; }
+                if (await gatewayAlive(base)) { bbLog('[WB] hermes gateway 已就绪:', base); return; }
             }
             bbError('[WB] hermes gateway 启动超时，请手动运行 `hermes gateway run`:', base);
         })().finally(() => { this.gatewayStarting = null; });
@@ -151,6 +160,16 @@ export class HermesProvider {
         this.demoted = true;
         bbError('[WB] hermes ACP 不可用，降级 HTTP 轻量模式:', e);
         this.setMode('http');
+    }
+
+    /**
+     * ACP 启动失败：只有 HTTP 轻量版确实可用时才粘性降级；否则降级只会让之后每条消息都
+     * Failed to fetch（api_server 未开时），保持 ACP，让下次发送/重试重新启动 ACP。#15
+     */
+    private async handleAcpStartFailure(e: AcpStartFailure): Promise<void> {
+        const http = await this.http.testConnection();
+        if (http.ok) { this.demoteToHttp(e); return; }
+        bbError('[WB] hermes ACP 启动失败，HTTP 轻量版也不可用，保持 ACP，下次发送重试:', e, http.error);
     }
 
     private setMode(m: HermesMode): void {
@@ -229,8 +248,8 @@ export class HermesProvider {
                 yield* this.acp.sendMessage(...args);
                 return;
             } catch (e) {
-                // 启动失败 → 粘性降级后重抛（view 出错误卡）；轮中错误不降级
-                if (e instanceof AcpStartFailure) this.demoteToHttp(e);
+                // 启动失败 → 视 HTTP 是否可用决定降级，再重抛（view 出错误卡）；轮中错误不降级
+                if (e instanceof AcpStartFailure) await this.handleAcpStartFailure(e);
                 throw e;
             }
         }

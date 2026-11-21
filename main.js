@@ -398,6 +398,7 @@ var init_i18n = __esm({
 var hermesDiscover_exports = {};
 __export(hermesDiscover_exports, {
   discoverHermes: () => discoverHermes,
+  hermesGatewayRunning: () => hermesGatewayRunning,
   hermesHomeCandidates: () => hermesHomeCandidates
 });
 function envVal(text2, key) {
@@ -416,8 +417,8 @@ function hermesHomeCandidates() {
   var _a, _b;
   const candidates = [
     (_a = process.env.HERMES_HOME) == null ? void 0 : _a.trim(),
-    ((_b = process.env.LOCALAPPDATA) == null ? void 0 : _b.trim()) ? (0, import_path2.join)(process.env.LOCALAPPDATA.trim(), "hermes") : "",
-    (0, import_path2.join)((0, import_os.homedir)(), ".hermes")
+    ((_b = process.env.LOCALAPPDATA) == null ? void 0 : _b.trim()) ? (0, import_path.join)(process.env.LOCALAPPDATA.trim(), "hermes") : "",
+    (0, import_path.join)((0, import_os.homedir)(), ".hermes")
   ];
   return [...new Set(candidates.filter((value) => !!value))];
 }
@@ -425,11 +426,11 @@ function readHermesHome(home2) {
   let configText = "";
   let envText = "";
   try {
-    configText = (0, import_fs.readFileSync)((0, import_path2.join)(home2, "config.yaml"), "utf-8");
+    configText = (0, import_fs.readFileSync)((0, import_path.join)(home2, "config.yaml"), "utf-8");
   } catch (e) {
   }
   try {
-    envText = (0, import_fs.readFileSync)((0, import_path2.join)(home2, ".env"), "utf-8");
+    envText = (0, import_fs.readFileSync)((0, import_path.join)(home2, ".env"), "utf-8");
   } catch (e) {
   }
   return configText || envText ? { configText, envText } : null;
@@ -454,11 +455,48 @@ function discoverHermes(rootDir) {
   }
   return null;
 }
-var import_fs, import_path2, import_os;
+function readGatewayPid(home2) {
+  let text2;
+  try {
+    text2 = (0, import_fs.readFileSync)((0, import_path.join)(home2, "gateway.pid"), "utf-8").trim();
+  } catch (e) {
+    return null;
+  }
+  let pid = text2;
+  if (text2.startsWith("{")) {
+    try {
+      const data = JSON.parse(text2);
+      if (data.kind !== void 0 && data.kind !== "hermes-gateway")
+        return null;
+      pid = data.pid;
+    } catch (e) {
+      return null;
+    }
+  }
+  const n = typeof pid === "number" ? pid : /^\d+$/.test(String(pid)) ? Number(pid) : NaN;
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+function hermesGatewayRunning(rootDir) {
+  const homes = rootDir ? [rootDir] : hermesHomeCandidates();
+  for (const home2 of homes) {
+    const pid = readGatewayPid(home2);
+    if (pid === null)
+      continue;
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch (e) {
+      if (e.code === "EPERM")
+        return true;
+    }
+  }
+  return false;
+}
+var import_fs, import_path, import_os;
 var init_hermesDiscover = __esm({
   "src/shared/hermesDiscover.ts"() {
     import_fs = require("fs");
-    import_path2 = require("path");
+    import_path = require("path");
     import_os = require("os");
   }
 });
@@ -2963,7 +3001,7 @@ var AcpClient = class {
       const { command, args, shell } = this.profile.spawnViaNode ? buildSpawnCommand(this.scriptPath, this.nodePath, acpArgs) : { command: this.scriptPath, args: acpArgs, shell: needsWindowsShell(this.scriptPath) };
       let proc;
       try {
-        proc = (0, import_child_process3.spawn)(command, args, { shell });
+        proc = (0, import_child_process3.spawn)(command, args, { shell, windowsHide: true });
       } catch (e) {
         reject(new AcpStartError("cli-not-found", String(e)));
         return;
@@ -4238,7 +4276,8 @@ var CodebuddyProvider = class extends AcpProvider {
 
 // src/providers/hermes/index.ts
 var import_child_process4 = require("child_process");
-var import_path = require("path");
+var import_path2 = require("path");
+init_hermesDiscover();
 
 // src/providers/hermes/profile.ts
 var OUTGOING_MODE = {
@@ -4562,6 +4601,9 @@ async function gatewayListening(baseUrl) {
     return false;
   }
 }
+async function gatewayAlive(baseUrl) {
+  return hermesGatewayRunning() || await gatewayListening(baseUrl);
+}
 function isLocalHermesGateway(url) {
   return isLocalGateway(url);
 }
@@ -4630,16 +4672,16 @@ var HermesProvider = class {
     this.setMode(ok ? "acp" : "http");
     bbLog("[WB] hermes \u8DEF\u7531:", this.modeValue, ok ? `(${cli})` : "(CLI \u81EA\u68C0\u5931\u8D25)");
   }
-  /** 本机 gateway 没监听时后台拉起 `hermes gateway run`；失败只记日志，不抛给 UI */
+  /** 本机 gateway 没运行时后台拉起 `hermes gateway run`；失败只记日志，不抛给 UI */
   ensureLocalGateway() {
     if (this.gatewayStarting)
       return this.gatewayStarting;
     const base = this.gatewayUrl.trim() || DEFAULT_GATEWAY;
     this.gatewayStarting = (async () => {
-      if (await gatewayListening(base))
+      if (await gatewayAlive(base))
         return;
       const cli = resolveHermesPath(this.cliPath);
-      if (!(0, import_path.isAbsolute)(cli)) {
+      if (!(0, import_path2.isAbsolute)(cli)) {
         bbLog("[WB] \u672A\u627E\u5230 hermes CLI\uFF0C\u8DF3\u8FC7 gateway \u81EA\u542F\u52A8:", cli);
         return;
       }
@@ -4661,7 +4703,7 @@ var HermesProvider = class {
       const deadline = Date.now() + GATEWAY_START_TIMEOUT_MS;
       while (Date.now() < deadline) {
         await delay(500);
-        if (await gatewayListening(base)) {
+        if (await gatewayAlive(base)) {
           bbLog("[WB] hermes gateway \u5DF2\u5C31\u7EEA:", base);
           return;
         }
@@ -4683,6 +4725,18 @@ var HermesProvider = class {
     this.demoted = true;
     bbError("[WB] hermes ACP \u4E0D\u53EF\u7528\uFF0C\u964D\u7EA7 HTTP \u8F7B\u91CF\u6A21\u5F0F:", e);
     this.setMode("http");
+  }
+  /**
+   * ACP 启动失败：只有 HTTP 轻量版确实可用时才粘性降级；否则降级只会让之后每条消息都
+   * Failed to fetch（api_server 未开时），保持 ACP，让下次发送/重试重新启动 ACP。#15
+   */
+  async handleAcpStartFailure(e) {
+    const http = await this.http.testConnection();
+    if (http.ok) {
+      this.demoteToHttp(e);
+      return;
+    }
+    bbError("[WB] hermes ACP \u542F\u52A8\u5931\u8D25\uFF0CHTTP \u8F7B\u91CF\u7248\u4E5F\u4E0D\u53EF\u7528\uFF0C\u4FDD\u6301 ACP\uFF0C\u4E0B\u6B21\u53D1\u9001\u91CD\u8BD5:", e, http.error);
   }
   setMode(m) {
     if (m === this.modeValue)
@@ -4804,7 +4858,7 @@ var HermesProvider = class {
         return;
       } catch (e) {
         if (e instanceof AcpStartFailure)
-          this.demoteToHttp(e);
+          await this.handleAcpStartFailure(e);
         throw e;
       }
     }

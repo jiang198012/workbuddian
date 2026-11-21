@@ -14,12 +14,24 @@ jest.mock('../src/utils/cliPath', () => ({
     resolveHermesPath: jest.fn(() => '/fake/hermes'),
     needsWindowsShell: jest.fn(() => false),
 }));
+jest.mock('../src/shared/hermesDiscover', () => ({
+    ...jest.requireActual('../src/shared/hermesDiscover'),
+    hermesGatewayRunning: jest.fn(() => false),
+}));
 import { execFile, spawn } from 'child_process';
 import { needsWindowsShell, resolveHermesPath } from '../src/utils/cliPath';
+import { hermesGatewayRunning } from '../src/shared/hermesDiscover';
+import { HermesHttpProvider } from '../src/providers/hermes/httpProvider';
+import { AcpStartFailure } from '../src/providers/acp/provider';
 const execFileMock = execFile as unknown as jest.Mock;
 const spawnMock = spawn as unknown as jest.Mock;
 const resolveHermesMock = resolveHermesPath as unknown as jest.Mock;
 const windowsShellMock = needsWindowsShell as unknown as jest.Mock;
+const gatewayRunningMock = hermesGatewayRunning as unknown as jest.Mock;
+const lastInstance = (ctor: unknown) => {
+    const results = (ctor as jest.Mock).mock.results;
+    return results[results.length - 1].value;
+};
 
 function contractStub() {
     return {
@@ -42,6 +54,7 @@ describe('HermesProvider 路由器', () => {
         spawnMock.mockClear();
         resolveHermesMock.mockReturnValue('/fake/hermes');
         windowsShellMock.mockReturnValue(false);
+        gatewayRunningMock.mockReset().mockReturnValue(false);
         // 默认 gateway 已在监听：把探测从测试里摘掉，只测路由决策
         (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async () => ({}));
     });
@@ -132,5 +145,70 @@ describe('HermesProvider 路由器', () => {
         expect(spawnMock).toHaveBeenCalledWith(expect.stringContaining('hermes'), ['gateway', 'run'],
             expect.objectContaining({ detached: true }));
         expect(p.mode).toBe('acp');
+    });
+
+    it('#15：gateway 进程在运行但 api_server 未开 → 不探测端口、不重复拉起', async () => {
+        gatewayRunningMock.mockReturnValue(true);
+        const fetchMock = jest.fn(async () => { throw new TypeError('Failed to fetch'); });
+        (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+        execFileMock.mockImplementation((_c: string, _a: string[], _o: object, cb: Function) => cb(null, 'ok', ''));
+        const p = new HermesProvider();
+        p.setGateway('', '');
+        await p.init();
+        expect(spawnMock).not.toHaveBeenCalled();
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(p.mode).toBe('acp');
+    });
+
+    it('#15：拉起 gateway 后以进程存活判定就绪，不必等 api_server 端口（不白等 20s）', async () => {
+        gatewayRunningMock.mockReturnValueOnce(false).mockReturnValue(true);
+        (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn(async () => { throw new TypeError('Failed to fetch'); });
+        execFileMock.mockImplementation((_c: string, _a: string[], _o: object, cb: Function) => cb(null, 'ok', ''));
+        const p = new HermesProvider();
+        p.setGateway('', '');
+        const started = Date.now();
+        await p.init();
+        expect(spawnMock).toHaveBeenCalledTimes(1);
+        expect(Date.now() - started).toBeLessThan(3_000);
+        expect(p.mode).toBe('acp');
+    });
+
+    describe('#15：ACP 启动失败后的降级', () => {
+        async function acpRouter(httpUsable: boolean) {
+            execFileMock.mockImplementation((_c: string, _a: string[], _o: object, cb: Function) => cb(null, 'ok', ''));
+            const p = new HermesProvider();
+            p.setGateway('', '');
+            await p.init();
+            const acp = lastInstance(HermesAcpProvider);
+            const http = lastInstance(HermesHttpProvider);
+            let attempts = 0;
+            acp.sendMessage = jest.fn(async function* () {
+                attempts += 1;
+                if (attempts === 1) throw new AcpStartFailure('gateway restarting');
+                yield { type: 'done' };
+            });
+            http.sendMessage = jest.fn(async function* () { yield { type: 'done' }; });
+            http.testConnection = jest.fn(async () => (httpUsable ? { ok: true } : { ok: false, error: 'Failed to fetch' }));
+            return { p, acp, http };
+        }
+        const drain = async (gen: AsyncGenerator<unknown>) => { for await (const _ of gen) { /* consume */ } };
+        const send = (p: HermesProvider) => drain(p.sendMessage('conv-1', 'hi', '/vault') as AsyncGenerator<unknown>);
+
+        it('HTTP 轻量版不可用 → 不降级，重试时重新启动 ACP', async () => {
+            const { p, acp, http } = await acpRouter(false);
+            await expect(send(p)).rejects.toThrow('gateway restarting');
+            expect(p.mode).toBe('acp');
+            await send(p);
+            expect(acp.sendMessage).toHaveBeenCalledTimes(2);
+            expect(http.sendMessage).not.toHaveBeenCalled();
+        });
+
+        it('HTTP 轻量版可用 → 照旧降级 http', async () => {
+            const { p, http } = await acpRouter(true);
+            await expect(send(p)).rejects.toThrow('gateway restarting');
+            expect(p.mode).toBe('http');
+            await send(p);
+            expect(http.sendMessage).toHaveBeenCalledTimes(1);
+        });
     });
 });

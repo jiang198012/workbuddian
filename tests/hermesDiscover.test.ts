@@ -1,4 +1,4 @@
-import { discoverHermes } from '../src/shared/hermesDiscover';
+import { discoverHermes, hermesGatewayRunning } from '../src/shared/hermesDiscover';
 import { mkdtempSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -98,5 +98,32 @@ describe('discoverHermes', () => {
         const dir = mkdtempSync(join(tmpdir(), 'hermes-empty-'));
         mkdirSync(dir, { recursive: true });
         expect(discoverHermes(dir)).toBeNull();
+    });
+});
+
+describe('hermesGatewayRunning (#15)', () => {
+    const home = (pidFile?: string) => {
+        const dir = mkdtempSync(join(tmpdir(), 'hermes-gw-'));
+        if (pidFile !== undefined) writeFileSync(join(dir, 'gateway.pid'), pidFile);
+        return dir;
+    };
+    // 已退出的子进程 pid：确定不存活（不依赖“极大 pid 不存在”的假设）
+    const deadPid = (): number => {
+        const { spawnSync } = require('child_process') as typeof import('child_process');
+        return spawnSync(process.execPath, ['-e', ''], { stdio: 'ignore' }).pid as number;
+    };
+
+    it('gateway.pid 记录的 Hermes gateway 进程存活 → true（不依赖 api_server 端口）', () => {
+        expect(hermesGatewayRunning(home(JSON.stringify({ pid: process.pid, kind: 'hermes-gateway' })))).toBe(true);
+    });
+    it('兼容纯数字 pid 文件', () => {
+        expect(hermesGatewayRunning(home(`${process.pid}\n`))).toBe(true);
+    });
+    it('进程已退出 / 文件缺失 / kind 不符 / 内容无效 → false', () => {
+        expect(hermesGatewayRunning(home(JSON.stringify({ pid: deadPid(), kind: 'hermes-gateway' })))).toBe(false);
+        expect(hermesGatewayRunning(home())).toBe(false);
+        expect(hermesGatewayRunning(home(JSON.stringify({ pid: process.pid, kind: 'something-else' })))).toBe(false);
+        expect(hermesGatewayRunning(home('not a pid'))).toBe(false);
+        expect(hermesGatewayRunning(home(JSON.stringify({ pid: -1, kind: 'hermes-gateway' })))).toBe(false);
     });
 });

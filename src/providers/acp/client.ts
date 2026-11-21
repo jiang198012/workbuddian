@@ -471,7 +471,8 @@ export class AcpClient {
                 : { command: this.scriptPath, args: acpArgs, shell: needsWindowsShell(this.scriptPath) };
             let proc: ReturnType<typeof spawn>;
             try {
-                proc = spawn(command, args, { shell });
+                // windowsHide：经 cmd.exe 启动 .cmd 包装器时不闪控制台窗口（#15）
+                proc = spawn(command, args, { shell, windowsHide: true });
             } catch (e) {
                 reject(new AcpStartError('cli-not-found', String(e)));
                 return;
