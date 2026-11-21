@@ -186,7 +186,7 @@ export function isOfficialCodebuddyCli(scriptPath: string): boolean {
 }
 
 /** 识别 WorkBuddy 内置 CLI，兼容符号链接和带产品标识的自定义安装目录。 */
-function isWorkbuddyBundledCli(scriptPath: string): boolean {
+export function isWorkbuddyBundledCli(scriptPath: string): boolean {
     let realPath = scriptPath;
     try { realPath = fs.realpathSync(scriptPath); } catch { /* 尚未安装或 PATH 裸命令 */ }
     if (/[\\/]WorkBuddy(?:\.app[\\/]Contents)?[\\/]Resources[\\/]app\.asar\.unpacked[\\/]cli[\\/]/i.test(realPath)) return true;

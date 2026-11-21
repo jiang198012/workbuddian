@@ -141,6 +141,8 @@ var init_i18n = __esm({
       "login.success": { zh: "CodeBuddy \u767B\u5F55\u6210\u529F\uFF0C\u6B63\u5728\u91CD\u8FDE\u2026", en: "Signed in to CodeBuddy. Reconnecting\u2026" },
       "login.failed": { zh: "\u767B\u5F55\u5931\u8D25\uFF1A", en: "Sign-in failed: " },
       "login.needOfficial": { zh: "\u6CA1\u6709\u68C0\u6D4B\u5230\u5B98\u65B9 CodeBuddy CLI\u3002\u8BF7\u5148\u5B89\u88C5\uFF1Anpm i -g @tencent-ai/codebuddy-code\uFF0C\u6216\u5728\u8BBE\u7F6E\u91CC\u628A CLI \u8DEF\u5F84\u6307\u5411\u5B98\u65B9 CLI\u3002", en: "Official CodeBuddy CLI not found. Install it (npm i -g @tencent-ai/codebuddy-code) or point the CLI path setting at the official CLI." },
+      "login.workbuddyBundled": { zh: "\u5F53\u524D\u4F7F\u7528\u7684\u662F WorkBuddy \u5185\u7F6E CLI\uFF1A\u5B83\u76F4\u63A5\u590D\u7528 WorkBuddy \u684C\u9762\u7AEF\u5DF2\u767B\u5F55\u7684\u8D26\u53F7\uFF0C\u4E0D\u9700\u8981\u4E5F\u4E0D\u652F\u6301\u5728\u8FD9\u91CC\u767B\u5F55 CodeBuddy\u3002\u8BF7\u786E\u8BA4 WorkBuddy \u684C\u9762\u7AEF\u5DF2\u6253\u5F00\u5E76\u767B\u5F55\u540E\u91CD\u8BD5\u3002\u5982\u679C\u60F3\u6539\u7528 CodeBuddy \u8D26\u53F7\uFF0C\u8BF7\u5B89\u88C5\u5B98\u65B9 CLI\uFF08npm i -g @tencent-ai/codebuddy-code\uFF09\uFF0C\u6216\u5728\u8BBE\u7F6E\u91CC\u628A CLI \u8DEF\u5F84\u6307\u5411\u5B98\u65B9 CLI\u3002", en: "You are using the CLI bundled with WorkBuddy. It reuses the account signed in to the WorkBuddy desktop app, so signing in to CodeBuddy here is neither needed nor supported. Make sure the WorkBuddy desktop app is open and signed in, then retry. To use a CodeBuddy account instead, install the official CLI (npm i -g @tencent-ai/codebuddy-code) or point the CLI path setting at it." },
+      "login.close": { zh: "\u5173\u95ED", en: "Close" },
       "login.noVault": { zh: "\u65E0\u6CD5\u83B7\u53D6 Vault \u8DEF\u5F84\uFF0C\u767B\u5F55\u670D\u52A1\u672A\u542F\u52A8\u3002", en: "Could not resolve the vault path; the sign-in service was not started." },
       "settings.node": { zh: "\u624B\u52A8\u6307\u5B9A Node.js \u8DEF\u5F84", en: "Node.js path (manual)" },
       "settings.nodeDesc": { zh: "\u7559\u7A7A\u5219\u81EA\u52A8\u63A2\u6D4B\u3002\u5982\u679C\u81EA\u52A8\u63A2\u6D4B\u5931\u8D25\uFF08\u4F8B\u5982\u975E\u6807\u51C6\u5B89\u88C5\u8DEF\u5F84\uFF09\uFF0C\u53EF\u4EE5\u5728\u8FD9\u91CC\u624B\u52A8\u6307\u5B9A node \u53EF\u6267\u884C\u6587\u4EF6\u7684\u5B8C\u6574\u8DEF\u5F84", en: "Leave empty to auto-detect. If detection fails (e.g. non-standard install), set the full path to the node executable here." },
@@ -9208,6 +9210,13 @@ var import_obsidian12 = require("obsidian");
 var import_child_process6 = require("child_process");
 var import_http3 = require("http");
 var import_fs4 = require("fs");
+function codebuddyLoginSupport(cliPath) {
+  if (!cliPath.trim())
+    return "missing";
+  if (isOfficialCodebuddyCli(cliPath))
+    return "official";
+  return isWorkbuddyBundledCli(cliPath) ? "workbuddy" : "missing";
+}
 var DEFAULT_START_TIMEOUT_MS = 3e4;
 var DEFAULT_POLL_INTERVAL_MS = 2e3;
 var DEFAULT_LOGIN_TIMEOUT_MS = 10 * 6e4;
@@ -9571,21 +9580,17 @@ var CodebuddyLoginModal = class extends import_obsidian12.Modal {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.createEl("h2", { text: t("login.title") });
+    const cli = resolveCodebuddyPath(this.plugin.settings.codebuddyPath);
+    const support = codebuddyLoginSupport(cli);
+    if (support !== "official") {
+      contentEl.createEl("p", { text: t(support === "workbuddy" ? "login.workbuddyBundled" : "login.needOfficial") });
+      contentEl.createDiv({ cls: "wb-login-actions" }).createEl("button", { text: t("login.close") }).onclick = () => this.close();
+      return;
+    }
     contentEl.createEl("p", { text: t("login.desc") });
     this.statusEl = contentEl.createEl("p", { cls: "wb-login-status", text: t("login.starting") });
     const actions = contentEl.createDiv({ cls: "wb-login-actions" });
-    this.openButton = actions.createEl("button", { text: t("login.open"), cls: "mod-cta" });
-    this.openButton.disabled = true;
-    this.openButton.onclick = () => {
-      if (this.server)
-        openExternal(this.server.url);
-    };
     actions.createEl("button", { text: t("login.cancel") }).onclick = () => this.close();
-    const cli = resolveCodebuddyPath(this.plugin.settings.codebuddyPath);
-    if (!cli || !isOfficialCodebuddyCli(cli)) {
-      this.setStatus(t("login.needOfficial"));
-      return;
-    }
     const vaultPath = this.app.vault.adapter.basePath;
     if (!vaultPath) {
       this.setStatus(t("login.noVault"));
@@ -9603,7 +9608,11 @@ var CodebuddyLoginModal = class extends import_obsidian12.Modal {
         this.server = null;
         return;
       }
-      this.openButton.disabled = false;
+      this.openButton = actions.createEl("button", { text: t("login.open"), cls: "mod-cta", prepend: true });
+      this.openButton.onclick = () => {
+        if (this.server)
+          openExternal(this.server.url);
+      };
       this.setStatus(t("login.waiting"));
       openExternal(this.server.url);
       await waitForCodebuddyLogin(this.server.endpoint, vaultPath, {

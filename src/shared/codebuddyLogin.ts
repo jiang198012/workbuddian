@@ -12,7 +12,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import { request as httpRequest } from 'http';
 import { statSync } from 'fs';
 import {
-    findNodeExecutable, isBareFallback, isWindowsWrapper, needsWindowsShell,
+    findNodeExecutable, isBareFallback, isOfficialCodebuddyCli, isWindowsWrapper, isWorkbuddyBundledCli, needsWindowsShell,
 } from '../utils/cliPath';
 import { WorkbuddyHostConnection } from '../providers/codebuddy/workbuddyHost';
 
@@ -35,6 +35,19 @@ export interface StartLoginServerOptions {
 }
 
 export type CodebuddyLoginProbe = 'authenticated' | 'auth-required' | 'unknown';
+
+/** 当前 CLI 能否走一键登录：official 可以；workbuddy 复用桌面端账号；missing 未检测到或无法识别 */
+export type CodebuddyLoginSupport = 'official' | 'workbuddy' | 'missing';
+
+/**
+ * 一键登录依赖官方 CLI 自带的 Web UI；WorkBuddy 内置 CLI 没有 Web UI，直接复用
+ * WorkBuddy 桌面端已登录的账号，不能也不需要在插件里登录（#17）。
+ */
+export function codebuddyLoginSupport(cliPath: string): CodebuddyLoginSupport {
+    if (!cliPath.trim()) return 'missing';
+    if (isOfficialCodebuddyCli(cliPath)) return 'official';
+    return isWorkbuddyBundledCli(cliPath) ? 'workbuddy' : 'missing';
+}
 
 const DEFAULT_START_TIMEOUT_MS = 30_000;
 const DEFAULT_POLL_INTERVAL_MS = 2_000;

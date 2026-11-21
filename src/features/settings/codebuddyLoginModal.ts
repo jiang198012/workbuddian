@@ -1,9 +1,9 @@
 import { App, Modal, Notice } from 'obsidian';
 import type WorkbuddianPlugin from '../../main';
 import { CodebuddyProvider } from '../../providers/codebuddy';
-import { isOfficialCodebuddyCli, resolveCodebuddyPath } from '../../utils/cliPath';
+import { resolveCodebuddyPath } from '../../utils/cliPath';
 import {
-    startCodebuddyLoginServer, waitForCodebuddyLogin, type CodebuddyLoginServer,
+    codebuddyLoginSupport, startCodebuddyLoginServer, waitForCodebuddyLogin, type CodebuddyLoginServer,
 } from '../../shared/codebuddyLogin';
 import { getErrorMessage } from '../../types';
 import { t } from '../../i18n';
@@ -56,20 +56,22 @@ export class CodebuddyLoginModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.createEl('h2', { text: t('login.title') });
-        contentEl.createEl('p', { text: t('login.desc') });
-        this.statusEl = contentEl.createEl('p', { cls: 'wb-login-status', text: t('login.starting') });
 
-        const actions = contentEl.createDiv({ cls: 'wb-login-actions' });
-        this.openButton = actions.createEl('button', { text: t('login.open'), cls: 'mod-cta' });
-        this.openButton.disabled = true;
-        this.openButton.onclick = () => { if (this.server) openExternal(this.server.url); };
-        actions.createEl('button', { text: t('login.cancel') }).onclick = () => this.close();
-
+        // 不能一键登录时只给说明和关闭：不显示“浏览器会自动打开”和永远点不动的按钮（#17）
         const cli = resolveCodebuddyPath(this.plugin.settings.codebuddyPath);
-        if (!cli || !isOfficialCodebuddyCli(cli)) {
-            this.setStatus(t('login.needOfficial'));
+        const support = codebuddyLoginSupport(cli);
+        if (support !== 'official') {
+            contentEl.createEl('p', { text: t(support === 'workbuddy' ? 'login.workbuddyBundled' : 'login.needOfficial') });
+            contentEl.createDiv({ cls: 'wb-login-actions' })
+                .createEl('button', { text: t('login.close') }).onclick = () => this.close();
             return;
         }
+
+        contentEl.createEl('p', { text: t('login.desc') });
+        this.statusEl = contentEl.createEl('p', { cls: 'wb-login-status', text: t('login.starting') });
+        const actions = contentEl.createDiv({ cls: 'wb-login-actions' });
+        actions.createEl('button', { text: t('login.cancel') }).onclick = () => this.close();
+
         const vaultPath = (this.app.vault.adapter as { basePath?: string }).basePath;
         if (!vaultPath) { this.setStatus(t('login.noVault')); return; }
 
@@ -82,7 +84,9 @@ export class CodebuddyLoginModal extends Modal {
             });
             if (this.closed) { await this.server.dispose(); this.server = null; return; }
 
-            this.openButton.disabled = false;
+            // 登录服务就绪后才出现“重新打开登录页”，此前没有可打开的页面
+            this.openButton = actions.createEl('button', { text: t('login.open'), cls: 'mod-cta', prepend: true });
+            this.openButton.onclick = () => { if (this.server) openExternal(this.server.url); };
             this.setStatus(t('login.waiting'));
             openExternal(this.server.url); // 自动弹浏览器；按钮作为兜底
 

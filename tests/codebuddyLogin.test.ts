@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'http';
 import type { AddressInfo } from 'net';
-import { exchangeLoginToken, parseLoginServerOutput, waitForCodebuddyLogin } from '../src/shared/codebuddyLogin';
+import { codebuddyLoginSupport, exchangeLoginToken, parseLoginServerOutput, waitForCodebuddyLogin } from '../src/shared/codebuddyLogin';
 
 describe('CodeBuddy 一键登录', () => {
     it('从 CLI 输出解析 endpoint / Web UI（容忍 ANSI 颜色）', () => {
@@ -109,5 +109,32 @@ describe('exchangeLoginToken', () => {
         response = { success: false };
         await expect(exchangeLoginToken(endpoint, `${endpoint}/?password=bad`))
             .rejects.toThrow(/鉴权失败/);
+    });
+});
+
+describe('codebuddyLoginSupport (#17)', () => {
+    const { mkdtempSync, mkdirSync, writeFileSync } = require('fs') as typeof import('fs');
+    const { join } = require('path') as typeof import('path');
+    const { tmpdir } = require('os') as typeof import('os');
+    // 模拟 <安装目录>/bin/codebuddy + <安装目录>/product.json 的 CLI 布局
+    const cliWithProduct = (product: object | null): string => {
+        const root = mkdtempSync(join(tmpdir(), 'cb-login-'));
+        mkdirSync(join(root, 'bin'));
+        writeFileSync(join(root, 'bin', 'codebuddy'), '');
+        if (product) writeFileSync(join(root, 'product.json'), JSON.stringify(product));
+        return join(root, 'bin', 'codebuddy');
+    };
+
+    it('官方 CLI（自带 Web UI）→ official，可以一键登录', () => {
+        expect(codebuddyLoginSupport(cliWithProduct({ productName: 'CodeBuddy' }))).toBe('official');
+    });
+    it('WorkBuddy 内置 CLI → workbuddy：复用桌面端账号，不走一键登录', () => {
+        expect(codebuddyLoginSupport(cliWithProduct({ productName: 'WorkBuddy' }))).toBe('workbuddy');
+        expect(codebuddyLoginSupport(cliWithProduct({ authentication: { id: 'workbuddy-desktop' } }))).toBe('workbuddy');
+    });
+    it('未检测到 CLI 或无法识别的 CLI → missing', () => {
+        expect(codebuddyLoginSupport('')).toBe('missing');
+        expect(codebuddyLoginSupport(cliWithProduct(null))).toBe('missing');
+        expect(codebuddyLoginSupport(cliWithProduct({ productName: 'Other' }))).toBe('missing');
     });
 });
