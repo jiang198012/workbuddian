@@ -38,7 +38,7 @@ export interface TurnHandlers {
 export type SessionStatus = 'idle' | 'loading' | 'prompting' | 'awaitingPermission';
 
 /** provider 级当前配置；对象引用在 provider/registry/各 session 间共享，改字段即对新会话生效 */
-export interface SessionConfig { model: string; mode: string; mcpServers?: unknown[]; thoughtLevel?: string }
+export interface SessionConfig { model: string; mode: string; mcpServers?: unknown[]; thoughtLevel?: string; /** 会话当前模型（session/new|load 返回），用于跳过同模型 set_model */ currentModel?: string }
 
 /** 单次消息可覆盖的会话配置；全局 provider 配置仍作为默认值。 */
 export type SessionConfigOverride = Partial<Pick<SessionConfig, 'model' | 'mode' | 'thoughtLevel'>>;
@@ -153,7 +153,9 @@ export class AcpSession {
         if (!sessionId) return;
         const config = { ...this.config, ...this.configOverride };
         try {
-            if (config.model) {
+            // 选择“当前已生效的模型”时不要重发 set_model：Hermes 对同模型 set_model
+            // 后首个 prompt 会 admitted_turn_failed（2026-10-30 本机实证）。
+            if (config.model && config.model !== config.currentModel) {
                 await this.profile.applyRemoteModel(this.client, sessionId, config.model);
             }
         } catch (e) {

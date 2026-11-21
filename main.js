@@ -1905,6 +1905,7 @@ async function startWorkbuddyNative(configDir, scriptPath, cwd, command, args, s
   const active = /* @__PURE__ */ new Set();
   const nonce = (0, import_crypto3.randomBytes)(32).toString("hex");
   const nonceBytes = Buffer.from(`Bearer ${nonce}`);
+  const gatewayPassword = (0, import_crypto3.randomBytes)(32).toString("hex");
   const server = (0, import_http2.createServer)(async (req, res) => {
     var _a, _b, _c;
     const controller = new AbortController();
@@ -2078,7 +2079,7 @@ async function startWorkbuddyNative(configDir, scriptPath, cwd, command, args, s
       CODEBUDDY_MAX_RETRIES: "0",
       CODEBUDDY_RETRY_WATCHDOG: "0",
       CODEBUDDY_GATEWAY_AUTH: "password",
-      CODEBUDDY_GATEWAY_PASSWORD: (0, import_crypto3.randomBytes)(32).toString("hex"),
+      CODEBUDDY_GATEWAY_PASSWORD: gatewayPassword,
       CODEBUDDY_GATEWAY_DISABLE_API_DOCS: "1",
       SERVER__PORT: "0",
       SERVER__HOST: "127.0.0.1",
@@ -2154,7 +2155,7 @@ async function startWorkbuddyNative(configDir, scriptPath, cwd, command, args, s
       throw cancelled();
     if (connectionError)
       throw connectionError;
-    return { endpoint: result, dispose };
+    return { endpoint: result, authToken: gatewayPassword, dispose };
   } catch (error) {
     try {
       await dispose();
@@ -2448,6 +2449,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
     if ((signal == null ? void 0 : signal.aborted) || disposing)
       throw new Error("WorkBuddy worker creation cancelled");
     const runtime = installedRuntime(scriptPath);
+    const gatewayPassword = (0, import_crypto4.randomBytes)(32).toString("hex");
     submitted = true;
     const result = await rpc("session.create", {
       sessionId: ownedId,
@@ -2469,7 +2471,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
         ANTHROPIC_API_KEY: "",
         OPENAI_API_KEY: "",
         CODEBUDDY_GATEWAY_AUTH: "password",
-        CODEBUDDY_GATEWAY_PASSWORD: (0, import_crypto4.randomBytes)(32).toString("hex"),
+        CODEBUDDY_GATEWAY_PASSWORD: gatewayPassword,
         CODEBUDDY_GATEWAY_DISABLE_API_DOCS: "1",
         DISABLE_AUTOUPDATER: "1"
       }
@@ -2484,7 +2486,7 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
     }
     if ((signal == null ? void 0 : signal.aborted) || disposing)
       throw new Error("WorkBuddy worker creation cancelled");
-    return { endpoint: endpoint.origin, dispose };
+    return { endpoint: endpoint.origin, authToken: gatewayPassword, dispose };
   } catch (error) {
     try {
       await dispose();
@@ -2834,7 +2836,9 @@ var AcpClient = class {
           if (this.generation === generation)
             this.handleLine(JSON.stringify(message));
         },
-        (error) => this.hostDisconnected(error, generation)
+        (error) => this.hostDisconnected(error, generation),
+        // worker 网关启用了密码鉴权；不带同一密码的 Bearer 会被 CLI 以 HTTP 401 拒绝（#19）。
+        { Authorization: `Bearer ${runtime.authToken}` }
       );
       if (this.generation !== generation) {
         await host.dispose().catch(() => {
@@ -2937,13 +2941,14 @@ var AcpClient = class {
     this.events.onAgentNotification(method, params);
   }
   reportModels(result) {
-    var _a;
-    const models = (_a = result == null ? void 0 : result.models) == null ? void 0 : _a.availableModels;
+    const payload = result == null ? void 0 : result.models;
+    const models = payload == null ? void 0 : payload.availableModels;
+    const currentModelId = typeof (payload == null ? void 0 : payload.currentModelId) === "string" && payload.currentModelId ? payload.currentModelId : void 0;
     if (Array.isArray(models) && models.length) {
       this.events.onModels(models.filter((m) => m.modelId != null && String(m.modelId) !== "").map((m) => ({
         id: String(m.modelId),
         ...typeof m.name === "string" && m.name ? { name: m.name } : {}
-      })));
+      })), currentModelId);
     }
   }
   spawnAndHandshake() {
@@ -3352,7 +3357,7 @@ var AcpSession = class {
       return;
     const config = { ...this.config, ...this.configOverride };
     try {
-      if (config.model) {
+      if (config.model && config.model !== config.currentModel) {
         await this.profile.applyRemoteModel(this.client, sessionId, config.model);
       }
     } catch (e) {
@@ -3780,7 +3785,7 @@ var AcpProvider = class {
       onSessionUpdate: (acpSessionId, update) => this.routeSessionUpdate(acpSessionId, update),
       onPermissionRequest: (requestId, params) => this.routePermissionRequest(requestId, params),
       onAgentNotification: (method) => bbLog("[WB] acp \u901A\u77E5:", method),
-      onModels: (models) => this.onModels(models),
+      onModels: (models, currentModelId) => this.onModels(models, currentModelId),
       onExit: (code, signal) => this.handleProcessExit(code, signal)
     }, profile);
     this.registry = new SessionRegistry(
@@ -3836,7 +3841,7 @@ var AcpProvider = class {
     if (this.modelRefreshPromise)
       return this.modelRefreshPromise;
     this.modelRefreshPromise = (async () => {
-      var _a;
+      var _a, _b;
       try {
         await this.client.ensureStarted(cwd);
         const result = await this.client.enqueuePrompt(async () => {
@@ -3847,13 +3852,14 @@ var AcpProvider = class {
           return discovered;
         });
         const raw = (_a = result == null ? void 0 : result.models) == null ? void 0 : _a.availableModels;
+        const currentModelId = typeof ((_b = result == null ? void 0 : result.models) == null ? void 0 : _b.currentModelId) === "string" && result.models.currentModelId ? result.models.currentModelId : void 0;
         const models = Array.isArray(raw) ? raw.filter((m) => (m == null ? void 0 : m.modelId) != null && String(m.modelId) !== "").map((m) => ({
           id: String(m.modelId),
           ...typeof m.name === "string" && m.name ? { name: m.name } : {}
         })) : [];
         if (!models.length)
           throw new Error("Empty model catalog");
-        this.onModels(models);
+        this.onModels(models, currentModelId);
       } catch (e) {
         throw new Error(t("model.catalogUnavailable"));
       } finally {
@@ -3863,10 +3869,12 @@ var AcpProvider = class {
     return this.modelRefreshPromise;
   }
   /** client onModels 事件入口：子类可覆写以保留更多字段（默认也保留 name） */
-  onModels(models) {
+  onModels(models, currentModelId) {
     const valid = models.filter((m) => m.id.length > 0);
     if (!valid.length)
       return;
+    if (currentModelId)
+      this.config.currentModel = currentModelId;
     this.modelPairs = valid;
     this.availableModels = valid.map((m) => m.id);
     this.modelDiscoveryComplete = valid.length > 0;
@@ -4163,6 +4171,7 @@ var AcpProvider = class {
   handleProcessExit(code, signal) {
     bbLog("[WB] acp \u8FDB\u7A0B\u9000\u51FA:", code, signal);
     this.modelDiscoveryComplete = false;
+    this.config.currentModel = "";
     this.availableModels = [...this.profile.fallbackModels];
     this.modelPairs = this.availableModels.map((id) => ({ id }));
     for (const s of this.registry.all()) {
@@ -4287,6 +4296,22 @@ var HermesAcpProvider = class extends AcpProvider {
   /** hermes acp 无 --agents 旗标：空操作（main.ts 会无条件灌 customAgentsJson） */
   setCustomAgentsJson(_json) {
   }
+  /**
+   * ACP 会把同一底座模型按 provider 别名重复返回（如 deepseek-hermes:deepseek-flash、
+   * deepseek:deepseek-flash、custom:deepseek-hermes:deepseek-flash）。菜单按底座模型去重，
+   * 优先保留当前模型（auto 时）或用户已选条目，避免 5 个条目实际只有 2 个模型。
+   */
+  onModels(models, currentModelId) {
+    const preferred = this.config.model && this.config.model !== "auto" ? this.config.model : currentModelId;
+    const groups = /* @__PURE__ */ new Map();
+    for (const model of models) {
+      const base = model.id.includes(":") ? model.id.slice(model.id.lastIndexOf(":") + 1) : model.id;
+      const kept = groups.get(base);
+      if (!kept || preferred && model.id === preferred)
+        groups.set(base, model);
+    }
+    super.onModels([...groups.values()], currentModelId);
+  }
   /** 路由器灌入：自定义 CLI 路径（--check 探测与 spawn 同一路径来源） */
   setCliPath(p) {
     this.client.setCliPath(p);
@@ -4340,12 +4365,19 @@ var HermesHttpProvider = class {
       });
       if (res.ok) {
         const data = await res.json();
-        const providers = (_a = data == null ? void 0 : data.providers) != null ? _a : [];
-        const current = (_b = providers.find((p) => p.is_current)) != null ? _b : providers.find((p) => Array.isArray(p.models) && p.models.length);
-        const models = (_c = current == null ? void 0 : current.models) != null ? _c : [];
-        const ids = models.filter((m) => typeof m === "string");
-        if (ids.length)
-          return ids;
+        const providers = Array.isArray(data.providers) ? data.providers : [];
+        const currentModel = typeof data.model === "string" ? data.model : "";
+        const currentProvider = typeof data.provider === "string" ? data.provider : "";
+        const idsOf = (provider) => (Array.isArray(provider.models) ? provider.models : []).filter((m) => typeof m === "string");
+        const hasModels = (provider) => idsOf(provider).length > 0;
+        const current = (_c = (_b = (_a = providers.find((p) => p.is_current === true && hasModels(p))) != null ? _a : providers.find((p) => p.slug === currentProvider && hasModels(p))) != null ? _b : currentModel ? providers.find((p) => p.authenticated !== false && hasModels(p) && idsOf(p).includes(currentModel)) : void 0) != null ? _c : currentModel ? providers.find((p) => hasModels(p) && idsOf(p).includes(currentModel)) : void 0;
+        if (current) {
+          const ids = idsOf(current);
+          if (ids.length)
+            return ids;
+        }
+        if (currentModel)
+          return [currentModel];
       }
     } catch (e) {
       bbLog("[WB] hermes /api/model/options \u5931\u8D25,\u56DE\u9000 /v1/models:", e);
@@ -4749,6 +4781,14 @@ var HermesProvider = class {
   }
   forkSession(k, n, v) {
     return this.active().forkSession(k, n, v);
+  }
+  /** 主动刷新模型目录：ACP 用 session/new 的真实目录，HTTP 用 gateway 当前 provider 的 models。 */
+  async refreshAvailableModels(vaultPath = "") {
+    await this.init();
+    if (this.modeValue === "acp")
+      await this.acp.refreshAvailableModels(vaultPath);
+    else
+      await this.http.refreshModels();
   }
   async testConnection() {
     await this.init();
@@ -6769,7 +6809,7 @@ function updateModelButton(view, btn, id) {
 }
 async function openModelMenu(view, btn) {
   let catalogFailed = false;
-  if (view.api instanceof CodebuddyProvider) {
+  if (view.api instanceof CodebuddyProvider || view.api instanceof HermesProvider) {
     try {
       await view.api.refreshAvailableModels(view.vaultPath);
     } catch (e) {
@@ -10017,6 +10057,8 @@ var WorkbuddianPlugin = class extends import_obsidian15.Plugin {
       this.api.setGateway(this.settings.hermesGatewayUrl, this.settings.hermesApiKey);
       this.api.setHermesCliPath(this.settings.hermesCliPath);
       void this.api.init();
+      const vaultPath = this.app.vault.adapter.basePath;
+      void this.api.refreshAvailableModels(vaultPath).then(() => this.refreshOpenViews()).catch(() => bbError("[WB] Hermes \u6A21\u578B\u76EE\u5F55\u52A0\u8F7D\u5931\u8D25"));
     }
   }
   /** 复用已有 leaf 或新建目标 leaf，然后 reveal + focus；失败给分级 Notice */

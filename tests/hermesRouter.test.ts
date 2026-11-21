@@ -1,4 +1,5 @@
 import { HermesProvider } from '../src/providers/hermes';
+import { HermesAcpProvider } from '../src/providers/hermes/acpProvider';
 
 // mock 两个内部 provider 与 CLI 探测
 jest.mock('../src/providers/hermes/acpProvider', () => ({
@@ -28,6 +29,7 @@ function contractStub() {
         onPermissionRequest: jest.fn(), onUsage: jest.fn(), onConfigUpdate: jest.fn(),
         respondPermission: jest.fn(), rejectPendingPermissions: jest.fn(),
         cancel: jest.fn(), dispose: jest.fn(), getAvailableModels: jest.fn(() => []),
+        refreshAvailableModels: jest.fn(async () => {}), refreshModels: jest.fn(async () => {}),
         getScriptPath: jest.fn(() => ''), generateId: jest.fn(() => 'id'),
         forkSession: jest.fn(async () => 'forked'), testConnection: jest.fn(async () => ({ ok: true })),
     };
@@ -93,6 +95,17 @@ describe('HermesProvider 路由器', () => {
         expect(execFileMock).toHaveBeenCalled();
         expect(p.mode).toBe('acp');
     });
+    it('refreshAvailableModels 在 ACP 模式刷新真实目录', async () => {
+        execFileMock.mockImplementation((_c: string, _a: string[], _o: object, cb: Function) => cb(null, 'ok', ''));
+        const p = new HermesProvider();
+        p.setGateway('http://127.0.0.1:8642', 'key');
+        await p.init();
+        await p.refreshAvailableModels('/vault');
+        const instances = (HermesAcpProvider as unknown as jest.Mock).mock.results;
+        const acp = instances[instances.length - 1].value;
+        expect(acp.refreshAvailableModels).toHaveBeenCalledWith('/vault');
+    });
+
     it('Windows .cmd 自检使用 shell 并放宽超时', async () => {
         resolveHermesMock.mockReturnValue('C:\\hermes\\bin\\hermes.cmd');
         windowsShellMock.mockReturnValue(true);

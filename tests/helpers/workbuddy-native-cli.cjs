@@ -10,7 +10,14 @@ const cliModels = product.agents?.find(agent => agent.name === 'cli')?.models ||
 const availableModels = cliModels.map(id => product.models?.find(model => model.id === id)).filter(Boolean)
     .map(model => ({ modelId: model.id, name: model.name || model.id }));
 let modelId = availableModels[0]?.modelId || 'auto';
+// 与 WorkBuddy 5.11.3 内置 CLI 2.176.0 一致：网关密码模式下所有 /api/v1/acp* 请求都要 Bearer <网关密码>（#19）。
+const gatewayPassword = process.env.CODEBUDDY_GATEWAY_AUTH === 'password' ? process.env.CODEBUDDY_GATEWAY_PASSWORD || '' : '';
 const server = http.createServer(async (req, res) => {
+    if (gatewayPassword && req.headers.authorization !== 'Bearer ' + gatewayPassword) {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32001, message: 'Authentication required' }, id: null }));
+        return;
+    }
     if (req.url === '/api/v1/acp/connect') {
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ connectionId: 'fixture', sessionToken: token }));

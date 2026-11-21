@@ -47,6 +47,40 @@ describe('HermesHttpProvider (MVP)', () => {
         expect((await gen.next()).done).toBe(true); // 完成生成器，执行 finally 清除超时器
     });
 
+    it('lists models from the current provider instead of the first provider with models', async () => {
+        const p = new HermesHttpProvider();
+        globalThis.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({
+            model: 'deepseek-flash', provider: 'deepseek-hermes',
+            providers: [
+                { slug: 'copilot', is_current: false, authenticated: true, models: ['gpt-5.6-sol', 'claude-opus-5'] },
+                { slug: 'deepseek', is_current: false, authenticated: true, models: ['deepseek-flash', 'deepseek-v4-pro'] },
+                { slug: 'kimi-for-coding', is_current: false, authenticated: true, models: ['kimi-k3'] },
+            ],
+        }), { status: 200, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch;
+        await expect(p.listModels()).resolves.toEqual(['deepseek-flash', 'deepseek-v4-pro']);
+    });
+
+    it('prefers is_current provider when the gateway exposes it', async () => {
+        const p = new HermesHttpProvider();
+        globalThis.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({
+            model: 'x', provider: '',
+            providers: [
+                { slug: 'copilot', is_current: false, models: ['gpt-5.6-sol'] },
+                { slug: 'deepseek', is_current: true, models: ['deepseek-flash'] },
+            ],
+        }), { status: 200, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch;
+        await expect(p.listModels()).resolves.toEqual(['deepseek-flash']);
+    });
+
+    it('falls back to the top-level current model when no provider entry matches', async () => {
+        const p = new HermesHttpProvider();
+        globalThis.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({
+            model: 'deepseek-flash', provider: 'custom-profile',
+            providers: [{ slug: 'copilot', is_current: false, models: ['gpt-5.6-sol'] }],
+        }), { status: 200, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch;
+        await expect(p.listModels()).resolves.toEqual(['deepseek-flash']);
+    });
+
     it('testConnection ok on 200', async () => {
         const p = new HermesHttpProvider();
         globalThis.fetch = jest.fn().mockResolvedValue(new Response('{"data":[]}', { status: 200 })) as unknown as typeof fetch;

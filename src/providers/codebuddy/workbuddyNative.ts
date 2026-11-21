@@ -100,7 +100,7 @@ async function accountBroker(configDir: string, runtime: ReturnType<typeof insta
 
 /** 无连接扩展时使用宿主 WBIPC 委托账号请求；账号凭据始终由宿主保管。 */
 export async function startWorkbuddyNative(configDir: string, scriptPath: string, cwd: string, command: string,
-    args: string[], signal?: AbortSignal): Promise<{ endpoint: string; dispose(): Promise<void> }> {
+    args: string[], signal?: AbortSignal): Promise<{ endpoint: string; authToken: string; dispose(): Promise<void> }> {
     if (signal?.aborted) throw cancelled();
     let proc: ReturnType<typeof spawn> | undefined;
     let broker: WorkbuddyBroker | undefined;
@@ -113,6 +113,8 @@ export async function startWorkbuddyNative(configDir: string, scriptPath: string
     const active = new Set<AbortController>();
     const nonce = randomBytes(32).toString('hex');
     const nonceBytes = Buffer.from(`Bearer ${nonce}`);
+    // 内置 CLI 网关密码：CLI 对 /api/v1/acp* 校验 Bearer，必须交还调用方（#19）。
+    const gatewayPassword = randomBytes(32).toString('hex');
     const server = createServer(async (req, res) => {
         const controller = new AbortController();
         active.add(controller);
@@ -216,7 +218,7 @@ export async function startWorkbuddyNative(configDir: string, scriptPath: string
             CODEBUDDY_DISABLE_PRODUCT_CACHE: '1', CODEBUDDY_DISABLE_CUSTOM_MODELS_FILE: '1',
             CODEBUDDY_API_KEY_DISABLED: '1', CODEBUDDY_API_KEY_HELPER_DISABLED: '1',
             CODEBUDDY_MAX_RETRIES: '0', CODEBUDDY_RETRY_WATCHDOG: '0',
-            CODEBUDDY_GATEWAY_AUTH: 'password', CODEBUDDY_GATEWAY_PASSWORD: randomBytes(32).toString('hex'),
+            CODEBUDDY_GATEWAY_AUTH: 'password', CODEBUDDY_GATEWAY_PASSWORD: gatewayPassword,
             CODEBUDDY_GATEWAY_DISABLE_API_DOCS: '1', SERVER__PORT: '0', SERVER__HOST: '127.0.0.1',
             DISABLE_AUTOUPDATER: '1', DISABLE_TELEMETRY: '1',
             ACC_PRODUCT_CONFIG_V3: JSON.stringify({ ...modelConfig, endpoint: origin, networkEnvironment: 'external',
@@ -261,7 +263,7 @@ export async function startWorkbuddyNative(configDir: string, scriptPath: string
         const result = await endpoint;
         if (signal?.aborted) throw cancelled();
         if (connectionError) throw connectionError;
-        return { endpoint: result, dispose };
+        return { endpoint: result, authToken: gatewayPassword, dispose };
     } catch (error) {
         try { await dispose(); }
         catch { throw Object.assign(new Error('WorkBuddy own worker cleanup could not be confirmed'), { workbuddyCleanup: dispose }); }

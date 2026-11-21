@@ -11,6 +11,22 @@ export class HermesAcpProvider extends AcpProvider {
     /** hermes acp 无 --agents 旗标：空操作（main.ts 会无条件灌 customAgentsJson） */
     setCustomAgentsJson(_json: string): void {}
 
+    /**
+     * ACP 会把同一底座模型按 provider 别名重复返回（如 deepseek-hermes:deepseek-flash、
+     * deepseek:deepseek-flash、custom:deepseek-hermes:deepseek-flash）。菜单按底座模型去重，
+     * 优先保留当前模型（auto 时）或用户已选条目，避免 5 个条目实际只有 2 个模型。
+     */
+    protected onModels(models: Array<{ id: string; name?: string }>, currentModelId?: string): void {
+        const preferred = this.config.model && this.config.model !== 'auto' ? this.config.model : currentModelId;
+        const groups = new Map<string, { id: string; name?: string }>();
+        for (const model of models) {
+            const base = model.id.includes(':') ? model.id.slice(model.id.lastIndexOf(':') + 1) : model.id;
+            const kept = groups.get(base);
+            if (!kept || (preferred && model.id === preferred)) groups.set(base, model);
+        }
+        super.onModels([...groups.values()], currentModelId);
+    }
+
     /** 路由器灌入：自定义 CLI 路径（--check 探测与 spawn 同一路径来源） */
     setCliPath(p: string): void { this.client.setCliPath(p); }
 

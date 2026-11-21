@@ -147,6 +147,8 @@ describe('WorkBuddy owned sidecar worker', () => {
             CODEBUDDY_GATEWAY_AUTH: 'password', CODEBUDDY_GATEWAY_DISABLE_API_DOCS: '1',
         });
         expect(params.env.CODEBUDDY_GATEWAY_PASSWORD).toMatch(/^[a-f0-9]{64}$/);
+        // #19：调用方需用同一网关密码作 Bearer 才能连上 worker 的 ACP 端点。
+        expect(worker?.authToken).toBe(params.env.CODEBUDDY_GATEWAY_PASSWORD);
         expect(JSON.stringify(params)).not.toContain('never-copy-this-test-token');
         await worker!.dispose();
         await worker!.dispose();

@@ -79,7 +79,8 @@ describe('WorkBuddy first use without a connection extension', () => {
         const pending = new Map<number, { resolve(value: any): void; reject(error: Error): void }>();
         host = await WorkbuddyHostConnection.connect(worker!.endpoint, message => {
             pending.get(message.id as number)?.resolve(message.result); pending.delete(message.id as number);
-        }, error => { for (const entry of pending.values()) entry.reject(error); pending.clear(); });
+        }, error => { for (const entry of pending.values()) entry.reject(error); pending.clear(); },
+        { Authorization: `Bearer ${worker!.authToken}` });
         let id = 0;
         return async (method: string, params: Record<string, unknown>) => {
             const current = ++id;
@@ -116,6 +117,10 @@ describe('WorkBuddy first use without a connection extension', () => {
         expect(fs.existsSync(path.join(broker.configDir, 'extensions'))).toBe(false);
         worker = await startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']);
         expect(worker?.endpoint).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+        expect(worker?.authToken).toMatch(/^[a-f0-9]{64}$/);
+        // #19：内置 CLI 网关启用密码鉴权，不带 worker 网关密码的连接必须被拒。
+        await expect(WorkbuddyHostConnection.connect(worker!.endpoint, () => {}, () => {}))
+            .rejects.toThrow('WorkBuddy HTTP 401');
         const rpc = await rpcConnection();
         expect(await rpc('initialize', { protocolVersion: 1 })).toMatchObject({ protocolVersion: 1 });
         const session = await rpc('session/new', { cwd, mcpServers: [] });

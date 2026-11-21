@@ -157,6 +157,25 @@ describe('AcpClient codec & dispatch', () => {
         });
     });
 
+    it('passes currentModelId from session/new to onModels (#Hermes)', async () => {
+        const { proc, emitJson } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client, events } = makeClient();
+        await startClient(client, emitJson);
+        const req = client.request('session/new', { cwd: '/v', mcpServers: [] });
+        emitJson({ jsonrpc: '2.0', id: 2, result: {
+            sessionId: 's1',
+            models: { availableModels: [{ modelId: 'deepseek-hermes:deepseek-flash', name: 'flash' }],
+                currentModelId: 'deepseek-hermes:deepseek-flash' },
+        } });
+        await expect(req).resolves.toBeDefined();
+        expect(events.onModels).toHaveBeenCalledWith(
+            [{ id: 'deepseek-hermes:deepseek-flash', name: 'flash' }],
+            'deepseek-hermes:deepseek-flash',
+        );
+        client.dispose();
+    });
+
     it('rejects pending request on JSON-RPC error response', async () => {
         const { proc, emitJson } = createFakeProc();
         mockedSpawn.mockReturnValue(proc as any);
@@ -279,11 +298,11 @@ describe('AcpClient codec & dispatch', () => {
         emitJson({
             jsonrpc: '2.0', id: 2, result: {
                 sessionId: 's1',
-                models: { availableModels: [{ modelId: 'auto' }, { modelId: 'hy3', name: 'Hy3' }] },
+                models: { availableModels: [{ modelId: 'auto' }, { modelId: 'hy3', name: 'Hy3' }], currentModelId: 'hy3' },
             },
         });
         await req;
-        expect(events.onModels).toHaveBeenCalledWith([{ id: 'auto' }, { id: 'hy3', name: 'Hy3' }]);
+        expect(events.onModels).toHaveBeenCalledWith([{ id: 'auto' }, { id: 'hy3', name: 'Hy3' }], 'hy3');
     });
 
     it('handles fragmented and batched stdout lines', async () => {
@@ -624,7 +643,7 @@ describe('AcpClient WorkBuddy hosted transport', () => {
     function hostTransport() {
         let receive: (message: Record<string, unknown>) => void;
         let disconnected: (error: Error) => void;
-        const runtime = { endpoint: 'http://127.0.0.1:9876', dispose: jest.fn(async () => {}) };
+        const runtime = { endpoint: 'http://127.0.0.1:9876', authToken: 'gateway-secret', dispose: jest.fn(async () => {}) };
         const connection = {
             send: jest.fn(async (message: Record<string, unknown>) => {
                 if (message.method === 'initialize') receive({ jsonrpc: '2.0', id: message.id, result: { protocolVersion: 1 } });
@@ -645,6 +664,9 @@ describe('AcpClient WorkBuddy hosted transport', () => {
         const { client, events } = makeClient();
         await client.ensureStarted('/vault');
         expect(startHost).toHaveBeenCalledWith('C:\\fake\\codebuddy.exe', '/vault', 'C:\\fake\\codebuddy.exe', ['--serve'], expect.any(AbortSignal));
+        // #19：worker 网关启用密码鉴权，连接必须带同一密码的 Bearer 头。
+        expect(connect).toHaveBeenCalledWith('http://127.0.0.1:9876', expect.any(Function), expect.any(Function),
+            { Authorization: 'Bearer gateway-secret' });
         expect(mockedSpawn).not.toHaveBeenCalled();
         const request = client.request('session/new', { cwd: '/vault', mcpServers: [] });
         const sent = host.connection.send.mock.calls.at(-1)![0];

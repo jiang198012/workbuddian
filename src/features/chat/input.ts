@@ -20,6 +20,7 @@ import { pickOptionId, type PermissionCardData, type PermissionDetail } from '..
 import { extForMime, mimeForExt, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
 import { parseInstructionInput } from '../../shared/instruction';
 import { CodebuddyProvider } from '../../providers/codebuddy';
+import { HermesProvider } from '../../providers/hermes';
 import { AcpStartFailure } from '../../providers/acp/provider';
 import { openInstructionModal } from './instructionModal';
 import { openResumeModal } from './resumeModal';
@@ -673,7 +674,7 @@ export function updateModelButton(view: WorkbuddianChatView, btn: HTMLElement, i
 /** 弹出模型选择菜单（供悬停/点击触发），选中后写设置 + 灌 CLI + 更新按钮文字 + 持久化 */
 export async function openModelMenu(view: WorkbuddianChatView, btn: HTMLElement) {
     let catalogFailed = false;
-    if (view.api instanceof CodebuddyProvider) {
+    if (view.api instanceof CodebuddyProvider || view.api instanceof HermesProvider) {
         try { await view.api.refreshAvailableModels(view.vaultPath); }
         catch { catalogFailed = true; new Notice(t('model.catalogUnavailable')); }
     }

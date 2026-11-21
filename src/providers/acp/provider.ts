@@ -37,7 +37,7 @@ export class AcpProvider {
     private timeout: number;
     protected readonly client: AcpClient;
     private readonly registry: SessionRegistry;
-    private readonly config: SessionConfig = { model: 'auto', mode: 'default', mcpServers: [] };
+    protected readonly config: SessionConfig = { model: 'auto', mode: 'default', mcpServers: [] };
     private lookup: ConversationLookup = NOOP_LOOKUP;
     private availableModels: string[] = [];
     protected modelPairs: Array<{ id: string; name?: string }> = [];
@@ -61,7 +61,7 @@ export class AcpProvider {
             onSessionUpdate: (acpSessionId, update) => this.routeSessionUpdate(acpSessionId, update),
             onPermissionRequest: (requestId, params) => this.routePermissionRequest(requestId, params),
             onAgentNotification: (method) => bbLog('[WB] acp 通知:', method),
-            onModels: (models) => this.onModels(models),
+            onModels: (models, currentModelId) => this.onModels(models, currentModelId),
             onExit: (code, signal) => this.handleProcessExit(code, signal),
         }, profile);
         this.registry = new SessionRegistry(
@@ -117,12 +117,17 @@ export class AcpProvider {
                 await this.client.ensureStarted(cwd);
                 const result = await this.client.enqueuePrompt(async () => {
                     const discovered = await this.client.request<{
-                        models?: { availableModels?: Array<{ modelId?: unknown; name?: unknown }> };
+                        models?: {
+                            availableModels?: Array<{ modelId?: unknown; name?: unknown }>;
+                            currentModelId?: unknown;
+                        };
                     }>('session/new', { cwd, mcpServers: this.config.mcpServers ?? [] });
                     for (const session of this.registry.all()) session.markStale();
                     return discovered;
                 });
                 const raw = result?.models?.availableModels;
+                const currentModelId = typeof result?.models?.currentModelId === 'string' && result.models.currentModelId
+                    ? result.models.currentModelId : undefined;
                 const models = Array.isArray(raw)
                     ? raw.filter((m) => m?.modelId != null && String(m.modelId) !== '').map((m) => ({
                         id: String(m.modelId),
@@ -130,7 +135,7 @@ export class AcpProvider {
                     }))
                     : [];
                 if (!models.length) throw new Error('Empty model catalog');
-                this.onModels(models);
+                this.onModels(models, currentModelId);
             } catch {
                 throw new Error(t('model.catalogUnavailable'));
             } finally {
@@ -140,9 +145,10 @@ export class AcpProvider {
         return this.modelRefreshPromise;
     }
     /** client onModels 事件入口：子类可覆写以保留更多字段（默认也保留 name） */
-    protected onModels(models: Array<{ id: string; name?: string }>): void {
+    protected onModels(models: Array<{ id: string; name?: string }>, currentModelId?: string): void {
         const valid = models.filter((m) => m.id.length > 0);
         if (!valid.length) return;
+        if (currentModelId) this.config.currentModel = currentModelId;
         this.modelPairs = valid;
         this.availableModels = valid.map((m) => m.id);
         this.modelDiscoveryComplete = valid.length > 0;
@@ -448,6 +454,7 @@ export class AcpProvider {
     private handleProcessExit(code: number | null, signal: string | null): void {
         bbLog('[WB] acp 进程退出:', code, signal);
         this.modelDiscoveryComplete = false;
+        this.config.currentModel = '';
         this.availableModels = [...this.profile.fallbackModels];
         this.modelPairs = this.availableModels.map((id) => ({ id }));
         for (const s of this.registry.all()) {

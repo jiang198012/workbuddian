@@ -24,6 +24,39 @@ describe('HermesAcpProvider', () => {
         const p = new HermesAcpProvider();
         expect(p.getAvailableModels()).toEqual(['auto']);
     });
+    it('按底座模型去重，保留当前模型条目', () => {
+        makeFakeClient(AcpClient as jest.MockedClass<typeof AcpClient>);
+        const kit = makeFakeClient(AcpClient as jest.MockedClass<typeof AcpClient>);
+        const p = new HermesAcpProvider();
+        kit.events().onModels([
+            { id: 'deepseek-hermes:deepseek-flash', name: 'current flash' },
+            { id: 'deepseek:deepseek-flash', name: 'deepseek flash' },
+            { id: 'deepseek:deepseek-v4-pro', name: 'deepseek pro' },
+            { id: 'custom:deepseek-hermes:deepseek-flash', name: 'custom flash' },
+            { id: 'custom:deepseek-hermes:deepseek-v4-pro', name: 'custom pro' },
+        ], 'deepseek-hermes:deepseek-flash');
+        expect(p.getAvailableModels()).toEqual([
+            'deepseek-hermes:deepseek-flash',
+            'deepseek:deepseek-v4-pro',
+        ]);
+    });
+
+    it('用户已选别名时去重保留该条目', () => {
+        makeFakeClient(AcpClient as jest.MockedClass<typeof AcpClient>);
+        const kit = makeFakeClient(AcpClient as jest.MockedClass<typeof AcpClient>);
+        const p = new HermesAcpProvider();
+        p.setModel('custom:deepseek-hermes:deepseek-v4-pro');
+        kit.events().onModels([
+            { id: 'deepseek-hermes:deepseek-flash' },
+            { id: 'deepseek:deepseek-v4-pro' },
+            { id: 'custom:deepseek-hermes:deepseek-v4-pro' },
+        ], 'deepseek-hermes:deepseek-flash');
+        expect(p.getAvailableModels()).toEqual([
+            'deepseek-hermes:deepseek-flash',
+            'custom:deepseek-hermes:deepseek-v4-pro',
+        ]);
+    });
+
     it('getAvailableModelLabels 用握手 name 字段，缺省回落 id', () => {
         const kit = makeFakeClient(AcpClient as jest.MockedClass<typeof AcpClient>);
         const p = new HermesAcpProvider();

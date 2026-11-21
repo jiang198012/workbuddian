@@ -209,6 +209,13 @@ export class HermesProvider {
     rejectPendingPermissions(k?: string): void { this.acp.rejectPendingPermissions(k); this.http.rejectPendingPermissions(k); }
     cancel(k?: string): void { this.active().cancel(k); }
     forkSession(k: string, n: string, v?: string): Promise<string> { return this.active().forkSession(k, n, v); }
+    /** 主动刷新模型目录：ACP 用 session/new 的真实目录，HTTP 用 gateway 当前 provider 的 models。 */
+    async refreshAvailableModels(vaultPath = ''): Promise<void> {
+        await this.init();
+        if (this.modeValue === 'acp') await this.acp.refreshAvailableModels(vaultPath);
+        else await this.http.refreshModels();
+    }
+
     async testConnection(): Promise<{ ok: boolean; error?: string }> {
         await this.init();
         return this.http.testConnection();

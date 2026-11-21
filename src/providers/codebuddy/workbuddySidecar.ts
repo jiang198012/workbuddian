@@ -36,7 +36,7 @@ function requireOwned(file: string, kind: 'directory' | 'file' | 'socket'): fs.S
 /** 优先 WorkBuddy sidecar v6；可选组件不可用时独立认证原生账号代理，不重启或关闭宿主。 */
 export async function startWorkbuddySidecar(
     scriptPath: string, cwd: string, command: string, args: string[], signal?: AbortSignal,
-): Promise<{ endpoint: string; dispose(): Promise<void> } | null> {
+): Promise<{ endpoint: string; authToken: string; dispose(): Promise<void> } | null> {
     let productPath: string;
     let product: { productName?: string; dataFolderName?: string; authentication?: { id?: string }; models?: unknown; agents?: unknown };
     try {
@@ -221,6 +221,8 @@ export async function startWorkbuddySidecar(
         finally { broker.dispose(); }
         if (signal?.aborted || disposing) throw new Error('WorkBuddy worker creation cancelled');
         const runtime = installedRuntime(scriptPath);
+        // 内置 CLI 网关密码：CLI 对 /api/v1/acp* 校验 Bearer，必须交还调用方（#19）。
+        const gatewayPassword = randomBytes(32).toString('hex');
         submitted = true;
         const result = await rpc('session.create', {
             sessionId: ownedId, command: runtime?.command ?? command,
@@ -232,7 +234,7 @@ export async function startWorkbuddySidecar(
                 ACC_PRODUCT_CONFIG_V3: JSON.stringify(modelConfig),
                 CODEBUDDY_DISABLE_PRODUCT_CACHE: '1',
                 CODEBUDDY_API_KEY_HELPER_DISABLED: '1', CODEBUDDY_API_KEY: '', ANTHROPIC_API_KEY: '', OPENAI_API_KEY: '',
-                CODEBUDDY_GATEWAY_AUTH: 'password', CODEBUDDY_GATEWAY_PASSWORD: randomBytes(32).toString('hex'),
+                CODEBUDDY_GATEWAY_AUTH: 'password', CODEBUDDY_GATEWAY_PASSWORD: gatewayPassword,
                 CODEBUDDY_GATEWAY_DISABLE_API_DOCS: '1', DISABLE_AUTOUPDATER: '1',
             },
         }, 195_000);
@@ -246,7 +248,7 @@ export async function startWorkbuddySidecar(
             throw new Error('Invalid WorkBuddy worker endpoint');
         }
         if (signal?.aborted || disposing) throw new Error('WorkBuddy worker creation cancelled');
-        return { endpoint: endpoint.origin, dispose };
+        return { endpoint: endpoint.origin, authToken: gatewayPassword, dispose };
     } catch (error) {
         try { await dispose(); }
         catch {

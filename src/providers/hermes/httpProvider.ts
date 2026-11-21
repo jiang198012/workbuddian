@@ -56,12 +56,32 @@ export class HermesHttpProvider {
                 signal: timeoutSignal(10_000),
             });
             if (res.ok) {
-                const data = await res.json();
-                const providers = (data?.providers ?? []) as Array<{ is_current?: boolean; models?: unknown }>;
-                const current = providers.find((p) => p.is_current) ?? providers.find((p) => Array.isArray(p.models) && p.models.length);
-                const models = (current?.models ?? []) as unknown[];
-                const ids = models.filter((m): m is string => typeof m === 'string');
-                if (ids.length) return ids;
+                const data = await res.json() as {
+                    model?: unknown; provider?: unknown;
+                    providers?: Array<{ slug?: unknown; is_current?: unknown; models?: unknown; authenticated?: unknown }>;
+                };
+                const providers = Array.isArray(data.providers) ? data.providers : [];
+                const currentModel = typeof data.model === 'string' ? data.model : '';
+                const currentProvider = typeof data.provider === 'string' ? data.provider : '';
+                const idsOf = (provider: { models?: unknown }): string[] =>
+                    (Array.isArray(provider.models) ? provider.models : []).filter((m): m is string => typeof m === 'string');
+                const hasModels = (provider: { models?: unknown }): boolean => idsOf(provider).length > 0;
+                // 当前 provider 不一定出现在 providers 列表里（例如自定义 profile），
+                // 所以优先用顶层 model/provider 反查；找不到时只返回顶层 currentModel，
+                // 绝不能退回“第一个有模型的 provider”（那会显示 Copilot 等无关模型）。
+                const current = providers.find((p) => p.is_current === true && hasModels(p))
+                    ?? providers.find((p) => p.slug === currentProvider && hasModels(p))
+                    ?? (currentModel
+                        ? providers.find((p) => p.authenticated !== false && hasModels(p) && idsOf(p).includes(currentModel))
+                        : undefined)
+                    ?? (currentModel
+                        ? providers.find((p) => hasModels(p) && idsOf(p).includes(currentModel))
+                        : undefined);
+                if (current) {
+                    const ids = idsOf(current);
+                    if (ids.length) return ids;
+                }
+                if (currentModel) return [currentModel];
             }
         } catch (e) {
             bbLog('[WB] hermes /api/model/options 失败,回退 /v1/models:', e);

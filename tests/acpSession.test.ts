@@ -121,6 +121,20 @@ describe('AcpSession.ensureLoaded', () => {
             expect.objectContaining({ sessionId: 'acp-stored', modeId: 'plan' }));
     });
 
+    it('skips model reconfiguration when the selected model is already current (#Hermes admitted_turn_failed)', async () => {
+        const client = makeFakeClient((m) => m === 'session/load' ? LOAD_OK : undefined);
+        const lookup = makeLookup();
+        lookup.getAcpSessionId.mockReturnValue('acp-stored');
+        const s = new AcpSession('k', client, lookup, {
+            model: 'deepseek-hermes:deepseek-flash', mode: '',
+            currentModel: 'deepseek-hermes:deepseek-flash',
+        });
+        await s.ensureLoaded('/vault');
+        expect(client.request).not.toHaveBeenCalledWith('session/set_model', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('session/set_config_option',
+            expect.objectContaining({ configId: 'model' }));
+    });
+
     it('falls back to set_config_option when set_mode is rejected', async () => {
         const client = makeFakeClient((m) => {
             if (m === 'session/load') return LOAD_OK;

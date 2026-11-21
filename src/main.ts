@@ -318,6 +318,11 @@ export default class WorkbuddianPlugin extends Plugin {
             this.api.setGateway(this.settings.hermesGatewayUrl, this.settings.hermesApiKey);
             this.api.setHermesCliPath(this.settings.hermesCliPath);
             void this.api.init(); // 探测一次定 ACP/HTTP 模式（异步，不阻塞设置灌入）
+            // 后台拉一次真实模型目录，避免首次打开菜单只看到 auto
+            const vaultPath = (this.app.vault.adapter as { basePath?: string }).basePath;
+            void this.api.refreshAvailableModels(vaultPath)
+                .then(() => this.refreshOpenViews())
+                .catch(() => bbError('[WB] Hermes 模型目录加载失败'));
         }
     }
 

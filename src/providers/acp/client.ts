@@ -21,7 +21,7 @@ export interface AcpClientEvents {
     onSessionUpdate(sessionId: string, update: AcpUpdate): void;
     onPermissionRequest(requestId: number, params: unknown): void;
     onAgentNotification(method: string, params: unknown): void;
-    onModels(models: Array<{ id: string; name?: string }>): void;
+    onModels(models: Array<{ id: string; name?: string }>, currentModelId?: string): void;
     onExit(code: number | null, signal: string | null): void;
 }
 
@@ -329,7 +329,9 @@ export class AcpClient {
             this.hostRuntime = runtime;
             const host = await WorkbuddyHostConnection.connect(runtime.endpoint,
                 message => { if (this.generation === generation) this.handleLine(JSON.stringify(message)); },
-                error => this.hostDisconnected(error, generation));
+                error => this.hostDisconnected(error, generation),
+                // worker 网关启用了密码鉴权；不带同一密码的 Bearer 会被 CLI 以 HTTP 401 拒绝（#19）。
+                { Authorization: `Bearer ${runtime.authToken}` });
             if (this.generation !== generation) {
                 await host.dispose().catch(() => {});
                 throw new Error('acp client disposed');
@@ -437,15 +439,22 @@ export class AcpClient {
     }
 
     private reportModels(result: unknown): void {
-        const models = (result as { models?: { availableModels?: Array<{ modelId?: unknown; name?: unknown }> } })
-            ?.models?.availableModels;
+        const payload = (result as {
+            models?: {
+                availableModels?: Array<{ modelId?: unknown; name?: unknown }>;
+                currentModelId?: unknown;
+            };
+        })?.models;
+        const models = payload?.availableModels;
+        const currentModelId = typeof payload?.currentModelId === 'string' && payload.currentModelId
+            ? payload.currentModelId : undefined;
         if (Array.isArray(models) && models.length) {
             this.events.onModels(models
                 .filter((m) => m.modelId != null && String(m.modelId) !== '')
                 .map((m) => ({
                     id: String(m.modelId),
                     ...(typeof m.name === 'string' && m.name ? { name: m.name } : {}),
-                })));
+                })), currentModelId);
         }
     }
 
