@@ -47,6 +47,8 @@ export interface Conversation {
     lastUsage?: UsageInfo;
     /** 会话置顶标记：置顶的会话排最前（右键菜单切换） */
     pinned?: boolean;
+    /** 标签已关闭：不在标签栏显示，会话仍保留，可从 /resume 或搜索重新打开（#16） */
+    closed?: boolean;
     /** 会话级配置覆盖；旧数据缺省时回落全局设置 */
     workspace?: Partial<ConversationWorkspace>;
     /** 尚未发送的输入草稿 */

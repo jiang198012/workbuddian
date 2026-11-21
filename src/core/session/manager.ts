@@ -73,6 +73,11 @@ export class ConversationManager {
         });
     }
 
+    /** 标签栏显示的对话（排除已关闭标签），排序同 getAll */
+    getOpen(): Conversation[] {
+        return this.getAll().filter((conv) => !conv.closed);
+    }
+
     /** 按标题和消息正文做本地大小写不敏感的包含匹配；空串返回全部 */
     search(query: string): Conversation[] {
         const needle = query.trim().toLowerCase();
@@ -210,15 +215,48 @@ export class ConversationManager {
         return conv;
     }
 
-    /** 删除对话；被删的是初始指针指向的对话时改指到最新一个 */
+    /** 删除对话；被删的是初始指针指向的对话时改指到最新一个打开的对话 */
     deleteConversation(id: string): boolean {
         const existed = this.conversations.delete(id);
         if (!existed) return false;
-        if (this.activeId === id) {
-            this.activeId = this.getAll()[0]?.id ?? null;
-        }
+        this.afterTabRemoved(id);
+        return true;
+    }
+
+    /**
+     * 关闭标签：会话保留在历史中（/resume 或搜索可重新打开）。
+     * 无消息且无草稿的空会话直接丢弃，避免历史堆满空的“新对话”。
+     * 返回 'closed' / 'deleted'；未找到返回 null。
+     */
+    closeConversation(id: string): 'closed' | 'deleted' | null {
+        const conv = this.conversations.get(id);
+        if (!conv) return null;
+        const result = !conv.messages.length && !conv.draft ? 'deleted' : 'closed';
+        if (result === 'deleted') this.conversations.delete(id);
+        else conv.closed = true;
+        this.afterTabRemoved(id);
+        return result;
+    }
+
+    /** 重新打开已关闭的标签；返回是否有变化 */
+    reopenConversation(id: string): boolean {
+        const conv = this.conversations.get(id);
+        if (!conv?.closed) return false;
+        delete conv.closed;
         this.commit();
         return true;
+    }
+
+    /** 标签被删除/关闭后：标签栏不能为空，初始指针改指到打开的对话 */
+    private afterTabRemoved(id: string): void {
+        if (!this.getOpen().length) {
+            this.createConversation(); // 内部已改指针并持久化
+            return;
+        }
+        if (this.activeId === id || this.getById(this.activeId ?? '')?.closed) {
+            this.activeId = this.getOpen()[0].id;
+        }
+        this.commit();
     }
 
     /** 删除最后一对 user+assistant 消息，返回该 user 文本（供重试重发）；结构不满足返回 null */
@@ -284,7 +322,10 @@ export class ConversationManager {
             draft: conv.draft && typeof conv.draft.text === 'string' && Array.isArray(conv.draft.attachments)
                 ? { text: conv.draft.text, attachments: conv.draft.attachments.filter((p): p is string => typeof p === 'string') }
                 : undefined,
+            closed: conv.closed === true ? true : undefined,
         }));
-        this.activeId = conversations[0].id;
+        const firstOpen = conversations.find((conv) => conv.closed !== true);
+        if (firstOpen) this.activeId = firstOpen.id;
+        else this.createConversation(); // 全部关闭的旧数据：补一个打开的新对话
     }
 }

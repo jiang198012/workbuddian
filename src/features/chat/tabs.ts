@@ -52,10 +52,21 @@ export async function switchToChat(view: WorkbuddianChatView, id: string) {
     if (!view.manager.getById(id)) return;
     view.persistActiveDraft();
     view.rejectPendingApprovals(); // 悬挂批准卡不切走：统一答 reject，不悬挂到 CLI 侧干等
+    // 从 /resume 或搜索选中已关闭的会话：重新打开标签，并同步另一面板的标签栏
+    if (view.manager.reopenConversation(id)) {
+        for (const other of sharedViews(view)) if (other !== view) renderTabs(other);
+    }
     view.activeConvId = id;
     renderTabs(view);
     await renderMessages(view);
     view.restoreActiveDraft();
+}
+
+/** 共用同一 manager 的所有已打开面板（侧栏 + 主面板） */
+function sharedViews(view: WorkbuddianChatView): WorkbuddianChatView[] {
+    return view.app.workspace.getLeavesOfType(view.getViewType())
+        .map((leaf) => leaf.view as WorkbuddianChatView)
+        .filter((other) => other && other.manager === view.manager);
 }
 
 export async function deleteChat(view: WorkbuddianChatView, id: string, e: UIEvent) {
@@ -63,21 +74,37 @@ export async function deleteChat(view: WorkbuddianChatView, id: string, e: UIEve
     await removeChat(view, id);
 }
 
-/** 删除对话并刷新（不依赖事件，供 ✕ 按钮与右键菜单共用） */
+/** 删除对话并刷新（不依赖事件，供右键菜单删除使用） */
 export async function removeChat(view: WorkbuddianChatView, id: string) {
     const wasActive = view.activeConvId === id;
     if (wasActive) view.persistActiveDraft();
     if (!view.manager.deleteConversation(id)) return;
+    await syncViewsAfterTabRemoved(view, id);
+}
 
-    // manager 在两个 view 间共享；同步刷新所有已打开的面板，避免删除后另一面板的
-    // tab/search 仍引用已删除的会话（尤其是当前分叉会话）。
-    const leaves = view.app.workspace.getLeavesOfType(view.getViewType());
-    for (const leaf of leaves) {
-        const other = leaf.view as WorkbuddianChatView;
-        if (!other || other.manager !== view.manager) continue;
+/** 关闭标签（✕ 按钮）：会话保留在历史中，可从 /resume 或搜索重新打开；空会话直接丢弃（#16） */
+export async function closeChat(view: WorkbuddianChatView, id: string) {
+    const wasActive = view.activeConvId === id;
+    if (wasActive) {
+        view.persistActiveDraft(); // 先落草稿：有未发送内容的会话不能当空会话丢弃
+        view.rejectPendingApprovals(); // 与切走会话一致：悬挂批准卡统一答 reject
+    }
+    const result = view.manager.closeConversation(id);
+    if (!result) return;
+    await syncViewsAfterTabRemoved(view, id);
+    if (result === 'closed') new Notice(t('tabs.closedHint'));
+}
+
+/**
+ * manager 在两个 view 间共享；删除/关闭后同步刷新所有已打开的面板，避免另一面板的
+ * tab/search 仍停在已删除或已关闭的会话上（尤其是当前分叉会话）。
+ */
+async function syncViewsAfterTabRemoved(view: WorkbuddianChatView, id: string) {
+    for (const other of sharedViews(view)) {
         if (other.activeRename) other.activeRename = null;
-        if (other.activeConvId === id || !other.manager.getById(other.activeConvId ?? '')) {
-            other.activeConvId = other.manager.getAll()[0]?.id ?? null;
+        const current = other.manager.getById(other.activeConvId ?? '');
+        if (other.activeConvId === id || !current || current.closed) {
+            other.activeConvId = other.manager.getOpen()[0]?.id ?? null;
         }
         renderTabs(other);
         await renderMessages(other);
@@ -95,7 +122,10 @@ class DeleteChatModal extends Modal {
 
     onOpen(): void {
         this.titleEl.setText(t('tabs.confirmDelete'));
-        this.contentEl.createEl('p', { text: `「${this.label}」？` });
+        const count = this.view.manager.getById(this.id)?.messages.length ?? 0;
+        this.contentEl.createEl('p', {
+            text: t('tabs.deleteConfirmBody').replace('{title}', this.label).replace('{count}', String(count)),
+        });
         new Setting(this.contentEl)
             .addButton((b) => b.setButtonText(t('tabs.deleteConfirmBtn')).setCta().onClick(() => {
                 void removeChat(this.view, this.id);
@@ -130,7 +160,8 @@ export function renderTabs(view: WorkbuddianChatView) {
 
     // 会话搜索:搜索态只渲染匹配会话(标题或消息正文)
     const query = view.searchQuery?.trim().toLowerCase() ?? '';
-    const conversations = query ? view.manager.search(query) : view.manager.getAll();
+    // 平时只显示打开的标签；搜索态也覆盖已关闭的会话，点选即重新打开
+    const conversations = query ? view.manager.search(query) : view.manager.getOpen();
     const activeId = view.activeConvId;
 
     for (const conv of conversations) {
@@ -176,11 +207,12 @@ export function renderTabs(view: WorkbuddianChatView) {
             attr: { title: t('tabs.close'), 'aria-label': t('tabs.close'), role: 'button', tabindex: '0' }
         });
         setIcon(closeBtn, 'x');
-        closeBtn.onclick = (e: MouseEvent) => { e.stopPropagation(); confirmAndRemoveChat(view, conv.id); };
+        closeBtn.onclick = (e: MouseEvent) => { e.stopPropagation(); void closeChat(view, conv.id); };
         closeBtn.onkeydown = (e: KeyboardEvent) => {
             if (isActivationKey(e.key)) {
                 e.preventDefault();
-                confirmAndRemoveChat(view, conv.id);
+                e.stopPropagation(); // 不冒泡到标签自身的 Enter/Space 切换
+                void closeChat(view, conv.id);
             }
         };
         tab.onclick = () => {

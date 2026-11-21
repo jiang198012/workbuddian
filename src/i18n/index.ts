@@ -308,6 +308,8 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'tabs.delete': { zh: '删除对话', en: 'Delete chat' },
     'tabs.confirmDelete': { zh: '删除对话', en: 'Delete conversation' },
     'tabs.deleteConfirmBtn': { zh: '确认删除', en: 'Confirm' },
+    'tabs.deleteConfirmBody': { zh: '将永久删除「{title}」及其 {count} 条消息，无法撤销。如需保留，可先在右键菜单「导出为笔记」。', en: 'This permanently deletes "{title}" and its {count} messages. It cannot be undone. To keep a copy, use "Export as note" in the right-click menu first.' },
+    'tabs.closedHint': { zh: '已关闭标签，对话仍保留，可用 /resume 或搜索重新打开', en: 'Tab closed. The chat is kept; reopen it with /resume or search.' },
     'tabs.pin': { zh: '置顶会话', en: 'Pin conversation' },
     'tabs.unpin': { zh: '取消置顶', en: 'Unpin conversation' },
     'tabs.pinned': { zh: '已置顶', en: 'Pinned' },

@@ -289,3 +289,90 @@ describe('forkConversation', () => {
         expect(forked?.draft).toBeUndefined();
     });
 });
+
+describe('closing tabs keeps conversations (#16)', () => {
+    const withMessage = (manager: ConversationManager, title: string) => {
+        const conv = manager.createConversation(title);
+        manager.addMessage(conv.id, 'user', `${title} message`);
+        return conv;
+    };
+
+    it('closes a conversation without deleting it and moves the initial pointer to an open one', () => {
+        const manager = new ConversationManager();
+        const a = withMessage(manager, 'A');
+        const b = withMessage(manager, 'B');
+        expect(manager.closeConversation(b.id)).toBe('closed');
+        expect(manager.getById(b.id)?.closed).toBe(true);
+        expect(manager.getById(b.id)?.messages).toHaveLength(1);
+        expect(manager.getOpen().map((c) => c.id)).toEqual([a.id]);
+        expect(manager.getAll().map((c) => c.id)).toContain(b.id);
+        expect(manager.getActive()?.id).toBe(a.id);
+        expect(manager.search('B message').map((c) => c.id)).toEqual([b.id]);
+        expect(manager.closeConversation('missing')).toBeNull();
+    });
+
+    it('discards an empty conversation on close but keeps one that only has a draft', () => {
+        const manager = new ConversationManager();
+        withMessage(manager, 'A');
+        const empty = manager.createConversation('empty');
+        const drafted = manager.createConversation('drafted');
+        manager.setDraft(drafted.id, { text: 'unsent', attachments: [] });
+        expect(manager.closeConversation(empty.id)).toBe('deleted');
+        expect(manager.getById(empty.id)).toBeNull();
+        expect(manager.closeConversation(drafted.id)).toBe('closed');
+        expect(manager.getById(drafted.id)?.draft?.text).toBe('unsent');
+    });
+
+    it('leaves a fresh open conversation when the last open tab is closed', () => {
+        const manager = new ConversationManager();
+        const only = withMessage(manager, 'only');
+        expect(manager.closeConversation(only.id)).toBe('closed');
+        const open = manager.getOpen();
+        expect(open).toHaveLength(1);
+        expect(open[0].id).not.toBe(only.id);
+        expect(open[0].messages).toEqual([]);
+        expect(manager.getActive()?.id).toBe(open[0].id);
+    });
+
+    it('also leaves an open conversation when deleting the last open tab while others are closed', () => {
+        const manager = new ConversationManager();
+        const closed = withMessage(manager, 'closed');
+        const last = withMessage(manager, 'last');
+        manager.closeConversation(closed.id);
+        expect(manager.deleteConversation(last.id)).toBe(true);
+        const open = manager.getOpen();
+        expect(open).toHaveLength(1);
+        expect(open[0].id).not.toBe(closed.id);
+        expect(manager.getActive()?.id).toBe(open[0].id);
+    });
+
+    it('reopens a closed conversation and persists the closed flag', () => {
+        const manager = new ConversationManager();
+        const persist = jest.fn(async (_convs: Conversation[]) => {});
+        manager.setPersistCallback(persist);
+        withMessage(manager, 'A');
+        const b = withMessage(manager, 'B');
+        manager.closeConversation(b.id);
+        const saved = persist.mock.calls.at(-1)![0];
+        expect(saved.find((c) => c.id === b.id)?.closed).toBe(true);
+        expect(manager.reopenConversation(b.id)).toBe(true);
+        expect(manager.getById(b.id)?.closed).toBeUndefined();
+        expect(manager.getOpen().map((c) => c.id)).toContain(b.id);
+        expect(manager.reopenConversation(b.id)).toBe(false);
+        expect(manager.reopenConversation('missing')).toBe(false);
+    });
+
+    it('loads closed flags strictly and starts on the first open conversation', () => {
+        const manager = new ConversationManager();
+        manager.load([
+            { id: 'c', title: 'closed', sessionId: '', messages: [], createdAt: 3, updatedAt: 3, closed: true },
+            { id: 'junk', title: 'junk flag', sessionId: '', messages: [], createdAt: 2, updatedAt: 2,
+                closed: 'yes' as unknown as boolean },
+            { id: 'o', title: 'open', sessionId: '', messages: [], createdAt: 1, updatedAt: 1 },
+        ]);
+        expect(manager.getById('c')?.closed).toBe(true);
+        expect(manager.getById('junk')?.closed).toBeUndefined();
+        expect(manager.getActive()?.id).toBe('junk');
+        expect(manager.getOpen().map((c) => c.id)).toEqual(['junk', 'o']);
+    });
+});

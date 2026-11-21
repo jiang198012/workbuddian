@@ -329,6 +329,8 @@ var init_i18n = __esm({
       "tabs.delete": { zh: "\u5220\u9664\u5BF9\u8BDD", en: "Delete chat" },
       "tabs.confirmDelete": { zh: "\u5220\u9664\u5BF9\u8BDD", en: "Delete conversation" },
       "tabs.deleteConfirmBtn": { zh: "\u786E\u8BA4\u5220\u9664", en: "Confirm" },
+      "tabs.deleteConfirmBody": { zh: "\u5C06\u6C38\u4E45\u5220\u9664\u300C{title}\u300D\u53CA\u5176 {count} \u6761\u6D88\u606F\uFF0C\u65E0\u6CD5\u64A4\u9500\u3002\u5982\u9700\u4FDD\u7559\uFF0C\u53EF\u5148\u5728\u53F3\u952E\u83DC\u5355\u300C\u5BFC\u51FA\u4E3A\u7B14\u8BB0\u300D\u3002", en: 'This permanently deletes "{title}" and its {count} messages. It cannot be undone. To keep a copy, use "Export as note" in the right-click menu first.' },
+      "tabs.closedHint": { zh: "\u5DF2\u5173\u95ED\u6807\u7B7E\uFF0C\u5BF9\u8BDD\u4ECD\u4FDD\u7559\uFF0C\u53EF\u7528 /resume \u6216\u641C\u7D22\u91CD\u65B0\u6253\u5F00", en: "Tab closed. The chat is kept; reopen it with /resume or search." },
       "tabs.pin": { zh: "\u7F6E\u9876\u4F1A\u8BDD", en: "Pin conversation" },
       "tabs.unpin": { zh: "\u53D6\u6D88\u7F6E\u9876", en: "Unpin conversation" },
       "tabs.pinned": { zh: "\u5DF2\u7F6E\u9876", en: "Pinned" },
@@ -7530,27 +7532,48 @@ async function switchToChat(view, id) {
     return;
   view.persistActiveDraft();
   view.rejectPendingApprovals();
+  if (view.manager.reopenConversation(id)) {
+    for (const other of sharedViews(view))
+      if (other !== view)
+        renderTabs(other);
+  }
   view.activeConvId = id;
   renderTabs(view);
   await renderMessages(view);
   view.restoreActiveDraft();
 }
+function sharedViews(view) {
+  return view.app.workspace.getLeavesOfType(view.getViewType()).map((leaf) => leaf.view).filter((other) => other && other.manager === view.manager);
+}
 async function removeChat(view, id) {
-  var _a, _b, _c;
   const wasActive = view.activeConvId === id;
   if (wasActive)
     view.persistActiveDraft();
   if (!view.manager.deleteConversation(id))
     return;
-  const leaves = view.app.workspace.getLeavesOfType(view.getViewType());
-  for (const leaf of leaves) {
-    const other = leaf.view;
-    if (!other || other.manager !== view.manager)
-      continue;
+  await syncViewsAfterTabRemoved(view, id);
+}
+async function closeChat(view, id) {
+  const wasActive = view.activeConvId === id;
+  if (wasActive) {
+    view.persistActiveDraft();
+    view.rejectPendingApprovals();
+  }
+  const result = view.manager.closeConversation(id);
+  if (!result)
+    return;
+  await syncViewsAfterTabRemoved(view, id);
+  if (result === "closed")
+    new import_obsidian7.Notice(t("tabs.closedHint"));
+}
+async function syncViewsAfterTabRemoved(view, id) {
+  var _a, _b, _c;
+  for (const other of sharedViews(view)) {
     if (other.activeRename)
       other.activeRename = null;
-    if (other.activeConvId === id || !other.manager.getById((_a = other.activeConvId) != null ? _a : "")) {
-      other.activeConvId = (_c = (_b = other.manager.getAll()[0]) == null ? void 0 : _b.id) != null ? _c : null;
+    const current = other.manager.getById((_a = other.activeConvId) != null ? _a : "");
+    if (other.activeConvId === id || !current || current.closed) {
+      other.activeConvId = (_c = (_b = other.manager.getOpen()[0]) == null ? void 0 : _b.id) != null ? _c : null;
     }
     renderTabs(other);
     await renderMessages(other);
@@ -7565,8 +7588,12 @@ var DeleteChatModal = class extends import_obsidian7.Modal {
     this.label = label;
   }
   onOpen() {
+    var _a, _b;
     this.titleEl.setText(t("tabs.confirmDelete"));
-    this.contentEl.createEl("p", { text: `\u300C${this.label}\u300D\uFF1F` });
+    const count = (_b = (_a = this.view.manager.getById(this.id)) == null ? void 0 : _a.messages.length) != null ? _b : 0;
+    this.contentEl.createEl("p", {
+      text: t("tabs.deleteConfirmBody").replace("{title}", this.label).replace("{count}", String(count))
+    });
     new import_obsidian7.Setting(this.contentEl).addButton((b) => b.setButtonText(t("tabs.deleteConfirmBtn")).setCta().onClick(() => {
       void removeChat(this.view, this.id);
       this.close();
@@ -7593,7 +7620,7 @@ function renderTabs(view) {
   const oldTabs = view.tabBar.querySelectorAll(".workbuddian-tab");
   oldTabs.forEach((t2) => t2.remove());
   const query = (_b = (_a = view.searchQuery) == null ? void 0 : _a.trim().toLowerCase()) != null ? _b : "";
-  const conversations = query ? view.manager.search(query) : view.manager.getAll();
+  const conversations = query ? view.manager.search(query) : view.manager.getOpen();
   const activeId = view.activeConvId;
   for (const conv of conversations) {
     const isActive = conv.id === activeId;
@@ -7637,12 +7664,13 @@ function renderTabs(view) {
     (0, import_obsidian7.setIcon)(closeBtn, "x");
     closeBtn.onclick = (e) => {
       e.stopPropagation();
-      confirmAndRemoveChat(view, conv.id);
+      void closeChat(view, conv.id);
     };
     closeBtn.onkeydown = (e) => {
       if (isActivationKey(e.key)) {
         e.preventDefault();
-        confirmAndRemoveChat(view, conv.id);
+        e.stopPropagation();
+        void closeChat(view, conv.id);
       }
     };
     tab.onclick = () => {
@@ -8241,6 +8269,10 @@ var ConversationManager = class {
       return b.updatedAt - a.updatedAt;
     });
   }
+  /** 标签栏显示的对话（排除已关闭标签），排序同 getAll */
+  getOpen() {
+    return this.getAll().filter((conv) => !conv.closed);
+  }
   /** 按标题和消息正文做本地大小写不敏感的包含匹配；空串返回全部 */
   search(query) {
     const needle = query.trim().toLowerCase();
@@ -8379,17 +8411,51 @@ var ConversationManager = class {
     this.activeId = id;
     return conv;
   }
-  /** 删除对话；被删的是初始指针指向的对话时改指到最新一个 */
+  /** 删除对话；被删的是初始指针指向的对话时改指到最新一个打开的对话 */
   deleteConversation(id) {
-    var _a, _b;
     const existed = this.conversations.delete(id);
     if (!existed)
       return false;
-    if (this.activeId === id) {
-      this.activeId = (_b = (_a = this.getAll()[0]) == null ? void 0 : _a.id) != null ? _b : null;
-    }
+    this.afterTabRemoved(id);
+    return true;
+  }
+  /**
+   * 关闭标签：会话保留在历史中（/resume 或搜索可重新打开）。
+   * 无消息且无草稿的空会话直接丢弃，避免历史堆满空的“新对话”。
+   * 返回 'closed' / 'deleted'；未找到返回 null。
+   */
+  closeConversation(id) {
+    const conv = this.conversations.get(id);
+    if (!conv)
+      return null;
+    const result = !conv.messages.length && !conv.draft ? "deleted" : "closed";
+    if (result === "deleted")
+      this.conversations.delete(id);
+    else
+      conv.closed = true;
+    this.afterTabRemoved(id);
+    return result;
+  }
+  /** 重新打开已关闭的标签；返回是否有变化 */
+  reopenConversation(id) {
+    const conv = this.conversations.get(id);
+    if (!(conv == null ? void 0 : conv.closed))
+      return false;
+    delete conv.closed;
     this.commit();
     return true;
+  }
+  /** 标签被删除/关闭后：标签栏不能为空，初始指针改指到打开的对话 */
+  afterTabRemoved(id) {
+    var _a, _b;
+    if (!this.getOpen().length) {
+      this.createConversation();
+      return;
+    }
+    if (this.activeId === id || ((_b = this.getById((_a = this.activeId) != null ? _a : "")) == null ? void 0 : _b.closed)) {
+      this.activeId = this.getOpen()[0].id;
+    }
+    this.commit();
   }
   /** 删除最后一对 user+assistant 消息，返回该 user 文本（供重试重发）；结构不满足返回 null */
   deleteLastExchange(convId) {
@@ -8450,9 +8516,14 @@ var ConversationManager = class {
     conversations.forEach((conv) => this.conversations.set(conv.id, {
       ...conv,
       workspace: conv.workspace && typeof conv.workspace === "object" ? { ...conv.workspace } : void 0,
-      draft: conv.draft && typeof conv.draft.text === "string" && Array.isArray(conv.draft.attachments) ? { text: conv.draft.text, attachments: conv.draft.attachments.filter((p) => typeof p === "string") } : void 0
+      draft: conv.draft && typeof conv.draft.text === "string" && Array.isArray(conv.draft.attachments) ? { text: conv.draft.text, attachments: conv.draft.attachments.filter((p) => typeof p === "string") } : void 0,
+      closed: conv.closed === true ? true : void 0
     }));
-    this.activeId = conversations[0].id;
+    const firstOpen = conversations.find((conv) => conv.closed !== true);
+    if (firstOpen)
+      this.activeId = firstOpen.id;
+    else
+      this.createConversation();
   }
 };
 
