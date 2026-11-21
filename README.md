@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (2.6.20)
+status: stable (2.6.21)
 license: MIT
 -->
 
@@ -104,6 +104,8 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 ## 快速开始
 
 ### WorkBuddy 升级兼容（Issue #10）
+
+**2.6.21 问题修复**：修复只装 WorkBuddy 5.11.x 桌面端时内置 CLI 连接报 `HTTP 401`（#19）；标签 × 改为只关闭、会话可从 `/resume` 或搜索找回（#16）；Hermes gateway 改按进程判断存活、ACP 启动失败后重试可恢复（#15）；内置 CLI 时登录弹窗给出明确说明（#17）。详见 [CHANGELOG](CHANGELOG.md)。
 
 **2.6.20 问题修复**：修复 Windows Hermes `.cmd` 自检（shell-aware + 40s 超时 + `HERMES_HOME`/`%LOCALAPPDATA%\hermes` 发现）、ACP 错误 `data.details` 透出，以及 WBIPC 畸形 ack 分类（#13 / #12）。详见 [CHANGELOG](CHANGELOG.md)。
 
@@ -241,7 +243,9 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 2.6.20**
+**最新版本 2.6.21**
+
+- **2.6.21** — **#19 / #16 / #15 / #17 修复**：WorkBuddy 5.11.x 内置 CLI 的 `HTTP 401`、标签 × 只关闭不删除、Hermes gateway 存活判断与降级恢复、登录弹窗说明、Hermes 模型目录刷新。**Windows 实机待验证，相关 issue 保持开放**。
 
 - **2.6.20** — **#13 / #12 修复**：Windows Hermes `.cmd` 自检与超时、`HERMES_HOME`/`LOCALAPPDATA` 发现、ACP `data.details`、WBIPC 畸形 ack 分类。**Windows `.cmd` 实机仍待报告者复测，Issue #13 保持开放**。
 

@@ -42,6 +42,8 @@ Or via [BRAT](https://github.com/TfTHacker/obsidian42-brat) with `jiang198012/wo
 
 ## Quick Start
 
+**2.6.21 fixes**: `HTTP 401` from the WorkBuddy 5.11.x bundled CLI when only the desktop app is installed (#19); the tab × now only closes the tab and the chat can be reopened from `/resume` or search (#16); Hermes gateway liveness by process and ACP recovery on retry (#15); a clear sign-in dialog for the bundled CLI (#17). See the [changelog](CHANGELOG.md).
+
 **2.6.20 fixes**: Windows Hermes `.cmd` self-check (shell-aware + 40s timeout + `HERMES_HOME`/`%LOCALAPPDATA%\hermes` discovery), ACP `error.data.details` surfacing, and WBIPC malformed-ack classification (#13 / #12). See the [changelog](CHANGELOG.md).
 
 **2.6.19 official CLI one-click sign-in**: Settings and the command palette now offer “Sign in to CodeBuddy”. The plugin starts the official CodeBuddy CLI Web UI and opens its browser sign-in page (Chinese Site / iOA / Enterprise Domain / International Site), then reconnects and refreshes models automatically. Auto-detection prefers the official CLI and falls back to the WorkBuddy bundled CLI. This release also fixes Hermes gateway auto-start, API-key discovery and the first-message race, plus WorkBuddy 5.9.3 lite-bundle and fast-fail handling. See the [investigation and sign-in notes](docs/workbuddy-5.9.3-bridge-2026-10-28.md).
@@ -76,7 +78,9 @@ The complete documentation (usage, settings, auto-discovery, FAQ, changelog) is 
 
 ## What's New
 
-**Latest version 2.6.20**
+**Latest version 2.6.21**
+
+- **2.6.21 — #19 / #16 / #15 / #17 fixes**: WorkBuddy 5.11.x bundled-CLI `HTTP 401`, tab × closes instead of deleting, Hermes gateway liveness and ACP recovery, sign-in dialog guidance, and Hermes model-catalog refresh. **Windows hardware is unverified; the related issues stay open.**
 
 - **2.6.20 — #13 / #12 fixes**: Windows Hermes `.cmd` self-check/timeout, `HERMES_HOME`/`LOCALAPPDATA` discovery, ACP `data.details`, and WBIPC malformed-ack classification. **Windows `.cmd` hardware verification remains with the reporter; #13 stays open.**
 

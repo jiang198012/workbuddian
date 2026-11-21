@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.6.21 — 2026-11-21
+
+**#19 / #16 / #15 / #17 修复**：WorkBuddy 5.11.x 内置 CLI 连接 `HTTP 401`、标签 × 改为只关闭、Hermes gateway 存活判断与降级恢复、登录弹窗误导，以及 Hermes 模型目录刷新。
+
+### 修复
+
+- [#19](https://github.com/jiang198012/workbuddian/issues/19)：插件为自建 WorkBuddy 内置 CLI worker 生成的网关密码现在随端点一起交还，ACP 连接带上 `Authorization: Bearer <网关密码>`。修复只装 WorkBuddy 5.11.x 桌面端（内置 CLI 2.176.0 对 `/api/v1/acp*` 强制校验网关密码）时聊天报 `WorkBuddy HTTP 401`。
+- [#16](https://github.com/jiang198012/workbuddian/issues/16)：标签 × 只关闭标签，会话保留，可从 `/resume` 或标签栏搜索重新打开；无消息且无草稿的空会话关闭时直接丢弃；关闭或删除最后一个打开的标签时补一个新会话。删除只保留在右键菜单，确认框写明消息条数、不可撤销，并提示可先「导出为笔记」。
+- [#15](https://github.com/jiang198012/workbuddian/issues/15)：Hermes gateway 存活判断先看 `HERMES_HOME` 下 `gateway.pid` 的进程，`api_server` 未开时不再重复拉起 `hermes gateway run`、白等 20 秒；ACP 启动失败只在 HTTP 轻量版能连通时降级，否则保持 ACP，重试会重新启动 ACP，不必重启 Obsidian；ACP 主进程加 `windowsHide`。
+- [#17](https://github.com/jiang198012/workbuddian/issues/17)：使用 WorkBuddy 内置 CLI 或未检测到官方 CLI 时，登录弹窗只给出说明和「关闭」（内置 CLI 复用 WorkBuddy 桌面端账号），不再显示点不动的「重新打开登录页」；该按钮只在登录服务就绪后出现。
+- Hermes 模型目录：初始化后后台拉取真实目录，模型菜单打开时可刷新；ACP 按底座模型合并 provider 别名的重复条目；HTTP 模式只显示 gateway 当前 provider 的模型；选择当前已生效的模型时不再重发 `set_model`。
+
+### 其他
+
+- jest 排除 `.claude/` 下的仓库副本。2.6.20 及更早记录的测试套件数包含了这些副本，数字偏大。
+
+### 验证与限制
+
+- `npm test`：55 套件、781 项测试通过，0 失败；`npm run build` 类型检查与生产构建通过。
+- macOS + WorkBuddy 5.11.3：用真实内置 CLI 复现 #19 的 401，修复后 `initialize`、`session/new` 通过（账号代理为测试夹具，未用真实账号对话）。demo vault 实机验证 #16 关闭、空会话丢弃、搜索找回，以及 #17 登录弹窗。本机 Hermes v0.22.5 验证 #15：gateway 地址指向无人监听的端口时 0.8 秒定为 ACP，未重复拉起 gateway。
+- 未验证：Windows 实机（#19 的 401、#15 的黑窗口与 `gateway.pid` 位置）；#16 右键删除确认框的新文案。Hermes 模型目录改动由单测覆盖。
+- 未处理：#19 中只装桌面端时的 CLI 自动检测（待报告者提供安装路径）；#15 中初始化期间误报「轻量模式」顶条。
+
 ## 2.6.20 — 2026-10-29
 
 **#13 / #12 修复**：Windows Hermes `.cmd` 自检、超时与环境发现，ACP 错误详情透出，以及 WBIPC 畸形 ack 分类。
