@@ -683,6 +683,31 @@ describe('AcpClient WorkBuddy hosted transport', () => {
         expect(host.runtime.dispose).toHaveBeenCalledTimes(1);
     });
 
+    it('关窗时同步终止自有 worker，不等待异步清理', async () => {
+        const host = hostTransport();
+        const killNow = jest.fn();
+        Object.assign(host.runtime, { killNow });
+        const { client } = makeClient();
+        await client.ensureStarted('/vault');
+        client.killOwnedWorkersNow();
+        expect(killNow).toHaveBeenCalledTimes(1);
+        expect(host.runtime.dispose).not.toHaveBeenCalled();
+        expect(host.connection.dispose).not.toHaveBeenCalled();
+    });
+
+    it('worker 启动途中关窗时同步取消启动', () => {
+        let signal: AbortSignal | undefined;
+        startHost.mockImplementation((_script: string, _cwd: string, _command: string, _args: string[], s: AbortSignal) => {
+            signal = s;
+            return new Promise(() => {});
+        });
+        const { client } = makeClient();
+        void client.ensureStarted('/vault').catch(() => {});
+        expect(signal?.aborted).toBe(false);
+        client.killOwnedWorkersNow();
+        expect(signal?.aborted).toBe(true);
+    });
+
     it('marks sessions stale on disconnect and ignores late events from a disposed connection', async () => {
         const host = hostTransport();
         const { client, events } = makeClient();

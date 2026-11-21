@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { createHash } from 'crypto';
 import { startWorkbuddySidecar } from '../src/providers/codebuddy/workbuddySidecar';
 import { WorkbuddyHostConnection } from '../src/providers/codebuddy/workbuddyHost';
 import { createWorkbuddyBrokerServer } from './helpers/workbuddyBrokerServer';
@@ -130,6 +131,57 @@ describe('WorkBuddy first use without a connection extension', () => {
             'GET /console/enterprises/personal/models', 'POST /v2/chat/completions',
         ]);
         expect(fs.existsSync(path.join(broker.configDir, 'extensions'))).toBe(false);
+    });
+
+    const alive = (pid: number) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+    async function waitFor(check: () => boolean, ms = 5_000) {
+        const deadline = Date.now() + ms;
+        while (!check()) {
+            if (Date.now() > deadline) throw new Error('condition not met in time');
+            await new Promise(resolve => setTimeout(resolve, 25));
+        }
+    }
+    function workerRecords(cwd: string): Array<{ pid: number; script: string }> {
+        const dir = path.join(broker.configDir, 'workbuddian', createHash('sha256').update(fs.realpathSync(cwd)).digest('hex'));
+        return fs.readdirSync(dir).filter(name => /^workbuddian-worker-\d+\.json$/.test(name))
+            .map(name => JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')));
+    }
+
+    it('关窗时 killNow 同步终止本插件拉起的 worker，退出后删除 pid 记录', async () => {
+        broker = await accountFixture();
+        process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
+        const { scriptPath, cwd } = cliFixture();
+        worker = await startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']);
+        const [record] = workerRecords(cwd);
+        expect(record.script).toBe(scriptPath);
+        expect(alive(record.pid)).toBe(true);
+        worker!.killNow!();
+        await waitFor(() => !alive(record.pid));
+        await waitFor(() => workerRecords(cwd).length === 0);
+    });
+
+    it('启动时回收上一轮插件实例残留的 worker，本轮 worker 不受影响', async () => {
+        broker = await accountFixture();
+        process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
+        const { scriptPath, cwd } = cliFixture();
+        // 上一轮插件实例（独立模块状态）：窗口被直接关闭，异步清理没有执行。
+        let previous!: typeof import('../src/providers/codebuddy/workbuddySidecar');
+        jest.isolateModules(() => { previous = require('../src/providers/codebuddy/workbuddySidecar'); });
+        const stale = await previous.startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']);
+        try {
+            const [old] = workerRecords(cwd);
+            expect(alive(old.pid)).toBe(true);
+            worker = await startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']);
+            await waitFor(() => !alive(old.pid));
+            const records = workerRecords(cwd);
+            expect(records).toHaveLength(1);
+            expect(records[0].pid).not.toBe(old.pid);
+            expect(alive(records[0].pid)).toBe(true);
+            const rpc = await rpcConnection();
+            expect(await rpc('initialize', { protocolVersion: 1 })).toMatchObject({ protocolVersion: 1 });
+        } finally {
+            await stale?.dispose().catch(() => {});
+        }
     });
 
     it('returns a non-retryable model error when host delegation fails', async () => {

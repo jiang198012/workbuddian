@@ -250,6 +250,11 @@ export class AcpProvider {
         this.client.restart();
     }
 
+    /** 窗口关闭时同步终止自有 worker（不做异步清理） */
+    killOwnedWorkersNow(): void {
+        this.client.killOwnedWorkersNow();
+    }
+
     dispose(): void {
         for (const cancel of this.startingTurns.values()) cancel();
         this.rejectPendingPermissions();

@@ -6,8 +6,12 @@ import { spawn } from 'child_process';
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { connectWorkbuddyBroker, type WorkbuddyBroker } from './workbuddyBroker';
 import { loadWorkbuddyModelConfig } from './workbuddyModels';
+import { forgetWorker, reapStaleWorkers, recordWorker } from './workerRecords';
+import { bbLog } from '../../shared/logBuffer';
 
 const cancelled = () => new Error('WorkBuddy worker creation cancelled');
+/** 本插件实例当前持有的 worker；回收残留时跳过，避免误杀同一实例里仍在使用的进程。 */
+const ownedWorkerPids = new Set<number>();
 
 /** Windows 包装器参数不含脚本；Electron Node 模式必须显式带 JS 入口。 */
 export function workbuddyNativeArgs(scriptPath: string, args: string[], bundledScript?: string): string[] {
@@ -100,7 +104,7 @@ async function accountBroker(configDir: string, runtime: ReturnType<typeof insta
 
 /** 无连接扩展时使用宿主 WBIPC 委托账号请求；账号凭据始终由宿主保管。 */
 export async function startWorkbuddyNative(configDir: string, scriptPath: string, cwd: string, command: string,
-    args: string[], signal?: AbortSignal): Promise<{ endpoint: string; authToken: string; dispose(): Promise<void> }> {
+    args: string[], signal?: AbortSignal): Promise<{ endpoint: string; authToken: string; dispose(): Promise<void>; killNow(): void }> {
     if (signal?.aborted) throw cancelled();
     let proc: ReturnType<typeof spawn> | undefined;
     let broker: WorkbuddyBroker | undefined;
@@ -206,6 +210,8 @@ export async function startWorkbuddyNative(configDir: string, scriptPath: string
         if (connectionError) throw connectionError;
         const cache = path.join(configDir, 'workbuddian'); ownedDirectory(cache, true);
         const workerDir = path.join(cache, createHash('sha256').update(fs.realpathSync(cwd)).digest('hex')); ownedDirectory(workerDir, true);
+        const reaped = reapStaleWorkers(workerDir, ownedWorkerPids);
+        if (reaped.length) bbLog('[WB] 已回收上次残留的 WorkBuddy worker:', reaped.join(','));
         await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
         const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
         const env = { ...process.env };
@@ -237,7 +243,16 @@ export async function startWorkbuddyNative(configDir: string, scriptPath: string
             const workerArgs = workbuddyNativeArgs(scriptPath, args, runtime?.script);
             proc = spawn(runtime?.command ?? command, [...workerArgs, '--port', '0', '--host', '127.0.0.1', '--setting-sources', 'none'],
                 { cwd, env, shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
-            exit = new Promise<void>(done => proc!.once('close', () => { exited = true; done(); }));
+            const pid = proc.pid;
+            if (pid) {
+                ownedWorkerPids.add(pid);
+                try { recordWorker(workerDir, pid, workerArgs[0]); } catch { /* 记录失败不影响本次启动 */ }
+            }
+            exit = new Promise<void>(done => proc!.once('close', () => {
+                exited = true;
+                if (pid) { ownedWorkerPids.delete(pid); forgetWorker(workerDir, pid); }
+                done();
+            }));
             proc.once('error', () => reject(new Error('WorkBuddy 内置 CLI 无法启动，请检查安装完整性')));
             proc.once('close', () => reject(new Error('WorkBuddy 内置 CLI 在就绪前退出')));
             proc.stdout!.on('data', (chunk: Buffer) => {
@@ -263,7 +278,9 @@ export async function startWorkbuddyNative(configDir: string, scriptPath: string
         const result = await endpoint;
         if (signal?.aborted) throw cancelled();
         if (connectionError) throw connectionError;
-        return { endpoint: result, authToken: gatewayPassword, dispose };
+        // Obsidian 关窗不调用 onunload，异步 dispose 执行不到；窗口卸载时只能同步终止自有子进程。
+        const killNow = () => { if (proc && !exited) { try { proc.kill('SIGTERM'); } catch { /* 已退出 */ } } };
+        return { endpoint: result, authToken: gatewayPassword, dispose, killNow };
     } catch (error) {
         try { await dispose(); }
         catch { throw Object.assign(new Error('WorkBuddy own worker cleanup could not be confirmed'), { workbuddyCleanup: dispose }); }

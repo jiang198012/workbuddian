@@ -33,10 +33,13 @@ function requireOwned(file: string, kind: 'directory' | 'file' | 'socket'): fs.S
     return stat;
 }
 
-/** 优先 WorkBuddy sidecar v6；可选组件不可用时独立认证原生账号代理，不重启或关闭宿主。 */
+/**
+ * 优先 WorkBuddy sidecar v6；可选组件不可用时独立认证原生账号代理，不重启或关闭宿主。
+ * killNow 仅 native 自建 worker 提供；sidecar 名下的 worker 归宿主管理，本插件不直接发信号。
+ */
 export async function startWorkbuddySidecar(
     scriptPath: string, cwd: string, command: string, args: string[], signal?: AbortSignal,
-): Promise<{ endpoint: string; authToken: string; dispose(): Promise<void> } | null> {
+): Promise<{ endpoint: string; authToken: string; dispose(): Promise<void>; killNow?(): void } | null> {
     let productPath: string;
     let product: { productName?: string; dataFolderName?: string; authentication?: { id?: string }; models?: unknown; agents?: unknown };
     try {

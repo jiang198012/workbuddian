@@ -40,6 +40,11 @@ export default class WorkbuddianPlugin extends Plugin {
 
             this.api = this.settings.backend === 'hermes' ? new HermesProvider() : new CodebuddyProvider();
             this.applySettingsToApi();
+            // 关闭 vault 窗口时 Obsidian 只触发 pagehide/unload，不调用 onunload；
+            // 这里同步终止本插件拉起的 WorkBuddy worker，避免残留孤儿进程。
+            this.registerDomEvent(window, 'pagehide', () => {
+                if (this.api instanceof CodebuddyProvider) this.api.killOwnedWorkersNow();
+            });
             // CodeBuddy 的模型列表以 ACP session/new 返回为准；后台发现不阻塞插件启动。
             if (this.api instanceof CodebuddyProvider) {
                 const vaultPath = (this.app.vault.adapter as { basePath?: string }).basePath;

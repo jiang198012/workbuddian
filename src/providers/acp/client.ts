@@ -232,6 +232,15 @@ export class AcpClient {
         if (hadStarted) this.events.onExit(null, null);
     }
 
+    /**
+     * 窗口关闭时同步终止本插件拉起的 worker：Obsidian 关窗只触发 pagehide/unload、不调用 onunload，
+     * dispose 里的异步清理来不及执行。启动途中的 worker 由 abort 同步 SIGTERM。
+     */
+    killOwnedWorkersNow(): void {
+        this.startupAbort?.abort();
+        this.hostRuntime?.killNow?.();
+    }
+
     dispose(): void {
         this.disposed = true;
         this.generation++;
