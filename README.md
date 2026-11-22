@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 AI agent / Hermes Agent / CodeBuddy CLI / WorkBuddy
 audience: Obsidian 桌面端用户（Windows / macOS），中文为主
 runtime: Obsidian 1.7.2+；CodeBuddy CLI、WorkBuddy 桌面端或 Hermes Agent
-status: stable (2.6.22)
+status: stable (2.6.23)
 license: MIT
 -->
 
@@ -335,7 +335,7 @@ WorkBuddy 很可能以管理员身份运行，而 Obsidian 不是。完全退出
 
 ## 最新版本
 
-**2.6.22**：Windows 实机修复，包括残留的旧 sidecar 记录导致「校验失败」、WorkBuddy 以管理员身份运行时给出明确提示、关闭库窗口后结束插件启动的 CLI 进程、Hermes 初始化期间不再误报轻量模式、refusal 显示服务端原因、界面语言「Auto」跟随系统。
+**2.6.23**：聊天面板更易读（正文跟随 Obsidian 字号、助手回复去掉气泡、思考和工具调用折叠成一行摘要）；`@` 下拉选择 MCP 服务器现在能按引用加载；设置页与提示文案和当前行为一致；中英文 README 全面重写。
 
 完整的版本记录见 [CHANGELOG.md](CHANGELOG.md)。
 

@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian plugin / AI chat / local AI agent / Hermes Agent / CodeBuddy CLI / WorkBuddy
 audience: Obsidian desktop users (Windows / macOS)
 runtime: Obsidian 1.7.2+; CodeBuddy CLI, the WorkBuddy desktop app, or Hermes Agent
-status: stable (2.6.22)
+status: stable (2.6.23)
 license: MIT
 -->
 
@@ -335,7 +335,7 @@ Not yet; only Windows and macOS desktop are supported.
 
 ## Latest release
 
-**2.6.22**: Windows fixes. A stale sidecar record no longer causes "validation failed"; a clear message when WorkBuddy runs as administrator; CLI processes started by the plugin stop when a vault window closes; no false lite-mode notice while Hermes starts up; refusals show the reason from the service; the "Auto" interface language follows the system.
+**2.6.23**: an easier-to-read chat panel (body text follows Obsidian's font size, assistant replies without bubbles, thinking and tool calls collapsed into one summary row); picking an MCP server in the `@` dropdown now loads it by reference; settings and messages match the current behavior; the Chinese and English READMEs were rewritten.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
