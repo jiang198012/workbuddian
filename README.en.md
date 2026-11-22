@@ -4,112 +4,360 @@
   <a href="https://github.com/jiang198012/workbuddian/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/jiang198012/workbuddian?sort=semver"></a>
   <a href="https://github.com/jiang198012/workbuddian/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/jiang198012/workbuddian/total"></a>
   <a href="https://github.com/jiang198012/workbuddian/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jiang198012/workbuddian/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://obsidian.md/plugins?id=workbuddian"><img alt="Obsidian plugin" src="https://img.shields.io/badge/Obsidian-plugin-market-blue"></a>
+  <a href="https://community.obsidian.md/plugins/workbuddian"><img alt="Obsidian plugin" src="https://img.shields.io/badge/Obsidian-plugin-7c3aed"></a>
+  <a href="https://github.com/jiang198012/workbuddian/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/jiang198012/workbuddian?style=flat&logo=github"></a>
   <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
 </p>
 
 <p align="center">
-  <a href="./README.md">中文</a> | <strong>English</strong>
+  <a href="./README.md">简体中文</a> | <strong>English</strong>
 </p>
 
-> **Primary audience is Chinese-speaking Obsidian users. The canonical README is in Simplified Chinese ([中文](./README.md)); this English page is a condensed entry point.**
+<!--
+project: Workbuddian
+domain: Obsidian plugin / AI chat / local AI agent / Hermes Agent / CodeBuddy CLI / WorkBuddy
+audience: Obsidian desktop users (Windows / macOS)
+runtime: Obsidian 1.7.2+; CodeBuddy CLI, the WorkBuddy desktop app, or Hermes Agent
+status: stable (2.6.22)
+license: MIT
+-->
 
-**Workbuddian** is an **Obsidian community plugin** that turns your local **CodeBuddy CLI** or **Hermes agent** into an **AI chat agent** living inside your vault — chat, reference notes with `@`, stream replies, and edit your writing without ever switching windows. Dual backends, one panel.
+**Workbuddian** is an Obsidian community plugin that brings the AI agent on your computer into your vault: **Hermes Agent**, or the **CodeBuddy CLI** (including the CLI bundled with the **WorkBuddy** desktop app). Chat next to your notes, reference notes and files with `@`, and approve each step the agent takes right in the chat bubble. Files it changes are shown as line-level diffs, and edits inside the vault can be undone with one click.
 
 > ⚠️ **Desktop only** (Windows / macOS), requires Obsidian 1.7.2+. Linux is not supported yet.
 
+<p align="center">
+  <img src="docs/assets/workbuddian-demo.gif" alt="Workbuddian demo: reference a note with @ and get an answer based on its content" width="85%"/>
+</p>
+
+<p align="center">
+  <img src="docs/images/chat-demo.png" alt="Streaming chat with Markdown rendering" width="49%"/>
+  <img src="docs/images/chat-atsuggest.png" alt="@ references and attachments" width="49%"/>
+</p>
+
+> **⭐ If Workbuddian is useful to you, please [star the repository](https://github.com/jiang198012/workbuddian) so more people can find it.**
+
 ## Features
 
-- **Dual backends** — local CodeBuddy CLI or **Hermes agent**, both with full agent features (tools / approval cards / thinking / usage / forking) over ACP. Hermes falls back to a plain-chat HTTP lite mode when the local CLI is missing or a remote gateway is configured; auto-discovers gateway URL + API key from `~/.hermes`.
-- **Streaming chat** in the sidebar or a full-width main-area tab, with collapsible thinking / tool-call cards and Markdown rendering.
-- **`@` references anything** — subagents (`@Agent`), MCP servers (`@mcp`), notes (`@[[note]]`), or any file, from one dropdown.
-- **Approvals in the bubble** — Write / Edit / Bash / MCP tools ask permission on a card; plan mode continues in the same turn.
-- **Line-level diffs with one-click undo** for vault edits, guarded by three safety checks.
-- **Conversation forking** and **two truly isolated panels** (sidebar + main area, separate sessions).
-- **Visual MCP server management** with two-way JSON sync; custom subagents in JSON.
-- **Installed Skills** — discover skills from `~/.workbuddy/skills`, `~/.codebuddy/skills`, and vault-local skill folders; type `/` to choose and invoke one.
-- **Bilingual UI** (中文 / English) with instant switching.
-- **Beyond using the CLI directly** — visual interface, approval cards, one-click undo, and panel integration all live inside Obsidian.
+| Feature | What it does |
+| --- | --- |
+| **Two backends** | The **CodeBuddy CLI** (the official CLI, or the one bundled with the WorkBuddy desktop app) and **Hermes Agent**. Both run over ACP with tool calls, approval cards, thinking, context usage and conversation forking. When no local Hermes CLI is available or a remote gateway is configured, Hermes switches to a chat-only lite mode |
+| **Streaming chat** | In the sidebar or a full-width panel in the main area; collapsible thinking and tool-call cards; full Markdown rendering |
+| **`@` references** | Attach notes, any file, subagents and MCP servers to one message; text selected in a note is sent as context automatically |
+| **`/` commands and Skills** | Built-in commands, installed WorkBuddy / CodeBuddy Skills, custom commands in your vault, and the CLI's own commands |
+| **Approvals and permission modes** | Confirm file writes, edits, shell commands and MCP calls in the bubble; switch between three permission modes |
+| **Line-level diffs and one-click undo** | Every edit shows the changed lines; vault edits can be undone with one click, with safety checks so later changes are not overwritten |
+| **Inline edit** | Select text and let the AI rewrite it in place without leaving the note |
+| **Conversation management** | Tabs, pinning, renaming, search, reopening with `/resume`, forking, separate conversations in two panels, automatic titles, export as notes |
+| **Write back to notes** | Insert a reply or code block into the current note, or save it as a new note |
+| **Images** | Paste or drop screenshots and let the model analyze them |
+| **Templates and persistent instruction** | Start a chat from a writing, translation, code review or note-organizing template; a `#` persistent instruction applies to every chat |
+| **MCP and subagents** | Manage MCP servers visually, with the list and JSON kept in sync; define subagents in JSON |
+| **Chinese / English UI** | Switch instantly; follows Obsidian by default |
 
 ## Installation
 
-**Prerequisites**: Obsidian 1.7.2+ (desktop), Windows or macOS, and an installed **CodeBuddy CLI** (recommended: `npm i -g @tencent-ai/codebuddy-code`; the plugin provides one-click browser sign-in, no terminal `/login`). A logged-in **WorkBuddy desktop app** (≥ 5.0.5) also works as a fallback through its bundled CLI.
+**Prerequisites**: Obsidian 1.7.2+ desktop, Windows or macOS, and one backend (see [Quick start](#quick-start)).
 
-1. In Obsidian: **Settings → Community plugins → Browse**.
-2. Search **"Workbuddian"** → **Install** → **Enable**.
+**From the community plugin directory (recommended)**
 
-Or via [BRAT](https://github.com/TfTHacker/obsidian42-brat) with `jiang198012/workbuddian`.
+1. In Obsidian, open **Settings → Community plugins → Browse**.
+2. Search for **Workbuddian**, select **Install**, then **Enable**.
 
-## Quick Start
+You can also view it on the web: [community.obsidian.md/plugins/workbuddian](https://community.obsidian.md/plugins/workbuddian).
 
-**2.6.22 Windows fixes**: a stale sidecar record left by WorkBuddy no longer breaks chat with "validation failed" when only the desktop app is installed (#19); a clear hint when WorkBuddy runs as administrator; bundled-CLI workers no longer outlive a closed vault window; no false "lite mode" banner while Hermes initializes (#15); refusals show the server reason (#14); "Auto" language follows the system language. See the [Windows test report](docs/manual-test-report-2026-11-22-windows.md).
+**Track the latest version with BRAT**: install the BRAT community plugin, choose *Add Beta Plugin*, enter `jiang198012/workbuddian`, then enable it under **Settings → Community plugins**.
 
-**2.6.21 fixes**: `HTTP 401` from the WorkBuddy 5.11.x bundled CLI when only the desktop app is installed (#19); the tab × now only closes the tab and the chat can be reopened from `/resume` or search (#16); Hermes gateway liveness by process and ACP recovery on retry (#15); a clear sign-in dialog for the bundled CLI (#17). See the [changelog](CHANGELOG.md).
+**Manual installation**: download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/jiang198012/workbuddian/releases/latest), put them in `.obsidian/plugins/workbuddian/` inside your vault, restart Obsidian and enable the plugin.
 
-**2.6.20 fixes**: Windows Hermes `.cmd` self-check (shell-aware + 40s timeout + `HERMES_HOME`/`%LOCALAPPDATA%\hermes` discovery), ACP `error.data.details` surfacing, and WBIPC malformed-ack classification (#13 / #12). See the [changelog](CHANGELOG.md).
+## Quick start
 
-**2.6.19 official CLI one-click sign-in**: Settings and the command palette now offer “Sign in to CodeBuddy”. The plugin starts the official CodeBuddy CLI Web UI and opens its browser sign-in page (Chinese Site / iOA / Enterprise Domain / International Site), then reconnects and refreshes models automatically. Auto-detection prefers the official CLI and falls back to the WorkBuddy bundled CLI. This release also fixes Hermes gateway auto-start, API-key discovery and the first-message race, plus WorkBuddy 5.9.3 lite-bundle and fast-fail handling. See the [investigation and sign-in notes](docs/workbuddy-5.9.3-bridge-2026-10-28.md).
+### Choose a backend
 
-**2.6.18 model catalog synchronization**: each new worker reads the official cloud catalog for the original personal WorkBuddy account instead of freezing the bundled CLI's old startup cache. Preserve current model IDs, names and order; deduplicate display names. Catalog or selected-model configuration failures are explicit and do not silently use an old model. **Existing login and quota are retained; this is not continuous live refresh. Desktop experimental-menu parity, enterprise accounts and Windows hardware remain unverified.** See the [repair and verification record](docs/model-catalog-sync-2026-10-09.md).
+| Backend | Good for | Account and quota | Requires |
+| --- | --- | --- | --- |
+| Official CodeBuddy CLI (recommended) | The full CodeBuddy feature set | Your own CodeBuddy account | Node.js |
+| WorkBuddy desktop app | You already use WorkBuddy and don't want another CLI | The account and quota signed in to the desktop app | The desktop app signed in and running |
+| Hermes Agent | You run Hermes Agent on this computer | The model provider configured in Hermes | A local hermes CLI, or a reachable Hermes gateway |
 
-**2.6.17 acceptance and limitation update**: the production implementation is unchanged from 2.6.16. A synthetic MCP passed one-time approval, independent result delivery, post-tool owned-process cleanup and the Obsidian approval-card flow. The first image GUI attempt returned a plain `refusal`; later protocol controls and a temporary diagnostic build succeeded, but the cause remains unidentified and is not claimed fixed. See the [supplemental acceptance report](docs/issue-10-native-capability-acceptance-2026-10-09.md).
+Pick CodeBuddy or Hermes under **Settings → Workbuddian → Backend Connection → Backend**. The first two options are both the CodeBuddy backend; they only differ in which CLI is used.
 
-**2.6.16 optional-connector recovery**: a failed or incompatible old connector, or warmup without an actual sidecar, no longer blocks the original account route. Independently authenticate the native broker only when the sidecar is absent and no worker has been submitted. Cancellation, untrusted sidecars and invalid account proofs still fail closed; prompts are not automatically replayed. See the [recovery report](docs/issue-10-connector-recovery-2026-10-09.md). Native transport limits remain; this is not full high-availability acceptance.
+### Official CodeBuddy CLI
 
-**2.6.15 startup fixes**: existing sidecars also use the bundled desktop runtime; bundled CLI symlinks are resolved before runtime detection. Wait up to about 30 seconds for a delayed account request channel, with cancellation and without restarting an active host. Native fallback after a broken or incompatible optional connector is still pending; this patch is not full zero-setup acceptance. See the [follow-up report](docs/issue-10-zero-setup-followup-2026-10-09.md).
+1. Install Node.js, then the CLI: `npm i -g @tencent-ai/codebuddy-code`
+2. Leave "CodeBuddy path" empty. The plugin finds the official CLI first.
+3. Under "CodeBuddy sign-in" in settings, select "Sign in to CodeBuddy", or run "Sign in to CodeBuddy" from the command palette. Your browser opens the sign-in page (Chinese Site / iOA / Enterprise Domain / International Site). After you sign in, the plugin reconnects and refreshes the model list. No terminal sign-in is needed.
 
-**2.6.14 native account route**: install and log in to WorkBuddy, then send a message in Obsidian. When no connector is available, the plugin delegates requests to the host's native account broker. It can normally open an identified installation when the desktop app is not running, without restarting an active host. No connector, extra Node installation, separate account or API key is required. Existing sidecar connections retain their previous route. Known `WorkBuddy AI` product identifiers are also accepted.
+### WorkBuddy desktop app
 
-**Native route limits**: WorkBuddy 5.7.7 currently buffers each HTTP response, with an approximately 50-second host deadline and approximately 640 KiB request/response limit. Model tokens arrive after the complete response, not as an immediate token stream. Large attachments, long output and very large context may exceed these limits. Core macOS flows passed; **Windows hardware, prolonged operation and billing deltas remain unverified, so #10 stays open**. See the [acceptance report](docs/issue-10-zero-setup-2026-10-09.md).
+1. Install the WorkBuddy desktop app, sign in, and keep it running.
+2. Leave "CodeBuddy path" empty. Without the official CLI, the plugin uses the CLI bundled with WorkBuddy, for example:
+   - Windows: `C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\bin\codebuddy`
+   - macOS: `/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy`
 
-**Optional connector route in 2.6.13**: for WorkBuddy 5.7.6 missing-sidecar errors, explicitly install the local connector from the command palette and normally restart WorkBuddy after saving tasks. Version 2.6.14 does not require this for its native route. The connector only invokes a fixed host warmup method and does not read login credentials or send model prompts. See the [previous cold-start report](docs/issue-10-cold-start-diagnosis-2026-10-07.md).
+   If WorkBuddy is installed somewhere else, enter the full path to this file in "CodeBuddy path".
+3. You don't need to install Node.js; the plugin uses WorkBuddy's own runtime. The bundled CLI does not support one-click sign-in; it uses the account signed in to the desktop app.
 
-**WorkBuddy 5.6.2 compatibility ([#10](https://github.com/jiang198012/workbuddian/issues/10))**: **2.6.12** creates a dedicated Vault worker through WorkBuddy's own sidecar. Keep the original desktop app running and logged in; the worker uses the same account and quota. Older WorkBuddy versions without bootstrap retain stdio. Original-account chat, Vault read/write and conversation recovery after plugin reload have been tested on macOS; **Windows hardware validation is pending**, so #10 remains open for feedback. This uses internal IPC, not an officially guaranteed public API. Version 2.6.10 and earlier do not include this adaptation. See the [acceptance report](docs/issue-10-host-acceptance-2026-09-29.md).
+Keep in mind:
 
-An unavailable host credential channel does not mean WorkBuddy is logged out, and logging in again is not a guaranteed remedy. Automatic detection only selects WorkBuddy and never switches to a standalone CodeBuddy account or quota. Explicit paths and `CODEBUDDY_PATH` are preserved, including when unavailable. A manually selected alternative CLI uses its own authentication and quota. The plugin does not read, copy, or decrypt WorkBuddy login credentials. See the [Chinese compatibility notes](./README.md#快速开始).
+- Open WorkBuddy normally, not as administrator. Otherwise the plugin cannot connect to it and reports `E_SOCKET_FORBIDDEN`.
+- This route relies on WorkBuddy's internal interfaces, so a WorkBuddy update may require a plugin update (see [issue #10](https://github.com/jiang198012/workbuddian/issues/10)).
+- Through WorkBuddy's native account route, a reply may appear all at once after it is generated instead of word by word. On WorkBuddy 5.7.7 we measured limits of about 50 seconds per request and about 640 KiB per request and response, so very large attachments or very long output may exceed them.
 
-1. Click the **robot ribbon icon** or run **"Workbuddian: Open chat panel"**.
-2. Confirm WorkBuddy is installed and logged in; the 2.6.14 native route uses its bundled runtime. If a custom installation is not detected, select its bundled CLI path in settings. Older or explicitly selected alternative CLIs may still need the environment-setup prompt in the [Chinese README](./README.md#快速开始).
-3. Send your first message.
+### Hermes Agent
 
-> **Vault permissions**: send the full contents of `提示词-授予Vault读写权限.md` to WorkBuddy/CodeBuddy once, then fully quit and reopen it.
+1. Install Hermes Agent on this computer and configure its model provider, following the Hermes Agent documentation.
+2. Choose **Hermes** as the backend. "Hermes CLI path", "Gateway URL" and "API Key" can stay empty: the plugin reads `config.yaml` and `.env` from `HERMES_HOME`, `%LOCALAPPDATA%\hermes` and `~/.hermes`, in that order, to find the gateway URL and API key.
+3. The "Run mode" row shows the current mode:
+   - **ACP full**: the local hermes CLI passed its self-check. Tool calls, approval cards, thinking and conversation forking are available. If the gateway is not running, the plugin starts `hermes gateway run` in the background.
+   - **HTTP lite**: chat only. Used when the gateway URL points to another machine or the local CLI self-check fails; a notice bar appears at the top of the chat panel.
 
-## Documentation
+Some Hermes behavior on Windows (for example whether background processes open a window) has not been verified on real hardware yet; see the [CHANGELOG](CHANGELOG.md).
 
-The complete documentation (usage, settings, auto-discovery, FAQ, changelog) is maintained in **Simplified Chinese**: [README.md](./README.md) — the canonical source.
+### Send your first message
 
-## What's New
+1. Select the robot icon in the left ribbon, or run "Open chat panel" from the command palette. For a full-width panel, run "Open large panel in main area".
+2. Type a message. **Enter** sends it, **Shift + Enter** adds a new line.
+3. Once the model list has loaded, switch models from the input toolbar.
 
-**Latest version 2.6.22**
+## Usage
 
-- **2.6.22 — Windows fixes (#19 / #15 / #14)**: stale sidecar record misreported as "validation failed", a hint for an elevated WorkBuddy, bundled-CLI workers stopped when a vault window closes, no false Hermes lite-mode banner during init, refusal reasons surfaced, and "Auto" language following the system. **Verified on Windows with the desktop app only; Hermes items on Windows remain unverified.**
+### Chat panel
 
-- **2.6.21 — #19 / #16 / #15 / #17 fixes**: WorkBuddy 5.11.x bundled-CLI `HTTP 401`, tab × closes instead of deleting, Hermes gateway liveness and ACP recovery, sign-in dialog guidance, and Hermes model-catalog refresh. **Windows hardware is unverified; the related issues stay open.**
+- **Tab bar**: "New chat", "Search chats…" and the conversation tabs. The × on a tab only closes the tab; the conversation is kept.
+- **Input toolbar**: model, 📎 attachments, "New from template", permission mode (shield icon), `#` persistent instruction, context usage ring, send / stop.
+- The sidebar and the main-area panel can be open at the same time, each with its own conversation; stopping a reply only affects that panel.
 
-- **2.6.20 — #13 / #12 fixes**: Windows Hermes `.cmd` self-check/timeout, `HERMES_HOME`/`LOCALAPPDATA` discovery, ACP `data.details`, and WBIPC malformed-ack classification. **Windows `.cmd` hardware verification remains with the reporter; #13 stays open.**
+### `@` references
 
-- **2.6.19 — Official CLI one-click sign-in + dual-backend fixes**: browser sign-in without a terminal, official CodeBuddy CLI preferred by auto-detection, Hermes gateway auto-start/key/first-message race fixes, and WorkBuddy 5.9.3 lite-bundle plus fast failure when `wb.request` is absent. **WorkBuddy desktop auto-connect remains limited by the 5.9.3 upstream change; Windows hardware is unverified, #10 stays open.**
+Type `@` to open the dropdown and pick:
 
-- **2.6.18 — Original-account model catalog sync**: bypass the stale CLI startup cache and fetch the personal account's official catalog for each new worker. Preserve new model IDs and order, deduplicate names, report catalog/configuration failures instead of silent fallback, and keep discovery from stealing the active chat context. **Not continuous live refresh; enterprise accounts and Windows hardware remain unverified, #10 stays open.**
+- Notes: `@[[note name]]`, which adds the note's content as context;
+- Other files, which are attached for the CLI to read;
+- Subagents: `@Agent/name`;
+- MCP servers: `@mcp/name`. An MCP server is only injected when you reference it with `@`, so it does not use context otherwise.
 
-- **2.6.17 — Acceptance and limitation update**: add synthetic MCP GUI approval and post-tool owned-process cleanup evidence; retain the unresolved image GUI refusal and document the normal WBIPC registry's streaming boundary. **Production code is unchanged from 2.6.16; native deadline/size/buffering limits remain and #10 stays open.**
+Text you select in a note is sent with the message as read-only context. Files outside the vault need your confirmation before they are sent.
 
-- **2.6.16 — Optional-connector recovery**: restore the independently authenticated original account route after old connector failures or warmup without a sidecar. Retain cancellation and endpoint validation. Synthetic-Vault approval/rejection, chat after rejection, owned-session reconnection and small PNG protocol checks passed. **Native limits, Windows hardware and prolonged operation remain unresolved or unverified; #10 stays open.**
+### `/` commands and Skills
 
-- **2.6.15 — Startup reliability**: reuse the bundled runtime for existing sidecars, recognize bundled CLI symlinks and wait for delayed account channel recovery with cancellation. **Native limits and the broken-connector fallback gap remain; Windows hardware and broader acceptance are pending, #10 stays open.**
+Type `/` to open the completion list:
 
-- **2.6.14 — Native account access without a connector**: delegate to the original WorkBuddy account, normally open an inactive host and reuse the bundled runtime. Recognize `WorkBuddy AI` identifiers. macOS first use, automatic launch and chat after cancellation passed. **Native responses are buffered, limited to about 50 seconds / 640 KiB; Windows hardware remains unverified and #10 stays open.**
+| Command | What it does |
+| --- | --- |
+| `/clear` | Clear and start a new chat (local) |
+| `/compact` | Compact context |
+| `/context` | Show context usage |
+| `/cost` | Show session cost |
+| `/effort` | Set thinking effort |
+| `/resume` | Resume a past session |
+| `/status` | Show status |
 
-- **2.6.13 — WorkBuddy cold start and recovery**: an explicitly confirmed local connector fixes the missing-sidecar startup path in 5.7.6. Add startup timeout, cancellation, duplicate-send and worker-cleanup guards without replaying prompts. Cold start and host-restart recovery passed in demo-vault on macOS; **Windows and long-running validation pending, #10 remains open**.
+The list also includes:
 
-- **2.6.12 — Original WorkBuddy account restored**: adapt the 5.6.2 host credential channel, filter stale reply replays and fix worker cleanup on reconnect. No automatic switch to a standalone account. Core flows verified on macOS; **Windows hardware validation pending, #10 remains open**. The 2.6.11 tag did not produce a Release because of a Linux test-fixture path mismatch; 2.6.12 corrects the fixture without rewriting that tag.
-- **2.6.10 — Input sizing and path protection**: configurable min/max input height, automatic shrinking and safer Vault path boundaries.
+- **Skills**: discovered from `~/.workbuddy/skills`, `~/.codebuddy/skills`, and `.workbuddy/skills` / `.codebuddy/skills` inside the vault (vault skills win on name clashes). Pick one to insert `/skill-name`, then describe the task. The plugin only reads a skill's name and description for completion; it does not send the full skill to the model.
+- **Custom commands**: Markdown files in `.codebuddy/commands/` inside the vault; subfolders are joined with `:` in the command name.
+- **CLI commands**: other commands provided by the CLI, marked "(CLI)".
 
-- **v2.6.5 — Skill invocation**: discover installed WorkBuddy/CodeBuddy skills and invoke one from the `/` completion list.
+### Approvals and permission modes
+
+Before the agent writes or edits a file, runs a command or calls an MCP server, an approval card appears in the bubble with "Allow", "Always allow" and "Reject".
+
+Select the shield icon in the input toolbar to switch the permission mode:
+
+- **Default (ask each step)**: an approval card for every step.
+- **Plan (read-only)**: the agent first writes a plan without changing anything and shows a "Plan ready" card with "Execute", "Always execute" and "Cancel". If you choose to execute, it continues in the same turn.
+- **Full access**: no prompts; actions run directly. Use it only when you trust the current task.
+
+### Line-level diffs and one-click undo
+
+After each edit or write, the tool card shows a structured diff (collapsed by default). Vault edits can be undone with one click. Undo is refused, with the reason, if the file has changed since, the replaced text is no longer unique, or the edit was a pure deletion, so your own changes are never overwritten.
+
+### Inline edit
+
+Select text in a note and press **Ctrl/Cmd + Shift + E**, or right-click and choose "Workbuddian Edit". A floating toolbar appears above the selection; describe the change and the text is rewritten in place. The command palette also has "Edit selection with CodeBuddy".
+
+### Conversation management
+
+- Right-click a tab to pin, rename, fork (with the full history), delete, export as note, or copy to clipboard. Deleting shows the message count and warns that it cannot be undone.
+- Reopen a closed conversation with `/resume` or "Search chats…".
+- New conversations get a title automatically after the first reply; names you set yourself are not overwritten.
+- Command palette: "New conversation", "Search conversations", "Export current conversation as note", "Export all conversations as note".
+
+### Write replies back to notes
+
+- Your messages: copy, "Edit and resend".
+- Assistant replies: copy, "Insert into current note", "Save as new note", "Regenerate".
+- Code blocks: "Copy code", "Insert into current note", "Save as new note".
+
+### Templates and persistent instruction
+
+- "New from template" offers writing, translation, code review and note-organizing templates (the template names are currently shown in Chinese), each with its own persistent instruction and opening message.
+- Select `#` in the toolbar, or run "Edit persistent instruction" from the command palette, to set an instruction or persona that applies to every chat.
+
+### Images and attachments
+
+Pasted or dropped images are sent to the model as image content. Pasted images are stored in the plugin folder; "Pasted image retention" sets how many are kept. The attachment button adds files from inside or outside the vault.
+
+## Settings
+
+**Settings → Workbuddian**, in page order:
+
+| Section | Setting | Description | Default |
+| --- | --- | --- | --- |
+| General | Interface language | Auto (follows Obsidian; follows the system when Obsidian has no explicit language) / 中文 / English | Auto |
+| Backend Connection | Backend | CodeBuddy or Hermes | CodeBuddy |
+| | Run mode | Hermes only: shows ACP full or HTTP lite, and "Detecting run mode…" while checking | — |
+| | Hermes CLI path | Hermes only; leave empty to auto-discover | Auto |
+| | Gateway URL | Hermes only; leave empty to auto-discover; a URL on another machine uses lite mode | Auto |
+| | API Key | Hermes only; leave empty to auto-discover | Auto |
+| | CodeBuddy path | CodeBuddy only; leave empty to auto-detect (official CLI first) | Auto |
+| | CodeBuddy sign-in | CodeBuddy only; one-click browser sign-in for the official CLI | — |
+| | Node.js path (manual) | CodeBuddy only; set it if auto-detection fails | Auto |
+| | CLI timeout (minutes) | Longest wait for one reply before it is interrupted | 5 |
+| | Thinking effort | The CLI's thought_level, per conversation; changes made with `/effort` sync back here | enabled |
+| | MCP servers (JSON) | Visual list kept in sync with the JSON | Empty |
+| | Custom agents (JSON) | CodeBuddy only; the CLI's `--agents`, supports tools / model keys | Empty |
+| Context injection | Inject vault context | Adds the current vault path to every message | On |
+| | Inject current note link | Adds the current note's title and path (not its content) to every message | Off |
+| | Auto-generate chat titles | The AI names new chats after the first reply | On |
+| | Pasted image retention | Maximum pasted images kept in the plugin folder; 0 means unlimited | 20 |
+| | Auto-resize chat input | Grows and shrinks with the text, with minimum / maximum heights in pixels | On (30–200) |
+| Appearance | Chat accent color | Custom accent color, or follow the Obsidian theme color | Theme |
+| | Context window size (tokens) | The denominator of the context usage percentage; match it to the model's window | 200000 |
+| Reset | Reset to defaults | Clears custom settings | — |
+| Import / Export settings | Export settings / Import settings | Back up or move settings as a JSON file | — |
+| Logs | View logs | Opens the `[WB]` runtime log for troubleshooting | — |
+| CodeBuddy Plugins | | Browse and manage CodeBuddy plugins | — |
+
+The model and permission mode are not on the settings page; they are in the chat input toolbar.
+
+### Command palette
+
+| Command | What it does |
+| --- | --- |
+| Open chat panel | Opens chat in the sidebar |
+| Open large panel in main area | Opens a full-width chat in the main area |
+| New conversation | Starts a new conversation |
+| Search conversations | Searches past conversations by title |
+| Export current conversation as note | Saves the current conversation as a Markdown note |
+| Export all conversations as note | Exports every conversation at once |
+| Edit persistent instruction | Sets an instruction that applies to every chat |
+| Open Workbuddian settings | Opens the settings page |
+| Sign in to CodeBuddy | One-click browser sign-in for the official CLI |
+| Edit selection with CodeBuddy | Starts an edit from the selected text |
+| Workbuddian Edit | The floating edit toolbar above the selection (Ctrl/Cmd + Shift + E) |
+| Install WorkBuddy local connector | Usually not needed; see [Security and permissions](#security-and-permissions) |
+
+## Auto-discovery
+
+**CodeBuddy CLI** (when "CodeBuddy path" is empty):
+
+1. The `CODEBUDDY_PATH` environment variable;
+2. The official CodeBuddy CLI:
+   - Windows: `%AppData%\npm\codebuddy.cmd` and `codebuddy.cmd` under `%ProgramFiles%\nodejs`;
+   - macOS: `~/.local/bin`, `~/.npm-global/bin`, `~/.volta/bin`, `~/bin`, `/usr/local/bin`, `/opt/homebrew/bin`, and the nvm / npm prefix folders;
+   - then `PATH`;
+3. The CLI bundled with WorkBuddy:
+   - Windows: `%LocalAppData%\Programs\WorkBuddy`, `%ProgramFiles%\WorkBuddy`, `%ProgramFiles(x86)%\WorkBuddy`, and WorkBuddy under `Program Files` on drives C / D / E;
+   - macOS: `/Applications/WorkBuddy.app`, `~/Applications/WorkBuddy.app`;
+   - then `PATH`.
+
+A path you enter yourself, or `CODEBUDDY_PATH`, is used as is and is never silently replaced by another CLI.
+
+**Hermes**:
+
+- Configuration: `config.yaml` (gateway URL) and `.env` (API key) are read from `HERMES_HOME`, `%LOCALAPPDATA%\hermes` and `~/.hermes`, in that order.
+- CLI: `~/.local/bin/hermes` and `~/.hermes/bin/hermes` (`.exe` on Windows); on macOS also `/usr/local/bin` and `/opt/homebrew/bin`; finally `PATH` (on Windows `hermes.cmd` is accepted too). If the Hermes installer put the CLI somewhere else that is not on `PATH`, enter it in "Hermes CLI path".
+
+**Node.js** (only needed for the official CLI and similar setups):
+
+- Windows: `%ProgramFiles%\nodejs`, `%AppData%\npm`, `%LocalAppData%\Programs\nodejs`, nvm-windows, and the Node bundled with WorkBuddy under `~/.workbuddy/binaries/node/versions/*`;
+- macOS: `~/.local/bin`, `~/.npm-global/bin`, `~/.volta/bin`, `~/bin`, `/usr/local/bin`, `/opt/homebrew/bin`, nvm;
+- if none is found, enter it in "Node.js path (manual)".
+
+## Security and permissions
+
+Workbuddian lets the AI agent on your computer read and write files and run commands. This section explains what it can do and how you stay in control.
+
+**What it accesses**
+
+- It runs the CodeBuddy CLI, the CLI bundled with WorkBuddy, or the hermes CLI on your computer, and starts the Hermes gateway when needed.
+- After your approval, it reads and writes vault files, runs commands, and calls the MCP servers you configured.
+- With the WorkBuddy desktop app, it uses the account signed in to WorkBuddy through WorkBuddy's local interface. The plugin does not read, copy or decrypt WorkBuddy's sign-in credentials.
+
+**When it goes online or runs in the background**
+
+- Opening the panel or loading the model list starts the backend process; the plugin does not send warm-up prompts.
+- With "Auto-generate chat titles" on, one extra request for a title is made after the first reply.
+- "Install WorkBuddy local connector", after you confirm, writes a component to `<WorkBuddy config folder>/extensions/workbuddian-warmup` that stays with WorkBuddy and only wakes WorkBuddy's local task service. Since 2.6.14 it is usually not needed, and the plugin never installs it on its own.
+
+**How you approve**
+
+- File writes, edits, shell commands and MCP calls need your confirmation on an approval card, unless you switch to "Full access".
+- Files outside the vault are never sent to the model without your confirmation.
+
+**How you control it**
+
+- Turn off "Inject vault context" and "Inject current note link".
+- Use the permission mode to limit what the agent can do.
+- Check the `[WB]` log under "View logs" to see what the plugin did.
+
+## Troubleshooting
+
+**"CodeBuddy is not signed in"?**
+Official CLI: select "Sign in to CodeBuddy" in settings and finish the browser sign-in. CLI bundled with WorkBuddy: make sure the desktop app is signed in and running; this route does not support one-click sign-in.
+
+**Only the WorkBuddy desktop app is installed and no CLI is detected?**
+If WorkBuddy is not in a default folder, enter `<install folder>\resources\app.asar.unpacked\cli\bin\codebuddy` in "CodeBuddy path" (on macOS, `.app/Contents/Resources/...`).
+
+**`E_SOCKET_FORBIDDEN`, or the WorkBuddy local proxy refuses the connection?**
+WorkBuddy is probably running as administrator while Obsidian is not. Quit WorkBuddy completely (including the tray icon) and open it normally.
+
+**Hermes stays in lite mode?**
+Check the "Run mode" row in settings first: a remote gateway URL always uses lite mode; if the local CLI self-check fails, check "Hermes CLI path" and run `hermes acp --check` in a terminal. The plugin checks again after you change the settings.
+
+**Node.js not found?**
+This only happens with the official CLI and other setups that need Node. Install Node.js, or enter the full path to node in "Node.js path (manual)". The CLI bundled with WorkBuddy does not need Node.
+
+**A reply says "Turn interrupted: refusal (…)"?**
+The text in parentheses is the reason the service returned (for example quota or an unavailable model). Act on that reason; if you think the plugin is at fault, open an issue with the `[WB]` log.
+
+**No reply after sending?**
+Select "Retry" first. If the CLI process exited, the next message restarts it and restores the conversation context. If it still fails, check the `[WB]` log under "View logs".
+
+**Does it work on Linux?**
+Not yet; only Windows and macOS desktop are supported.
+
+## Latest release
+
+**2.6.22**: Windows fixes. A stale sidecar record no longer causes "validation failed"; a clear message when WorkBuddy runs as administrator; CLI processes started by the plugin stop when a vault window closes; no false lite-mode notice while Hermes starts up; refusals show the reason from the service; the "Auto" interface language follows the system.
+
+See [CHANGELOG.md](CHANGELOG.md) for the full version history.
+
+## Development
+
+```bash
+npm install    # install dependencies
+npm run dev    # development build (esbuild watch)
+npm run build  # production build (tsc type check + esbuild bundle)
+npm test       # run tests (jest)
+```
+
+`scripts/e2e/` drives a real Obsidian instance through CDP with Playwright, covering plugin loading, opening the panel, sending messages, streaming replies and two-panel regressions.
+
+## Related projects
+
+- **CodeBuddy / WorkBuddy**: the CLI behind this plugin's CodeBuddy backend.
+- **Hermes Agent**: the agent behind this plugin's Hermes backend.
+- **Claudian** (MIT): a similar plugin for using Claude Code in Obsidian. Workbuddian's UI follows its design patterns (no code copied).
+- **BuddyBridge** (MIT): early versions referenced or used parts of its implementation; the current version has been rewritten independently.
+
+Copyright and attribution: see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ## Support
 
-File bugs or feature requests on [GitHub Issues](https://github.com/jiang198012/workbuddian/issues).
+Report bugs or request features on [GitHub Issues](https://github.com/jiang198012/workbuddian/issues). Please check Troubleshooting above first, and attach the `[WB]` log (with personal details removed).
 
 ## License
 
