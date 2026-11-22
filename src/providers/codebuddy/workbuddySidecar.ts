@@ -64,16 +64,18 @@ export async function startWorkbuddySidecar(
     const runtimeDir = runtimeDirectory(configDir);
     const pidFile = path.join(runtimeDir, 'sidecar.pid');
     // PID 元数据含宿主 token；只取实例身份字段，绝不复制、输出或发送该 token。
-    const readIdentity = () => {
+    const readIdentity = (requireLive = false) => {
         requireOwned(runtimeDir, 'directory');
         requireOwned(pidFile, 'file');
         const { pid, version, controlPipeUuid } = JSON.parse(fs.readFileSync(pidFile, 'utf8'));
-        if (!Number.isSafeInteger(pid) || pid <= 0 || version !== 6 || !/^[a-f0-9]{8}$/.test(controlPipeUuid ?? '')) throw new Error();
+        if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error();
+        // 存活探测先于版本校验：进程已退出的旧版/残留 PID 文件（如 v3、无 controlPipeUuid）按宿主未运行（ESRCH）处理。
+        if (requireLive) process.kill(pid, 0);
+        if (version !== 6 || !/^[a-f0-9]{8}$/.test(controlPipeUuid ?? '')) throw new Error();
         return { pid: pid as number, controlPipeUuid: controlPipeUuid as string };
     };
     const locate = () => {
-        const identity = readIdentity();
-        process.kill(identity.pid, 0);
+        const identity = readIdentity(true);
         const socketPath = process.platform === 'win32'
             ? `\\\\.\\pipe\\workbuddy-${hash(configDir, 12)}-sidecar-control-${identity.controlPipeUuid}`
             : path.join(runtimeDir, `sidecar-${identity.controlPipeUuid}.sock`);

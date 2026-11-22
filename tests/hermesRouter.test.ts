@@ -101,6 +101,32 @@ describe('HermesProvider 路由器', () => {
         await p.init();
         expect(p.mode).toBe('acp');
     });
+    it('init 探测未落定时不算轻量模式，落定为 ACP 后也不算（#15 顶条误报）', async () => {
+        let finishCheck: Function = () => {};
+        execFileMock.mockImplementation((_c: string, _a: string[], _o: object, cb: Function) => { finishCheck = () => cb(null, 'ok', ''); });
+        const p = new HermesProvider();
+        p.setGateway('', '');
+        expect(p.mode).toBe('http'); // 占位值
+        expect(p.liteConfirmed).toBe(false); // 尚未探测
+        const pending = p.init();
+        await new Promise((r) => setImmediate(r));
+        expect(p.liteConfirmed).toBe(false); // 探测进行中
+        finishCheck();
+        await pending;
+        expect(p.mode).toBe('acp');
+        expect(p.liteConfirmed).toBe(false);
+    });
+    it('探测落定为 HTTP 时确认轻量模式，并通知视图刷新（mode 值未变也通知）', async () => {
+        execFileMock.mockImplementation((_c: string, _a: string[], _o: object, cb: Function) => cb(new Error('exit 1'), '', 'fail'));
+        const p = new HermesProvider();
+        p.setGateway('', '');
+        const seen: boolean[] = [];
+        p.onModeChange(() => seen.push(p.liteConfirmed));
+        await p.init();
+        expect(p.mode).toBe('http');
+        expect(p.liteConfirmed).toBe(true);
+        expect(seen[seen.length - 1]).toBe(true);
+    });
     it('空 gateway = 本机自动发现，会探测 CLI', async () => {
         execFileMock.mockImplementation((_c: string, _a: string[], _o: object, cb: Function) => cb(null, 'ok', ''));
         const p = new HermesProvider();

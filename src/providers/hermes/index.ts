@@ -67,8 +67,12 @@ export class HermesProvider {
     private modeCbs: Array<(m: HermesMode) => void> = [];
     private initPromise: Promise<void> | null = null;
     private gatewayStarting: Promise<void> | null = null;
+    private settled = false; // init 探测是否已落定；落定前 modeValue 只是占位值
+    private probeGen = 0;
 
     get mode(): HermesMode { return this.modeValue; }
+    /** 已确认运行在 HTTP 轻量模式：探测进行中的占位 http 不算，避免初始化期间误报顶条（#15） */
+    get liteConfirmed(): boolean { return this.settled && this.modeValue === 'http'; }
     onModeChange(cb: (m: HermesMode) => void): void { this.modeCbs.push(cb); }
 
     /**
@@ -79,13 +83,25 @@ export class HermesProvider {
     init(): Promise<void> {
         if (this.demoted) return Promise.resolve();
         if (!this.initPromise) {
+            const gen = ++this.probeGen;
+            this.setSettled(false);
             this.initPromise = this.doInit().catch((e) => {
                 // 探测本身失败不能阻塞聊天：退回 http 并把原因留在日志里
                 bbError('[WB] hermes 初始化失败，使用 HTTP 模式:', e);
                 this.setMode('http');
+            }).finally(() => {
+                // 配置变更后可能已开始新一轮探测：只有最新一轮落定才算落定
+                if (gen === this.probeGen) this.setSettled(true);
             });
         }
         return this.initPromise;
+    }
+
+    /** 落定状态变化也要通知视图：落定为 http 时 mode 值未变，setMode 不会触发回调 */
+    private setSettled(v: boolean): void {
+        if (v === this.settled) return;
+        this.settled = v;
+        for (const cb of this.modeCbs) cb(this.modeValue);
     }
 
     private async doInit(): Promise<void> {

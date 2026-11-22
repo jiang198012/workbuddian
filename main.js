@@ -2379,17 +2379,20 @@ async function startWorkbuddySidecar(scriptPath, cwd, command, args, signal) {
   const configDir = workbuddyConfigDirectory(dataFolder);
   const runtimeDir = runtimeDirectory2(configDir);
   const pidFile = path6.join(runtimeDir, "sidecar.pid");
-  const readIdentity = () => {
+  const readIdentity = (requireLive = false) => {
     requireOwned(runtimeDir, "directory");
     requireOwned(pidFile, "file");
     const { pid: pid2, version, controlPipeUuid } = JSON.parse(fs6.readFileSync(pidFile, "utf8"));
-    if (!Number.isSafeInteger(pid2) || pid2 <= 0 || version !== 6 || !/^[a-f0-9]{8}$/.test(controlPipeUuid != null ? controlPipeUuid : ""))
+    if (!Number.isSafeInteger(pid2) || pid2 <= 0)
+      throw new Error();
+    if (requireLive)
+      process.kill(pid2, 0);
+    if (version !== 6 || !/^[a-f0-9]{8}$/.test(controlPipeUuid != null ? controlPipeUuid : ""))
       throw new Error();
     return { pid: pid2, controlPipeUuid };
   };
   const locate = () => {
-    const identity2 = readIdentity();
-    process.kill(identity2.pid, 0);
+    const identity2 = readIdentity(true);
     const socketPath2 = process.platform === "win32" ? `\\\\.\\pipe\\workbuddy-${hash2(configDir, 12)}-sidecar-control-${identity2.controlPipeUuid}` : path6.join(runtimeDir, `sidecar-${identity2.controlPipeUuid}.sock`);
     const socketIdentity2 = process.platform !== "win32" ? requireOwned(socketPath2, "socket") : void 0;
     return { identity: identity2, socketPath: socketPath2, socketIdentity: socketIdentity2 };
@@ -4741,9 +4744,16 @@ var HermesProvider = class {
     this.modeCbs = [];
     this.initPromise = null;
     this.gatewayStarting = null;
+    this.settled = false;
+    // init 探测是否已落定；落定前 modeValue 只是占位值
+    this.probeGen = 0;
   }
   get mode() {
     return this.modeValue;
+  }
+  /** 已确认运行在 HTTP 轻量模式：探测进行中的占位 http 不算，避免初始化期间误报顶条（#15） */
+  get liteConfirmed() {
+    return this.settled && this.modeValue === "http";
   }
   onModeChange(cb) {
     this.modeCbs.push(cb);
@@ -4757,12 +4767,25 @@ var HermesProvider = class {
     if (this.demoted)
       return Promise.resolve();
     if (!this.initPromise) {
+      const gen = ++this.probeGen;
+      this.setSettled(false);
       this.initPromise = this.doInit().catch((e) => {
         bbError("[WB] hermes \u521D\u59CB\u5316\u5931\u8D25\uFF0C\u4F7F\u7528 HTTP \u6A21\u5F0F:", e);
         this.setMode("http");
+      }).finally(() => {
+        if (gen === this.probeGen)
+          this.setSettled(true);
       });
     }
     return this.initPromise;
+  }
+  /** 落定状态变化也要通知视图：落定为 http 时 mode 值未变，setMode 不会触发回调 */
+  setSettled(v) {
+    if (v === this.settled)
+      return;
+    this.settled = v;
+    for (const cb of this.modeCbs)
+      cb(this.modeValue);
   }
   async doInit() {
     if (this.demoted)
@@ -8345,7 +8368,7 @@ var WorkbuddianChatView = class extends import_obsidian8.ItemView {
   refreshHermesLiteBanner() {
     if (!this.liteBannerEl)
       return;
-    const lite = this.settings.backend === "hermes" && this.api instanceof HermesProvider && this.api.mode === "http";
+    const lite = this.settings.backend === "hermes" && this.api instanceof HermesProvider && this.api.liteConfirmed;
     this.liteBannerEl.toggleClass("workbuddian-hidden", !lite);
     if (lite)
       this.liteBannerEl.setText(t("hermes.liteBanner"));

@@ -431,7 +431,7 @@ export class WorkbuddianChatView extends ItemView {
     refreshHermesLiteBanner() {
         if (!this.liteBannerEl) return;
         const lite = this.settings.backend === 'hermes'
-            && this.api instanceof HermesProvider && this.api.mode === 'http';
+            && this.api instanceof HermesProvider && this.api.liteConfirmed;
         this.liteBannerEl.toggleClass('workbuddian-hidden', !lite);
         if (lite) this.liteBannerEl.setText(t('hermes.liteBanner'));
     }

@@ -224,6 +224,18 @@ describe('WorkBuddy owned sidecar worker', () => {
         expect(requests).toHaveLength(0);
     });
 
+    it('treats a legacy PID file whose sidecar has exited as a stopped host, not invalid metadata', async () => {
+        // 2026-11-22 Windows 实机：%TEMP%\wb\<hash>\sidecar.pid 残留旧版 {pid, token, version: 3}，无 controlPipeUuid，进程已退出。
+        fs.mkdirSync(runtimeDir, { recursive: true });
+        fs.writeFileSync(path.join(runtimeDir, 'sidecar.pid'), JSON.stringify({ pid: 2147483000, token: 'never-copy-this-test-token', version: 3 }));
+        (warmupWorkbuddy as jest.Mock).mockResolvedValue(undefined);
+        (connectWorkbuddyBroker as jest.Mock).mockRejectedValue(Object.assign(new Error('fixture account missing'), { code: 'E_DISCOVERY_MISSING' }));
+        await expect(startWorkbuddySidecar(scriptPath, cwd, '/test/node', [scriptPath, '--serve']))
+            .rejects.toMatchObject({ code: 'E_DISCOVERY_MISSING' });
+        expect(warmupWorkbuddy).toHaveBeenCalledWith(configDir, undefined);
+        expect(requests).toHaveLength(0);
+    });
+
     it('ignores foreign broadcasts and unknown responses', async () => {
         await listen((socket, request) => {
             socket.write(JSON.stringify({ jsonrpc: '2.0', method: 'session.exited', params: { sessionId: 'someone-else' } }) + '\n');

@@ -124,6 +124,23 @@ describe('CodeBuddy CLI discovery', () => {
         (fs.realpathSync as unknown as jest.Mock).mockImplementation((p) => p);
         expect(resolveCodebuddyPath('')).toBe(bundled);
     });
+
+    it('detects the WorkBuddy 5.11.3 desktop-only layout in Program Files (#19)', () => {
+        // 2026-11-22 Windows 实机布局：小写 resources、入口无扩展名，无官方 CLI；NTFS 路径不区分大小写。
+        Object.defineProperty(process, 'platform', { value: 'win32' });
+        process.env = {
+            USERPROFILE: 'C:\\Users\\admin', APPDATA: 'C:\\Users\\admin\\AppData\\Roaming',
+            LOCALAPPDATA: 'C:\\Users\\admin\\AppData\\Local', ProgramFiles: 'C:\\Program Files',
+            'ProgramFiles(x86)': 'C:\\Program Files (x86)', PATH: 'C:\\Program Files\\nodejs',
+        };
+        const onDisk = 'C:\\Program Files\\WorkBuddy\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy';
+        const norm = (p: string) => p.replace(/[\\/]+/g, '\\').toLowerCase();
+        existsSync.mockImplementation((p) => norm(p) === norm(onDisk));
+        (fs.statSync as jest.Mock).mockImplementation(() => ({ isFile: () => false }));
+        (fs.realpathSync as unknown as jest.Mock).mockImplementation((p) => p);
+        (fs.readFileSync as unknown as jest.Mock).mockImplementation(() => { throw new Error('ENOENT'); });
+        expect(norm(resolveCodebuddyPath(''))).toBe(norm(onDisk));
+    });
 });
 
 describe('resolveHermesPath', () => {
