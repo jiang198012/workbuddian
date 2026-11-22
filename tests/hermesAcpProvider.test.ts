@@ -1,6 +1,7 @@
 import { HermesAcpProvider } from '../src/providers/hermes/acpProvider';
 import { AcpClient, AcpStartError } from '../src/providers/acp/client';
 import { makeFakeClient, consume } from './helpers/fakeAcpClient';
+import { t } from '../src/i18n';
 
 jest.mock('../src/providers/acp/client', () => {
     const actual = jest.requireActual('../src/providers/acp/client');
@@ -8,6 +9,15 @@ jest.mock('../src/providers/acp/client', () => {
 });
 
 describe('HermesAcpProvider', () => {
+    it('找不到 CLI 时提示 Hermes CLI 路径，不提 codebuddy / WorkBuddy', async () => {
+        const kit = makeFakeClient(AcpClient as jest.MockedClass<typeof AcpClient>);
+        kit.fake.ensureStarted.mockRejectedValue(new AcpStartError('cli-not-found', 'ENOENT'));
+        const p = new HermesAcpProvider();
+        p.setConversationLookup({ getAcpSessionId: () => undefined, setAcpSessionId: () => {} });
+        const sent = consume(p.sendMessage('conv-1', 'x', '/tmp/vault'));
+        await expect(sent).rejects.toThrow(t('provider.cliNotFoundHermes'));
+        await expect(sent).rejects.not.toThrow(/codebuddy|WorkBuddy/i);
+    });
     it('握手失败文案写 Hermes CLI，不写 codebuddy', async () => {
         const kit = makeFakeClient(AcpClient as jest.MockedClass<typeof AcpClient>);
         kit.fake.ensureStarted.mockRejectedValue(new AcpStartError('handshake-failed', 'process exited (0) before handshake'));

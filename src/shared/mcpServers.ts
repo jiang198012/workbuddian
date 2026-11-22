@@ -67,6 +67,11 @@ export function activeMcpServers(servers: McpServerEntry[]): Array<Record<string
         .map((s) => ({ name: s.name, command: s.command, args: s.args, env: s.env }));
 }
 
+/** @ 下拉选中 MCP 服务器时插入的引用（@ 之后的部分）；须能被 extractMcpNames 识别，否则按引用注入不生效 */
+export function mcpMention(name: string): string {
+    return `mcp/${name}`;
+}
+
 /** 从消息文本提取所有 @mcp/名称 引用（去重，按出现顺序）——R10 context-saving MCP */
 export function extractMcpNames(text: string): string[] {
     const names: string[] = [];

@@ -78,3 +78,22 @@ describe('i18n', () => {
         }
     });
 });
+
+// 2026-11-22 文档更新后核对出的界面文案过时（README 已按当前行为改写）
+describe('UI copy matches current behaviour', () => {
+    it('does not describe Hermes as a chat-only gateway', () => {
+        expect(STRINGS['backend.hermes']).toEqual({ zh: 'Hermes Agent', en: 'Hermes Agent' });
+        expect(STRINGS['backend.desc'].zh).not.toMatch(/纯对话,需 gateway|Hermes gateway/);
+        expect(STRINGS['backend.desc'].en).not.toMatch(/plain chat, gateway must|Hermes gateway/);
+    });
+    it('says the persistent instruction only applies to the current conversation', () => {
+        expect(STRINGS['instruction.placeholder'].zh).not.toContain('所有对话');
+        expect(STRINGS['instruction.placeholder'].en).not.toContain('all chats');
+    });
+    it('mentions the official CLI when no CodeBuddy CLI is found', () => {
+        expect(STRINGS['settings.pathNotFound'].zh).toContain('官方');
+        expect(STRINGS['settings.pathNotFound'].en).toContain('official');
+        expect(STRINGS['provider.cliNotFound'].zh).toContain('官方');
+        expect(STRINGS['provider.cliNotFound'].en).toContain('official');
+    });
+});

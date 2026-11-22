@@ -3,7 +3,7 @@ import { getErrorMessage, DEFAULT_CONTEXT_WINDOW_SIZE, type ChatMessage, type Co
 import { extractAtQuery, parseAtReferences, removeAtReference } from '../../shared/atReferences';
 import { parseAgentNames, parseMcpServerNames } from '../../shared/mentionSources';
 import { discoverSkills } from '../../shared/skills';
-import { extractMcpNames } from '../../shared/mcpServers';
+import { extractMcpNames, mcpMention } from '../../shared/mcpServers';
 import { shouldSendMessage, isActivationKey, nextSuggestIndex } from '../../shared/inputKeys';
 import { assembleContextText } from '../../core/context/assembleContext';
 import type { WorkbuddianChatView } from './view';
@@ -92,7 +92,7 @@ export function updateAtSuggest(view: WorkbuddianChatView) {
         entries.push({ label: `@Agents/${name}`, pick: () => insertTextMention(view, name) });
     }
     for (const name of parseMcpServerNames(view.settings.mcpServersJson).filter(n => n.toLowerCase().includes(query))) {
-        entries.push({ label: `@mcp/${name}`, pick: () => insertTextMention(view, name) });
+        entries.push({ label: `@mcp/${name}`, pick: () => insertTextMention(view, mcpMention(name)) });
     }
     const files = view.app.vault.getFiles()
         .filter(f => f.name.toLowerCase().includes(query))

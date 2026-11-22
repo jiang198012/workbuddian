@@ -1,4 +1,4 @@
-import { parseMcpServers, serializeMcpServers, activeMcpServers, parseClipboardServers, extractMcpNames, filterMcpServersByNames } from '../src/shared/mcpServers';
+import { parseMcpServers, serializeMcpServers, activeMcpServers, parseClipboardServers, extractMcpNames, filterMcpServersByNames, mcpMention } from '../src/shared/mcpServers';
 
 describe('parseMcpServers', () => {
     it('parses stdio servers with args and env record', () => {
@@ -59,5 +59,13 @@ describe('filterMcpServersByNames (R10 context-saving MCP)', () => {
     it('returns empty for no matches or empty names', () => {
         expect(filterMcpServersByNames(servers, ['nope'])).toEqual([]);
         expect(filterMcpServersByNames(servers, [])).toEqual([]);
+    });
+});
+
+describe('mcpMention (@ 下拉插入的 MCP 引用)', () => {
+    // 2026-11-22 审阅发现：下拉插入的是 @名称，extractMcpNames 只认 @mcp/名称，按引用注入从不生效
+    it('inserts a token that extractMcpNames recognises', () => {
+        expect(mcpMention('filesystem')).toBe('mcp/filesystem');
+        expect(extractMcpNames(`读一下 @${mcpMention('filesystem')} 里的文件`)).toEqual(['filesystem']);
     });
 });

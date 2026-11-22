@@ -72,7 +72,8 @@ var init_i18n = __esm({
       "chat.newConversation": { zh: "\u65B0\u5BF9\u8BDD", en: "New chat" },
       "chat.autoTitlePrompt": { zh: "\u8BF7\u4E3A\u4EE5\u4E0B\u5185\u5BB9\u751F\u6210\u4E00\u4E2A\u4E0D\u8D85\u8FC7 20 \u5B57\u7684\u4F1A\u8BDD\u6807\u9898\uFF0C\u53EA\u8F93\u51FA\u6807\u9898\u672C\u8EAB\uFF0C\u4E0D\u8981\u6807\u70B9\u7ED3\u5C3E\uFF1A\n\n", en: "Generate a chat title (max 20 chars) for the content below. Output only the title, no trailing punctuation:\n\n" },
       "common.unknownError": { zh: "\u672A\u77E5\u9519\u8BEF", en: "Unknown error" },
-      "provider.cliNotFound": { zh: "\u627E\u4E0D\u5230 codebuddy CLI\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 WorkBuddy \u684C\u9762\u7248\uFF0C\u6216\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u6307\u5B9A codebuddy \u8DEF\u5F84\u3002", en: "codebuddy CLI not found. Make sure WorkBuddy desktop is installed, or set the codebuddy path in the plugin settings." },
+      "provider.cliNotFound": { zh: "\u627E\u4E0D\u5230 codebuddy CLI\u3002\u8BF7\u5B89\u88C5\u5B98\u65B9 CodeBuddy CLI\uFF08npm i -g @tencent-ai/codebuddy-code\uFF09\u6216 WorkBuddy \u684C\u9762\u7248\uFF0C\u6216\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u6307\u5B9A CodeBuddy \u8DEF\u5F84\u3002", en: "codebuddy CLI not found. Install the official CodeBuddy CLI (npm i -g @tencent-ai/codebuddy-code) or the WorkBuddy desktop app, or set the CodeBuddy path in the plugin settings." },
+      "provider.cliNotFoundHermes": { zh: "\u627E\u4E0D\u5230 hermes CLI\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 Hermes Agent\uFF0C\u6216\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u6307\u5B9A Hermes CLI \u8DEF\u5F84\u3002", en: "hermes CLI not found. Make sure Hermes Agent is installed, or set the Hermes CLI path in the plugin settings." },
       "provider.nodeNotFound": { zh: "\u627E\u4E0D\u5230 Node.js \u6765\u8FD0\u884C codebuddy\uFF08\u8DEF\u5F84\uFF1A{path}\uFF09\u3002\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5 Node.js\u3002", en: "Node.js not found to run codebuddy (path: {path}). Make sure Node.js is installed." },
       "provider.acpUnsupported": { zh: "\u5F53\u524D codebuddy CLI \u7248\u672C\u8FC7\u65E7\uFF0C\u4E0D\u652F\u6301 ACP \u6301\u4E45\u4F1A\u8BDD\u3002\u8BF7\u5347\u7EA7 WorkBuddy \u684C\u9762\u7248\u3002", en: "Your codebuddy CLI is too old for ACP persistent sessions. Please upgrade WorkBuddy." },
       "provider.notLoggedIn": { zh: "CodeBuddy \u672A\u767B\u5F55\u3002\u6253\u5F00 \u8BBE\u7F6E \u2192 CodeBuddy \u767B\u5F55 \u2192 \u70B9\u300E\u767B\u5F55 CodeBuddy\u300F\uFF0C\u5728\u6D4F\u89C8\u5668\u91CC\u5B8C\u6210\u767B\u5F55\u540E\u91CD\u8BD5\uFF1BWorkBuddy \u5185\u7F6E CLI \u9700\u4FDD\u6301\u684C\u9762\u7AEF\u767B\u5F55\u8FD0\u884C\u3002", en: "CodeBuddy is not signed in. Open Settings \u2192 CodeBuddy sign-in \u2192 \u201CSign in to CodeBuddy\u201D, finish the browser prompt, then retry. For the WorkBuddy bundled CLI, keep the desktop app logged in and running." },
@@ -91,9 +92,9 @@ var init_i18n = __esm({
       "settings.general": { zh: "\u901A\u7528", en: "General" },
       // Hermes 后端
       "backend.title": { zh: "\u540E\u7AEF", en: "Backend" },
-      "backend.desc": { zh: "\u5BF9\u8BDD\u540E\u7AEF:\u672C\u5730 CodeBuddy CLI(\u5B8C\u6574\u80FD\u529B)\u6216 Hermes gateway(\u7EAF\u5BF9\u8BDD,\u9700 gateway \u8FD0\u884C\u4E2D)", en: "Chat backend: local CodeBuddy CLI (full features) or Hermes gateway (plain chat, gateway must be running)" },
+      "backend.desc": { zh: "\u5BF9\u8BDD\u540E\u7AEF\uFF1ACodeBuddy CLI\uFF08\u5B98\u65B9 CLI \u6216 WorkBuddy \u5185\u7F6E CLI\uFF09\u6216 Hermes Agent\u3002\u4E24\u8005\u90FD\u652F\u6301\u5DE5\u5177\u8C03\u7528\u4E0E\u6279\u51C6\u5361\uFF1BHermes \u5728\u6CA1\u6709\u672C\u673A CLI \u6216\u4F7F\u7528\u8FDC\u7A0B gateway \u65F6\u53EA\u80FD\u7EAF\u5BF9\u8BDD\u3002", en: "Chat backend: the CodeBuddy CLI (official or bundled with WorkBuddy) or Hermes Agent. Both support tool calls and approval cards; Hermes is chat-only without a local CLI or with a remote gateway." },
       "backend.codebuddy": { zh: "CodeBuddy CLI", en: "CodeBuddy CLI" },
-      "backend.hermes": { zh: "Hermes gateway", en: "Hermes gateway" },
+      "backend.hermes": { zh: "Hermes Agent", en: "Hermes Agent" },
       "hermes.gatewayUrl": { zh: "Gateway \u5730\u5740", en: "Gateway URL" },
       "hermes.gatewayUrlDesc": { zh: "Hermes gateway \u7684 HTTP \u5730\u5740,\u9ED8\u8BA4 http://127.0.0.1:8642", en: "Hermes gateway HTTP address, default http://127.0.0.1:8642" },
       "hermes.apiKey": { zh: "API Key", en: "API Key" },
@@ -131,7 +132,7 @@ var init_i18n = __esm({
       "settings.pathPlaceholder": { zh: "\u7559\u7A7A\u81EA\u52A8\u68C0\u6D4B\uFF0C\u4F8B\u5982 /Users/you/.local/bin/codebuddy", en: "Leave empty to auto-detect, e.g. /Users/you/.local/bin/codebuddy" },
       "settings.pathDetect": { zh: "\u81EA\u52A8\u68C0\u6D4B", en: "Auto-detect" },
       "settings.pathDetected": { zh: "\u5DF2\u586B\u5165\u68C0\u6D4B\u5230\u7684\u8DEF\u5F84\uFF1A{path}", en: "Filled in the detected path: {path}" },
-      "settings.pathNotFound": { zh: "\u672A\u627E\u5230 WorkBuddy \u5185\u7F6E CLI\uFF0C\u8BF7\u786E\u8BA4\u5B89\u88C5\u4F4D\u7F6E\u6216\u624B\u52A8\u6307\u5B9A\u8DEF\u5F84\uFF1B\u672A\u5207\u6362\u5230\u5176\u4ED6 CLI\u3002", en: "WorkBuddy bundled CLI not found; check its installation or set the path manually. No alternative CLI was selected." },
+      "settings.pathNotFound": { zh: "\u672A\u627E\u5230 CodeBuddy CLI\uFF1A\u6CA1\u6709\u68C0\u6D4B\u5230\u5B98\u65B9 CLI\uFF0C\u4E5F\u6CA1\u6709\u68C0\u6D4B\u5230 WorkBuddy \u5185\u7F6E CLI\u3002\u8BF7\u5B89\u88C5\u5B98\u65B9 CLI\uFF0C\u6216\u624B\u52A8\u6307\u5B9A\u8DEF\u5F84\u3002", en: "No CodeBuddy CLI found: neither the official CLI nor the CLI bundled with WorkBuddy was detected. Install the official CLI or set the path manually." },
       "settings.login": { zh: "CodeBuddy \u767B\u5F55", en: "CodeBuddy sign-in" },
       "settings.loginDesc": { zh: "\u672A\u767B\u5F55\u65F6\u70B9\u201C\u767B\u5F55 CodeBuddy\u201D\uFF0C\u4F1A\u81EA\u52A8\u6253\u5F00\u6D4F\u89C8\u5668\u767B\u5F55\u9875\uFF1B\u9009\u62E9 Chinese Site / iOA / \u4F01\u4E1A\u57DF\u540D \u5373\u53EF\uFF0C\u65E0\u9700\u7EC8\u7AEF\u547D\u4EE4\u3002", en: 'When signed out, click "Sign in to CodeBuddy". A browser sign-in page opens automatically; choose Chinese Site / iOA / Enterprise Domain. No terminal needed.' },
       "settings.loginNeedOfficial": { zh: "\u5F53\u524D\u6CA1\u6709\u68C0\u6D4B\u5230\u5B98\u65B9 CodeBuddy CLI\uFF0C\u65E0\u6CD5\u6253\u5F00\u6D4F\u89C8\u5668\u767B\u5F55\u9875\u3002\u8BF7\u5148\u5B89\u88C5\u5B98\u65B9 CLI\uFF1Anpm i -g @tencent-ai/codebuddy-code\u3002", en: "Official CodeBuddy CLI not detected, so the browser sign-in page is unavailable. Install it first: npm i -g @tencent-ai/codebuddy-code." },
@@ -241,7 +242,7 @@ var init_i18n = __esm({
       "input.usageCompact": { zh: "\u538B\u7F29 /compact", en: "Compact" },
       "input.usageNewChat": { zh: "\u65B0\u5EFA\u5BF9\u8BDD", en: "New chat" },
       "instruction.modalTitle": { zh: "\u5E38\u9A7B\u6307\u4EE4", en: "Custom instruction" },
-      "instruction.placeholder": { zh: "\u7ED9 AI \u8BBE\u5B9A\u5E38\u9A7B\u7684\u89C4\u5219 / \u4EBA\u8BBE\uFF08\u5BF9\u6240\u6709\u5BF9\u8BDD\u751F\u6548\uFF09", en: "Set a persistent rule/persona for the AI (applies to all chats)" },
+      "instruction.placeholder": { zh: "\u7ED9 AI \u8BBE\u5B9A\u5E38\u9A7B\u7684\u89C4\u5219 / \u4EBA\u8BBE\uFF08\u53EA\u5BF9\u5F53\u524D\u4F1A\u8BDD\u751F\u6548\uFF09", en: "Set a persistent rule/persona for the AI (applies to this conversation only)" },
       "instruction.save": { zh: "\u4FDD\u5B58", en: "Save" },
       "instruction.clear": { zh: "\u6E05\u9664", en: "Clear" },
       "instruction.indicatorOn": { zh: "\u5E38\u9A7B\u6307\u4EE4\uFF08\u5DF2\u8BBE\u7F6E\uFF0C\u70B9\u51FB\u7F16\u8F91\uFF09", en: "Custom instruction (set \u2014 click to edit)" },
@@ -3911,6 +3912,9 @@ function serializeMcpServers(servers) {
 function activeMcpServers(servers) {
   return servers.filter((s) => !s.disabled).map((s) => ({ name: s.name, command: s.command, args: s.args, env: s.env }));
 }
+function mcpMention(name) {
+  return `mcp/${name}`;
+}
 function extractMcpNames(text2) {
   const names = [];
   for (const match of text2.matchAll(/@mcp\/([A-Za-z0-9._-]+)/g)) {
@@ -4381,7 +4385,7 @@ var AcpProvider = class {
   startErrorMessage(e) {
     if (e instanceof AcpStartError) {
       const byTier = {
-        "cli-not-found": t("provider.cliNotFound"),
+        "cli-not-found": t(this.profile.id === "hermes" ? "provider.cliNotFoundHermes" : "provider.cliNotFound"),
         "acp-unsupported": t("provider.acpUnsupported"),
         "auth-required": t("provider.notLoggedIn"),
         "credential-unavailable": t("provider.credentialUnavailable"),
@@ -6583,7 +6587,7 @@ function updateAtSuggest(view) {
     entries.push({ label: `@Agents/${name}`, pick: () => insertTextMention(view, name) });
   }
   for (const name of parseMcpServerNames(view.settings.mcpServersJson).filter((n) => n.toLowerCase().includes(query))) {
-    entries.push({ label: `@mcp/${name}`, pick: () => insertTextMention(view, name) });
+    entries.push({ label: `@mcp/${name}`, pick: () => insertTextMention(view, mcpMention(name)) });
   }
   const files = view.app.vault.getFiles().filter((f) => f.name.toLowerCase().includes(query)).slice(0, 8);
   for (const file of files) {

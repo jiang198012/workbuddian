@@ -477,7 +477,7 @@ export class AcpProvider {
     private startErrorMessage(e: unknown): string {
         if (e instanceof AcpStartError) {
             const byTier: Record<AcpStartTier, string> = {
-                'cli-not-found': t('provider.cliNotFound'),
+                'cli-not-found': t(this.profile.id === 'hermes' ? 'provider.cliNotFoundHermes' : 'provider.cliNotFound'),
                 'acp-unsupported': t('provider.acpUnsupported'),
                 'auth-required': t('provider.notLoggedIn'),
                 'credential-unavailable': t('provider.credentialUnavailable'),

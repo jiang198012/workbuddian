@@ -138,7 +138,7 @@ Type `@` to open the dropdown and pick:
 - MCP servers: shown as `@mcp/name` in the dropdown;
 - `@stats（Vault 统计）`: adds statistics about the vault.
 
-Enabled MCP servers are available to every message by default. Text you select in a note is sent with the message as read-only context. Files outside the vault that you add as attachments need your confirmation before they are sent.
+MCP servers are decided when the conversation loads (usually its first message): if that message references servers with `@mcp/name`, the conversation loads only the referenced servers; otherwise it loads all enabled servers. Referencing servers after the conversation has loaded does not change them. Text you select in a note is sent with the message as read-only context. Files outside the vault that you add as attachments need your confirmation before they are sent.
 
 ### `/` commands and Skills
 
