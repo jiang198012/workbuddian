@@ -2,7 +2,7 @@
   "id": "workbuddian",
   "name": "Workbuddian",
   "minAppVersion": "1.7.2",
-  "description": "Chat with a local Hermes Agent or the WorkBuddy/CodeBuddy CLI as an AI agent in your vault: streaming replies, tool-call cards, @-note references, attachments, slash commands, inline edit with diff, export and search.",
+  "description": "Chat with a local Hermes Agent or the WorkBuddy/CodeBuddy CLI as an AI agent in your vault: streaming replies, tool approvals, @-note references, slash commands, inline edit with diff.",
   "author": "jiang198012",
   "authorUrl": "https://github.com/jiang198012",
   "isDesktopOnly": true,
