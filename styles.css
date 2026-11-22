@@ -331,7 +331,8 @@
     max-width: 100%;
     padding: 11px 16px;
     border-radius: var(--workbuddian-radius-xl);
-    font-size: var(--font-ui-small);
+    /* 正文跟随 Obsidian「外观 → 字体大小」，与笔记正文一致（#18） */
+    font-size: var(--font-text-size);
     line-height: 1.62;
     word-break: break-word;
     overflow-wrap: break-word;
@@ -354,10 +355,10 @@
     color: #000;
 }
 
+/* 助手回复不套气泡，正文直接显示；只有用户消息保留气泡（#18） */
 .workbuddian-message-assistant .workbuddian-bubble {
-    border-bottom-left-radius: var(--workbuddian-radius-sm);
-    border-left: 2px solid var(--workbuddian-accent);
-    background: var(--background-secondary);
+    padding: 2px 0;
+    background: transparent;
     color: var(--text-normal);
 }
 
@@ -542,28 +543,26 @@
     40% { transform: scale(1); opacity: 1; }
 }
 
-/* ==================== 思考块 / 工具块（同款折叠壳） ==================== */
+/* ==================== 思考块 / 工具块（同款折叠行） ==================== */
+/* 不加外框和底色：折叠时只是一行轻量文字，点开再看详情（#18） */
 .workbuddian-thinking-block,
 .workbuddian-tools-block {
     min-width: 0;
     max-width: 100%;
-    margin: var(--workbuddian-gap-md) 0;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--workbuddian-radius-lg);
+    margin: var(--workbuddian-gap-xs) 0;
     overflow: hidden;
 }
-
-.workbuddian-thinking-block { background: var(--background-primary-alt); }
 
 .workbuddian-thinking-header,
 .workbuddian-tools-header {
     display: flex;
     align-items: center;
     gap: var(--workbuddian-gap-sm);
-    padding: var(--workbuddian-gap-sm) var(--workbuddian-gap-lg);
-    background: var(--background-primary-alt);
+    padding: 3px var(--workbuddian-gap-xs);
+    border-radius: var(--workbuddian-radius-md);
+    background: transparent;
     color: var(--text-muted);
-    font-size: var(--font-ui-smaller);
+    font-size: var(--font-ui-small);
     cursor: pointer;
     user-select: none;
     transition: background-color 0.18s ease;
@@ -588,7 +587,13 @@
 }
 
 .workbuddian-thinking-header-text,
-.workbuddian-tools-header-text { flex: 1; }
+.workbuddian-tools-header-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
 .workbuddian-thinking-header-chevron,
 .workbuddian-tools-header-chevron {
@@ -598,12 +603,12 @@
 
 .workbuddian-thinking-body {
     max-height: 280px;
-    padding: 11px var(--workbuddian-gap-lg);
-    border-top: 1px solid var(--background-modifier-border);
-    background: var(--background-primary);
+    margin: var(--workbuddian-gap-xs) 0 0 var(--workbuddian-gap-sm);
+    padding: var(--workbuddian-gap-xs) var(--workbuddian-gap-md);
+    border-left: 2px solid var(--background-modifier-border);
     color: var(--text-muted);
     font-family: var(--font-monospace);
-    font-size: var(--font-ui-smaller);
+    font-size: var(--font-ui-small);
     line-height: 1.55;
     white-space: pre-wrap;
     word-break: break-word;
@@ -623,7 +628,7 @@
     background: transparent;
     color: var(--text-muted);
     font-family: var(--font-monospace);
-    font-size: 11.5px;
+    font-size: var(--font-ui-smaller);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -659,7 +664,7 @@
 
 /* ==================== Markdown 渲染微调 ==================== */
 .workbuddian-markdown-content .markdown-rendered {
-    font-size: var(--font-ui-small);
+    font-size: var(--font-text-size);
     line-height: 1.7;
 }
 
@@ -688,7 +693,7 @@
     max-width: 100%;
     margin: var(--workbuddian-gap-md) 0;
     padding: var(--workbuddian-gap-sm) var(--workbuddian-gap-md);
-    /* 气泡本身是 --background-secondary，代码块用 primary + 描边拉开对比，避免糊成一片 */
+    /* 代码块用 primary + 描边与面板拉开对比，避免糊成一片 */
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--workbuddian-radius-md);
     background: var(--background-primary);

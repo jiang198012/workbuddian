@@ -255,6 +255,7 @@ var init_i18n = __esm({
       "input.bubbleNotFound": { zh: "\u627E\u4E0D\u5230 Assistant \u6D88\u606F\u6C14\u6CE1", en: "Assistant message bubble not found" },
       "input.thinking": { zh: "\u601D\u8003\u4E2D...", en: "Thinking..." },
       "input.toolCall": { zh: "\u5DE5\u5177\u8C03\u7528", en: "Tool call" },
+      "input.toolCallSummary": { zh: "{text}\uFF08\u5171 {count} \u6B21\uFF09", en: "{text} ({count} calls)" },
       "input.toolCallToggle": { zh: "\u5C55\u5F00\u6216\u6298\u53E0\u5DE5\u5177\u8C03\u7528\u8BE6\u60C5", en: "Expand or collapse tool call details" },
       "tool.diffTitle": { zh: "\u6539\u52A8", en: "Changes" },
       "tool.diffToggle": { zh: "\u5C55\u5F00\u6216\u6298\u53E0\u6539\u52A8\u8BE6\u60C5", en: "Expand or collapse change details" },
@@ -6213,6 +6214,27 @@ function lineDiff(oldText, newText) {
   return out;
 }
 
+// src/shared/toolSummary.ts
+init_i18n();
+var MAX_HEADER_CHARS = 60;
+function middleEllipsis(text2, max = MAX_HEADER_CHARS) {
+  const chars = Array.from(text2);
+  if (chars.length <= max)
+    return text2;
+  const head = Math.ceil((max - 1) / 2);
+  const tail = max - 1 - head;
+  return `${chars.slice(0, head).join("")}\u2026${chars.slice(chars.length - tail).join("")}`;
+}
+function toolsHeaderText(rowTexts) {
+  const rows = rowTexts.map((text2) => text2.replace(/\s+/g, " ").trim()).filter(Boolean);
+  if (!rows.length)
+    return t("input.toolCall");
+  const latest = middleEllipsis(rows[rows.length - 1]);
+  if (rows.length === 1)
+    return latest;
+  return t("input.toolCallSummary").replace("{text}", latest).replace("{count}", String(rows.length));
+}
+
 // src/shared/wordDiff.ts
 function splitInlineDiff(oldLine, newLine) {
   let pre = 0;
@@ -7243,7 +7265,7 @@ async function sendMessage(view) {
   await sendText(view, text2);
 }
 async function sendText(view, text2, permissionModeOverride) {
-  var _a, _b, _c, _d;
+  var _a, _b, _c, _d, _e;
   if (view.titleSessionKey)
     view.api.cancel(view.titleSessionKey);
   let conv = view.getActiveConversation();
@@ -7503,6 +7525,12 @@ async function sendText(view, text2, permissionModeOverride) {
             if (chunk.toolCallId)
               toolRows.set(chunk.toolCallId, row);
           }
+          (_d = toolsBlock.querySelector(".workbuddian-tools-header-text")) == null ? void 0 : _d.setText(toolsHeaderText(
+            Array.from(list.querySelectorAll(".workbuddian-tool-call-text"), (el) => {
+              var _a2;
+              return (_a2 = el.textContent) != null ? _a2 : "";
+            })
+          ));
           if (completedChange && row.dataset.diffRendered !== "1") {
             row.dataset.diffRendered = "1";
             const change = view.vaultPath && !isAbsolutePath(completedChange.path) ? { ...completedChange, path: `${view.vaultPath.replace(/[\\/]$/, "")}/${completedChange.path}` } : completedChange;
@@ -7626,7 +7654,7 @@ async function sendText(view, text2, permissionModeOverride) {
     if (isFirstExchange && view.settings.autoTitle)
       void maybeAutoTitle(view, convId, text2);
     if ((slash == null ? void 0 : slash.name) === "effort") {
-      const level = (_d = slash.rest.trim().split(/\s+/)[0]) != null ? _d : "";
+      const level = (_e = slash.rest.trim().split(/\s+/)[0]) != null ? _e : "";
       if (isThoughtLevel(level) && level !== workspace.thoughtLevel) {
         view.updateActiveWorkspace({ thoughtLevel: level });
       }

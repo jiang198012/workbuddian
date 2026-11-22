@@ -15,6 +15,7 @@ import { buildVaultStats } from '../../shared/vaultStats';
 import { fileBasename, buildAttachmentBlock, attachmentDirs, isAbsolutePath, isPathInsideVault } from '../../shared/attachments';
 import { parseFileChange, type FileEdit, type FileWrite } from '../../shared/toolDetail';
 import { lineDiff, type DiffLine } from '../../shared/lineDiff';
+import { toolsHeaderText } from '../../shared/toolSummary';
 import { renderDiffRows } from '../../shared/diffRows';
 import { pickOptionId, type PermissionCardData, type PermissionDetail } from '../../providers/acp/permission';
 import { extForMime, mimeForExt, pastedImageName, isImagePath, writeImageFile, pruneImages } from '../../shared/imageStore';
@@ -1175,6 +1176,9 @@ export async function sendText(view: WorkbuddianChatView, text: string, permissi
                         row.createSpan({ cls: 'workbuddian-tool-call-text', text: rowText });
                         if (chunk.toolCallId) toolRows.set(chunk.toolCallId, row);
                     }
+                    // 折叠行直接显示最近一次调用的命令/文件（#18），不用展开就知道在做什么
+                    toolsBlock.querySelector('.workbuddian-tools-header-text')?.setText(toolsHeaderText(
+                        Array.from(list.querySelectorAll('.workbuddian-tool-call-text'), el => el.textContent ?? '')));
 
                     // 终态：diff 预览 + 撤销按钮（v1 原路径复活）；dataset 幂等防重复 completed
                     if (completedChange && row.dataset.diffRendered !== '1') {

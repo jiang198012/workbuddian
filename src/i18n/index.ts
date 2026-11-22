@@ -227,6 +227,7 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'input.bubbleNotFound': { zh: '找不到 Assistant 消息气泡', en: 'Assistant message bubble not found' },
     'input.thinking': { zh: '思考中...', en: 'Thinking...' },
     'input.toolCall': { zh: '工具调用', en: 'Tool call' },
+    'input.toolCallSummary': { zh: '{text}（共 {count} 次）', en: '{text} ({count} calls)' },
     'input.toolCallToggle': { zh: '展开或折叠工具调用详情', en: 'Expand or collapse tool call details' },
     'tool.diffTitle': { zh: '改动', en: 'Changes' },
     'tool.diffToggle': { zh: '展开或折叠改动详情', en: 'Expand or collapse change details' },
