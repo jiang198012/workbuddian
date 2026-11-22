@@ -12,6 +12,7 @@
 | #15 | `gateway.pid` 在 Windows 上的位置 | **未验证**：测试机未装 Hermes |
 | #13 | Windows `.cmd` 自检（`spawn EINVAL`） | **桩脚本通过，真实 Hermes 未验证**：Obsidian 内 `execFile` 调 `hermes.cmd acp --check` 成功，路由定为 ACP |
 | #16 | 右键删除确认框新文案 | **PASS**：中英文均截图确认 |
+| 后续项 1–5 | 第二轮修复：管理员权限提示、语言自动、Hermes 文案、refusal 原因、设置页探测中显示 | **已修复**：2、3、5 实机通过；1、4 由单测覆盖，未实机复现 |
 
 ## 测试基线与方法
 
@@ -31,7 +32,8 @@
 ```text
 dc79d50046457e2b1fbde00c14ae9e5bb3229a1647c7e56b9394894fdc87ab3f  基线 3c68727 构建（首轮失败）
 71322eaf14c607ae964430a6dc155d996905b955ffb0b25be90dc61a0b692cef  加 sidecar 修复（#19b 首次通过）
-d42c621d8b38708c9824294c663e69e058ac44b000a830935b0d54d483f09a70  最终构建（含 #15 顶条修复，最终复测通过）
+d42c621d8b38708c9824294c663e69e058ac44b000a830935b0d54d483f09a70  第一轮最终构建（含 #15 顶条修复，复测通过）
+c56bf7e1ef82730e9405f70c167dad9a577adc40c992f808f19e21be00d23151  第二轮构建（含后续项 1–5 修复，复测通过）
 ```
 
 方法：
@@ -115,13 +117,13 @@ d42c621d8b38708c9824294c663e69e058ac44b000a830935b0d54d483f09a70  最终构建�
 - 原生 worker 连接时带网关密码，未出现 `HTTP 401`。
 - 模型目录：WorkBuddy 正常运行后加载 15 个模型（Auto、Hy4、GLM-5.3、Kimi-K3.1-Pro 等）；此前两轮的「模型目录加载失败」与上面两个问题同因。
 - 最终构建（`d42c621d…`）复测：「你好」约 7 秒正常回复。
-- 共发送 4 次「你好」：前 2 次分别失败在 worker 创建前和账号代理连接时，没有到达账号；到达账号的是 2 条「你好」和插件自动标题请求 2 次。另有 2 条消息发给 Hermes 桩脚本，未出网。
+- 第一轮共发送 4 次「你好」：前 2 次分别失败在 worker 创建前和账号代理连接时，没有到达账号；到达账号的是 2 条「你好」和插件自动标题请求 2 次。另有 2 条消息发给 Hermes 桩脚本，未出网。第二轮再发 1 条「你好」（见下文），另 1 条发给桩脚本。
 
 ## #14：refusal
 
 - 在 WorkBuddy 5.11.3 + 当前代码下，codebuddy 后端走的是 #14 描述的同一条通路（worker → wbipc 账号代理 → 桌面端 → 云端）。两次「你好」都正常回复，界面无错误气泡。插件只有 `stopReason === 'end_turn'` 时才正常收尾，其他原因都会显示「本轮失败」，所以这两轮都不是 `refusal`。
 - 结论：**5.11.3 未复现**。报告者用的是 5.9.3，测试机上没有这个版本，未验证；降级需下载安装，本次未做。
-- #14 的建议「把 refusal 的服务端原因透出到聊天面板」本次未处理，列为后续项。
+- #14 的建议「把 refusal 的服务端原因透出到聊天面板」已在第二轮实现（见「代码改动与回归」），由单测覆盖，未实机触发 refusal。
 
 ## #15：初始化期间误报「轻量模式」顶条（已修复）
 
@@ -148,7 +150,7 @@ d42c621d8b38708c9824294c663e69e058ac44b000a830935b0d54d483f09a70  最终构建�
 
   ![落定为 HTTP 后顶条显示](images/windows-2026-11-22/06-15-lite-banner-after-settle.png)
 
-- 设置页「运行模式」一行在探测期间仍显示「HTTP 轻量版 · 未检测到 hermes CLI」，本次没改，列为后续项。
+- 设置页「运行模式」一行在探测期间原先显示「HTTP 轻量版 · 未检测到 hermes CLI」，已在第二轮改为「正在检测运行模式…」，实机通过。
 
 ## #13 / #15 的 Windows 项（未装 Hermes）
 
@@ -174,25 +176,51 @@ d42c621d8b38708c9824294c663e69e058ac44b000a830935b0d54d483f09a70  最终构建�
 
 ## 代码改动与回归
 
+第一轮：
+
 | 文件 | 改动 |
 |---|---|
 | `src/providers/codebuddy/workbuddySidecar.ts` | 先探测 PID 存活再校验版本，残留旧版 pid 文件按宿主未运行处理 |
 | `src/providers/hermes/index.ts` | 新增 `liteConfirmed`，探测落定状态变化时通知 |
 | `src/features/chat/view.ts` | 顶条改看 `liteConfirmed` |
 | `tests/workbuddySidecar.test.ts`、`tests/hermesRouter.test.ts`、`tests/cliPath.test.ts` | 新增 4 项测试 |
-| `main.js` | 重新构建 |
 
-- `npm test`：56 套件、796 项通过，0 失败。
+第二轮（后续项 1–5）：
+
+| 后续项 | 文件 | 改动 |
+|---|---|---|
+| 1. 管理员权限的 WorkBuddy | `src/providers/codebuddy/workbuddyBroker.ts` | 连接管道遇到 `EPERM`/`EACCES` 归为 `E_SOCKET_FORBIDDEN`，提示「WorkBuddy 可能以管理员身份运行……请完全退出 WorkBuddy（包括托盘图标）后正常打开」；不再重试 |
+| 2. 语言「自动」 | `src/i18n/index.ts` | 与 Obsidian 同规则：`localStorage.language` 为空时取 `navigator.language` |
+| 3. Hermes 文案 | `src/i18n/index.ts`、`src/providers/acp/provider.ts` | 「握手失败」「进程意外退出」按后端显示 Hermes CLI / codebuddy CLI |
+| 4. #14 refusal 原因 | `src/providers/acp/session.ts`、`src/providers/acp/provider.ts`、`src/i18n/index.ts` | `refusal` 时从 `_meta['codebuddy.ai/errorMessage']` 取原因：结构化取 `message`，纯文本原样，最长 200 字；显示为「本轮中断：refusal（原因）」 |
+| 5. 设置页运行模式 | `src/providers/hermes/index.ts`、`src/features/settings/tab.ts` | 新增 `modeSettled`；探测期间显示「正在检测运行模式…」 |
+
+新增 / 调整的测试：`tests/workbuddyBroker.test.ts`（EPERM、EACCES）、`tests/i18n.test.ts`（跟随系统语言、显式语言优先）、`tests/hermesAcpProvider.test.ts`（Hermes 握手文案；改为只 mock `AcpClient`，保留真实 `AcpStartError`）、`tests/api.test.ts`（codebuddy 握手文案、进程退出文案）、`tests/providerCallbacks.test.ts`（refusal 原因 5 种输入）、`tests/hermesRouter.test.ts`（`modeSettled`）。每项都先确认测试在修复前失败。
+
+- `npm test`：56 套件、807 项通过，0 失败。
 - `npm run build`：类型检查与生产构建通过。
 
-## 后续项（本次未处理）
+### 第二轮 Windows 复核
 
-1. **管理员权限运行的 WorkBuddy 报错不明确**：Windows 上连接 wbipc 管道遇到 `EPERM` 时只显示 `E_DISCONNECTED`。建议单独归类，提示「WorkBuddy 以管理员身份运行，请正常重新打开」。
-2. **界面语言「自动」在 Windows 上退回英文**：Obsidian 1.13.7 界面为中文时，`localStorage.language` 为空（`navigator.language=zh-CN`、`<html lang="zh">`、`moment.locale()=zh-cn`），`src/i18n/index.ts` 只看 `localStorage`，结果显示英文。
-3. **Hermes 后端的握手失败文案写成「codebuddy CLI 握手失败」**（见上方 06 号截图）。
-4. **#14 建议**：把 `refusal` 时的 `codebuddy.ai/errorMessage` 透出到聊天面板。
-5. **#15 设置页**：探测期间「运行模式」一行仍显示 HTTP 轻量与「未检测到 hermes CLI」。
-6. **#19 自定义安装目录**：如需覆盖，可读卸载项 `DisplayIcon` 推出安装目录，需报告者的实际路径确认。
+| 后续项 | 实机结果 |
+|---|---|
+| 1 | 未实机复现：需要再让 WorkBuddy 以管理员身份运行。错误码映射由单测覆盖；Windows 上这种情况实际得到的错误码就是 `EPERM`，见上文第一轮记录 |
+| 2 | **PASS**：`localStorage.language` 为空、`navigator.language=zh-CN`、插件语言为「自动」时，插件界面为中文（「发送」「新建对话」） |
+| 3 | **PASS**：Hermes 后端显示「Hermes CLI 握手失败：process exited (0) before handshake」 |
+| 4 | 未实机复现：需要服务端真的返回 refusal。由单测覆盖 |
+| 5 | **PASS**：探测期间设置页「运行模式」显示「正在检测运行模式…」，落定后显示「ACP 完整版」 |
+| 回归 | **PASS**：第二轮构建在 codebuddy 后端发「你好」，约 4 秒正常回复 |
+
+![语言自动跟随系统](images/windows-2026-11-22/07-lang-auto-follows-system.png)
+
+![Hermes 握手失败文案](images/windows-2026-11-22/08-hermes-handshake-label.png)
+
+## 后续项
+
+1.–5. 第二轮已修复，见上表。
+
+6. **#19 自定义安装目录（未处理）**：如需覆盖，可读卸载项 `DisplayIcon` 推出安装目录。需先拿到报告者的实际路径，现在做属于猜测。
+7. **（第二轮顺带发现，未处理）** Hermes 后端的「找不到 CLI」「ACP 不受支持」提示仍是 codebuddy / WorkBuddy 的措辞和处理建议，需要单独写 Hermes 的版本。
 
 ## 测试机状态
 
