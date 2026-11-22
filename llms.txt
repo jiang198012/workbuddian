@@ -22,7 +22,7 @@ Obsidian 设置 → 第三方插件 → 浏览 → 搜索 "Workbuddian" → 安�
 选择一种后端（详见 [README.md 的快速开始](README.md#快速开始)）：
 
 - 官方 CodeBuddy CLI：需 Node.js，`npm i -g @tencent-ai/codebuddy-code`，在设置里用「登录 CodeBuddy」浏览器一键登录。
-- WorkBuddy 桌面端：保持登录并运行，「CodeBuddy 路径」留空即自动使用内置 CLI，不需要另装 Node.js。
+- WorkBuddy 桌面端：保持登录并运行；「CodeBuddy 路径」留空、未装官方 CLI 时自动使用内置 CLI，不需要另装 Node.js。
 - Hermes Agent：后端选 Hermes，路径与地址留空，插件从 `HERMES_HOME`、`%LOCALAPPDATA%\hermes`、`~/.hermes` 自动发现配置。
 
 ## Usage

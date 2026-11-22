@@ -22,7 +22,7 @@ status: stable (2.6.22)
 license: MIT
 -->
 
-**Workbuddian** 是一个 Obsidian 社区插件，把你本机的 AI agent 接进 Vault：**Hermes Agent**，或 **CodeBuddy CLI**（也可以直接用 **WorkBuddy** 桌面端自带的 CLI）。在笔记旁边对话、用 `@` 引用笔记和文件、在气泡里批准 agent 的每一步操作；它改过的文件以行级 diff 展示，Vault 内的改动可以一键撤销。
+**Workbuddian** 是一个 Obsidian 社区插件，把你本机的 AI agent 接进 Vault：**Hermes Agent**，或 **CodeBuddy CLI**（也可以直接用 **WorkBuddy** 桌面端自带的 CLI）。在笔记旁边对话、用 `@` 引用笔记和文件、在气泡里批准 agent 的每一步操作；它改过的文件以行级 diff 展示，对 Vault 内文件的局部编辑可以一键撤销。
 
 > ⚠️ **仅桌面端**（Windows / macOS），需要 Obsidian 1.7.2+。Linux 暂不支持。
 
@@ -44,14 +44,14 @@ license: MIT
 | **两种后端** | **CodeBuddy CLI**（官方 CLI，或 WorkBuddy 桌面端内置的 CLI）与 **Hermes Agent**。两者都通过 ACP 运行，工具调用、批准卡、思考过程、上下文用量、会话分叉都可用。Hermes 在本机 CLI 不可用或使用远程 gateway 时，自动改用只能纯对话的轻量模式 |
 | **流式对话** | 侧栏或主编辑区的全宽面板；思考过程和工具调用卡片可折叠；完整的 Markdown 渲染 |
 | **`@` 引用** | 一条消息里同时带上笔记、任意文件、子代理和 MCP 服务器；笔记里选中的文字自动作为上下文 |
-| **`/` 命令与 Skills** | 内置命令、已安装的 WorkBuddy / CodeBuddy Skills、Vault 里的自定义命令，以及 CLI 自带命令 |
+| **`/` 命令与 Skills** | 内置命令、提示词模板、已安装的 WorkBuddy / CodeBuddy Skills 和 Vault 里的自定义命令；其他 `/命令` 原样转给 CLI |
 | **批准卡与权限模式** | 写文件、改文件、执行命令、调用 MCP 前在气泡里确认；可切换三种权限模式 |
-| **行级 diff 与一键撤销** | 每次编辑显示改动的行；Vault 内的编辑可以一键撤销，有安全检查防止覆盖你之后的修改 |
+| **行级 diff 与一键撤销** | 每次编辑显示改动的行；对 Vault 内文件的局部编辑可以一键撤销，有安全检查防止覆盖你之后的修改 |
 | **内联编辑** | 选中文字后让 AI 就地改写，不离开笔记 |
 | **会话管理** | 多标签、置顶、重命名、搜索、`/resume` 找回、分叉、两个面板各用各的会话、自动生成标题、导出为笔记 |
 | **写回笔记** | 把回复或代码块插入当前笔记，或保存为新笔记 |
 | **图片** | 粘贴或拖入截图，直接交给模型分析 |
-| **模板与常驻指令** | 新建对话可选写作、翻译、代码审查、笔记整理等模板；`#` 常驻指令对所有对话生效 |
+| **模板与常驻指令** | 新建对话可选写作、翻译、代码审查、笔记整理等模板；`#` 常驻指令按会话保存 |
 | **MCP 与子代理** | 可视化管理 MCP 服务器，列表和 JSON 双向同步；用 JSON 定义子代理 |
 | **中英文界面** | 中文 / English 即时切换，默认跟随 Obsidian |
 
@@ -80,7 +80,7 @@ license: MIT
 | WorkBuddy 桌面端 | 已经在用 WorkBuddy，不想另装 CLI | 沿用桌面端登录的账号与额度 | 桌面端保持登录并运行 |
 | Hermes Agent | 已在本机部署 Hermes Agent | Hermes 里配置的模型服务 | 本机 hermes CLI，或可访问的 Hermes gateway |
 
-在 **设置 → Workbuddian → 后端连接 → 后端** 里选择 CodeBuddy 或 Hermes。前两种都属于 CodeBuddy 后端，区别只在用哪个 CLI。
+在 **设置 → Workbuddian → 后端连接 → 后端** 里选择 CodeBuddy 或 Hermes。前两种都属于 CodeBuddy 后端，区别只在用哪个 CLI。切换后端后需要重载插件才生效：按 Cmd/Ctrl + R 重新加载 Obsidian，或在第三方插件里关闭再启用 Workbuddian。
 
 ### 官方 CodeBuddy CLI
 
@@ -112,11 +112,11 @@ license: MIT
    - **ACP 完整版**：本机 hermes CLI 自检通过。工具调用、批准卡、思考过程、会话分叉都可用。gateway 没在运行时，插件会在后台启动 `hermes gateway run`。
    - **HTTP 轻量版**：只能纯对话。填了非本机的 gateway 地址，或本机 CLI 自检失败时使用，聊天面板顶部会显示提示条。
 
-Windows 上 Hermes 的部分行为（例如后台进程是否弹窗）还没有实机验证，详见 [CHANGELOG](CHANGELOG.md)。
+Windows 上的 Hermes 后端尚未在维护者的测试机上实机验证（自检、后台进程是否弹窗、`gateway.pid` 的位置等），详见 [CHANGELOG](CHANGELOG.md)。
 
 ### 发送第一条消息
 
-1. 点左侧功能区的机器人图标，或在命令面板运行「打开聊天面板」。想要全宽面板，运行「在主编辑区打开大面板」。
+1. 点左侧功能区的 Workbuddian 图标（小猪头像，提示「Workbuddian 聊天」），或在命令面板运行「打开聊天面板」。想要全宽面板，运行「在主编辑区打开大面板」。
 2. 输入消息，**Enter** 发送，**Shift + Enter** 换行。
 3. 模型列表加载后，可以在输入框工具栏切换模型。
 
@@ -134,10 +134,11 @@ Windows 上 Hermes 的部分行为（例如后台进程是否弹窗）还没有�
 
 - 笔记：`@[[笔记名]]`，读取笔记正文作为上下文；
 - 其他文件：作为附件交给 CLI 读取；
-- 子代理：`@Agent/名称`；
-- MCP 服务器：`@mcp/名称`。MCP 只在被 `@` 引用时才注入，平时不占上下文。
+- 子代理：下拉里显示为 `@Agents/名称`；
+- MCP 服务器：下拉里显示为 `@mcp/名称`；
+- `@stats（Vault 统计）`：附上 Vault 的统计信息。
 
-在笔记里选中的文字会自动作为只读上下文随消息发送。Vault 外的文件发送前会请你确认。
+已启用的 MCP 服务器默认对每条消息都可用。在笔记里选中的文字会自动作为只读上下文随消息发送。作为附件添加的 Vault 外文件，发送前会请你确认。
 
 ### `/` 命令与 Skills
 
@@ -156,8 +157,9 @@ Windows 上 Hermes 的部分行为（例如后台进程是否弹窗）还没有�
 此外还有：
 
 - **Skills**：自动发现 `~/.workbuddy/skills`、`~/.codebuddy/skills`，以及 Vault 下 `.workbuddy/skills`、`.codebuddy/skills` 里的技能（同名时 Vault 级优先）。选中后填入 `/技能名`，接着写任务即可。插件只读取技能的名称和描述用于补全，不会把技能全文发给模型。
+- **提示词模板**：`/translate`、`/summarize`、`/rewrite`、`/polish`、`/review`、`/explain`，选中后把预设提示填入输入框，改好再发送。
 - **自定义命令**：Vault 下 `.codebuddy/commands/` 里的 Markdown 文件，子目录用 `:` 连接成命令名。
-- **CLI 自带命令**：CLI 提供的其他命令也会出现在补全里，标注「(CLI)」。
+- **交给 CLI 的命令**：上表中标注「(CLI)」的 `/compact`、`/context`、`/cost`、`/status` 由 CLI 执行；补全里没有的 `/命令`，手动输入后会原样转给 CLI。
 
 ### 批准卡与权限模式
 
@@ -171,7 +173,7 @@ agent 写文件、改文件、执行命令或调用 MCP 前，会在气泡里弹
 
 ### 行级 diff 与一键撤销
 
-每次编辑或写入完成后，工具卡片里显示结构化的 diff（默认折叠）。Vault 内的编辑可以一键撤销；如果文件之后又被改过、替换位置不唯一，或者是纯删除，撤销会被拒绝并说明原因，避免覆盖你的修改。
+每次编辑或写入完成后，工具卡片里显示结构化的 diff（默认折叠）。对 Vault 内文件的局部编辑可以一键撤销；整文件写入和纯删除没有撤销按钮。如果文件之后又被改过，或者替换位置不唯一，撤销会被拒绝并说明原因，避免覆盖你的修改。
 
 ### 内联编辑
 
@@ -187,17 +189,17 @@ agent 写文件、改文件、执行命令或调用 MCP 前，会在气泡里弹
 ### 回复写回笔记
 
 - 用户消息：复制、编辑并重发。
-- 助手回复：复制、插入到当前笔记、保存为新笔记、重新生成。
+- 助手回复：复制、插入回复、保存回复为笔记、重新生成。
 - 代码块：复制代码、插入到当前笔记、保存为新笔记。
 
 ### 模板与常驻指令
 
 - 「用模板新建」可选写作助手、翻译助手、代码审查、笔记整理，自动带上对应的常驻指令和开场白。
-- 点工具栏的 `#`，或在命令面板运行「编辑常驻指令」，设置一条对所有对话生效的指令或人设。
+- 点工具栏的 `#`，或在命令面板运行「编辑常驻指令」，设置常驻指令或人设。常驻指令按会话保存，只对当前会话生效；同一个弹窗里还可以为这个会话单独开关「注入 Vault 上下文」「注入当前笔记链接」，会覆盖设置页里的全局开关。
 
 ### 图片与附件
 
-粘贴或拖入图片会以图片内容发送给模型。粘贴的图片保存在插件目录里，「粘贴图保留数量」控制最多留几张。附件按钮可以添加 Vault 内外的文件。
+粘贴的图片保存在插件目录里，以图片内容发送给模型；「粘贴图保留数量」控制最多留几张。拖入或用附件按钮添加的文件作为附件交给 CLI 读取：其中 Vault 内的图片同样以图片内容发送，Vault 外的文件发送前会请你确认。
 
 ## 设置
 
@@ -209,13 +211,13 @@ agent 写文件、改文件、执行命令或调用 MCP 前，会在气泡里弹
 | 后端连接 | 后端 | CodeBuddy 或 Hermes | CodeBuddy |
 | | 运行模式 | 仅 Hermes：显示 ACP 完整版或 HTTP 轻量版，检测中显示「正在检测运行模式…」 | — |
 | | Hermes CLI 路径 | 仅 Hermes，留空自动发现 | 自动 |
-| | Gateway 地址 | 仅 Hermes，留空自动发现；填非本机地址会使用轻量模式 | 自动 |
-| | API Key | 仅 Hermes，留空自动发现 | 自动 |
+| | Gateway 地址 | 仅 Hermes，在「高级」折叠区；留空自动发现；填非本机地址会使用轻量模式 | 自动 |
+| | API Key | 仅 Hermes，在「高级」折叠区；本机 gateway 时以自动发现的值为准 | 自动 |
 | | CodeBuddy 路径 | 仅 CodeBuddy，留空自动检测（优先官方 CLI） | 自动 |
 | | CodeBuddy 登录 | 仅 CodeBuddy，官方 CLI 的浏览器一键登录 | — |
 | | 手动指定 Node.js 路径 | 仅 CodeBuddy，自动探测失败时填写 | 自动 |
 | | CLI 超时时长（分钟） | 单次回复最长等待时间，超时中断 | 5 |
-| | 思考力度 | 对应 CLI 的 thought_level，按会话生效；`/effort` 的改动会同步回这里 | enabled |
+| | 思考力度 | 对应 CLI 的 thought_level，按会话生效；`/effort` 的改动会同步回这里；Hermes 下不可用 | enabled |
 | | MCP 服务器（JSON） | 可视化列表与 JSON 双向同步 | 空 |
 | | 子代理（JSON） | 仅 CodeBuddy，对应 CLI 的 `--agents`，支持 tools / model 键 | 空 |
 | 上下文注入 | 注入 Vault 上下文 | 每条消息附上当前 Vault 路径 | 开 |
@@ -226,7 +228,7 @@ agent 写文件、改文件、执行命令或调用 MCP 前，会在气泡里弹
 | 外观 | 聊天主色调 | 自定义强调色，可恢复为跟随 Obsidian 主题色 | 跟随主题 |
 | | 上下文窗口上限（token） | 上下文用量百分比的分母，按模型窗口调整 | 200000 |
 | 重置 | 重置为默认 | 清空自定义设置，恢复默认值 | — |
-| 导入 / 导出设置 | 导出设置 / 导入设置 | 用 JSON 文件备份、迁移设置 | — |
+| 导入 / 导出设置 | 导出设置 / 导入设置 | 用 JSON 文件备份、迁移设置；导出的文件含明文的 Hermes API Key，请妥善保管 | — |
 | 日志 | 查看日志 | 打开 `[WB]` 运行日志，排查问题用 | — |
 | CodeBuddy 插件 | | 浏览和管理 CodeBuddy 插件 | — |
 
@@ -242,7 +244,7 @@ agent 写文件、改文件、执行命令或调用 MCP 前，会在气泡里弹
 | 搜索会话 | 按标题搜索历史会话 |
 | 导出当前会话为笔记 | 把当前会话保存为 Markdown 笔记 |
 | 导出所有会话为笔记 | 一次导出全部会话 |
-| 编辑常驻指令 | 设置对所有对话生效的指令 |
+| 编辑常驻指令 | 设置当前会话的常驻指令 |
 | 打开 Workbuddian 设置 | 打开设置页 |
 | 登录 CodeBuddy | 官方 CLI 的浏览器一键登录 |
 | 用 CodeBuddy 编辑选区 | 用选中文字发起编辑 |
@@ -259,7 +261,7 @@ agent 写文件、改文件、执行命令或调用 MCP 前，会在气泡里弹
    - macOS：`~/.local/bin`、`~/.npm-global/bin`、`~/.volta/bin`、`~/bin`、`/usr/local/bin`、`/opt/homebrew/bin`、nvm / npm 前缀目录；
    - 以上都没有时查 `PATH`；
 3. WorkBuddy 内置 CLI：
-   - Windows：`%LocalAppData%\Programs\WorkBuddy`、`%ProgramFiles%\WorkBuddy`、`%ProgramFiles(x86)%\WorkBuddy`，以及 C / D / E 盘的 `Program Files` 下的 WorkBuddy；
+   - Windows：`%LocalAppData%\Programs\WorkBuddy`、`%ProgramFiles%\WorkBuddy`、`%ProgramFiles(x86)%\WorkBuddy`，以及 C / D / E 盘 `Program Files` 和 `Program Files (x86)` 下的 WorkBuddy；
    - macOS：`/Applications/WorkBuddy.app`、`~/Applications/WorkBuddy.app`；
    - 都没有时查 `PATH`。
 
@@ -267,7 +269,7 @@ agent 写文件、改文件、执行命令或调用 MCP 前，会在气泡里弹
 
 **Hermes**：
 
-- 配置：依次在 `HERMES_HOME`、`%LOCALAPPDATA%\hermes`、`~/.hermes` 读取 `config.yaml`（gateway 地址）和 `.env`（API Key）。
+- 配置：依次在 `HERMES_HOME`、`%LOCALAPPDATA%\hermes`、`~/.hermes` 读取 `config.yaml` 和 `.env`，得到 gateway 地址和 API Key；两个文件都有时以 `.env` 为准。
 - CLI：`~/.local/bin/hermes`、`~/.hermes/bin/hermes`（Windows 为 `.exe`），macOS 另查 `/usr/local/bin`、`/opt/homebrew/bin`，最后查 `PATH`（Windows 也接受 `hermes.cmd`）。Hermes 官方安装器把 CLI 放在其他目录且不在 `PATH` 中时，请在「Hermes CLI 路径」里填写。
 
 **Node.js**（仅官方 CLI 等需要 Node 的情况）：
@@ -283,23 +285,25 @@ Workbuddian 会让本机的 AI agent 读写文件、执行命令，下面说明�
 **会访问什么**
 
 - 运行你本机的 CodeBuddy CLI、WorkBuddy 内置 CLI 或 hermes CLI，并在需要时启动 Hermes gateway。
-- 在你批准后读写 Vault 文件、执行命令、调用你配置的 MCP 服务器。
+- 读取文件通常不弹批准卡：CLI 默认放行读取，包括 Vault 外的路径。写入、编辑、执行命令、调用 MCP 前，需要你在批准卡上确认。
 - 走 WorkBuddy 桌面端时，通过 WorkBuddy 的本地接口使用它已登录的账号。插件不读取、不复制、不解密 WorkBuddy 的登录凭据。
 
 **什么时候会联网或在后台运行**
 
-- 打开面板、加载模型列表时会启动后端进程；插件不会发送用于预热的对话。
+- Obsidian 加载插件时就会启动后端进程，用来获取模型列表；插件不会发送用于预热的对话。
+- Hermes：gateway 没在运行时，插件在后台启动 `hermes gateway run`，Obsidian 退出后它会继续运行。
+- WorkBuddy 桌面端：需要时插件会自动打开 WorkBuddy。
 - 开启「自动生成会话标题」后，首轮回复结束时会额外请求一次标题。
 - 「安装 WorkBuddy 本地连接扩展」命令会在你确认后，把一个组件写入 `<WorkBuddy 配置目录>/extensions/workbuddian-warmup`，随 WorkBuddy 常驻，只用于唤起 WorkBuddy 的本地任务服务。从 2.6.14 起通常不需要它，插件也不会自动安装。
 
 **怎么授权**
 
 - 写文件、改文件、执行命令、调用 MCP 都要在批准卡上确认，除非你切到「完全访问」。
-- Vault 外的文件，不经你确认不会发送给模型。
+- 作为附件添加的 Vault 外文件，发送前需要你确认；agent 自己用工具读取文件不经过这道确认。
 
 **怎么控制**
 
-- 关闭「注入 Vault 上下文」和「注入当前笔记链接」。
+- 关闭「注入 Vault 上下文」和「注入当前笔记链接」（在 `#` 弹窗里单独设置过的会话，以会话设置为准）。
 - 用权限模式控制 agent 能做什么。
 - 在「查看日志」里查看 `[WB]` 日志，确认插件做了什么。
 

@@ -22,7 +22,7 @@ status: stable (2.6.22)
 license: MIT
 -->
 
-**Workbuddian** is an Obsidian community plugin that brings the AI agent on your computer into your vault: **Hermes Agent**, or the **CodeBuddy CLI** (including the CLI bundled with the **WorkBuddy** desktop app). Chat next to your notes, reference notes and files with `@`, and approve each step the agent takes right in the chat bubble. Files it changes are shown as line-level diffs, and edits inside the vault can be undone with one click.
+**Workbuddian** is an Obsidian community plugin that brings the AI agent on your computer into your vault: **Hermes Agent**, or the **CodeBuddy CLI** (including the CLI bundled with the **WorkBuddy** desktop app). Chat next to your notes, reference notes and files with `@`, and approve each step the agent takes right in the chat bubble. Files it changes are shown as line-level diffs, and partial edits to vault files can be undone with one click.
 
 > ⚠️ **Desktop only** (Windows / macOS), requires Obsidian 1.7.2+. Linux is not supported yet.
 
@@ -44,14 +44,14 @@ license: MIT
 | **Two backends** | The **CodeBuddy CLI** (the official CLI, or the one bundled with the WorkBuddy desktop app) and **Hermes Agent**. Both run over ACP with tool calls, approval cards, thinking, context usage and conversation forking. When no local Hermes CLI is available or a remote gateway is configured, Hermes switches to a chat-only lite mode |
 | **Streaming chat** | In the sidebar or a full-width panel in the main area; collapsible thinking and tool-call cards; full Markdown rendering |
 | **`@` references** | Attach notes, any file, subagents and MCP servers to one message; text selected in a note is sent as context automatically |
-| **`/` commands and Skills** | Built-in commands, installed WorkBuddy / CodeBuddy Skills, custom commands in your vault, and the CLI's own commands |
+| **`/` commands and Skills** | Built-in commands, prompt templates, installed WorkBuddy / CodeBuddy Skills and custom commands in your vault; any other `/command` is passed to the CLI as is |
 | **Approvals and permission modes** | Confirm file writes, edits, shell commands and MCP calls in the bubble; switch between three permission modes |
-| **Line-level diffs and one-click undo** | Every edit shows the changed lines; vault edits can be undone with one click, with safety checks so later changes are not overwritten |
+| **Line-level diffs and one-click undo** | Every edit shows the changed lines; partial edits to vault files can be undone with one click, with safety checks so later changes are not overwritten |
 | **Inline edit** | Select text and let the AI rewrite it in place without leaving the note |
 | **Conversation management** | Tabs, pinning, renaming, search, reopening with `/resume`, forking, separate conversations in two panels, automatic titles, export as notes |
 | **Write back to notes** | Insert a reply or code block into the current note, or save it as a new note |
 | **Images** | Paste or drop screenshots and let the model analyze them |
-| **Templates and persistent instruction** | Start a chat from a writing, translation, code review or note-organizing template; a `#` persistent instruction applies to every chat |
+| **Templates and persistent instruction** | Start a chat from a writing, translation, code review or note-organizing template; the `#` persistent instruction is saved per conversation |
 | **MCP and subagents** | Manage MCP servers visually, with the list and JSON kept in sync; define subagents in JSON |
 | **Chinese / English UI** | Switch instantly; follows Obsidian by default |
 
@@ -80,7 +80,7 @@ You can also view it on the web: [community.obsidian.md/plugins/workbuddian](htt
 | WorkBuddy desktop app | You already use WorkBuddy and don't want another CLI | The account and quota signed in to the desktop app | The desktop app signed in and running |
 | Hermes Agent | You run Hermes Agent on this computer | The model provider configured in Hermes | A local hermes CLI, or a reachable Hermes gateway |
 
-Pick CodeBuddy or Hermes under **Settings → Workbuddian → Backend Connection → Backend**. The first two options are both the CodeBuddy backend; they only differ in which CLI is used.
+Pick CodeBuddy or Hermes under **Settings → Workbuddian → Backend Connection → Backend**. The first two options are both the CodeBuddy backend; they only differ in which CLI is used. After switching the backend, reload the plugin for it to take effect: press Cmd/Ctrl + R to reload Obsidian, or disable and re-enable Workbuddian under Community plugins.
 
 ### Official CodeBuddy CLI
 
@@ -112,11 +112,11 @@ Keep in mind:
    - **ACP full**: the local hermes CLI passed its self-check. Tool calls, approval cards, thinking and conversation forking are available. If the gateway is not running, the plugin starts `hermes gateway run` in the background.
    - **HTTP lite**: chat only. Used when the gateway URL points to another machine or the local CLI self-check fails; a notice bar appears at the top of the chat panel.
 
-Some Hermes behavior on Windows (for example whether background processes open a window) has not been verified on real hardware yet; see the [CHANGELOG](CHANGELOG.md).
+The Hermes backend on Windows has not been verified on real hardware by the maintainer yet (self-check, whether background processes open a window, where `gateway.pid` lives, and so on); see the [CHANGELOG](CHANGELOG.md).
 
 ### Send your first message
 
-1. Select the robot icon in the left ribbon, or run "Open chat panel" from the command palette. For a full-width panel, run "Open large panel in main area".
+1. Select the Workbuddian icon in the left ribbon (a pig avatar, tooltip "Workbuddian Chat"), or run "Open chat panel" from the command palette. For a full-width panel, run "Open large panel in main area".
 2. Type a message. **Enter** sends it, **Shift + Enter** adds a new line.
 3. Once the model list has loaded, switch models from the input toolbar.
 
@@ -134,10 +134,11 @@ Type `@` to open the dropdown and pick:
 
 - Notes: `@[[note name]]`, which adds the note's content as context;
 - Other files, which are attached for the CLI to read;
-- Subagents: `@Agent/name`;
-- MCP servers: `@mcp/name`. An MCP server is only injected when you reference it with `@`, so it does not use context otherwise.
+- Subagents: shown as `@Agents/name` in the dropdown;
+- MCP servers: shown as `@mcp/name` in the dropdown;
+- `@stats（Vault 统计）`: adds statistics about the vault.
 
-Text you select in a note is sent with the message as read-only context. Files outside the vault need your confirmation before they are sent.
+Enabled MCP servers are available to every message by default. Text you select in a note is sent with the message as read-only context. Files outside the vault that you add as attachments need your confirmation before they are sent.
 
 ### `/` commands and Skills
 
@@ -156,8 +157,9 @@ Type `/` to open the completion list:
 The list also includes:
 
 - **Skills**: discovered from `~/.workbuddy/skills`, `~/.codebuddy/skills`, and `.workbuddy/skills` / `.codebuddy/skills` inside the vault (vault skills win on name clashes). Pick one to insert `/skill-name`, then describe the task. The plugin only reads a skill's name and description for completion; it does not send the full skill to the model.
+- **Prompt templates**: `/translate`, `/summarize`, `/rewrite`, `/polish`, `/review`, `/explain` fill the input with a preset prompt that you can edit before sending.
 - **Custom commands**: Markdown files in `.codebuddy/commands/` inside the vault; subfolders are joined with `:` in the command name.
-- **CLI commands**: other commands provided by the CLI, marked "(CLI)".
+- **Commands handled by the CLI**: `/compact`, `/context`, `/cost` and `/status`, marked "(CLI)" in the list, are run by the CLI; any `/command` that is not in the list is passed to the CLI as is when you type it.
 
 ### Approvals and permission modes
 
@@ -171,7 +173,7 @@ Select the shield icon in the input toolbar to switch the permission mode:
 
 ### Line-level diffs and one-click undo
 
-After each edit or write, the tool card shows a structured diff (collapsed by default). Vault edits can be undone with one click. Undo is refused, with the reason, if the file has changed since, the replaced text is no longer unique, or the edit was a pure deletion, so your own changes are never overwritten.
+After each edit or write, the tool card shows a structured diff (collapsed by default). Partial edits to vault files can be undone with one click; whole-file writes and pure deletions have no undo button. Undo is refused, with the reason, if the file has changed since or the replaced text is no longer unique, so your own changes are never overwritten.
 
 ### Inline edit
 
@@ -187,17 +189,17 @@ Select text in a note and press **Ctrl/Cmd + Shift + E**, or right-click and cho
 ### Write replies back to notes
 
 - Your messages: copy, "Edit and resend".
-- Assistant replies: copy, "Insert into current note", "Save as new note", "Regenerate".
+- Assistant replies: copy, "Insert reply", "Save reply as note", "Regenerate".
 - Code blocks: "Copy code", "Insert into current note", "Save as new note".
 
 ### Templates and persistent instruction
 
 - "New from template" offers writing, translation, code review and note-organizing templates (the template names are currently shown in Chinese), each with its own persistent instruction and opening message.
-- Select `#` in the toolbar, or run "Edit persistent instruction" from the command palette, to set an instruction or persona that applies to every chat.
+- Select `#` in the toolbar, or run "Edit persistent instruction" from the command palette, to set an instruction or persona. It is saved per conversation and only applies to the current one; the same dialog also has per-conversation switches for "Inject Vault context" and "Inject current note link" that override the global settings.
 
 ### Images and attachments
 
-Pasted or dropped images are sent to the model as image content. Pasted images are stored in the plugin folder; "Pasted image retention" sets how many are kept. The attachment button adds files from inside or outside the vault.
+Pasted images are stored in the plugin folder and sent to the model as image content; "Pasted image retention" sets how many are kept. Files you drop in or add with the attachment button are attachments for the CLI to read: images inside the vault are also sent as image content, and files outside the vault need your confirmation first.
 
 ## Settings
 
@@ -209,13 +211,13 @@ Pasted or dropped images are sent to the model as image content. Pasted images a
 | Backend Connection | Backend | CodeBuddy or Hermes | CodeBuddy |
 | | Run mode | Hermes only: shows ACP full or HTTP lite, and "Detecting run mode…" while checking | — |
 | | Hermes CLI path | Hermes only; leave empty to auto-discover | Auto |
-| | Gateway URL | Hermes only; leave empty to auto-discover; a URL on another machine uses lite mode | Auto |
-| | API Key | Hermes only; leave empty to auto-discover | Auto |
+| | Gateway URL | Hermes only, in the collapsed "Advanced" group; leave empty to auto-discover; a URL on another machine uses lite mode | Auto |
+| | API Key | Hermes only, in the collapsed "Advanced" group; with a local gateway the auto-discovered value wins | Auto |
 | | CodeBuddy path | CodeBuddy only; leave empty to auto-detect (official CLI first) | Auto |
 | | CodeBuddy sign-in | CodeBuddy only; one-click browser sign-in for the official CLI | — |
 | | Node.js path (manual) | CodeBuddy only; set it if auto-detection fails | Auto |
 | | CLI timeout (minutes) | Longest wait for one reply before it is interrupted | 5 |
-| | Thinking effort | The CLI's thought_level, per conversation; changes made with `/effort` sync back here | enabled |
+| | Thinking effort | The CLI's thought_level, per conversation; changes made with `/effort` sync back here; not available with Hermes | enabled |
 | | MCP servers (JSON) | Visual list kept in sync with the JSON | Empty |
 | | Custom agents (JSON) | CodeBuddy only; the CLI's `--agents`, supports tools / model keys | Empty |
 | Context injection | Inject vault context | Adds the current vault path to every message | On |
@@ -226,7 +228,7 @@ Pasted or dropped images are sent to the model as image content. Pasted images a
 | Appearance | Chat accent color | Custom accent color, or follow the Obsidian theme color | Theme |
 | | Context window size (tokens) | The denominator of the context usage percentage; match it to the model's window | 200000 |
 | Reset | Reset to defaults | Clears custom settings | — |
-| Import / Export settings | Export settings / Import settings | Back up or move settings as a JSON file | — |
+| Import / Export settings | Export settings / Import settings | Back up or move settings as a JSON file; the exported file contains the Hermes API key in plain text, so keep it safe | — |
 | Logs | View logs | Opens the `[WB]` runtime log for troubleshooting | — |
 | CodeBuddy Plugins | | Browse and manage CodeBuddy plugins | — |
 
@@ -242,7 +244,7 @@ The model and permission mode are not on the settings page; they are in the chat
 | Search conversations | Searches past conversations by title |
 | Export current conversation as note | Saves the current conversation as a Markdown note |
 | Export all conversations as note | Exports every conversation at once |
-| Edit persistent instruction | Sets an instruction that applies to every chat |
+| Edit persistent instruction | Sets the persistent instruction for the current conversation |
 | Open Workbuddian settings | Opens the settings page |
 | Sign in to CodeBuddy | One-click browser sign-in for the official CLI |
 | Edit selection with CodeBuddy | Starts an edit from the selected text |
@@ -259,7 +261,7 @@ The model and permission mode are not on the settings page; they are in the chat
    - macOS: `~/.local/bin`, `~/.npm-global/bin`, `~/.volta/bin`, `~/bin`, `/usr/local/bin`, `/opt/homebrew/bin`, and the nvm / npm prefix folders;
    - then `PATH`;
 3. The CLI bundled with WorkBuddy:
-   - Windows: `%LocalAppData%\Programs\WorkBuddy`, `%ProgramFiles%\WorkBuddy`, `%ProgramFiles(x86)%\WorkBuddy`, and WorkBuddy under `Program Files` on drives C / D / E;
+   - Windows: `%LocalAppData%\Programs\WorkBuddy`, `%ProgramFiles%\WorkBuddy`, `%ProgramFiles(x86)%\WorkBuddy`, and WorkBuddy under `Program Files` and `Program Files (x86)` on drives C / D / E;
    - macOS: `/Applications/WorkBuddy.app`, `~/Applications/WorkBuddy.app`;
    - then `PATH`.
 
@@ -267,7 +269,7 @@ A path you enter yourself, or `CODEBUDDY_PATH`, is used as is and is never silen
 
 **Hermes**:
 
-- Configuration: `config.yaml` (gateway URL) and `.env` (API key) are read from `HERMES_HOME`, `%LOCALAPPDATA%\hermes` and `~/.hermes`, in that order.
+- Configuration: `config.yaml` and `.env` are read from `HERMES_HOME`, `%LOCALAPPDATA%\hermes` and `~/.hermes`, in that order, to get the gateway URL and API key; when both files set a value, `.env` wins.
 - CLI: `~/.local/bin/hermes` and `~/.hermes/bin/hermes` (`.exe` on Windows); on macOS also `/usr/local/bin` and `/opt/homebrew/bin`; finally `PATH` (on Windows `hermes.cmd` is accepted too). If the Hermes installer put the CLI somewhere else that is not on `PATH`, enter it in "Hermes CLI path".
 
 **Node.js** (only needed for the official CLI and similar setups):
@@ -283,23 +285,25 @@ Workbuddian lets the AI agent on your computer read and write files and run comm
 **What it accesses**
 
 - It runs the CodeBuddy CLI, the CLI bundled with WorkBuddy, or the hermes CLI on your computer, and starts the Hermes gateway when needed.
-- After your approval, it reads and writes vault files, runs commands, and calls the MCP servers you configured.
+- Reading files usually does not show an approval card: the CLI allows reads by default, including paths outside the vault. Writes, edits, shell commands and MCP calls need your confirmation on an approval card.
 - With the WorkBuddy desktop app, it uses the account signed in to WorkBuddy through WorkBuddy's local interface. The plugin does not read, copy or decrypt WorkBuddy's sign-in credentials.
 
 **When it goes online or runs in the background**
 
-- Opening the panel or loading the model list starts the backend process; the plugin does not send warm-up prompts.
+- When Obsidian loads the plugin, it starts the backend process to fetch the model list; the plugin does not send warm-up prompts.
+- Hermes: if the gateway is not running, the plugin starts `hermes gateway run` in the background, and it keeps running after Obsidian quits.
+- WorkBuddy desktop app: when needed, the plugin opens WorkBuddy automatically.
 - With "Auto-generate chat titles" on, one extra request for a title is made after the first reply.
 - "Install WorkBuddy local connector", after you confirm, writes a component to `<WorkBuddy config folder>/extensions/workbuddian-warmup` that stays with WorkBuddy and only wakes WorkBuddy's local task service. Since 2.6.14 it is usually not needed, and the plugin never installs it on its own.
 
 **How you approve**
 
 - File writes, edits, shell commands and MCP calls need your confirmation on an approval card, unless you switch to "Full access".
-- Files outside the vault are never sent to the model without your confirmation.
+- Files outside the vault that you add as attachments need your confirmation before they are sent; files the agent reads with its own tools do not go through this confirmation.
 
 **How you control it**
 
-- Turn off "Inject vault context" and "Inject current note link".
+- Turn off "Inject vault context" and "Inject current note link" (for a conversation with its own settings in the `#` dialog, those take precedence).
 - Use the permission mode to limit what the agent can do.
 - Check the `[WB]` log under "View logs" to see what the plugin did.
 
