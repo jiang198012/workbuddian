@@ -2,7 +2,7 @@
   "id": "workbuddian",
   "name": "Workbuddian",
   "minAppVersion": "1.7.2",
-  "description": "把本地 CodeBuddy CLI 变成笔记里的 AI 聊天插件:流式回复、@引用、图片视觉、MCP 管理、行级 diff 一键撤销。Turn your local WorkBuddy/CodeBuddy CLI into an AI agent in your vault: streaming, @-references, MCP, inline edit, export.",
+  "description": "Chat with a local Hermes Agent or the WorkBuddy/CodeBuddy CLI as an AI agent in your vault: streaming replies, tool-call cards, @-note references, attachments, slash commands, inline edit with diff, export and search.",
   "author": "jiang198012",
   "authorUrl": "https://github.com/jiang198012",
   "isDesktopOnly": true,

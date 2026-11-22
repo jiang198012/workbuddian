@@ -1,7 +1,7 @@
 {
   "name": "workbuddian",
   "version": "2.6.22",
-  "description": "第三方 Obsidian 插件，桥接本地 WorkBuddy/CodeBuddy Gateway",
+  "description": "Chat with a local Hermes Agent or the WorkBuddy/CodeBuddy CLI as an AI agent in your vault: streaming replies, tool-call cards, @-note references, attachments, slash commands, inline edit with diff, export and search.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

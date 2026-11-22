@@ -1,26 +1,30 @@
 # Workbuddian
 
-> 把本地 CodeBuddy CLI 变成 Obsidian 里的 AI 聊天插件(Obsidian community plugin that turns your local CodeBuddy CLI into an AI chat agent inside your vault).
+> Obsidian 社区插件，把本机的 AI agent——Hermes Agent 或 CodeBuddy CLI（含 WorkBuddy 桌面端自带的 CLI）——接进 Vault 里对话。Obsidian community plugin that brings a local Hermes Agent or the WorkBuddy/CodeBuddy CLI into your vault as an AI agent.
 
-Workbuddian 是一个 Obsidian 社区插件(desktop-only, Windows / macOS, Obsidian 1.7.2+),把本地 WorkBuddy/CodeBuddy CLI 变成 vault 内的 AI 聊天 agent。流式回复、@ 引用笔记、图片视觉、气泡内批准卡、行级 diff 一键撤销、MCP 可视化管理、双面板隔离、中英双语界面。
+Workbuddian 只支持桌面端（Windows / macOS，Obsidian 1.7.2+）。两种后端：CodeBuddy CLI（官方 CLI 或 WorkBuddy 桌面端内置 CLI）与 Hermes Agent，都通过 ACP 运行，支持工具调用、气泡内批准卡、思考过程、会话分叉；Hermes 在没有本机 CLI 或使用远程 gateway 时改用只能纯对话的轻量模式。其他功能：流式回复、`@` 引用笔记与文件、`/` 命令与 Skills、三种权限模式、行级 diff 与一键撤销、内联编辑、回复写回笔记、会话管理与导出、MCP 与子代理管理、中英文界面。
 
 ## Core docs
 
-- [README.md](README.md):完整中文文档(安装、快速开始、使用方法、设置、FAQ)— 简体中文,单一权威来源
-- [README.en.md](README.en.md):英文精简入口版
-- [CHANGELOG.md](CHANGELOG.md):版本变更记录
-- [CONTRIBUTING.md](CONTRIBUTING.md):贡献指南
-- [SECURITY.md](SECURITY.md):安全说明
-- [LICENSE](LICENSE):MIT License
+- [README.md](README.md)：中文文档（安装、快速开始、使用方法、设置、自动发现、安全与权限、故障排查）
+- [README.en.md](README.en.md)：English documentation with the same content
+- [CHANGELOG.md](CHANGELOG.md)：版本变更记录 / version history
+- [CONTRIBUTING.md](CONTRIBUTING.md)：贡献指南
+- [SECURITY.md](SECURITY.md)：安全说明
+- [LICENSE](LICENSE)：MIT License
 
 ## Install
 
-Obsidian 设置 → 第三方插件 → 浏览 → 搜索 "Workbuddian" → 安装 → 启用。需先安装 WorkBuddy 桌面版(≥ 5.0.5,含 CodeBuddy CLI)。
+Obsidian 设置 → 第三方插件 → 浏览 → 搜索 "Workbuddian" → 安装 → 启用。插件页：https://community.obsidian.md/plugins/workbuddian
+
+## Quick start
+
+选择一种后端（详见 [README.md 的快速开始](README.md#快速开始)）：
+
+- 官方 CodeBuddy CLI：需 Node.js，`npm i -g @tencent-ai/codebuddy-code`，在设置里用「登录 CodeBuddy」浏览器一键登录。
+- WorkBuddy 桌面端：保持登录并运行，「CodeBuddy 路径」留空即自动使用内置 CLI，不需要另装 Node.js。
+- Hermes Agent：后端选 Hermes，路径与地址留空，插件从 `HERMES_HOME`、`%LOCALAPPDATA%\hermes`、`~/.hermes` 自动发现配置。
 
 ## Usage
 
-打开聊天面板后,输入消息按 Enter 发送;`@` 弹出聚合引用(子代理 / MCP 服务器 / Vault 文件);`@[[笔记名]]` 读取笔记全文作为上下文。
-
-## 快速开始
-
-首次使用若插件找不到 CodeBuddy/Node.js,将「快速开始」里的环境初始化提示词完整复制到 WorkBuddy 对话执行一次即可(见 README.md)。
+打开聊天面板，Enter 发送、Shift+Enter 换行；`@` 引用笔记、文件、子代理和 MCP 服务器；`/` 打开命令与 Skills；agent 的写入、编辑、命令和 MCP 调用在批准卡上确认。详见 [README.md 的使用方法](README.md#使用方法) / [README.en.md: Usage](README.en.md#usage)。
