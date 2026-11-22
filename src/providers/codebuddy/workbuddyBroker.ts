@@ -18,7 +18,12 @@ export interface WorkbuddyBroker {
 }
 const MAX_FRAME = 1024 * 1024;
 type BrokerError = Error & { code: string };
-const failure = (code: string): BrokerError => Object.assign(new Error(`WorkBuddy 本地代理错误（${code}）`), { code });
+const hints: Record<string, string> = {
+    // Windows：提权进程建的命名管道，普通权限的 Obsidian 打不开（2026-11-22 实机 EPERM）。
+    E_SOCKET_FORBIDDEN: 'WorkBuddy 本地代理拒绝连接（E_SOCKET_FORBIDDEN）：WorkBuddy 可能以管理员身份运行，而 Obsidian 不是。'
+        + '请完全退出 WorkBuddy（包括托盘图标）后正常打开，再重试。',
+};
+const failure = (code: string): BrokerError => Object.assign(new Error(hints[code] ?? `WorkBuddy 本地代理错误（${code}）`), { code });
 const remoteCodes = new Set(['E_TICKET_INVALID', 'E_REVOKED', 'E_ENDPOINT_UNTRUSTED', 'E_PROTOCOL_MISMATCH',
     'E_PIPE_UNKNOWN', 'E_METHOD_UNKNOWN', 'E_METHOD_KIND_MISMATCH', 'E_NOT_DECLARED', 'E_CONSENT_REQUIRED',
     'E_NOT_CONNECTED', 'E_POLICY_DENIED', 'E_UPSTREAM', 'E_BUSY', 'E_CHANNEL_UNKNOWN', 'E_BAD_REQUEST',
@@ -111,8 +116,12 @@ class BrokerConnection implements WorkbuddyBroker {
     private id = 0;
     constructor(endpoint: string, private readonly onDisconnect?: (error: Error) => void) {
         this.socket = net.createConnection(endpoint);
-        this.socket.on('error', error => this.close(failure(!this.available
-            && ['ECONNREFUSED', 'ENOENT'].includes((error as NodeJS.ErrnoException).code ?? '') ? 'E_SOCKET_UNAVAILABLE' : 'E_DISCONNECTED')));
+        this.socket.on('error', (error) => {
+            const errno = (error as NodeJS.ErrnoException).code ?? '';
+            this.close(failure(this.available ? 'E_DISCONNECTED'
+                : ['ECONNREFUSED', 'ENOENT'].includes(errno) ? 'E_SOCKET_UNAVAILABLE'
+                    : ['EPERM', 'EACCES'].includes(errno) ? 'E_SOCKET_FORBIDDEN' : 'E_DISCONNECTED'));
+        });
         this.socket.on('close', () => this.close(failure('E_DISCONNECTED')));
         this.socket.on('data', chunk => {
             try {
@@ -256,7 +265,7 @@ export async function connectWorkbuddyBroker(configDir: string, signal?: AbortSi
     catch (error) {
         connection?.dispose();
         const code = (error as BrokerError).code;
-        throw failure(remoteCodes.has(code) || ['E_SOCKET_UNAVAILABLE', 'E_DISCONNECTED', 'E_SERVER_PROOF_INVALID',
+        throw failure(remoteCodes.has(code) || ['E_SOCKET_UNAVAILABLE', 'E_SOCKET_FORBIDDEN', 'E_DISCONNECTED', 'E_SERVER_PROOF_INVALID',
             'E_REQUEST_PIPE_UNAVAILABLE', 'E_PROTOCOL_ERROR', 'E_HANDSHAKE_TIMEOUT', 'E_INVALID_PARAMS'].includes(code) ? code : 'E_CONNECT_FAILED');
     }
     finally { ticket.fill(0); }

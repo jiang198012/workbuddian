@@ -115,6 +115,21 @@ describe('WorkBuddy native account broker', () => {
         await stopping; expect(notified).toHaveLength(0);
     });
 
+    it.each(['EPERM', 'EACCES'])('explains a %s pipe connect (elevated WorkBuddy) instead of reporting E_DISCONNECTED', async (errno) => {
+        // 2026-11-22 Windows 实机：WorkBuddy 以管理员身份运行时，普通权限的 Obsidian 连 wbipc 管道得到 EPERM。
+        fixture = await createWorkbuddyBrokerServer(root);
+        const { EventEmitter } = require('events');
+        const fake = Object.assign(new EventEmitter(), { write: jest.fn(), destroy: jest.fn() });
+        jest.spyOn(require('net'), 'createConnection').mockImplementation(() => {
+            setImmediate(() => { fake.emit('error', Object.assign(new Error(`connect ${errno}`), { code: errno })); fake.emit('close', true); });
+            return fake;
+        });
+        const notified: Error[] = [];
+        await expect(connectWorkbuddyBroker(fixture.configDir, undefined, error => notified.push(error)))
+            .rejects.toMatchObject({ code: 'E_SOCKET_FORBIDDEN', message: expect.stringContaining('管理员') });
+        expect(notified).toHaveLength(0);
+    });
+
     it('rejects nonnative Windows network pipe addresses', async () => {
         fixture = await createWorkbuddyBrokerServer(root);
         const meta = JSON.parse(fs.readFileSync(fixture.metadataPath, 'utf8')); meta.endpoint = '\\\\server\\pipe\\wbipc-abcd';

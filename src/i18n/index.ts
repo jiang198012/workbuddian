@@ -7,13 +7,14 @@ export function setLang(lang: Lang): void {
 }
 
 /**
- * 跟随 Obsidian 界面语言：localStorage 'language' 以 zh 开头 → 中文；其它一律英文。
- * 关键：Obsidian 默认英文时该键往往为空，必须回落英文（旧实现空→中文，导致英文用户看到中文）。
+ * 跟随 Obsidian 界面语言：与 Obsidian 相同，取 localStorage 'language'，为空（跟随系统）时取 navigator.language；
+ * 以 zh 开头 → 中文，其它一律英文。键为空不等于英文：中文系统下 Obsidian 界面是中文（2026-11-22 Windows 实机）。
  */
 export function detectLang(): Lang {
     try {
-        const l = (typeof window !== 'undefined' && window.localStorage.getItem('language')) || '';
-        return l.startsWith('zh') ? 'zh' : 'en';
+        const w = typeof window !== 'undefined' ? window : undefined;
+        const l = w?.localStorage.getItem('language') || w?.navigator?.language || '';
+        return l.toLowerCase().startsWith('zh') ? 'zh' : 'en';
     } catch {
         return 'zh';
     }
@@ -45,10 +46,11 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'provider.acpUnsupported': { zh: '当前 codebuddy CLI 版本过旧，不支持 ACP 持久会话。请升级 WorkBuddy 桌面版。', en: 'Your codebuddy CLI is too old for ACP persistent sessions. Please upgrade WorkBuddy.' },
     'provider.notLoggedIn': { zh: 'CodeBuddy 未登录。打开 设置 → CodeBuddy 登录 → 点『登录 CodeBuddy』，在浏览器里完成登录后重试；WorkBuddy 内置 CLI 需保持桌面端登录运行。', en: 'CodeBuddy is not signed in. Open Settings → CodeBuddy sign-in → “Sign in to CodeBuddy”, finish the browser prompt, then retry. For the WorkBuddy bundled CLI, keep the desktop app logged in and running.' },
     'provider.credentialUnavailable': { zh: 'WorkBuddy 宿主凭据通路当前不可用（missing-key，见 Issue #10）。请确认原桌面端已登录并保持运行；此错误不等于未登录，重新登录不保证解决。插件不读取、复制或解密登录凭据，也不会改用独立 CodeBuddy 账号或额度。', en: 'The WorkBuddy host credential channel is currently unavailable (missing-key; see Issue #10). Keep the original desktop app running and logged in. This error does not mean you are logged out; logging in again is not a guaranteed remedy. The plugin does not read, copy, or decrypt login credentials, or switch to a standalone CodeBuddy account or quota.' },
-    'provider.handshakeFailed': { zh: 'codebuddy CLI 握手失败：{detail}', en: 'codebuddy CLI handshake failed: {detail}' },
+    'provider.handshakeFailed': { zh: '{cli} 握手失败：{detail}', en: '{cli} handshake failed: {detail}' },
     'provider.turnTimeout': { zh: '本轮响应超时，已中断', en: 'Turn timed out and was interrupted' },
     'provider.turnFailed': { zh: '本轮中断：{reason}', en: 'Turn interrupted: {reason}' },
-    'provider.processDied': { zh: 'codebuddy 进程意外退出，本轮已中断。重新发送将自动恢复会话。', en: 'codebuddy process exited unexpectedly. Resend to resume the session.' },
+    'provider.turnFailedDetail': { zh: '本轮中断：{reason}（{detail}）', en: 'Turn interrupted: {reason} ({detail})' },
+    'provider.processDied': { zh: '{cli} 进程意外退出，本轮已中断。重新发送将自动恢复会话。', en: '{cli} process exited unexpectedly. Resend to resume the session.' },
     'provider.busy': { zh: '该会话正在响应中，请稍候', en: 'This conversation is still responding' },
     'export.roleUser': { zh: '**用户**', en: '**User**' },
     'export.roleAssistant': { zh: '**AI**', en: '**AI**' },
@@ -71,6 +73,7 @@ export const STRINGS: Record<string, { zh: string; en: string; [lang: string]: s
     'hermes.testFail': { zh: '连接失败:', en: 'Connection failed: ' },
     'hermes.needRestart': { zh: '切换后端需重载插件生效(Cmd+R)', en: 'Backend switch takes effect after reload (Cmd+R)' },
     'hermes.mode': { zh: '运行模式', en: 'Run mode' },
+    'hermes.modeProbing': { zh: '正在检测运行模式…', en: 'Detecting run mode…' },
     'hermes.modeAcp': { zh: 'ACP 完整版', en: 'ACP full' },
     'hermes.modeHttp': { zh: 'HTTP 轻量版', en: 'HTTP lite' },
     'hermes.acpOk': { zh: '✅ ACP 可用（{version}）', en: '✅ ACP available ({version})' },

@@ -341,14 +341,14 @@ export class AcpProvider {
             push({ error: t('provider.turnTimeout') });
         }, this.timeout);
 
-        let promptPromise: Promise<{ stopReason: string }>;
+        let promptPromise: Promise<{ stopReason: string; detail?: string }>;
         try {
             promptPromise = session.prompt(text, handlers, images);
         } catch (e) {
             clearTimeout(timer);
             throw e;
         }
-        promptPromise.then(({ stopReason }) => {
+        promptPromise.then(({ stopReason, detail }) => {
             clearTimeout(timer);
             if (cancelledByCaller) return;
             if (stopReason === 'end_turn') {
@@ -365,7 +365,10 @@ export class AcpProvider {
                 if (chunkCount === 0 && Date.now() - startedAt > 15_000) this.restartAfterDeadTurn(sessionId);
                 push({ end: true }); // 现有停止路径：静默结束（对齐 v1）
             } else {
-                push({ error: t('provider.turnFailed').replace('{reason}', stopReason) });
+                // refusal 带服务端原因时一并显示，便于定位（#14）
+                push({ error: detail
+                    ? t('provider.turnFailedDetail').replace('{reason}', stopReason).replace('{detail}', detail)
+                    : t('provider.turnFailed').replace('{reason}', stopReason) });
             }
         }, (e: Error) => {
             clearTimeout(timer);
@@ -464,9 +467,12 @@ export class AcpProvider {
         this.modelPairs = this.availableModels.map((id) => ({ id }));
         for (const s of this.registry.all()) {
             s.markStale(); // 下次发送自动重启 + session/load 恢复（CLI 侧上下文不丢）
-            s.failTurn(t('provider.processDied'));
+            s.failTurn(t('provider.processDied').replace('{cli}', this.cliLabel));
         }
     }
+
+    /** 面向用户的后端 CLI 名称（Hermes 后端不能显示成 codebuddy） */
+    private get cliLabel(): string { return this.profile.id === 'hermes' ? 'Hermes CLI' : 'codebuddy CLI'; }
 
     private startErrorMessage(e: unknown): string {
         if (e instanceof AcpStartError) {
@@ -475,7 +481,7 @@ export class AcpProvider {
                 'acp-unsupported': t('provider.acpUnsupported'),
                 'auth-required': t('provider.notLoggedIn'),
                 'credential-unavailable': t('provider.credentialUnavailable'),
-                'handshake-failed': t('provider.handshakeFailed').replace('{detail}', e.message),
+                'handshake-failed': t('provider.handshakeFailed').replace('{cli}', this.cliLabel).replace('{detail}', e.message),
             };
             return byTier[e.tier];
         }

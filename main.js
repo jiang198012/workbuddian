@@ -39,9 +39,11 @@ function setLang(lang) {
   currentLang = lang;
 }
 function detectLang() {
+  var _a;
   try {
-    const l = typeof window !== "undefined" && window.localStorage.getItem("language") || "";
-    return l.startsWith("zh") ? "zh" : "en";
+    const w = typeof window !== "undefined" ? window : void 0;
+    const l = (w == null ? void 0 : w.localStorage.getItem("language")) || ((_a = w == null ? void 0 : w.navigator) == null ? void 0 : _a.language) || "";
+    return l.toLowerCase().startsWith("zh") ? "zh" : "en";
   } catch (e) {
     return "zh";
   }
@@ -75,10 +77,11 @@ var init_i18n = __esm({
       "provider.acpUnsupported": { zh: "\u5F53\u524D codebuddy CLI \u7248\u672C\u8FC7\u65E7\uFF0C\u4E0D\u652F\u6301 ACP \u6301\u4E45\u4F1A\u8BDD\u3002\u8BF7\u5347\u7EA7 WorkBuddy \u684C\u9762\u7248\u3002", en: "Your codebuddy CLI is too old for ACP persistent sessions. Please upgrade WorkBuddy." },
       "provider.notLoggedIn": { zh: "CodeBuddy \u672A\u767B\u5F55\u3002\u6253\u5F00 \u8BBE\u7F6E \u2192 CodeBuddy \u767B\u5F55 \u2192 \u70B9\u300E\u767B\u5F55 CodeBuddy\u300F\uFF0C\u5728\u6D4F\u89C8\u5668\u91CC\u5B8C\u6210\u767B\u5F55\u540E\u91CD\u8BD5\uFF1BWorkBuddy \u5185\u7F6E CLI \u9700\u4FDD\u6301\u684C\u9762\u7AEF\u767B\u5F55\u8FD0\u884C\u3002", en: "CodeBuddy is not signed in. Open Settings \u2192 CodeBuddy sign-in \u2192 \u201CSign in to CodeBuddy\u201D, finish the browser prompt, then retry. For the WorkBuddy bundled CLI, keep the desktop app logged in and running." },
       "provider.credentialUnavailable": { zh: "WorkBuddy \u5BBF\u4E3B\u51ED\u636E\u901A\u8DEF\u5F53\u524D\u4E0D\u53EF\u7528\uFF08missing-key\uFF0C\u89C1 Issue #10\uFF09\u3002\u8BF7\u786E\u8BA4\u539F\u684C\u9762\u7AEF\u5DF2\u767B\u5F55\u5E76\u4FDD\u6301\u8FD0\u884C\uFF1B\u6B64\u9519\u8BEF\u4E0D\u7B49\u4E8E\u672A\u767B\u5F55\uFF0C\u91CD\u65B0\u767B\u5F55\u4E0D\u4FDD\u8BC1\u89E3\u51B3\u3002\u63D2\u4EF6\u4E0D\u8BFB\u53D6\u3001\u590D\u5236\u6216\u89E3\u5BC6\u767B\u5F55\u51ED\u636E\uFF0C\u4E5F\u4E0D\u4F1A\u6539\u7528\u72EC\u7ACB CodeBuddy \u8D26\u53F7\u6216\u989D\u5EA6\u3002", en: "The WorkBuddy host credential channel is currently unavailable (missing-key; see Issue #10). Keep the original desktop app running and logged in. This error does not mean you are logged out; logging in again is not a guaranteed remedy. The plugin does not read, copy, or decrypt login credentials, or switch to a standalone CodeBuddy account or quota." },
-      "provider.handshakeFailed": { zh: "codebuddy CLI \u63E1\u624B\u5931\u8D25\uFF1A{detail}", en: "codebuddy CLI handshake failed: {detail}" },
+      "provider.handshakeFailed": { zh: "{cli} \u63E1\u624B\u5931\u8D25\uFF1A{detail}", en: "{cli} handshake failed: {detail}" },
       "provider.turnTimeout": { zh: "\u672C\u8F6E\u54CD\u5E94\u8D85\u65F6\uFF0C\u5DF2\u4E2D\u65AD", en: "Turn timed out and was interrupted" },
       "provider.turnFailed": { zh: "\u672C\u8F6E\u4E2D\u65AD\uFF1A{reason}", en: "Turn interrupted: {reason}" },
-      "provider.processDied": { zh: "codebuddy \u8FDB\u7A0B\u610F\u5916\u9000\u51FA\uFF0C\u672C\u8F6E\u5DF2\u4E2D\u65AD\u3002\u91CD\u65B0\u53D1\u9001\u5C06\u81EA\u52A8\u6062\u590D\u4F1A\u8BDD\u3002", en: "codebuddy process exited unexpectedly. Resend to resume the session." },
+      "provider.turnFailedDetail": { zh: "\u672C\u8F6E\u4E2D\u65AD\uFF1A{reason}\uFF08{detail}\uFF09", en: "Turn interrupted: {reason} ({detail})" },
+      "provider.processDied": { zh: "{cli} \u8FDB\u7A0B\u610F\u5916\u9000\u51FA\uFF0C\u672C\u8F6E\u5DF2\u4E2D\u65AD\u3002\u91CD\u65B0\u53D1\u9001\u5C06\u81EA\u52A8\u6062\u590D\u4F1A\u8BDD\u3002", en: "{cli} process exited unexpectedly. Resend to resume the session." },
       "provider.busy": { zh: "\u8BE5\u4F1A\u8BDD\u6B63\u5728\u54CD\u5E94\u4E2D\uFF0C\u8BF7\u7A0D\u5019", en: "This conversation is still responding" },
       "export.roleUser": { zh: "**\u7528\u6237**", en: "**User**" },
       "export.roleAssistant": { zh: "**AI**", en: "**AI**" },
@@ -100,6 +103,7 @@ var init_i18n = __esm({
       "hermes.testFail": { zh: "\u8FDE\u63A5\u5931\u8D25:", en: "Connection failed: " },
       "hermes.needRestart": { zh: "\u5207\u6362\u540E\u7AEF\u9700\u91CD\u8F7D\u63D2\u4EF6\u751F\u6548(Cmd+R)", en: "Backend switch takes effect after reload (Cmd+R)" },
       "hermes.mode": { zh: "\u8FD0\u884C\u6A21\u5F0F", en: "Run mode" },
+      "hermes.modeProbing": { zh: "\u6B63\u5728\u68C0\u6D4B\u8FD0\u884C\u6A21\u5F0F\u2026", en: "Detecting run mode\u2026" },
       "hermes.modeAcp": { zh: "ACP \u5B8C\u6574\u7248", en: "ACP full" },
       "hermes.modeHttp": { zh: "HTTP \u8F7B\u91CF\u7248", en: "HTTP lite" },
       "hermes.acpOk": { zh: "\u2705 ACP \u53EF\u7528\uFF08{version}\uFF09", en: "\u2705 ACP available ({version})" },
@@ -1302,7 +1306,14 @@ var os2 = __toESM(require("os"));
 var path3 = __toESM(require("path"));
 var import_crypto2 = require("crypto");
 var MAX_FRAME = 1024 * 1024;
-var failure = (code) => Object.assign(new Error(`WorkBuddy \u672C\u5730\u4EE3\u7406\u9519\u8BEF\uFF08${code}\uFF09`), { code });
+var hints = {
+  // Windows：提权进程建的命名管道，普通权限的 Obsidian 打不开（2026-11-22 实机 EPERM）。
+  E_SOCKET_FORBIDDEN: "WorkBuddy \u672C\u5730\u4EE3\u7406\u62D2\u7EDD\u8FDE\u63A5\uFF08E_SOCKET_FORBIDDEN\uFF09\uFF1AWorkBuddy \u53EF\u80FD\u4EE5\u7BA1\u7406\u5458\u8EAB\u4EFD\u8FD0\u884C\uFF0C\u800C Obsidian \u4E0D\u662F\u3002\u8BF7\u5B8C\u5168\u9000\u51FA WorkBuddy\uFF08\u5305\u62EC\u6258\u76D8\u56FE\u6807\uFF09\u540E\u6B63\u5E38\u6253\u5F00\uFF0C\u518D\u91CD\u8BD5\u3002"
+};
+var failure = (code) => {
+  var _a;
+  return Object.assign(new Error((_a = hints[code]) != null ? _a : `WorkBuddy \u672C\u5730\u4EE3\u7406\u9519\u8BEF\uFF08${code}\uFF09`), { code });
+};
 var remoteCodes = /* @__PURE__ */ new Set([
   "E_TICKET_INVALID",
   "E_REVOKED",
@@ -1432,7 +1443,8 @@ var BrokerConnection = class {
     this.socket = net2.createConnection(endpoint);
     this.socket.on("error", (error) => {
       var _a;
-      return this.close(failure(!this.available && ["ECONNREFUSED", "ENOENT"].includes((_a = error.code) != null ? _a : "") ? "E_SOCKET_UNAVAILABLE" : "E_DISCONNECTED"));
+      const errno = (_a = error.code) != null ? _a : "";
+      this.close(failure(this.available ? "E_DISCONNECTED" : ["ECONNREFUSED", "ENOENT"].includes(errno) ? "E_SOCKET_UNAVAILABLE" : ["EPERM", "EACCES"].includes(errno) ? "E_SOCKET_FORBIDDEN" : "E_DISCONNECTED"));
     });
     this.socket.on("close", () => this.close(failure("E_DISCONNECTED")));
     this.socket.on("data", (chunk) => {
@@ -1662,6 +1674,7 @@ async function connectWorkbuddyBroker(configDir, signal, onDisconnect) {
     const code = error.code;
     throw failure(remoteCodes.has(code) || [
       "E_SOCKET_UNAVAILABLE",
+      "E_SOCKET_FORBIDDEN",
       "E_DISCONNECTED",
       "E_SERVER_PROOF_INVALID",
       "E_REQUEST_PIPE_UNAVAILABLE",
@@ -3411,6 +3424,21 @@ function appendTextChunk(accumulated, incoming) {
 }
 
 // src/providers/acp/session.ts
+function refusalDetail(result) {
+  var _a;
+  const raw = (_a = result == null ? void 0 : result._meta) == null ? void 0 : _a["codebuddy.ai/errorMessage"];
+  if (typeof raw !== "string" || !raw.trim())
+    return void 0;
+  let text2 = raw.trim();
+  try {
+    const parsed = JSON.parse(text2);
+    if (parsed === null || typeof parsed === "object") {
+      text2 = typeof (parsed == null ? void 0 : parsed.message) === "string" ? parsed.message.trim() : "";
+    }
+  } catch (e) {
+  }
+  return text2 ? text2.slice(0, 200) : void 0;
+}
 var AcpSession = class {
   constructor(key, client, lookup, config, profile = ACP_DEFAULT_PROFILE, activation = { current: null }) {
     this.key = key;
@@ -3589,7 +3617,9 @@ var AcpSession = class {
           throw e;
         }
       });
-      return { stopReason: typeof result.stopReason === "string" ? result.stopReason : "end_turn" };
+      const stopReason = typeof result.stopReason === "string" ? result.stopReason : "end_turn";
+      const detail = stopReason === "refusal" ? refusalDetail(result) : void 0;
+      return detail ? { stopReason, detail } : { stopReason };
     } finally {
       if (this.pendingPermissions.size)
         this.rejectPendingPermissions();
@@ -4231,7 +4261,7 @@ var AcpProvider = class {
       clearTimeout(timer);
       throw e;
     }
-    promptPromise.then(({ stopReason }) => {
+    promptPromise.then(({ stopReason, detail }) => {
       clearTimeout(timer);
       if (cancelledByCaller)
         return;
@@ -4251,7 +4281,7 @@ var AcpProvider = class {
           this.restartAfterDeadTurn(sessionId);
         push2({ end: true });
       } else {
-        push2({ error: t("provider.turnFailed").replace("{reason}", stopReason) });
+        push2({ error: detail ? t("provider.turnFailedDetail").replace("{reason}", stopReason).replace("{detail}", detail) : t("provider.turnFailed").replace("{reason}", stopReason) });
       }
     }, (e) => {
       clearTimeout(timer);
@@ -4340,8 +4370,12 @@ var AcpProvider = class {
     this.modelPairs = this.availableModels.map((id) => ({ id }));
     for (const s of this.registry.all()) {
       s.markStale();
-      s.failTurn(t("provider.processDied"));
+      s.failTurn(t("provider.processDied").replace("{cli}", this.cliLabel));
     }
+  }
+  /** 面向用户的后端 CLI 名称（Hermes 后端不能显示成 codebuddy） */
+  get cliLabel() {
+    return this.profile.id === "hermes" ? "Hermes CLI" : "codebuddy CLI";
   }
   startErrorMessage(e) {
     if (e instanceof AcpStartError) {
@@ -4350,7 +4384,7 @@ var AcpProvider = class {
         "acp-unsupported": t("provider.acpUnsupported"),
         "auth-required": t("provider.notLoggedIn"),
         "credential-unavailable": t("provider.credentialUnavailable"),
-        "handshake-failed": t("provider.handshakeFailed").replace("{detail}", e.message)
+        "handshake-failed": t("provider.handshakeFailed").replace("{cli}", this.cliLabel).replace("{detail}", e.message)
       };
       return byTier[e.tier];
     }
@@ -4754,6 +4788,10 @@ var HermesProvider = class {
   /** 已确认运行在 HTTP 轻量模式：探测进行中的占位 http 不算，避免初始化期间误报顶条（#15） */
   get liteConfirmed() {
     return this.settled && this.modeValue === "http";
+  }
+  /** init 探测是否已落定（设置页探测期间显示「正在检测」） */
+  get modeSettled() {
+    return this.settled;
   }
   onModeChange(cb) {
     this.modeCbs.push(cb);
@@ -8940,7 +8978,9 @@ var WorkbuddianSettingTab = class extends import_obsidian11.PluginSettingTab {
       if (api instanceof HermesProvider) {
         const modeSetting = new import_obsidian11.Setting(containerEl).setName(t("hermes.mode"));
         const paintMode = () => {
-          if (api.mode === "acp") {
+          if (!api.modeSettled) {
+            modeSetting.setDesc(t("hermes.modeProbing"));
+          } else if (api.mode === "acp") {
             modeSetting.setDesc(t("hermes.modeAcp"));
           } else {
             const why = isLocalHermesGateway(this.plugin.settings.hermesGatewayUrl) ? t("hermes.acpMissing") : t("hermes.remoteHttp");

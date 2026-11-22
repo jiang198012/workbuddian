@@ -357,6 +357,32 @@ describe('provider turnFailed stopReason', () => {
         await expect(consume(api.sendMessage('s1', 'x', '/v')))
             .rejects.toThrow(t('provider.turnFailed').replace('{reason}', 'refusal'));
     });
+
+    // #14：refusal 时把服务端原因（_meta['codebuddy.ai/errorMessage']）透出到聊天面板，而不是只显示 refusal。
+    it.each([
+        [JSON.stringify({ code: -32003, message: 'Quota exceeded', data: { category: 'quota' } }), 'Quota exceeded'],
+        ['Upstream model unavailable', 'Upstream model unavailable'],
+        ['{malformed', '{malformed'],
+        [JSON.stringify({ code: -32003 }), null],
+        ['null', null],
+    ])('shows the server reason of a refusal: %s', async (errorMessage, detail) => {
+        const kit = makeFakeClient(MockAcpClient);
+        kit.fake.request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
+            if (method === 'session/prompt') return { stopReason: 'refusal', _meta: { 'codebuddy.ai/errorMessage': errorMessage } };
+            if (method === 'session/new') return { sessionId: 'acp-1' };
+            if (method === 'session/load') {
+                if (String(params.sessionId).startsWith('acp-')) return {};
+                throw new Error('not found');
+            }
+            return {};
+        });
+        const api = new CodebuddyProvider();
+        const expected = detail === null
+            ? t('provider.turnFailed').replace('{reason}', 'refusal')
+            : t('provider.turnFailedDetail').replace('{reason}', 'refusal').replace('{detail}', detail);
+        await expect(consume(api.sendMessage('s1', 'x', '/v'))).rejects.toThrow(expected);
+        await expect(consume(api.sendMessage('s1', 'x', '/v'))).rejects.toThrow(new RegExp(`^${expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+    });
 });
 
 describe('models & config sync', () => {

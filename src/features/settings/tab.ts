@@ -87,7 +87,10 @@ export class WorkbuddianSettingTab extends PluginSettingTab {
             if (api instanceof HermesProvider) {
                 const modeSetting = new Setting(containerEl).setName(t('hermes.mode'));
                 const paintMode = () => {
-                    if (api.mode === 'acp') {
+                    if (!api.modeSettled) {
+                        // 探测未落定时 mode 只是占位 http，不能报「未检测到 CLI」（#15）
+                        modeSetting.setDesc(t('hermes.modeProbing'));
+                    } else if (api.mode === 'acp') {
                         modeSetting.setDesc(t('hermes.modeAcp'));
                     } else {
                         const why = isLocalHermesGateway(this.plugin.settings.hermesGatewayUrl)

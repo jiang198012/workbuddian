@@ -73,6 +73,8 @@ export class HermesProvider {
     get mode(): HermesMode { return this.modeValue; }
     /** 已确认运行在 HTTP 轻量模式：探测进行中的占位 http 不算，避免初始化期间误报顶条（#15） */
     get liteConfirmed(): boolean { return this.settled && this.modeValue === 'http'; }
+    /** init 探测是否已落定（设置页探测期间显示「正在检测」） */
+    get modeSettled(): boolean { return this.settled; }
     onModeChange(cb: (m: HermesMode) => void): void { this.modeCbs.push(cb); }
 
     /**

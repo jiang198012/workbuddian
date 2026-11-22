@@ -1,10 +1,22 @@
 import { HermesAcpProvider } from '../src/providers/hermes/acpProvider';
-import { AcpClient } from '../src/providers/acp/client';
-import { makeFakeClient } from './helpers/fakeAcpClient';
+import { AcpClient, AcpStartError } from '../src/providers/acp/client';
+import { makeFakeClient, consume } from './helpers/fakeAcpClient';
 
-jest.mock('../src/providers/acp/client');
+jest.mock('../src/providers/acp/client', () => {
+    const actual = jest.requireActual('../src/providers/acp/client');
+    return { ...actual, AcpClient: jest.fn() }; // 保留真实 AcpStartError，启动错误分级才能生效
+});
 
 describe('HermesAcpProvider', () => {
+    it('握手失败文案写 Hermes CLI，不写 codebuddy', async () => {
+        const kit = makeFakeClient(AcpClient as jest.MockedClass<typeof AcpClient>);
+        kit.fake.ensureStarted.mockRejectedValue(new AcpStartError('handshake-failed', 'process exited (0) before handshake'));
+        const p = new HermesAcpProvider();
+        p.setConversationLookup({ getAcpSessionId: () => undefined, setAcpSessionId: () => {} });
+        const sent = consume(p.sendMessage('conv-1', 'x', '/tmp/vault'));
+        await expect(sent).rejects.toThrow('Hermes CLI 握手失败：process exited (0) before handshake');
+        await expect(sent).rejects.not.toThrow(/codebuddy/i);
+    });
     it('forkSession 走 session/fork RPC 并返回新 id（无 /branch prompt）', async () => {
         const kit = makeFakeClient(AcpClient as jest.MockedClass<typeof AcpClient>);
         const p = new HermesAcpProvider();

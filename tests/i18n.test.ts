@@ -1,10 +1,13 @@
 import { t, setLang, applyLang, detectLang, matchesAnyLang, STRINGS } from '../src/i18n';
 
-/** 临时把 localStorage 'language' 设成某值，跑完还原（node 测试环境默认无 window） */
-function withObsidianLang(value: string | null, fn: () => void) {
+/** 临时把 localStorage 'language'（及可选的系统语言）设成某值，跑完还原（node 测试环境默认无 window） */
+function withObsidianLang(value: string | null, fn: () => void, systemLanguage?: string) {
     const g = global as unknown as { window?: unknown };
     const prev = g.window;
-    g.window = { localStorage: { getItem: (k: string) => (k === 'language' ? value : null) } };
+    g.window = {
+        localStorage: { getItem: (k: string) => (k === 'language' ? value : null) },
+        ...(systemLanguage === undefined ? {} : { navigator: { language: systemLanguage } }),
+    };
     try { fn(); } finally { g.window = prev; }
 }
 
@@ -20,6 +23,15 @@ describe('detectLang', () => {
     });
     it('returns en when the language key is absent', () => {
         withObsidianLang(null, () => expect(detectLang()).toBe('en'));
+    });
+    // Obsidian 未设语言（键为空）时跟随系统 navigator.language；2026-11-22 Windows 实机中文系统下界面为中文。
+    it('follows the system language like Obsidian when the key is absent', () => {
+        withObsidianLang(null, () => expect(detectLang()).toBe('zh'), 'zh-CN');
+        withObsidianLang('', () => expect(detectLang()).toBe('zh'), 'zh-TW');
+        withObsidianLang(null, () => expect(detectLang()).toBe('en'), 'en-US');
+    });
+    it('keeps an explicit Obsidian language over the system language', () => {
+        withObsidianLang('en', () => expect(detectLang()).toBe('en'), 'zh-CN');
     });
 });
 

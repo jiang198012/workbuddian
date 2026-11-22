@@ -111,10 +111,12 @@ describe('HermesProvider 路由器', () => {
         const pending = p.init();
         await new Promise((r) => setImmediate(r));
         expect(p.liteConfirmed).toBe(false); // 探测进行中
+        expect(p.modeSettled).toBe(false); // 设置页据此显示「正在检测」而非「HTTP 轻量 · 未检测到 CLI」
         finishCheck();
         await pending;
         expect(p.mode).toBe('acp');
         expect(p.liteConfirmed).toBe(false);
+        expect(p.modeSettled).toBe(true);
     });
     it('探测落定为 HTTP 时确认轻量模式，并通知视图刷新（mode 值未变也通知）', async () => {
         execFileMock.mockImplementation((_c: string, _a: string[], _o: object, cb: Function) => cb(new Error('exit 1'), '', 'fail'));

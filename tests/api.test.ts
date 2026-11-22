@@ -267,6 +267,13 @@ describe('CodebuddyProvider v2 sendMessage', () => {
         await expect(consume(api.sendMessage('s1', 'x', '/v'))).rejects.toThrow(t('provider.acpUnsupported'));
     });
 
+    it('names the codebuddy CLI in handshake failures', async () => {
+        const { fake } = makeFakeClient(MockAcpClient);
+        fake.ensureStarted.mockRejectedValue(new AcpStartError('handshake-failed', 'boom'));
+        const api = new CodebuddyProvider();
+        await expect(consume(api.sendMessage('s1', 'x', '/v'))).rejects.toThrow('codebuddy CLI 握手失败：boom');
+    });
+
     it('surfaces cli-not-found tier with v1 wording', async () => {
         const { fake } = makeFakeClient(MockAcpClient);
         fake.ensureStarted.mockRejectedValue(new AcpStartError('cli-not-found', 'ENOENT'));
@@ -290,7 +297,7 @@ describe('CodebuddyProvider v2 sendMessage', () => {
         const api = new CodebuddyProvider();
         const dying = consume(api.sendMessage('s1', 'x', '/v'));
         await flush();
-        const assertion = expect(dying).rejects.toThrow(t('provider.processDied'));
+        const assertion = expect(dying).rejects.toThrow(t('provider.processDied').replace('{cli}', 'codebuddy CLI'));
         events().onExit(1, null);
         promptGate.reject(new Error('acp process exited')); // client 死亡时 pending 请求一并拒绝
         await assertion;

@@ -37,6 +37,23 @@ export interface TurnHandlers {
 
 export type SessionStatus = 'idle' | 'loading' | 'prompting' | 'awaitingPermission';
 
+/**
+ * refusal 的服务端原因（WorkBuddy 放在 _meta['codebuddy.ai/errorMessage']，#14）：
+ * 结构化错误取 message，纯文本原样，空值/无 message 的结构返回 undefined；过长截断。
+ */
+export function refusalDetail(result: { _meta?: Record<string, unknown> } | undefined): string | undefined {
+    const raw = result?._meta?.['codebuddy.ai/errorMessage'];
+    if (typeof raw !== 'string' || !raw.trim()) return undefined;
+    let text = raw.trim();
+    try {
+        const parsed = JSON.parse(text);
+        if (parsed === null || typeof parsed === 'object') {
+            text = typeof parsed?.message === 'string' ? parsed.message.trim() : '';
+        }
+    } catch { /* 非 JSON：按纯文本展示 */ }
+    return text ? text.slice(0, 200) : undefined;
+}
+
 /** provider 级当前配置；对象引用在 provider/registry/各 session 间共享，改字段即对新会话生效 */
 export interface SessionConfig { model: string; mode: string; mcpServers?: unknown[]; thoughtLevel?: string; /** 会话当前模型（session/new|load 返回），用于跳过同模型 set_model */ currentModel?: string }
 
@@ -180,7 +197,7 @@ export class AcpSession {
         } catch (e) { bbLog('[WB] acp 设置思考力度失败（忽略）:', e); }
     }
 
-    async prompt(text: string, handlers: TurnHandlers, images?: Array<{ data: string; mimeType: string }>): Promise<{ stopReason: string }> {
+    async prompt(text: string, handlers: TurnHandlers, images?: Array<{ data: string; mimeType: string }>): Promise<{ stopReason: string; detail?: string }> {
         if (this.status !== 'idle') throw new Error('session busy');
         if (!this.acpSessionId) throw new Error('session not loaded');
         const acpId = this.acpSessionId;
@@ -217,7 +234,7 @@ export class AcpSession {
                 }
                 // 必须走 rawRequest：request('session/prompt') 会再排队，造成自等待死锁
                 try {
-                    return await this.client.rawRequest<{ stopReason?: string }>('session/prompt', {
+                    return await this.client.rawRequest<{ stopReason?: string; _meta?: Record<string, unknown> }>('session/prompt', {
                         sessionId: acpId,
                         prompt,
                     });
@@ -228,7 +245,9 @@ export class AcpSession {
                     throw e;
                 }
             });
-            return { stopReason: typeof result.stopReason === 'string' ? result.stopReason : 'end_turn' };
+            const stopReason = typeof result.stopReason === 'string' ? result.stopReason : 'end_turn';
+            const detail = stopReason === 'refusal' ? refusalDetail(result) : undefined;
+            return detail ? { stopReason, detail } : { stopReason };
         } finally {
             if (this.pendingPermissions.size) this.rejectPendingPermissions();
             for (const id of this.turnMessageIds) this.rememberCompletedMessage(id);
