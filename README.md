@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
 audience: Obsidian 中文用户(桌面端, Windows/macOS)
 runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
-status: stable (2.6.21)
+status: stable (2.6.22)
 license: MIT
 -->
 
@@ -104,6 +104,8 @@ Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它�
 ## 快速开始
 
 ### WorkBuddy 升级兼容（Issue #10）
+
+**2.6.22 Windows 实机修复**：只装 WorkBuddy 桌面端时残留的旧 sidecar 记录不再导致「校验失败」（#19）；WorkBuddy 以管理员身份运行时给出明确提示；关闭库窗口后不再残留内置 CLI worker；Hermes 初始化期间不再误报轻量模式（#15）；refusal 显示服务端原因（#14）；界面语言「自动」跟随系统。Windows 11 + WorkBuddy 5.11.3 实机验证见 [报告](docs/manual-test-report-2026-11-22-windows.md)。
 
 **2.6.21 问题修复**：修复只装 WorkBuddy 5.11.x 桌面端时内置 CLI 连接报 `HTTP 401`（#19）；标签 × 改为只关闭、会话可从 `/resume` 或搜索找回（#16）；Hermes gateway 改按进程判断存活、ACP 启动失败后重试可恢复（#15）；内置 CLI 时登录弹窗给出明确说明（#17）。详见 [CHANGELOG](CHANGELOG.md)。
 
@@ -243,7 +245,9 @@ Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计�
 
 ## What's New
 
-**最新版本 2.6.21**
+**最新版本 2.6.22**
+
+- **2.6.22** — **Windows 实机修复（#19 / #15 / #14）**：残留 sidecar 记录误报「校验失败」、管理员身份运行的 WorkBuddy 提示、关闭库窗口时结束内置 CLI worker、Hermes 初始化期间轻量模式误报、refusal 原因透出、界面语言自动跟随系统。**只装桌面端的 Windows 已实机验证；Hermes 的 Windows 项仍待验证**。
 
 - **2.6.21** — **#19 / #16 / #15 / #17 修复**：WorkBuddy 5.11.x 内置 CLI 的 `HTTP 401`、标签 × 只关闭不删除、Hermes gateway 存活判断与降级恢复、登录弹窗说明、Hermes 模型目录刷新。**Windows 实机待验证，相关 issue 保持开放**。
 

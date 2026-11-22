@@ -42,6 +42,8 @@ Or via [BRAT](https://github.com/TfTHacker/obsidian42-brat) with `jiang198012/wo
 
 ## Quick Start
 
+**2.6.22 Windows fixes**: a stale sidecar record left by WorkBuddy no longer breaks chat with "validation failed" when only the desktop app is installed (#19); a clear hint when WorkBuddy runs as administrator; bundled-CLI workers no longer outlive a closed vault window; no false "lite mode" banner while Hermes initializes (#15); refusals show the server reason (#14); "Auto" language follows the system language. See the [Windows test report](docs/manual-test-report-2026-11-22-windows.md).
+
 **2.6.21 fixes**: `HTTP 401` from the WorkBuddy 5.11.x bundled CLI when only the desktop app is installed (#19); the tab × now only closes the tab and the chat can be reopened from `/resume` or search (#16); Hermes gateway liveness by process and ACP recovery on retry (#15); a clear sign-in dialog for the bundled CLI (#17). See the [changelog](CHANGELOG.md).
 
 **2.6.20 fixes**: Windows Hermes `.cmd` self-check (shell-aware + 40s timeout + `HERMES_HOME`/`%LOCALAPPDATA%\hermes` discovery), ACP `error.data.details` surfacing, and WBIPC malformed-ack classification (#13 / #12). See the [changelog](CHANGELOG.md).
@@ -78,7 +80,9 @@ The complete documentation (usage, settings, auto-discovery, FAQ, changelog) is 
 
 ## What's New
 
-**Latest version 2.6.21**
+**Latest version 2.6.22**
+
+- **2.6.22 — Windows fixes (#19 / #15 / #14)**: stale sidecar record misreported as "validation failed", a hint for an elevated WorkBuddy, bundled-CLI workers stopped when a vault window closes, no false Hermes lite-mode banner during init, refusal reasons surfaced, and "Auto" language following the system. **Verified on Windows with the desktop app only; Hermes items on Windows remain unverified.**
 
 - **2.6.21 — #19 / #16 / #15 / #17 fixes**: WorkBuddy 5.11.x bundled-CLI `HTTP 401`, tab × closes instead of deleting, Hermes gateway liveness and ACP recovery, sign-in dialog guidance, and Hermes model-catalog refresh. **Windows hardware is unverified; the related issues stay open.**
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.6.22 — 2026-11-22
+
+**Windows 实机修复**：只装 WorkBuddy 桌面端时残留的旧 sidecar 记录导致聊天报「校验失败」、WorkBuddy 以管理员身份运行时报错不明、关闭库窗口后内置 CLI worker 残留，以及 Hermes 初始化期间误报轻量模式、界面语言自动检测和 refusal 原因透出。
+
+### 修复
+
+- [#19](https://github.com/jiang198012/workbuddian/issues/19)：WorkBuddy 留下的旧版 `sidecar.pid`（无 `controlPipeUuid`、进程已退出）不再被当成元数据损坏而报「本地任务服务校验失败」；进程已退出时按宿主未运行处理，回退到原生账号通路。进程仍在但版本不符时照旧报错。
+- Windows：WorkBuddy 以管理员身份运行而 Obsidian 不是时，连接账号代理管道会被系统拒绝（`EPERM`）。现在提示「WorkBuddy 可能以管理员身份运行，请完全退出（包括托盘图标）后正常打开」，不再只显示 `E_DISCONNECTED`。
+- 关闭 Obsidian 库窗口时同步结束本插件拉起的 WorkBuddy 内置 CLI worker；下次启动时清理仍在运行、且命令行与记录一致的残留 worker。sidecar 名下的 worker 仍由 WorkBuddy 管理。
+- [#15](https://github.com/jiang198012/workbuddian/issues/15)：Hermes 初始化探测落定前不再显示「轻量模式」顶条；设置页「运行模式」在探测期间显示「正在检测运行模式…」，不再误报「未检测到 hermes CLI」。
+- [#14](https://github.com/jiang198012/workbuddian/issues/14)：回复以 `refusal` 结束时，一并显示服务端给出的原因（`codebuddy.ai/errorMessage`），例如「本轮中断：refusal（Quota exceeded）」。
+- 界面语言「自动」与 Obsidian 规则一致：Obsidian 未手动设语言时跟随系统语言。此前中文系统下插件显示英文。
+- Hermes 后端的「握手失败」「进程意外退出」提示写明 Hermes CLI，不再写成 codebuddy。
+
+### 验证与限制
+
+- `npm test`：56 套件、807 项测试通过，0 失败；`npm run build` 类型检查与生产构建通过。
+- Windows 11 + Obsidian 1.13.7 + WorkBuddy 5.11.3（只装桌面端，未装官方 CLI）实机验证：CLI 路径留空自动检测到内置 CLI；发「你好」正常回复，未出现 `HTTP 401`（2.6.21 的 #19 修复在 Windows 上确认）；#16 删除确认框中英文文案；Hermes 顶条与设置页探测中显示；语言自动跟随系统；Hermes 握手失败文案。详见 [Windows 实机验证报告](docs/manual-test-report-2026-11-22-windows.md)。
+- WorkBuddy 5.11.3 上未复现 #14 的 refusal；5.9.3 未验证。管理员权限提示和 refusal 原因由单测覆盖，未实机触发。
+- 未验证：#15 的 ACP 黑窗口和 Windows 上 `gateway.pid` 的位置、#13 在真实 Hermes 下的 `.cmd` 自检（测试机未装 Hermes，只用桩脚本验证了 `.cmd` 自检调用方式）。
+- 未处理：#19 中 WorkBuddy 装在自定义目录时的自动检测（待报告者提供安装路径）；Hermes 后端「找不到 CLI」「ACP 不受支持」提示仍沿用 codebuddy 的措辞。
+
 ## 2.6.21 — 2026-11-21
 
 **#19 / #16 / #15 / #17 修复**：WorkBuddy 5.11.x 内置 CLI 连接 `HTTP 401`、标签 × 改为只关闭、Hermes gateway 存活判断与降级恢复、登录弹窗误导，以及 Hermes 模型目录刷新。
