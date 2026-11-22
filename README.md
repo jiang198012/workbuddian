@@ -4,7 +4,7 @@
   <a href="https://github.com/jiang198012/workbuddian/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/jiang198012/workbuddian?sort=semver"></a>
   <a href="https://github.com/jiang198012/workbuddian/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/jiang198012/workbuddian/total"></a>
   <a href="https://github.com/jiang198012/workbuddian/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jiang198012/workbuddian/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://obsidian.md/plugins?id=workbuddian"><img alt="Obsidian plugin" src="https://img.shields.io/badge/Obsidian-market-yellow"></a>
+  <a href="https://community.obsidian.md/plugins/workbuddian"><img alt="Obsidian plugin" src="https://img.shields.io/badge/Obsidian-plugin-7c3aed"></a>
   <a href="https://github.com/jiang198012/workbuddian/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/jiang198012/workbuddian?style=flat&logo=github"></a>
   <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
 </p>
@@ -15,350 +15,350 @@
 
 <!--
 project: Workbuddian
-domain: Obsidian 插件 / AI 聊天 / 本地 LLM agent / Hermes agent / CodeBuddy
-audience: Obsidian 中文用户(桌面端, Windows/macOS)
-runtime: Obsidian 1.7.2+, CodeBuddy CLI 或 Hermes gateway, Node.js
+domain: Obsidian 插件 / AI 聊天 / 本地 AI agent / Hermes Agent / CodeBuddy CLI / WorkBuddy
+audience: Obsidian 桌面端用户（Windows / macOS），中文为主
+runtime: Obsidian 1.7.2+；CodeBuddy CLI、WorkBuddy 桌面端或 Hermes Agent
 status: stable (2.6.22)
 license: MIT
 -->
 
-**Workbuddian** 是一个 **Obsidian 社区插件**，把本地 **CodeBuddy CLI** 或 **Hermes agent** 变成你笔记里的 **AI 聊天助手**——不用切窗口，直接在 Vault 里聊天、`@` 引用笔记、流式回复、改稿。双后端支持,自由切换。
+**Workbuddian** 是一个 Obsidian 社区插件，把你本机的 AI agent 接进 Vault：**Hermes Agent**，或 **CodeBuddy CLI**（也可以直接用 **WorkBuddy** 桌面端自带的 CLI）。在笔记旁边对话、用 `@` 引用笔记和文件、在气泡里批准 agent 的每一步操作；它改过的文件以行级 diff 展示，Vault 内的改动可以一键撤销。
 
-> ⚠️ **仅桌面端**（Windows / macOS），需 Obsidian 1.7.2+。Linux 暂不支持。
+> ⚠️ **仅桌面端**（Windows / macOS），需要 Obsidian 1.7.2+。Linux 暂不支持。
 
 <p align="center">
-  <img src="docs/assets/workbuddian-demo.gif" alt="Workbuddian 核心流程演示——在笔记里 @ 引用,AI 读取内容并回答(约 46 秒循环)" width="85%"/>
+  <img src="docs/assets/workbuddian-demo.gif" alt="Workbuddian 演示：在笔记里 @ 引用，AI 读取内容并回答" width="85%"/>
 </p>
 
 <p align="center">
-  <img src="docs/images/chat-demo.png" alt="流式对话与 Markdown 渲染——表格、代码、列表" width="49%"/>
-  <img src="docs/images/chat-atsuggest.png" alt="@ 引用与附件 chips——对话历史 + 引用 + 附件" width="49%"/>
+  <img src="docs/images/chat-demo.png" alt="流式对话与 Markdown 渲染" width="49%"/>
+  <img src="docs/images/chat-atsuggest.png" alt="@ 引用与附件" width="49%"/>
 </p>
 
-> **⭐ 如果你觉得 Workbuddian 有用,欢迎 [Star 这个仓库](https://github.com/jiang198012/workbuddian),帮助更多人发现它。**
+> **⭐ 觉得有用的话，欢迎 [Star 这个仓库](https://github.com/jiang198012/workbuddian)，让更多人发现它。**
 
 ## 功能亮点
 
-| 能力 | 能带来什么 |
+| 能力 | 说明 |
 | --- | --- |
-| **双后端** | 本地 **CodeBuddy CLI**(完整能力)或 **Hermes agent**(gateway 纯对话)自由切换;Hermes 免配置自动发现,模型列表与 Desktop 一致 |
-| **流式对话** | 侧边栏或主编辑区全宽标签;可折叠的思考过程与工具调用卡片;Markdown 渲染(代码/表格/列表/引用) |
-| **图片视觉** | 粘贴 / 拖拽截图或图片,直接交给 AI 分析 |
-| **`@` 四源聚合引用** | 一条消息同时带上子代理(`@Agent`)、MCP 服务器(`@mcp`)、笔记(`@[[笔记]]`)、任意文件,不用手动拼上下文 |
-| **气泡内批准卡** | Write / Edit / Bash / MCP 工具按卡批准;计划模式出「计划已就绪」卡,**同一轮继续执行** |
-| **行级 diff + 一键撤销** | 每个 Edit / Write 显示改了几行;vault 内的编辑可一键撤销,三道安全闸门保护你的文件 |
-| **会话分叉与双面板** | 标签右键分叉任意会话;侧栏 + 主面板各自绑定独立会话,定向停止互不干扰 |
-| **MCP 可视化管理** | 列表增删改 / 启停 / 剪贴板导入;JSON 直编双向即时同步;自定义子代理(JSON 定义) |
-| **多语言界面** | 中文 / English 即时切换,自定义主色 |
-| **对比终端直接用 CLI** | 可视化界面、批准卡、一键撤销、面板集成都在 Obsidian 内完成,不必切到终端 |
-| **指令模式 `#`** | 设一条常驻指令 / 人设,对所有对话生效 |
-| **WorkBuddy Skills** | 自动发现 `~/.workbuddy/skills`、`~/.codebuddy/skills` 与 Vault 内技能,输入 `/` 选择并调用已安装技能 |
-
-## 安全与权限
-
-Workbuddian 是一个**能执行本地命令的 AI agent 插件**,我们把它能做什么讲清楚:
-
-**会访问什么?**
-- 运行你本机的 CodeBuddy / WorkBuddy CLI
-- 读写你的 Vault 文件(在你授权时)
-- 执行你配置的 MCP 服务器(经批准卡授权)
-
-**什么时候触发?**
-- 插件不发送用于预热的对话 prompt；模型列表发现可能建立后台连接。发送对话后，内置 CLI 可能按自身行为额外生成标题。
-- 明确安装本地连接扩展后，该组件会随 WorkBuddy 驻留，按需初始化宿主任务服务；不主动创建任务或发送模型消息。
-
-**怎么授权?**
-- 每个 Write / Edit / Bash / MCP 操作都在**气泡内批准卡**上让你确认
-- vault 外的文件,不经你同意内容根本到不了模型
-
-**你怎么控制?**
-- 可关闭「注入 Vault 上下文」
-- 可在设置里审查权限与路径
-- 可随时查看 `[WB]` 日志确认它做了什么
+| **两种后端** | **CodeBuddy CLI**（官方 CLI，或 WorkBuddy 桌面端内置的 CLI）与 **Hermes Agent**。两者都通过 ACP 运行，工具调用、批准卡、思考过程、上下文用量、会话分叉都可用。Hermes 在本机 CLI 不可用或使用远程 gateway 时，自动改用只能纯对话的轻量模式 |
+| **流式对话** | 侧栏或主编辑区的全宽面板；思考过程和工具调用卡片可折叠；完整的 Markdown 渲染 |
+| **`@` 引用** | 一条消息里同时带上笔记、任意文件、子代理和 MCP 服务器；笔记里选中的文字自动作为上下文 |
+| **`/` 命令与 Skills** | 内置命令、已安装的 WorkBuddy / CodeBuddy Skills、Vault 里的自定义命令，以及 CLI 自带命令 |
+| **批准卡与权限模式** | 写文件、改文件、执行命令、调用 MCP 前在气泡里确认；可切换三种权限模式 |
+| **行级 diff 与一键撤销** | 每次编辑显示改动的行；Vault 内的编辑可以一键撤销，有安全检查防止覆盖你之后的修改 |
+| **内联编辑** | 选中文字后让 AI 就地改写，不离开笔记 |
+| **会话管理** | 多标签、置顶、重命名、搜索、`/resume` 找回、分叉、两个面板各用各的会话、自动生成标题、导出为笔记 |
+| **写回笔记** | 把回复或代码块插入当前笔记，或保存为新笔记 |
+| **图片** | 粘贴或拖入截图，直接交给模型分析 |
+| **模板与常驻指令** | 新建对话可选写作、翻译、代码审查、笔记整理等模板；`#` 常驻指令对所有对话生效 |
+| **MCP 与子代理** | 可视化管理 MCP 服务器，列表和 JSON 双向同步；用 JSON 定义子代理 |
+| **中英文界面** | 中文 / English 即时切换，默认跟随 Obsidian |
 
 ## 安装
 
-### 前置条件
+**前置条件**：Obsidian 1.7.2+ 桌面版，Windows 或 macOS，并准备好一种后端（见[快速开始](#快速开始)）。
 
-- **Obsidian 1.7.2+**(桌面版)
-- **Windows 或 macOS**(Linux 不支持)
-- 安装 **CodeBuddy CLI**（推荐：`npm i -g @tencent-ai/codebuddy-code`，插件内提供浏览器一键登录，无需终端 `/login`）；或使用已登录的 **WorkBuddy 桌面版**（≥ 5.0.5，内置 CLI 作为回退）。
+**从社区插件目录安装（推荐）**
 
-### 从社区插件目录安装(推荐)
+1. Obsidian 里打开 **设置 → 第三方插件 → 浏览**。
+2. 搜索 **Workbuddian**，点 **安装**，再点 **启用**。
 
-1. Obsidian 里打开 **设置 → 第三方插件 → 浏览**
-2. 搜索 **"Workbuddian"** → **安装** → **启用**
+也可以在网页上查看：[community.obsidian.md/plugins/workbuddian](https://community.obsidian.md/plugins/workbuddian)。
 
-### 通过 BRAT 追踪最新版
+**用 BRAT 追踪最新版**：安装社区插件 BRAT，选 *Add Beta Plugin*，填 `jiang198012/workbuddian`，然后在 **设置 → 第三方插件** 里启用。
 
-1. 安装社区插件 **BRAT**
-2. BRAT → *Add Beta Plugin* → 填 `jiang198012/workbuddian`
-3. 在 **设置 → 第三方插件** 里启用
-
-### 手动安装
-
-1. 从 [latest release](https://github.com/jiang198012/workbuddian/releases/latest) 下载 `main.js`、`manifest.json`、`styles.css`
-2. 复制到 Vault 目录下的 `.obsidian/plugins/workbuddian/`
-3. 重启 Obsidian,在 **设置 → 第三方插件** 里启用
+**手动安装**：从 [latest release](https://github.com/jiang198012/workbuddian/releases/latest) 下载 `main.js`、`manifest.json`、`styles.css`，放到 Vault 下的 `.obsidian/plugins/workbuddian/`，重启 Obsidian 后启用。
 
 ## 快速开始
 
-### WorkBuddy 升级兼容（Issue #10）
+### 选择后端
 
-**2.6.22 Windows 实机修复**：只装 WorkBuddy 桌面端时残留的旧 sidecar 记录不再导致「校验失败」（#19）；WorkBuddy 以管理员身份运行时给出明确提示；关闭库窗口后不再残留内置 CLI worker；Hermes 初始化期间不再误报轻量模式（#15）；refusal 显示服务端原因（#14）；界面语言「自动」跟随系统。Windows 11 + WorkBuddy 5.11.3 实机验证见 [报告](docs/manual-test-report-2026-11-22-windows.md)。
+| 后端 | 适合 | 账号与额度 | 需要 |
+| --- | --- | --- | --- |
+| 官方 CodeBuddy CLI（推荐） | 想用 CodeBuddy 的完整能力 | 你自己的 CodeBuddy 账号 | Node.js |
+| WorkBuddy 桌面端 | 已经在用 WorkBuddy，不想另装 CLI | 沿用桌面端登录的账号与额度 | 桌面端保持登录并运行 |
+| Hermes Agent | 已在本机部署 Hermes Agent | Hermes 里配置的模型服务 | 本机 hermes CLI，或可访问的 Hermes gateway |
 
-**2.6.21 问题修复**：修复只装 WorkBuddy 5.11.x 桌面端时内置 CLI 连接报 `HTTP 401`（#19）；标签 × 改为只关闭、会话可从 `/resume` 或搜索找回（#16）；Hermes gateway 改按进程判断存活、ACP 启动失败后重试可恢复（#15）；内置 CLI 时登录弹窗给出明确说明（#17）。详见 [CHANGELOG](CHANGELOG.md)。
+在 **设置 → Workbuddian → 后端连接 → 后端** 里选择 CodeBuddy 或 Hermes。前两种都属于 CodeBuddy 后端，区别只在用哪个 CLI。
 
-**2.6.20 问题修复**：修复 Windows Hermes `.cmd` 自检（shell-aware + 40s 超时 + `HERMES_HOME`/`%LOCALAPPDATA%\hermes` 发现）、ACP 错误 `data.details` 透出，以及 WBIPC 畸形 ack 分类（#13 / #12）。详见 [CHANGELOG](CHANGELOG.md)。
+### 官方 CodeBuddy CLI
 
-**2.6.19 官方 CLI 一键登录**：设置页/命令面板新增“登录 CodeBuddy”，自动打开官方 CodeBuddy CLI 的浏览器登录页（Chinese Site / iOA / 企业域名 / International Site），无需终端 `/login`；登录成功后自动重连并刷新模型。自动发现优先官方 CLI，WorkBuddy 内置 CLI 作为回退。同时修复 Hermes gateway 自动启动/密钥发现/首条消息竞态，以及 WorkBuddy 5.9.3 的 lite 包与快速报错。详见[排查与一键登录记录](docs/workbuddy-5.9.3-bridge-2026-10-28.md)。
+1. 安装 Node.js，然后安装 CLI：`npm i -g @tencent-ai/codebuddy-code`
+2. 「CodeBuddy 路径」留空。插件会优先找到官方 CLI。
+3. 在设置里点「CodeBuddy 登录」下的「登录 CodeBuddy」按钮，或在命令面板运行「登录 CodeBuddy」。浏览器会打开登录页（Chinese Site / iOA / 企业域名 / International Site），登录成功后插件自动重连并刷新模型列表，不需要在终端里登录。
 
-**2.6.18 模型目录同步**：新连接进程启动时从 WorkBuddy 原个人账号官方云端目录获取模型，跳过会固化旧清单的 CLI 启动缓存；保留新型号、真实 ID 和目录顺序，同名项去重。目录读取或指定模型设置失败会明确报错，不悄悄使用旧模型。**沿用原登录与额度；持续连接期间不会即时刷新，桌面实验菜单、企业账号及 Windows 实机未验收**。详见[模型目录修复与验证记录](docs/model-catalog-sync-2026-10-09.md)。
+### WorkBuddy 桌面端
 
-**2.6.17 验收与限制说明更新**：沿用 2.6.16 的生产实现，补齐合成 MCP 的真实单次批准、结果回传和工具调用后进程清理，以及 Obsidian 批准卡操作。图片 GUI 首次出现普通 `refusal`，后续协议对照和临时诊断构建成功，但原因仍未定位；不将它标为已修复。详见[补充验收报告](docs/issue-10-native-capability-acceptance-2026-10-09.md)。
+1. 安装并登录 WorkBuddy 桌面端，保持它在运行。
+2. 「CodeBuddy 路径」留空。没有装官方 CLI 时，插件自动使用 WorkBuddy 内置的 CLI，例如：
+   - Windows：`C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\bin\codebuddy`
+   - macOS：`/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy`
 
-**2.6.16 旧组件故障恢复**：以前安装的可选连接组件初始化失败、不兼容，或预热后仍没有 sidecar 时，不再阻断可用的原账号通路；在未创建 worker 且确认 sidecar 缺失后，独立认证原生代理。取消、不可信 sidecar 和错误账号证明仍拒绝，不自动重发消息。详见[组件恢复及验收报告](docs/issue-10-connector-recovery-2026-10-09.md)。原生通路限制仍在，不能视为完整高可用验收。
+   WorkBuddy 装在其他目录时，在「CodeBuddy 路径」里填写这个文件的完整路径。
+3. 不需要另装 Node.js，插件会使用 WorkBuddy 自带的运行时。内置 CLI 不支持一键登录，账号就是桌面端已登录的账号。
 
-**2.6.15 启动修补**：已有 sidecar 也使用桌面端自带运行时；内置 CLI 的符号链接按真实路径识别；账号请求通道恢复稍慢时最多等待约 30 秒，可取消，不重启活跃宿主。旧可选连接组件损坏或不兼容时的 Native 回退尚未补齐，不将本次补丁视为完整零配置验收。详见[增量验收报告](docs/issue-10-zero-setup-followup-2026-10-09.md)。
+需要注意：
 
-**2.6.14 默认无需连接组件**：安装并登录 WorkBuddy 后，直接在 Obsidian 发消息。缺少扩展时使用宿主原生账号代理；桌面端未运行时正常打开已识别的安装，不重启运行中的宿主。沿用原账号，不要求独立 API key、另装 Node 或先在 WorkBuddy 发消息。已有可用 sidecar 保留原通路；同时识别 `WorkBuddy AI` 产品标识。
+- 请正常打开 WorkBuddy，不要以管理员身份运行；否则插件连不上它，会提示 `E_SOCKET_FORBIDDEN`。
+- 这条路依赖 WorkBuddy 的内部接口，WorkBuddy 升级后可能需要插件跟进适配（见 [Issue #10](https://github.com/jiang198012/workbuddian/issues/10)）。
+- 走 WorkBuddy 原生账号通路时，回复可能在生成完后整段出现，而不是逐字显示。在 WorkBuddy 5.7.7 上测得单次请求约 50 秒、请求和响应约 640 KiB 的上限，很大的附件或很长的输出可能超限。
 
-**原生通路限制**：当前 WorkBuddy 5.7.7 的单次代理约 50 秒、请求/响应约 640 KiB，模型输出完整返回后才交给 CLI，并非逐 token 即时流式。大附件、长输出和超大上下文可能超限。macOS 核心流程已通过，**Windows 实机、长期运行和账单额度差值未验收，Issue #10 保持开放**，见[零组件接入验收报告](docs/issue-10-zero-setup-2026-10-09.md)。
+### Hermes Agent
 
-**旧版 2.6.13 的可选连接组件路径**：WorkBuddy 已登录、已运行但插件提示 `sidecar v6 is not running` 或“本地任务服务尚未初始化”时，在 Obsidian 命令面板运行 **“Workbuddian: 安装 WorkBuddy 本地连接扩展”**，核对目标目录并确认；保存任务后正常退出并重开 WorkBuddy 一次，再回到 Obsidian 发送消息。无需重新登录，也无需先在 WorkBuddy 发送一条消息。
+1. 按 Hermes Agent 的官方说明在本机安装并配置好模型服务。
+2. 后端选 **Hermes**。「Hermes CLI 路径」「Gateway 地址」「API Key」都可以留空：插件会依次在 `HERMES_HOME`、`%LOCALAPPDATA%\hermes`、`~/.hermes` 里读取 `config.yaml` 和 `.env`，自动找到 gateway 地址和 API Key。
+3. 「运行模式」一行显示当前模式：
+   - **ACP 完整版**：本机 hermes CLI 自检通过。工具调用、批准卡、思考过程、会话分叉都可用。gateway 没在运行时，插件会在后台启动 `hermes gateway run`。
+   - **HTTP 轻量版**：只能纯对话。填了非本机的 gateway 地址，或本机 CLI 自检失败时使用，聊天面板顶部会显示提示条。
 
-连接组件只执行固定的宿主预热入口，不发送模型消息、不读取登录凭据、不授予会话或任意 RPC 权限；插件不会自动安装或替你重启 WorkBuddy。macOS 已验证冷启动与宿主重启后的原会话恢复，**Windows 实机和长期稳定性仍待验证**，详见[冷启动验收报告](docs/issue-10-cold-start-diagnosis-2026-10-07.md)。
+Windows 上 Hermes 的部分行为（例如后台进程是否弹窗）还没有实机验证，详见 [CHANGELOG](CHANGELOG.md)。
 
-如果桌面端正常、插件却报 `missing-key`、`Authentication required` 或 `refusal`，可能是宿主凭据通路不可用，不能据此认定 WorkBuddy 未登录，重新登录也不保证解决。**2.6.12** 针对 [Issue #10](https://github.com/jiang198012/workbuddian/issues/10) 适配 WorkBuddy 自有 sidecar，创建独立 Vault worker：需原桌面端已登录并保持运行，沿用原账号与额度；旧版未提供 bootstrap 的 WorkBuddy 继续使用 stdio。
+### 发送第一条消息
 
-macOS 已实测原账号对话、Vault 读写与重载续聊，**Windows 实机待验证**；Issue #10 保持开放等待反馈。此适配依赖 WorkBuddy 内部 IPC，并非官方承诺稳定的公开接口。详见[验收报告](docs/issue-10-host-acceptance-2026-09-29.md)。2.6.10 及更早版本不包含本次适配。
-
-- 自动检测仅选择 WorkBuddy 内置 CLI（包括指向它的符号链接）。未找到时明确提示，不会改用独立 CodeBuddy 的账号或额度。
-- 保留手动指定路径及 `CODEBUDDY_PATH`；路径失效时不自动替换到另一产品。若主动指定独立 CLI，它使用自己的认证与额度，不代表共享 WorkBuddy 订阅。
-- 插件不读取、复制或解密 WorkBuddy 登录凭据，也不会自动要求安装或登录另一个 CLI。
-- 切换 CLI 路径后会重启插件管理的进程并重新加载会话，不会自动重发失败请求。
-
-插件会读取 ACP 返回的结构化认证错误（包括 `refusal` 中的错误元数据），不依赖 CLI 日志是否输出到 stderr。检测到 `missing-key` 时显示凭据通道提示；没有认证证据的普通拒绝不会被误判为登录失败。
-
-### 打开对话
-
-1. 点击左侧 **机器人图标**,或运行命令 **"Workbuddian: 打开聊天面板"**
-2. 确认已安装并登录 WorkBuddy。2.6.14 原生通路使用桌面端自带运行时，无需额外安装 Node。
-3. 发第一句话。**你会看到**:面板出现你的对话、模型加载完成。自定义安装目录未检测到时，在设置中指定该安装内的 CLI 路径。
-
-旧版或显式选择其他 CLI 时，如果找不到 CodeBuddy / Node.js，可在 WorkBuddy 对话中执行以下环境配置:
-
-```
-请帮我配置 Workbuddian 插件的运行环境,步骤如下:
-1. 搜索 WorkBuddy 安装目录下的 vendor/node.zip(常见位置:C:\Program Files\WorkBuddy、D:\Program Files\WorkBuddy、%LOCALAPPDATA%\Programs\WorkBuddy)
-2. 如果 ~/.workbuddy/binaries/node/versions/ 下还没有可用的 node.exe,将 node.zip 里的 node-v*-win-x64/ 目录解压,把文件复制到 ~/.workbuddy/binaries/node/versions/{版本号}/
-3. 执行 ~/.workbuddy/binaries/node/versions/{版本号}/node.exe --version 确认可用
-4. 可选:同样处理 vendor/PortableGit.zip
-完成后告诉我环境是否就绪。
-```
-
-> **Vault 读写权限**:如果使用时提示权限不足,把 `提示词-授予Vault读写权限.md` 的完整内容发给 WorkBuddy/CodeBuddy 执行一次,然后**完全退出**(系统托盘右键退出)再重开。
+1. 点左侧功能区的机器人图标，或在命令面板运行「打开聊天面板」。想要全宽面板，运行「在主编辑区打开大面板」。
+2. 输入消息，**Enter** 发送，**Shift + Enter** 换行。
+3. 模型列表加载后，可以在输入框工具栏切换模型。
 
 ## 使用方法
 
-### 对话与流式输出
+### 聊天面板
 
-输入消息按 **Enter** 发送,**Shift + Enter** 换行。sidecar 等流式通路逐步显示回复；2.6.14 原生账号代理先缓冲模型输出再显示。思考过程与工具调用可折叠。
+- **标签栏**：「新建对话」、「搜索会话」和会话标签。标签上的 × 只关闭标签，会话仍然保留。
+- **输入框工具栏**：模型、📎 附件、「用模板新建」、权限模式（盾牌图标）、`#` 常驻指令、上下文用量环、发送 / 停止。
+- 侧栏和主编辑区可以同时打开，各自绑定独立的会话，停止生成只影响当前面板。
 
-### `@` 引用任意内容
+### `@` 引用
 
-输入 `@` 会弹出聚合下拉(子代理 / MCP 服务器 / Vault 文件)。Markdown 笔记读正文嵌入,其它文件作附件交 CLI 读:
+输入 `@` 弹出下拉，可以选：
 
-- `@[[笔记名]]` — 读取笔记全文作为上下文
-- `@Agent/名称` — 调用子代理
-- `@mcp/名称` — 调用 MCP 服务器
+- 笔记：`@[[笔记名]]`，读取笔记正文作为上下文；
+- 其他文件：作为附件交给 CLI 读取；
+- 子代理：`@Agent/名称`；
+- MCP 服务器：`@mcp/名称`。MCP 只在被 `@` 引用时才注入，平时不占上下文。
 
-笔记里选中的文字会自动作为只读上下文随消息发送。
+在笔记里选中的文字会自动作为只读上下文随消息发送。Vault 外的文件发送前会请你确认。
 
-### 调用已安装 Skill
+### `/` 命令与 Skills
 
-输入 `/` 打开补全列表即可看到 WorkBuddy / CodeBuddy 已安装的技能。选择技能后会填入 `/skill-name `,继续输入任务并发送；CodeBuddy 会按官方 Skills 约定加载对应的 `SKILL.md`。
+输入 `/` 打开补全列表：
 
-插件只读取技能的 `name` 与 `description` 用于补全，不会默认把全部技能正文发送给模型。支持的目录：
+| 命令 | 作用 |
+| --- | --- |
+| `/clear` | 清空并新建对话（本地） |
+| `/compact` | 压缩上下文 |
+| `/context` | 查看上下文用量 |
+| `/cost` | 查看本次花费 |
+| `/effort` | 设置思考力度 |
+| `/resume` | 恢复历史会话 |
+| `/status` | 查看状态 |
 
-- 用户级：`~/.workbuddy/skills/<name>/SKILL.md`、`~/.codebuddy/skills/<name>/SKILL.md`
-- Vault 级：`<Vault>/.workbuddy/skills/<name>/SKILL.md`、`<Vault>/.codebuddy/skills/<name>/SKILL.md`（同名时覆盖用户级）
+此外还有：
 
-技能本身的工具调用仍受当前权限模式与批准卡控制。
+- **Skills**：自动发现 `~/.workbuddy/skills`、`~/.codebuddy/skills`，以及 Vault 下 `.workbuddy/skills`、`.codebuddy/skills` 里的技能（同名时 Vault 级优先）。选中后填入 `/技能名`，接着写任务即可。插件只读取技能的名称和描述用于补全，不会把技能全文发给模型。
+- **自定义命令**：Vault 下 `.codebuddy/commands/` 里的 Markdown 文件，子目录用 `:` 连接成命令名。
+- **CLI 自带命令**：CLI 提供的其他命令也会出现在补全里，标注「(CLI)」。
 
-### 气泡内批准卡
+### 批准卡与权限模式
 
-Write / Edit / Bash / MCP 操作都会弹出批准卡,确认后才执行。计划模式出「计划已就绪」卡,批准后**同一轮**继续执行。
+agent 写文件、改文件、执行命令或调用 MCP 前，会在气泡里弹出批准卡，可选「允许」「总是允许」「拒绝」。
+
+点输入框工具栏的盾牌图标切换权限模式：
+
+- **默认（每步询问）**：每一步都弹批准卡。
+- **计划模式（只读不改）**：agent 先只读地出计划，显示「计划已就绪」卡，可选「按此执行」「总是执行」「取消」。选择执行后在同一轮里继续。
+- **完全访问**：不再询问，直接执行。请只在信任当前任务时使用。
 
 ### 行级 diff 与一键撤销
 
-每个 Edit / Write 完成后显示结构化 diff(默认折叠)。vault 内编辑可一键撤销——文件已变 / 替换不唯一 / 纯删除时安全闸会拒绝并说明原因。
+每次编辑或写入完成后，工具卡片里显示结构化的 diff（默认折叠）。Vault 内的编辑可以一键撤销；如果文件之后又被改过、替换位置不唯一，或者是纯删除，撤销会被拒绝并说明原因，避免覆盖你的修改。
 
-### 会话分叉与双面板
+### 内联编辑
 
-标签右键可**分叉当前会话**(含全部历史)。侧栏与主面板可同时打开,各自绑定独立会话,互不干扰。
+在笔记里选中文字，按 **Ctrl/Cmd + Shift + E** 或右键选「Workbuddian编辑」，选区上方会出现浮动工具条，写下要求后就地改写。命令面板里还有「用 CodeBuddy 编辑选区」。
 
-### 计划模式
+### 会话管理
 
-让 AI 先出计划,以卡片形式读完,再一键执行。执行会重新发起一轮并使用「自动接受编辑」权限,**仅对这一次生效**,不改你的权限设置。
+- 标签右键：置顶会话、重命名、分叉当前会话（带上全部历史）、删除对话、导出为笔记、复制到剪贴板。删除前会提示消息条数且不可撤销。
+- 关掉的会话可以用 `/resume` 或「搜索会话」找回。
+- 首轮回复后自动为新会话生成标题；你手动改过的名字不会被覆盖。
+- 命令面板：「新建对话」「搜索会话」「导出当前会话为笔记」「导出所有会话为笔记」。
 
-### 多语言界面
+### 回复写回笔记
 
-设置里可切换 **Auto / 中文 / English**,即时生效。
+- 用户消息：复制、编辑并重发。
+- 助手回复：复制、插入到当前笔记、保存为新笔记、重新生成。
+- 代码块：复制代码、插入到当前笔记、保存为新笔记。
+
+### 模板与常驻指令
+
+- 「用模板新建」可选写作助手、翻译助手、代码审查、笔记整理，自动带上对应的常驻指令和开场白。
+- 点工具栏的 `#`，或在命令面板运行「编辑常驻指令」，设置一条对所有对话生效的指令或人设。
+
+### 图片与附件
+
+粘贴或拖入图片会以图片内容发送给模型。粘贴的图片保存在插件目录里，「粘贴图保留数量」控制最多留几张。附件按钮可以添加 Vault 内外的文件。
 
 ## 设置
 
-| 分组 | 设置项 | 说明 | 默认值 |
-| --- | --- | --- | --- |
-| CodeBuddy 连接 | CodeBuddy 路径 | CLI 可执行文件路径(留空自动检测) | 自动 |
-| | 手动指定 Node.js 路径 | 留空自动探测;失败时手动指定 node 完整路径 | 自动 |
-| | CLI 超时时长(分钟) | 单次响应最长等待时间,超时强制中断 | 5 |
-| | 思考力度 | 对应 CLI thought_level(按会话生效),`/effort` 改动同步回这里 | enabled |
-| | MCP 服务器 | stdio 传输的 MCP 服务器 JSON 数组;可视化列表 + JSON 双向同步 | 空 |
-| | 子代理 | 自定义子代理 JSON(对应 CLI `--agents`,支持 tools/model 键) | 空 |
-| 上下文注入 | 注入 Vault 上下文 | 每次消息附上当前 Vault 路径 | 开 |
-| | 注入当前笔记链接 | 每次消息附上当前笔记标题+路径(不含正文) | 关 |
-| | 自动生成会话标题 | 首轮回复后由 AI 命名新会话;手动改名不被覆盖 | 开 |
-| | 粘贴图保留数量 | 插件目录内最多保留的粘贴图数量,0 = 不限制 | 20 |
-| 外观 | 界面语言 | Auto(跟随 Obsidian)/ 中文 / English | Auto |
-| | 聊天主色调 | 自定义强调色;「恢复默认」跟随 Obsidian 主题色 | 跟随主题 |
-| | 上下文窗口上限(token) | 上下文用量百分比的分母,按模型窗口调整 | 200000 |
-| 管理 | 导出设置 | 把当前设置保存为 JSON 文件,便于备份/迁移 | — |
-| | 导入设置 | 从导出的 JSON 文件恢复设置 | — |
-| | 重置为默认 | 清空所有自定义设置,恢复插件默认值 | — |
-| | 查看日志 | 打开 `[WB]` 日志面板,排查问题用 | — |
+**设置 → Workbuddian**，按页面顺序：
 
-> **模型**与**授权模式**已移到聊天输入框工具栏:点当前模型名切换模型,点盾牌图标切换权限(默认 / 完全访问)。工具栏还有 **📎 附件** 与 **`#` 常驻指令**。
+| 分组 | 设置项 | 说明 | 默认 |
+| --- | --- | --- | --- |
+| 通用 | 界面语言 | Auto（跟随 Obsidian；Obsidian 没设语言时跟随系统）/ 中文 / English | Auto |
+| 后端连接 | 后端 | CodeBuddy 或 Hermes | CodeBuddy |
+| | 运行模式 | 仅 Hermes：显示 ACP 完整版或 HTTP 轻量版，检测中显示「正在检测运行模式…」 | — |
+| | Hermes CLI 路径 | 仅 Hermes，留空自动发现 | 自动 |
+| | Gateway 地址 | 仅 Hermes，留空自动发现；填非本机地址会使用轻量模式 | 自动 |
+| | API Key | 仅 Hermes，留空自动发现 | 自动 |
+| | CodeBuddy 路径 | 仅 CodeBuddy，留空自动检测（优先官方 CLI） | 自动 |
+| | CodeBuddy 登录 | 仅 CodeBuddy，官方 CLI 的浏览器一键登录 | — |
+| | 手动指定 Node.js 路径 | 仅 CodeBuddy，自动探测失败时填写 | 自动 |
+| | CLI 超时时长（分钟） | 单次回复最长等待时间，超时中断 | 5 |
+| | 思考力度 | 对应 CLI 的 thought_level，按会话生效；`/effort` 的改动会同步回这里 | enabled |
+| | MCP 服务器（JSON） | 可视化列表与 JSON 双向同步 | 空 |
+| | 子代理（JSON） | 仅 CodeBuddy，对应 CLI 的 `--agents`，支持 tools / model 键 | 空 |
+| 上下文注入 | 注入 Vault 上下文 | 每条消息附上当前 Vault 路径 | 开 |
+| | 注入当前笔记链接 | 每条消息附上当前笔记的标题和路径（不含正文） | 关 |
+| | 自动生成会话标题 | 首轮回复后由 AI 命名新会话 | 开 |
+| | 粘贴图保留数量 | 插件目录里最多保留的粘贴图片，0 表示不限制 | 20 |
+| | 输入框自动调整高度 | 随内容自动伸缩，并可设最小 / 最大高度（像素） | 开（30–200） |
+| 外观 | 聊天主色调 | 自定义强调色，可恢复为跟随 Obsidian 主题色 | 跟随主题 |
+| | 上下文窗口上限（token） | 上下文用量百分比的分母，按模型窗口调整 | 200000 |
+| 重置 | 重置为默认 | 清空自定义设置，恢复默认值 | — |
+| 导入 / 导出设置 | 导出设置 / 导入设置 | 用 JSON 文件备份、迁移设置 | — |
+| 日志 | 查看日志 | 打开 `[WB]` 运行日志，排查问题用 | — |
+| CodeBuddy 插件 | | 浏览和管理 CodeBuddy 插件 | — |
+
+模型和权限模式不在设置页，而在聊天输入框的工具栏里。
+
+### 命令面板
+
+| 命令 | 作用 |
+| --- | --- |
+| 打开聊天面板 | 在侧栏打开聊天 |
+| 在主编辑区打开大面板 | 在主编辑区打开全宽聊天 |
+| 新建对话 | 新建一个会话 |
+| 搜索会话 | 按标题搜索历史会话 |
+| 导出当前会话为笔记 | 把当前会话保存为 Markdown 笔记 |
+| 导出所有会话为笔记 | 一次导出全部会话 |
+| 编辑常驻指令 | 设置对所有对话生效的指令 |
+| 打开 Workbuddian 设置 | 打开设置页 |
+| 登录 CodeBuddy | 官方 CLI 的浏览器一键登录 |
+| 用 CodeBuddy 编辑选区 | 用选中文字发起编辑 |
+| Workbuddian编辑 | 选区上方的浮动编辑工具条（Ctrl/Cmd + Shift + E） |
+| 安装 WorkBuddy 本地连接扩展 | 通常不需要，见[安全与权限](#安全与权限) |
 
 ## 自动发现
 
-插件启动时搜索以下位置；CLI 自动选择仅接受已识别的 WorkBuddy 内置程序或其符号链接，不会选择独立 npm CLI。手动路径与 `CODEBUDDY_PATH` 不受自动发现限制，Node.js 仍可从其他安装来源查找：
+**CodeBuddy CLI**（「CodeBuddy 路径」留空时）：
 
-| 搜索目标 | Windows | macOS |
-|----------|---------|-------|
-| WorkBuddy 安装 | `%LocalAppData%\Programs\WorkBuddy\...`、`%ProgramFiles%\WorkBuddy\...` | `/Applications/WorkBuddy.app/...`、`~/Applications/WorkBuddy.app/...` |
-| npm 全局安装 | `%AppData%\npm\codebuddy.cmd` | npm 全局 `bin/` |
-| 系统 PATH | 遍历 `PATH` 查找 `codebuddy.cmd` / `codebuddy.exe` | 遍历 `PATH` 查找 `codebuddy` / `node` |
-| 版本管理器 | nvm / volta | nvm(`~/.nvm`)、volta(`~/.volta/bin`) |
-| Homebrew | — | `/opt/homebrew/bin`(Apple Silicon)、`/usr/local/bin`(Intel) |
-| WorkBuddy 自带 Node | `~/.workbuddy/binaries/node/versions/*/` | `~/.workbuddy/binaries/node/versions/*/` |
+1. 环境变量 `CODEBUDDY_PATH`；
+2. 官方 CodeBuddy CLI：
+   - Windows：`%AppData%\npm\codebuddy.cmd`、`%ProgramFiles%\nodejs` 下的 `codebuddy.cmd`；
+   - macOS：`~/.local/bin`、`~/.npm-global/bin`、`~/.volta/bin`、`~/bin`、`/usr/local/bin`、`/opt/homebrew/bin`、nvm / npm 前缀目录；
+   - 以上都没有时查 `PATH`；
+3. WorkBuddy 内置 CLI：
+   - Windows：`%LocalAppData%\Programs\WorkBuddy`、`%ProgramFiles%\WorkBuddy`、`%ProgramFiles(x86)%\WorkBuddy`，以及 C / D / E 盘的 `Program Files` 下的 WorkBuddy；
+   - macOS：`/Applications/WorkBuddy.app`、`~/Applications/WorkBuddy.app`；
+   - 都没有时查 `PATH`。
 
-## What's New
+手动填写的路径和 `CODEBUDDY_PATH` 原样使用，失效时不会自动换成别的 CLI。
 
-**最新版本 2.6.22**
+**Hermes**：
 
-- **2.6.22** — **Windows 实机修复（#19 / #15 / #14）**：残留 sidecar 记录误报「校验失败」、管理员身份运行的 WorkBuddy 提示、关闭库窗口时结束内置 CLI worker、Hermes 初始化期间轻量模式误报、refusal 原因透出、界面语言自动跟随系统。**只装桌面端的 Windows 已实机验证；Hermes 的 Windows 项仍待验证**。
+- 配置：依次在 `HERMES_HOME`、`%LOCALAPPDATA%\hermes`、`~/.hermes` 读取 `config.yaml`（gateway 地址）和 `.env`（API Key）。
+- CLI：`~/.local/bin/hermes`、`~/.hermes/bin/hermes`（Windows 为 `.exe`），macOS 另查 `/usr/local/bin`、`/opt/homebrew/bin`，最后查 `PATH`（Windows 也接受 `hermes.cmd`）。Hermes 官方安装器把 CLI 放在其他目录且不在 `PATH` 中时，请在「Hermes CLI 路径」里填写。
 
-- **2.6.21** — **#19 / #16 / #15 / #17 修复**：WorkBuddy 5.11.x 内置 CLI 的 `HTTP 401`、标签 × 只关闭不删除、Hermes gateway 存活判断与降级恢复、登录弹窗说明、Hermes 模型目录刷新。**Windows 实机待验证，相关 issue 保持开放**。
+**Node.js**（仅官方 CLI 等需要 Node 的情况）：
 
-- **2.6.20** — **#13 / #12 修复**：Windows Hermes `.cmd` 自检与超时、`HERMES_HOME`/`LOCALAPPDATA` 发现、ACP `data.details`、WBIPC 畸形 ack 分类。**Windows `.cmd` 实机仍待报告者复测，Issue #13 保持开放**。
+- Windows：`%ProgramFiles%\nodejs`、`%AppData%\npm`、`%LocalAppData%\Programs\nodejs`、nvm-windows，以及 WorkBuddy 自带的 `~/.workbuddy/binaries/node/versions/*`；
+- macOS：`~/.local/bin`、`~/.npm-global/bin`、`~/.volta/bin`、`~/bin`、`/usr/local/bin`、`/opt/homebrew/bin`、nvm；
+- 都找不到时，在「手动指定 Node.js 路径」里填写。
 
-- **2.6.19** — **官方 CLI 一键登录 + 双后端修复**：新增浏览器一键登录（无需终端），自动发现优先官方 CodeBuddy CLI；修复 Hermes gateway 自动启动/密钥/首条消息竞态，以及 WorkBuddy 5.9.3 lite 包和 `wb.request` 缺失的快速报错。**WorkBuddy 桌面端自动接通仍受 5.9.3 上游限制；Windows 实机待验收，Issue #10 保持开放**。
+## 安全与权限
 
-- **2.6.18** — **原账号模型目录同步**：修复 CLI 启动缓存中的旧清单；新进程启动时读取官方个人账号云端目录，保留新型号并去重。目录/模型设置失败明确报错，防止旧模型静默回退；修复目录发现抢占聊天上下文。**不是持续实时刷新，企业账号和 Windows 实机待验收，Issue #10 保持开放**。
+Workbuddian 会让本机的 AI agent 读写文件、执行命令，下面说明它能做什么、你怎么控制。
 
-- **2.6.17** — **验收与限制说明更新**：补齐真实合成 MCP 批准卡与调用后自有进程清理证据；记录尚未定位的图片 GUI 拒绝和正常 WBIPC 注册面的流式能力边界。**生产实现与 2.6.16 相同，未解除原生时限/容量/缓冲限制，Issue #10 保持开放**。
+**会访问什么**
 
-- **2.6.16** — **旧组件故障恢复**：旧可选组件失败或预热后无 sidecar 时，恢复独立认证的原账号通路；保留取消和不可信端点拒绝。合成 Vault 的读写审批、拒绝后续聊、自有会话重连上下文及小 PNG 协议通过；**原生容量/时限/缓冲限制、Windows 实机和长期运行仍未解决或验收，Issue #10 保持开放**。
+- 运行你本机的 CodeBuddy CLI、WorkBuddy 内置 CLI 或 hermes CLI，并在需要时启动 Hermes gateway。
+- 在你批准后读写 Vault 文件、执行命令、调用你配置的 MCP 服务器。
+- 走 WorkBuddy 桌面端时，通过 WorkBuddy 的本地接口使用它已登录的账号。插件不读取、不复制、不解密 WorkBuddy 的登录凭据。
 
-- **2.6.15** — **启动可靠性补丁**：已有 sidecar 无需系统 Node，修复 CLI 符号链接识别；账号请求通道延迟恢复时有界等待、可取消，不重启宿主。**原生通路限制及旧组件故障回退缺口仍在，Windows 实机等验收待完成，Issue #10 保持开放**。
+**什么时候会联网或在后台运行**
 
-- **2.6.14** — **原账号零组件接入**：无扩展时使用 WorkBuddy 原生账号代理，宿主未运行可正常自动打开；无需安装连接组件、重启宿主或另装 Node。补齐 `WorkBuddy AI` 标识。macOS 首发、自动启动、取消后续聊通过；**原生通路约 50 秒 / 640 KiB，模型输出缓冲返回，Windows 实机待验证，Issue #10 保持开放**。
+- 打开面板、加载模型列表时会启动后端进程；插件不会发送用于预热的对话。
+- 开启「自动生成会话标题」后，首轮回复结束时会额外请求一次标题。
+- 「安装 WorkBuddy 本地连接扩展」命令会在你确认后，把一个组件写入 `<WorkBuddy 配置目录>/extensions/workbuddian-warmup`，随 WorkBuddy 常驻，只用于唤起 WorkBuddy 的本地任务服务。从 2.6.14 起通常不需要它，插件也不会自动安装。
 
-- **2.6.13** — **WorkBuddy 冷启动与恢复**：新增明确确认的本地连接扩展安装入口，修复 5.7.6 无 sidecar 时首次连接失败；补齐超时、取消、重复发送与清理防护。demo-vault 冷启动及宿主重启后的原会话恢复通过；沿用原账号，**Windows 与长期运行待实测，Issue #10 保持开放**。
+**怎么授权**
 
-- **2.6.12** — **WorkBuddy 原账号调用恢复**：适配 5.6.2 宿主凭据通路，修复连续回复夹带旧消息及重连清理；不自动切换独立账号。macOS 已验收核心流程，**Windows 待实机验证，Issue #10 暂不关闭**。2.6.11 因 Linux 测试夹具路径问题未生成 Release；2.6.12 修复夹具后发布，未重写旧标签。
+- 写文件、改文件、执行命令、调用 MCP 都要在批准卡上确认，除非你切到「完全访问」。
+- Vault 外的文件，不经你确认不会发送给模型。
 
-- **2.6.10** — **输入体验与路径保护**：输入框支持最小/最大高度和随文本自动收缩，修复 Vault 相似前缀路径误判。
+**怎么控制**
 
-- **2.6.9** — **模型菜单去重**：同步动态模型列表，删除 `Auto`、`Hy3`、`Hy4 preview` 的重复入口，保留基础模型选项。
+- 关闭「注入 Vault 上下文」和「注入当前笔记链接」。
+- 用权限模式控制 agent 能做什么。
+- 在「查看日志」里查看 `[WB]` 日志，确认插件做了什么。
 
-- **2.6.8** — **Obsidian 规范修复**：使用 `setCssProps` 设置输入框高度，消除静态样式赋值 lint 报错。
+## 故障排查
 
-- **2.6.7** — **GitHub 发布资产完善**：Release 直接附带 `main.js`、`manifest.json` 和 `styles.css`，可从 GitHub Release 安装插件。
+**提示「CodeBuddy 未登录」？**
+官方 CLI：在设置里点「登录 CodeBuddy」完成浏览器登录。WorkBuddy 内置 CLI：确认桌面端已登录并在运行；这条路不支持一键登录。
 
-- **2.6.6** — **演示流程更新**：重录并重剪 README GIF，恢复高信息密度的 `@` 引用、回复结果与笔记地图演示，并补充 `/summarize` 新流程。
+**只装了 WorkBuddy 桌面端，检测不到 CLI？**
+WorkBuddy 装在默认目录以外时，在「CodeBuddy 路径」里填 `<安装目录>\resources\app.asar.unpacked\cli\bin\codebuddy`（macOS 为 `.app/Contents/Resources/...`）。
 
-- **v2.6.5** — **Skill 调用**：发现 WorkBuddy / CodeBuddy 已安装技能,输入 `/` 选择后直接调用。
+**提示 `E_SOCKET_FORBIDDEN`，或 WorkBuddy 本地代理拒绝连接？**
+WorkBuddy 很可能以管理员身份运行，而 Obsidian 不是。完全退出 WorkBuddy（包括托盘图标），再正常打开。
 
-- **v2.6.4** — **全功能测试问题修复**:
-  - 停止生成即时取消,避免迟到的 ACP 响应重新触发生成;放宽 ACP 握手与 Hermes 自检超时
-  - 修复主编辑区大面板误用侧栏、模型按钮状态不可见、删除会话后双面板标签/搜索结果残留
-- **v2.6.3** — **会话工作区与回复写回**:
-  - 会话级模型/授权/推理强度/常驻指令覆盖,并支持 Vault 上下文与当前笔记链接独立开关
-  - 草稿与附件按会话恢复;助手回复可插入当前笔记或保存为带来源元数据的新笔记
+**Hermes 一直是轻量模式？**
+先看设置里「运行模式」的提示：远程 gateway 地址只能用轻量模式；本机 CLI 自检失败时，检查「Hermes CLI 路径」，在终端运行 `hermes acp --check` 确认能通过。改完设置后插件会重新检测。
 
-- **v2.6.2** — **后端切换卫生**:
-  - 切到 Hermes 后不再残留 CodeBuddy 模型:自动回落 auto(跟随 Hermes 默认模型),旧配置启动自愈
-  - 设置页「后端连接」正名,CodeBuddy 专属行(CLI 路径/Node/自定义 agents)在 Hermes 模式下不再误显
-- **v2.6.1** — **Hermes 直连热修**:
-  - 修复 Hermes 直连必现「连不上/未检测到 CLI」:spawn 不再用 node 解释 hermes 的 bash 启动脚本
-  - 修复 Hermes 模型菜单错串 CodeBuddy 候选:握手前只显示 auto,握手后展示 Hermes 真实模型列表
-- **v2.6.0** — **Hermes ACP 完整版(新)**:
-  - Hermes 后端升级全能力代理:工具块/批准卡/思考流/用量/历史回放/会话分叉/模型切换,与 CodeBuddy 后端体验对齐
-  - **自动降级**:本机 CLI 不可用时粘性降级 HTTP 轻量模式(纯对话),顶条提示;改配置即自动重探
-  - **远程 gateway 兜底**:填非本机 gateway 地址直接轻量模式;设置页新增运行模式状态行 + 高级折叠组
-- **v2.5.1** — **Hermes agent 后端支持(新)**:
-  - 本地 Hermes gateway 作为第二后端,与 CodeBuddy CLI 自由切换
-  - **免配置自动发现**:自动从 `~/.hermes` 读 gateway 地址与 API key,模型列表与 Hermes Desktop 一致
-  - 设置页优化:语言置顶「通用」组、插件清单折叠沉底、搜索框浮层下拉、插件行饱满化
-- **v2.3.1** — 批量导出 + 代码块进笔记 + 斜杠命令清理:
-  - 命令面板「导出所有会话为笔记」,一键备份全部对话
-  - 代码块 hover 出三按钮:复制 / 插入到当前笔记 / 保存为新笔记
-  - 斜杠命令删重复入口,CLI 透传命令补全带 `(CLI)` 标注
-- **v2.3.0** — 消息级操作 + 会话模板 + 浮动内联编辑:
-  - 消息行 hover 出操作菜单:user「编辑并重发」/ assistant「重新生成」
-  - 新建对话可选预设场景(写作/翻译/代码审查/笔记整理),自动带常驻指令 + 开场白
-  - 选中文字 → 右键「Workbuddian编辑」/ Cmd+Shift+E → 选区上方浮动工具条,就地改不弹窗
-  - 修复:最近回复缺复制按钮;完全访问仍弹批准卡
-- **v2.2.0** — 会话管理与 MCP 全面升级 + 中文体验深耕:dual-pane 常驻会话管理器、会话置顶/搜索/删除确认、context-saving MCP(@激活才注入)、国内模型中文名、CodeBuddy 插件管理、模板 prompt、@stats、命令面板增强、用量预警条。
-- **v2.2.1–v2.2.3** — 修复:最近回复缺复制按钮;manifest 描述合规;完全访问仍弹批准卡。
-- **v2.1.0** — 首轮 UX 体检驱动的全面改造 + e2e 测试基建。
-- **v2.0.0** — 新引擎:ACP 持久会话 + wire 级可靠性攻坚。单进程承载所有对话,上下文真保持;批准卡进气泡;工具调用增量渲染 + 结构化 diff + 一键撤销;`@` 四源聚合;MCP 可视化管理;会话分叉;双面板隔离。
-- **v2.0.1** — 完全独立代码基座(与上游相似度 <30%)。
-- **更早版本** — 详见 [CHANGELOG](CHANGELOG.md)。
+**找不到 Node.js？**
+只有官方 CLI 等需要 Node 的情况才会遇到。安装 Node.js，或在「手动指定 Node.js 路径」里填 node 的完整路径。走 WorkBuddy 内置 CLI 时不需要 Node。
 
-## 故障排查(FAQ)
+**回复显示「本轮中断：refusal（…）」？**
+括号里是服务端给出的原因（例如额度、模型不可用）。按原因处理；如果怀疑是插件问题，请带上 `[WB]` 日志提 issue。
 
-**找不到 CodeBuddy CLI?**
-自动检测未找到(如自定义安装路径)。在插件设置中手动填写路径。默认位置:`WorkBuddy安装目录\resources\app.asar.unpacked\cli\bin\codebuddy`。
+**发消息后一直没有回复？**
+先点「重试」。CLI 进程意外退出时，下次发送会自动重启并恢复会话上下文。仍不行时打开「查看日志」查看 `[WB]` 日志。
 
-**找不到 Node.js?**
-完成上方「快速开始」里的环境初始化提示词。
+**Linux 能用吗？**
+暂不支持，只支持 Windows / macOS 桌面端。
 
-**发消息后一直显示「思考中」或无响应?**
-先直接重试;如果进程意外退出,插件会**自动重启**并恢复会话上下文。仍无响应则打开开发者控制台看 `[WB]` 日志(chunk 类型、exit code、stderr)。
+## 最新版本
 
-**权限反复询问?**
-每个 Write / Edit / Bash 都需要批准是**默认行为**。可切换到「完全访问」跳过,或用「按路径总是允许」放行指定目录。
+**2.6.22**：Windows 实机修复，包括残留的旧 sidecar 记录导致「校验失败」、WorkBuddy 以管理员身份运行时给出明确提示、关闭库窗口后结束插件启动的 CLI 进程、Hermes 初始化期间不再误报轻量模式、refusal 显示服务端原因、界面语言「Auto」跟随系统。
 
-**重启后对话丢失?**
-已修复。历史对话自动持久化,重启后仍可恢复。
-
-**Linux 能用吗?**
-暂不支持。仅 Windows / macOS 桌面端。
+完整的版本记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 开发
 
 ```bash
 npm install    # 安装依赖
-npm run dev    # 开发构建(esbuild watch)
-npm run build  # 生产构建(tsc 类型检查 + esbuild 打包)
-npm test       # 运行测试(jest,617 项)
+npm run dev    # 开发构建（esbuild watch）
+npm run build  # 生产构建（tsc 类型检查 + esbuild 打包）
+npm test       # 运行测试（jest）
 ```
 
-e2e 测试基建(`scripts/e2e/`)用 Playwright CDP 驱动真实 Obsidian,覆盖插件加载、面板打开、消息发送、流式回复与双面板回归。
+`scripts/e2e/` 用 Playwright 通过 CDP 驱动真实的 Obsidian，覆盖插件加载、打开面板、发送消息、流式回复和双面板回归。
 
 ## 相关项目
 
-- **BuddyBridge**（MIT）—早期版本的部分基础设施代码曾参考/使用其实现；当前版本已独立重构。版权与来源见 `LICENSE` / `NOTICE`。
-- **Claudian**(MIT)— 在 Obsidian 里用 Claude Code 的同类插件。Workbuddian 的 UI 参考其设计模式(仅设计模式,无代码拷贝)。见 `LICENSE` / `NOTICE`。
-- **CodeBuddy / WorkBuddy** — 本插件的后端 CLI,本地编程 agent。
+- **CodeBuddy / WorkBuddy**：本插件 CodeBuddy 后端所用的 CLI。
+- **Hermes Agent**：本插件 Hermes 后端所用的 agent。
+- **Claudian**（MIT）：在 Obsidian 里使用 Claude Code 的同类插件，Workbuddian 的界面参考了它的设计模式（没有拷贝代码）。
+- **BuddyBridge**（MIT）：早期版本的部分基础代码曾参考或使用它的实现，当前版本已独立重构。
+
+版权与来源见 [LICENSE](LICENSE) 和 [NOTICE](NOTICE)。
 
 ## 支持
 
-- 提交 bug 或功能请求:[GitHub Issues](https://github.com/jiang198012/workbuddian/issues)(提交前请先看上方 FAQ)
+提交 bug 或功能请求：[GitHub Issues](https://github.com/jiang198012/workbuddian/issues)。提交前请先看上面的故障排查，并附上 `[WB]` 日志（注意脱敏）。
 
 ## License
 
-MIT。见 [LICENSE](LICENSE)。
+MIT，见 [LICENSE](LICENSE)。
