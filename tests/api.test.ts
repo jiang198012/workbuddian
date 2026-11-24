@@ -274,6 +274,14 @@ describe('CodebuddyProvider v2 sendMessage', () => {
         await expect(consume(api.sendMessage('s1', 'x', '/v'))).rejects.toThrow('codebuddy CLI 握手失败：boom');
     });
 
+    it('explains a silent exit of the WorkBuddy bundled CLI instead of a bare handshake failure (#19)', async () => {
+        const { fake } = makeFakeClient(MockAcpClient);
+        fake.ensureStarted.mockRejectedValue(new AcpStartError('workbuddy-exited', 'process exited (0) before handshake'));
+        const api = new CodebuddyProvider();
+        await expect(consume(api.sendMessage('s1', 'x', '/v'))).rejects.toThrow(
+            t('provider.workbuddyExited').replace('{detail}', 'process exited (0) before handshake'));
+    });
+
     it('surfaces cli-not-found tier with v1 wording', async () => {
         const { fake } = makeFakeClient(MockAcpClient);
         fake.ensureStarted.mockRejectedValue(new AcpStartError('cli-not-found', 'ENOENT'));

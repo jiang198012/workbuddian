@@ -481,6 +481,7 @@ export class AcpProvider {
                 'acp-unsupported': t('provider.acpUnsupported'),
                 'auth-required': t('provider.notLoggedIn'),
                 'credential-unavailable': t('provider.credentialUnavailable'),
+                'workbuddy-exited': t('provider.workbuddyExited').replace('{detail}', e.message),
                 'handshake-failed': t('provider.handshakeFailed').replace('{cli}', this.cliLabel).replace('{detail}', e.message),
             };
             return byTier[e.tier];

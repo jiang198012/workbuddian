@@ -498,6 +498,34 @@ describe('AcpClient lifecycle', () => {
         await assertion;
     });
 
+    // #19：内置 CLI 没拿到桌面端登录态时静默退出（退出码 0、stderr 为空），通用握手失败看不出原因。
+    const BUNDLED_CLI = 'C:\\Program Files\\WorkBuddy\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy.exe';
+
+    it('classifies a silent early exit of the WorkBuddy bundled CLI as workbuddy-exited', async () => {
+        const { proc, emit } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client } = makeClient();
+        client.setCliPath(BUNDLED_CLI);
+        const started = client.ensureStarted();
+        const assertion = expect(started).rejects.toMatchObject({
+            tier: 'workbuddy-exited', message: 'process exited (0) before handshake',
+        });
+        emit('', 'close', 0, null);
+        await assertion;
+    });
+
+    it('keeps the stderr-based tier when the bundled CLI prints an error before exiting', async () => {
+        const { proc, emit } = createFakeProc();
+        mockedSpawn.mockReturnValue(proc as any);
+        const { client } = makeClient();
+        client.setCliPath(BUNDLED_CLI);
+        const started = client.ensureStarted();
+        const assertion = expect(started).rejects.toMatchObject({ tier: 'handshake-failed', message: 'boom' });
+        emit('stderr', 'data', Buffer.from('boom\n'));
+        emit('', 'close', 1, null);
+        await assertion;
+    });
+
     it('times out handshake after 30s', async () => {
         jest.useFakeTimers();
         try {

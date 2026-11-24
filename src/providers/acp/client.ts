@@ -1,6 +1,6 @@
 import { spawn } from 'child_process';
 import {
-    findNodeExecutable, isBareFallback, isWindowsWrapper, needsWindowsShell,
+    findNodeExecutable, isBareFallback, isWindowsWrapper, isWorkbuddyBundledCli, needsWindowsShell,
 } from '../../utils/cliPath';
 import { bbLog, bbError } from '../../shared/logBuffer';
 import type { AcpUpdate } from './events';
@@ -8,7 +8,8 @@ import { ACP_DEFAULT_PROFILE, type AcpBackendProfile } from './profile';
 import { WorkbuddyHostConnection } from '../codebuddy/workbuddyHost';
 import { startWorkbuddySidecar } from '../codebuddy/workbuddySidecar';
 
-export type AcpStartTier = 'cli-not-found' | 'acp-unsupported' | 'auth-required' | 'credential-unavailable' | 'handshake-failed';
+export type AcpStartTier = 'cli-not-found' | 'acp-unsupported' | 'auth-required' | 'credential-unavailable'
+    | 'workbuddy-exited' | 'handshake-failed';
 
 export class AcpStartError extends Error {
     constructor(readonly tier: AcpStartTier, message: string) {
@@ -540,10 +541,13 @@ export class AcpClient {
                 this.buffer = '';
                 this.failAllPending(new Error('acp process exited'));
                 if (wasStarting) {
+                    const stderr = this.stderrTail.trim().slice(-300);
+                    // WorkBuddy 内置 CLI 没拿到桌面端登录态时会无输出退出，通用握手失败看不出原因（#19）
+                    const silentBundledExit = this.profile.id === 'codebuddy' && !stderr && isWorkbuddyBundledCli(this.scriptPath);
                     fail(new AcpStartError(
-                        this.profile.id === 'codebuddy' && this.credentialUnavailable
-                            ? 'credential-unavailable' : classifyHandshakeFailure(this.stderrTail),
-                        this.stderrTail.trim().slice(-300) || `process exited (${code}) before handshake`,
+                        this.profile.id === 'codebuddy' && this.credentialUnavailable ? 'credential-unavailable'
+                            : silentBundledExit ? 'workbuddy-exited' : classifyHandshakeFailure(this.stderrTail),
+                        stderr || `process exited (${code}) before handshake`,
                     ));
                     return;
                 }

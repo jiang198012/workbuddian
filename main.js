@@ -79,6 +79,7 @@ var init_i18n = __esm({
       "provider.notLoggedIn": { zh: "CodeBuddy \u672A\u767B\u5F55\u3002\u6253\u5F00 \u8BBE\u7F6E \u2192 CodeBuddy \u767B\u5F55 \u2192 \u70B9\u300E\u767B\u5F55 CodeBuddy\u300F\uFF0C\u5728\u6D4F\u89C8\u5668\u91CC\u5B8C\u6210\u767B\u5F55\u540E\u91CD\u8BD5\uFF1BWorkBuddy \u5185\u7F6E CLI \u9700\u4FDD\u6301\u684C\u9762\u7AEF\u767B\u5F55\u8FD0\u884C\u3002", en: "CodeBuddy is not signed in. Open Settings \u2192 CodeBuddy sign-in \u2192 \u201CSign in to CodeBuddy\u201D, finish the browser prompt, then retry. For the WorkBuddy bundled CLI, keep the desktop app logged in and running." },
       "provider.credentialUnavailable": { zh: "WorkBuddy \u5BBF\u4E3B\u51ED\u636E\u901A\u8DEF\u5F53\u524D\u4E0D\u53EF\u7528\uFF08missing-key\uFF0C\u89C1 Issue #10\uFF09\u3002\u8BF7\u786E\u8BA4\u539F\u684C\u9762\u7AEF\u5DF2\u767B\u5F55\u5E76\u4FDD\u6301\u8FD0\u884C\uFF1B\u6B64\u9519\u8BEF\u4E0D\u7B49\u4E8E\u672A\u767B\u5F55\uFF0C\u91CD\u65B0\u767B\u5F55\u4E0D\u4FDD\u8BC1\u89E3\u51B3\u3002\u63D2\u4EF6\u4E0D\u8BFB\u53D6\u3001\u590D\u5236\u6216\u89E3\u5BC6\u767B\u5F55\u51ED\u636E\uFF0C\u4E5F\u4E0D\u4F1A\u6539\u7528\u72EC\u7ACB CodeBuddy \u8D26\u53F7\u6216\u989D\u5EA6\u3002", en: "The WorkBuddy host credential channel is currently unavailable (missing-key; see Issue #10). Keep the original desktop app running and logged in. This error does not mean you are logged out; logging in again is not a guaranteed remedy. The plugin does not read, copy, or decrypt login credentials, or switch to a standalone CodeBuddy account or quota." },
       "provider.handshakeFailed": { zh: "{cli} \u63E1\u624B\u5931\u8D25\uFF1A{detail}", en: "{cli} handshake failed: {detail}" },
+      "provider.workbuddyExited": { zh: "WorkBuddy \u5185\u7F6E CLI \u5728\u63E1\u624B\u524D\u9000\u51FA\uFF0C\u6CA1\u6709\u8F93\u51FA\u9519\u8BEF\u4FE1\u606F\uFF08{detail}\uFF09\u3002\u5E38\u89C1\u539F\u56E0\u662F WorkBuddy \u684C\u9762\u7AEF\u6CA1\u6709\u8FD0\u884C\u6216\u6CA1\u6709\u767B\u5F55\uFF1A\u8BF7\u6253\u5F00\u5E76\u767B\u5F55 WorkBuddy \u684C\u9762\u7AEF\u540E\u91CD\u8BD5\uFF1B\u4E5F\u53EF\u4EE5\u5B89\u88C5\u5B98\u65B9 CodeBuddy CLI \u5E76\u5728\u8BBE\u7F6E\u91CC\u6539\u7528\u5B83\u3002", en: "The WorkBuddy bundled CLI exited before the handshake without printing an error ({detail}). This usually means the WorkBuddy desktop app is not running or not signed in: open and sign in to WorkBuddy, then retry. You can also install the official CodeBuddy CLI and select it in the settings." },
       "provider.turnTimeout": { zh: "\u672C\u8F6E\u54CD\u5E94\u8D85\u65F6\uFF0C\u5DF2\u4E2D\u65AD", en: "Turn timed out and was interrupted" },
       "provider.turnFailed": { zh: "\u672C\u8F6E\u4E2D\u65AD\uFF1A{reason}", en: "Turn interrupted: {reason}" },
       "provider.turnFailedDetail": { zh: "\u672C\u8F6E\u4E2D\u65AD\uFF1A{reason}\uFF08{detail}\uFF09", en: "Turn interrupted: {reason} ({detail})" },
@@ -3203,9 +3204,11 @@ var AcpClient = class {
         this.buffer = "";
         this.failAllPending(new Error("acp process exited"));
         if (wasStarting) {
+          const stderr = this.stderrTail.trim().slice(-300);
+          const silentBundledExit = this.profile.id === "codebuddy" && !stderr && isWorkbuddyBundledCli(this.scriptPath);
           fail(new AcpStartError(
-            this.profile.id === "codebuddy" && this.credentialUnavailable ? "credential-unavailable" : classifyHandshakeFailure(this.stderrTail),
-            this.stderrTail.trim().slice(-300) || `process exited (${code}) before handshake`
+            this.profile.id === "codebuddy" && this.credentialUnavailable ? "credential-unavailable" : silentBundledExit ? "workbuddy-exited" : classifyHandshakeFailure(this.stderrTail),
+            stderr || `process exited (${code}) before handshake`
           ));
           return;
         }
@@ -4389,6 +4392,7 @@ var AcpProvider = class {
         "acp-unsupported": t("provider.acpUnsupported"),
         "auth-required": t("provider.notLoggedIn"),
         "credential-unavailable": t("provider.credentialUnavailable"),
+        "workbuddy-exited": t("provider.workbuddyExited").replace("{detail}", e.message),
         "handshake-failed": t("provider.handshakeFailed").replace("{cli}", this.cliLabel).replace("{detail}", e.message)
       };
       return byTier[e.tier];
