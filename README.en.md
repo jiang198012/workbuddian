@@ -18,7 +18,7 @@ project: Workbuddian
 domain: Obsidian plugin / AI chat / local AI agent / Hermes Agent / CodeBuddy CLI / WorkBuddy
 audience: Obsidian desktop users (Windows / macOS)
 runtime: Obsidian 1.7.2+; CodeBuddy CLI, the WorkBuddy desktop app, or Hermes Agent
-status: stable (2.6.23)
+status: stable (2.6.24)
 license: MIT
 -->
 
@@ -335,7 +335,7 @@ Not yet; only Windows and macOS desktop are supported.
 
 ## Latest release
 
-**2.6.23**: an easier-to-read chat panel (body text follows Obsidian's font size, assistant replies without bubbles, thinking and tool calls collapsed into one summary row); picking an MCP server in the `@` dropdown now loads it by reference; settings and messages match the current behavior; the Chinese and English READMEs were rewritten.
+**2.6.24**: when the WorkBuddy bundled CLI exits before the handshake without any output (usually because the desktop app is not running or not signed in), the chat panel explains the likely cause and what to do instead of a bare "handshake failed".
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
