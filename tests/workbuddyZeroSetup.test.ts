@@ -56,7 +56,8 @@ describe('WorkBuddy first use without a connection extension', () => {
     }
 
     function accountFixture(onFetch: NonNullable<Parameters<typeof createWorkbuddyBrokerServer>[1]>
-        = () => ({ status: 200, headers: { 'content-type': 'text/plain' }, body_b64: 'b2s=' })) {
+        = () => ({ status: 200, headers: { 'content-type': 'text/plain' }, body_b64: 'b2s=' }),
+        setup: Parameters<typeof createWorkbuddyBrokerServer>[2] = {}) {
         return createWorkbuddyBrokerServer(root, (params, signal) => {
             if (params.method === 'GET' && params.path === '/console/enterprises/personal/models') {
                 return { status: 200, headers: { 'content-type': 'application/json' },
@@ -66,7 +67,7 @@ describe('WorkBuddy first use without a connection extension', () => {
                     } })).toString('base64') };
             }
             return onFetch(params, signal);
-        });
+        }, setup);
     }
 
     async function activateConnector(invoke: () => Promise<unknown>) {
@@ -182,6 +183,19 @@ describe('WorkBuddy first use without a connection extension', () => {
         } finally {
             await stale?.dispose().catch(() => {});
         }
+    });
+
+    it('chats through the native account path when the WorkBuddy config directory is a link (#20)', async () => {
+        broker = await accountFixture(() => ({ status: 200, headers: { 'content-type': 'application/json' },
+            body_b64: Buffer.from('{"text":"LINKED_CONFIG_READY"}').toString('base64') }), { linkedConfigDir: true });
+        process.env.WORKBUDDY_CONFIG_DIR = broker.configDir;
+        expect(fs.lstatSync(broker.configDir).isSymbolicLink()).toBe(true);
+        const { scriptPath, cwd } = cliFixture();
+        worker = await startWorkbuddySidecar(scriptPath, cwd, process.execPath, [scriptPath, '--serve']);
+        const rpc = await rpcConnection();
+        const session = await rpc('session/new', { cwd, mcpServers: [] });
+        expect(await rpc('session/prompt', { sessionId: session.sessionId, prompt: [{ type: 'text', text: 'hi' }] }))
+            .toMatchObject({ stopReason: 'end_turn', reply: 'LINKED_CONFIG_READY' });
     });
 
     it('returns a non-retryable model error when host delegation fails', async () => {

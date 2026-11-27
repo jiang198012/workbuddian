@@ -660,7 +660,7 @@ exports.activate = async function(wb) {
 };
 `;
 function installWorkbuddyWarmup(configDir) {
-  owned(configDir, "directory");
+  owned(fs.realpathSync(configDir), "directory");
   const root = path.join(configDir, "extensions");
   if (!fs.existsSync(root))
     fs.mkdirSync(root, { mode: 448 });
@@ -717,7 +717,7 @@ async function warmupWorkbuddy(configDir, signal) {
   const dir = extensionDirectory(configDir);
   let metadata;
   try {
-    owned(configDir, "directory");
+    owned(fs.realpathSync(configDir), "directory");
     owned(path.dirname(dir), "directory");
     owned(dir, "directory");
     const file = path.join(dir, "endpoint.json");
@@ -1374,7 +1374,7 @@ function discover(configDir) {
   try {
     if (!path3.isAbsolute(configDir))
       throw failure("E_ENDPOINT_UNTRUSTED");
-    owned2(configDir, "directory");
+    owned2(fs3.realpathSync(configDir), "directory");
     const dir = path3.join(configDir, "wbipc");
     owned2(dir, "directory", 448);
     const file = path3.join(dir, "endpoint.json"), before = owned2(file, "file", 384);

@@ -54,7 +54,9 @@ function discover(configDir: string): { endpoint: string; ticket: Buffer } {
     let fd: number | undefined, raw: Buffer | undefined, metadata: Record<string, unknown> | undefined;
     try {
         if (!path.isAbsolute(configDir)) throw failure('E_ENDPOINT_UNTRUSTED');
-        owned(configDir, 'directory');
+        // 配置目录本身允许是链接/目录联接（#20：.workbuddy 搬到别的盘再接回来），检查其真实目录；
+        // 其余路径仍按原路径拼接——宿主按原路径计算运行目录，下面的 wbipc 和 endpoint.json 依旧拒绝链接。
+        owned(fs.realpathSync(configDir), 'directory');
         const dir = path.join(configDir, 'wbipc'); owned(dir, 'directory', 0o700);
         const file = path.join(dir, 'endpoint.json'), before = owned(file, 'file', 0o600);
         if (before.size < 1 || before.size > 4096) throw failure('E_ENDPOINT_UNTRUSTED');

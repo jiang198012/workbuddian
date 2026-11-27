@@ -23,8 +23,14 @@ export async function createWorkbuddyBrokerServer(
     root: string,
     onFetch: (params: BrokerFetchParams, signal: AbortSignal) => BrokerFetchResult | Promise<BrokerFetchResult>
         = () => ({ status: 200, headers: { 'content-type': 'text/plain' }, body_b64: 'b2s=' }),
+    // 配置目录本身是链接（#20：用户把 .workbuddy 搬到别的盘再用目录联接接回来）；宿主按链接路径计算运行目录
+    setup: { linkedConfigDir?: boolean } = {},
 ): Promise<WorkbuddyBrokerTestServer> {
-    const configDir = path.join(root, 'cfg'); fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
+    const configDir = path.join(root, 'cfg');
+    if (setup.linkedConfigDir) {
+        const real = path.join(root, 'cfg-real'); fs.mkdirSync(real, { recursive: true, mode: 0o700 });
+        fs.symlinkSync(real, configDir, 'dir');
+    } else fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
     const hash = (value: string, count: number) => createHash('sha1').update(value).digest('hex').slice(0, count);
     const uid = process.getuid?.();
     const writable = (dir: string) => { try { if (!fs.statSync(dir).isDirectory()) return false; fs.accessSync(dir, fs.constants.W_OK); return true; } catch { return false; } };

@@ -104,7 +104,8 @@ exports.activate = async function(wb) {
 
 /** 只能由明确的安装/授权操作调用；绝不在普通聊天或插件加载时自动授予权限。 */
 export function installWorkbuddyWarmup(configDir: string): string {
-    owned(configDir, 'directory');
+    // 配置目录本身允许是链接/目录联接（#20），检查其真实目录；扩展目录和文件仍拒绝链接
+    owned(fs.realpathSync(configDir), 'directory');
     const root = path.join(configDir, 'extensions');
     if (!fs.existsSync(root)) fs.mkdirSync(root, { mode: 0o700 });
     owned(root, 'directory');
@@ -140,7 +141,7 @@ export async function warmupWorkbuddy(configDir: string, signal?: AbortSignal): 
     const dir = extensionDirectory(configDir);
     let metadata: { pid: number; endpoint: string; token: string; version: number };
     try {
-        owned(configDir, 'directory'); owned(path.dirname(dir), 'directory'); owned(dir, 'directory');
+        owned(fs.realpathSync(configDir), 'directory'); owned(path.dirname(dir), 'directory'); owned(dir, 'directory');
         const file = path.join(dir, 'endpoint.json');
         owned(file, 'file');
         metadata = JSON.parse(fs.readFileSync(file, 'utf8'));

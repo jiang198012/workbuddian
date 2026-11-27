@@ -122,6 +122,15 @@ describe('WorkBuddy authenticated sidecar warmup extension', () => {
         await warmupWorkbuddy(configDir);
     });
 
+    it('installs through a linked WorkBuddy config directory (#20)', () => {
+        const link = `${configDir}-link`;
+        fs.symlinkSync(configDir, link, 'dir');
+        try {
+            const dir = installWorkbuddyWarmup(link);
+            expect(fs.existsSync(path.join(configDir, 'extensions', path.basename(dir), 'extension.json'))).toBe(true);
+        } finally { fs.unlinkSync(link); }
+    });
+
     it('refuses a foreign extension and symlink instead of overwriting it', () => {
         const root = path.join(configDir, 'extensions'), dir = path.join(root, 'workbuddian-warmup');
         fs.mkdirSync(root); fs.symlinkSync(configDir, dir);

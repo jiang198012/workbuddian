@@ -81,6 +81,22 @@ describe('WorkBuddy native account broker', () => {
         expect(fixture.frames).toHaveLength(0);
     });
 
+    it('connects when the WorkBuddy config directory itself is a link (#20)', async () => {
+        fixture = await createWorkbuddyBrokerServer(root, undefined, { linkedConfigDir: true });
+        expect(fs.lstatSync(fixture.configDir).isSymbolicLink()).toBe(true);
+        const broker = await connectWorkbuddyBroker(fixture.configDir);
+        try { await expect(broker.requestFetch({ method: 'GET', path: '/fixture' })).resolves.toMatchObject({ status: 200 }); }
+        finally { broker.dispose(); }
+    });
+
+    it('still rejects a linked wbipc directory inside the config directory', async () => {
+        fixture = await createWorkbuddyBrokerServer(root);
+        const wbipc = path.dirname(fixture.metadataPath), moved = path.join(root, 'wbipc-elsewhere');
+        fs.renameSync(wbipc, moved); fs.symlinkSync(moved, wbipc, 'dir');
+        await expect(connectWorkbuddyBroker(fixture.configDir)).rejects.toMatchObject({ code: 'E_ENDPOINT_UNTRUSTED' });
+        expect(fixture.frames).toHaveLength(0);
+    });
+
     it('rejects a metadata inode change between lstat and open', async () => {
         fixture = await createWorkbuddyBrokerServer(root);
         const original = fs.fstatSync;
