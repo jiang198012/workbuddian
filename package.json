@@ -1,6 +1,6 @@
 {
   "name": "workbuddian",
-  "version": "2.6.24",
+  "version": "2.6.25",
   "description": "Chat with a local Hermes Agent or the WorkBuddy/CodeBuddy CLI as an AI agent in your vault: streaming replies, tool approvals, @-note references, slash commands, inline edit with diff.",
   "main": "main.js",
   "scripts": {

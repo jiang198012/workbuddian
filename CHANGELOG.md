@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.6.25 — 2026-11-28
+
+**WorkBuddy 配置目录可以是链接**：`.workbuddy` 搬到别的盘、再用目录联接或符号链接接回原位置后，插件能正常连上 WorkBuddy 桌面端（#20）。
+
+### 修复
+
+- [#20](https://github.com/jiang198012/workbuddian/issues/20)：WorkBuddy 配置目录（默认 `%USERPROFILE%\.workbuddy` 或 `~/.workbuddy`）本身是目录联接或符号链接时，聊天不再报「WorkBuddy 本地代理错误（E_ENDPOINT_UNTRUSTED）」。插件改为检查它指向的真实目录；目录里的 `wbipc` 子目录和 `endpoint.json` 仍然不允许是链接。「安装 WorkBuddy 本地连接扩展」和启动预热对配置目录的检查也按同样方式放宽，扩展目录和文件本身仍拒绝链接。
+
+### 验证与限制
+
+- `npm test`：57 套件、823 项测试通过，0 失败；`npm run build` 类型检查与生产构建通过。
+- 新增 4 项测试：配置目录是链接时能连上 WorkBuddy；`wbipc` 子目录是链接时仍然拒绝；经过链接的配置目录能安装连接扩展；端到端走完账号通路、建会话、收到回复。
+- Windows 11 + WorkBuddy 5.11.3 实测：经目录联接和符号链接访问 `.workbuddy`，修复前都报 `E_ENDPOINT_UNTRUSTED`，修复后都能连上。只验证了“找到并连上 WorkBuddy”这一步，没有在 Windows 的 Obsidian 里走完整聊天。
+- #20 报告者的 `.workbuddy` 是否做了联接还没确认。
+
 ## 2.6.24 — 2026-11-24
 
 **握手失败提示**：WorkBuddy 内置 CLI 在握手前无输出退出时，说明可能的原因和处理办法（#19 的后续建议）。
